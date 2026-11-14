@@ -104,18 +104,42 @@ public class ExhaustedSwitchTests
 
     private static EntityHandle Player => new(0x0001_0001);
 
-    private static string Script(int weight, int flags = 0)
-        => "WeaponData\n{\n\"weight\" \"" + weight + "\"\n\"item_flags\" \"" + flags + "\"\n}\n";
+    private static readonly string[] TheSmgSet =
+        [EntityNames.WeaponCrowbar, EntityNames.WeaponPistol, EntityNames.WeaponSmg1];
+
+    /// <summary>The pistol's row answering a refusal, over the core behaviours the rest of the rig keeps.</summary>
+    private static WeaponBehaviours DryBehaviours()
+        => new(() => new IWeaponBehaviourSource[] { new DrySource() });
+
+    private static string Script(int weight, int flags = 0, bool autoTo = true, bool autoFrom = true)
+        => "WeaponData\n{\n\"weight\" \"" + weight + "\"\n\"item_flags\" \"" + flags + "\"\n"
+         + "\"autoswitchto\" \"" + (autoTo ? 1 : 0) + "\"\n\"autoswitchfrom\" \"" + (autoFrom ? 1 : 0) + "\"\n}\n";
+
+    /// <summary>A behaviour whose rows never come back into the hands: the stand-in CanDeploy refusal.</summary>
+    private sealed class DryBehaviour : IWeaponBehaviour
+    {
+        public bool CanDeploy(in WeaponAttackContext attack) => false;
+    }
+
+    private sealed class DrySource : IWeaponBehaviourSource
+    {
+        public IEnumerable<KeyValuePair<string, IWeaponBehaviour>> Behaviours()
+        {
+            yield return KeyValuePair.Create<string, IWeaponBehaviour>(Hl2mpWeaponBehaviours.Pistol, new DryBehaviour());
+        }
+    }
 
     private sealed record Rig(Arsenal Arsenal, RecordingEngine Engine, ScriptedEntityRegistry Registry);
 
-    private static Rig Armed(int smgFlags, params string[] weapons)
+    private static Rig Armed(int smgFlags, WeaponBehaviours? behaviours = null, int pistolWeight = 2,
+                             int crowbarWeight = 0, bool smgAutoFrom = true, bool crowbarAutoTo = true,
+                             params string[] weapons)
     {
         var files = new Dictionary<string, string>
         {
-            ["scripts/weapon_crowbar.txt"] = Script(0),
-            ["scripts/weapon_pistol.txt"] = Script(2),
-            ["scripts/weapon_smg1.txt"] = Script(3, smgFlags),
+            ["scripts/weapon_crowbar.txt"] = Script(crowbarWeight, autoTo: crowbarAutoTo),
+            ["scripts/weapon_pistol.txt"] = Script(pistolWeight),
+            ["scripts/weapon_smg1.txt"] = Script(3, smgFlags, autoFrom: smgAutoFrom),
             ["scripts/weapon_357.txt"] = Script(7),
         };
         var scripts = new WeaponScriptDatabase(new RecordingLog(), p => files.GetValueOrDefault(p));
@@ -135,7 +159,8 @@ public class ExhaustedSwitchTests
 
         var world = new WeaponSwitchTests.SpawningEntities(engine, registry);
         var arsenal = new Arsenal(new RecordingLog(), world, engine, engine, engine, engine, engine,
-                                  engine, engine, registry, engine, new DamageHitGroups(), scripts: scripts);
+                                  engine, engine, registry, engine, new DamageHitGroups(), behaviours: behaviours,
+                                  scripts: scripts);
         foreach (string w in weapons)
             Assert.True(arsenal.GiveWeapon(Player, w), $"the fixture's player has {w}");
         engine.Returns("Entities.IsValid", true);
@@ -162,7 +187,7 @@ public class ExhaustedSwitchTests
     [Fact]
     public void TheHeaviestOtherWeaponWithAmmoIsTaken()
     {
-        var rig = Armed(0, EntityNames.WeaponCrowbar, EntityNames.WeaponPistol, EntityNames.WeaponSmg1);
+        var rig = Armed(0, weapons: TheSmgSet);
 
         Assert.Equal(EntityNames.WeaponPistol, EmptyTheSmgAndIdle(rig));
     }
@@ -170,7 +195,7 @@ public class ExhaustedSwitchTests
     [Fact]
     public void AWeaponOutOfAmmoIsNoChoice()
     {
-        var rig = Armed(0, EntityNames.WeaponCrowbar, EntityNames.Weapon357, EntityNames.WeaponSmg1);
+        var rig = Armed(0, weapons: TheSmgSet);
         rig.Arsenal.CarryFor(Player).Ammo["357"] = 0;
         foreach (var owned in rig.Arsenal.CarryFor(Player).Weapons)
             owned.Clip = 0;
@@ -181,9 +206,41 @@ public class ExhaustedSwitchTests
     [Fact]
     public void AWeaponThatWillNotBeSwitchedFromEmptyStays()
     {
-        var rig = Armed(smgFlags: (int)WeaponItemFlags.NoAutoSwitchEmpty,
-                        EntityNames.WeaponCrowbar, EntityNames.WeaponPistol, EntityNames.WeaponSmg1);
+        var rig = Armed(smgFlags: (int)WeaponItemFlags.NoAutoSwitchEmpty, weapons: TheSmgSet);
 
         Assert.Equal(EntityNames.WeaponSmg1, EmptyTheSmgAndIdle(rig));
+    }
+
+    [Fact]
+    public void AWeaponTheScriptBarsTheSwitchFromStays()
+    {
+        // CMultiplayRules::GetNextBestWeapon's first gate
+        // (shared/multiplay_gamerules.cpp:524): the held weapon's
+        // AllowsAutoSwitchFrom — the script's autoswitchfrom. The physcannon's
+        // row is the shipped 0.
+        var rig = Armed(smgFlags: 0, smgAutoFrom: false, weapons: TheSmgSet);
+
+        Assert.Equal(EntityNames.WeaponSmg1, EmptyTheSmgAndIdle(rig));
+    }
+
+    [Fact]
+    public void ACandidateTheScriptBarsTheSwitchToIsSkipped()
+    {
+        // The per-candidate gate (shared/multiplay_gamerules.cpp:542): the
+        // crowbar row's autoswitchto 0 leaves the pistol the heaviest left.
+        var rig = Armed(smgFlags: 0, crowbarWeight: 7, crowbarAutoTo: false, weapons: TheSmgSet);
+
+        Assert.Equal(EntityNames.WeaponPistol, EmptyTheSmgAndIdle(rig));
+    }
+
+    [Fact]
+    public void ASameWeightCandidateThatCannotDeployIsPassedOver()
+    {
+        // The same-weight handover's Weapon_CanSwitchTo
+        // (shared/multiplay_gamerules.cpp:550): a candidate whose behaviour
+        // refuses the deploy is passed over for the best behind it.
+        var rig = Armed(smgFlags: 0, behaviours: DryBehaviours(), pistolWeight: 3, weapons: TheSmgSet);
+
+        Assert.Equal(EntityNames.WeaponCrowbar, EmptyTheSmgAndIdle(rig));
     }
 }

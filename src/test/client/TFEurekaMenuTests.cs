@@ -31,7 +31,7 @@ public class TFEurekaMenuTests
     private const string Wrench = "tf_weapon_wrench";
     private const string Other = "tf_weapon_shotgun";
 
-    private sealed class FakeArsenal : ILocalArsenal
+    internal sealed class FakeArsenal : ILocalArsenal
     {
         public string Weapon { get; set; } = Wrench;
 
@@ -117,7 +117,7 @@ public class TFEurekaMenuTests
         public string MapName => "";
     }
 
-    private static IAttributeProvider EurekaItem()
+    internal static IAttributeProvider EurekaItem()
     {
         // The eureka's own attribute, alt_fire_teleport_to_spawn, as the
         // wrench's CALL_ATTRIB_HOOK_INT would meet it: an additive word of
@@ -131,7 +131,7 @@ public class TFEurekaMenuTests
         return item;
     }
 
-    private static (TFEurekaMenuUi Ui, FakeArsenal Arsenal, RecordingEngine Engine, List<string> Sent,
+    internal static (TFEurekaMenuUi Ui, FakeArsenal Arsenal, RecordingEngine Engine, List<string> Sent,
                     TFClientBuildingResources Buildings) Menu(IAttributeProvider? held = null, bool player = false)
     {
         var engine = TestServices.Fake().Returns("Hud.LocalPlayerIndex", 1);

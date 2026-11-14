@@ -129,6 +129,17 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     // composition without a chain: no opinion, nothing written.
     private readonly ViewmodelSkin? _viewmodelSkin;
 
+    // The scripts both sides gate the held weapon's selectability on (the
+    // GAME-path files): the replay's empty-bit write reads the row's
+    // SelectOnEmpty flag exactly as the server's PublishSelection does. Null
+    // in a composition without one: the ammo arms alone answer, which is what
+    // a script-less row says anyway.
+    private readonly WeaponScriptDatabase? _scripts;
+
+    // The compare's own record keeper, the player ring's twin: the misprediction
+    // line's values read through it.
+    private readonly PredictionErrorRing _errorRing;
+
     public ClientArsenal(ILog log, IClientStandalones standalones, IEngineEntityRender render,
                          IGameClock clock, IEngineHud screen, NetStateCatalog catalog,
                          WeaponCatalog? weapons = null, AmmoCatalog? ammo = null,
@@ -139,17 +150,20 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
                          ILocalAmmoPools? localAmmoPools = null,
                          ILocalWeaponClips? localWeaponClips = null,
                          ILocalItemMeters? localItemMeters = null,
-                         ViewmodelSkin? viewmodelSkin = null)
+                         ViewmodelSkin? viewmodelSkin = null,
+                         WeaponScriptDatabase? scripts = null)
     {
         _localWeapons = localWeapons;
         _localAmmoPools = localAmmoPools;
         _localWeaponClips = localWeaponClips;
         _localItemMeters = localItemMeters;
         _viewmodelSkin = viewmodelSkin;
+        _scripts = scripts;
         _fx = fx;
         _log = log;
         _world = world;
         _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
+        _errorRing = new PredictionErrorRing(catalog: _catalog);
         _standalones = standalones;
         _render = render;
         _clock = clock;
@@ -248,6 +262,13 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         _machine.RunCommand(_weapon, _viewModel, cmd.Buttons,
                             commandTime, effectsLive: firstTime,
                             WeaponCommand.For(in cmd, _localWeapon.Handle, player));
+
+        // The exhausted hands' switch the ask picked: taken once the machine's
+        // run is done with the state, the server's own order (its command tail
+        // takes the pending switch after the run, then Take deploys).
+        TakeExhaustedSwitch(commandTime);
+
+        SyncHeldEmpty();
 
         SaveCommand(cmd.CommandNumber);
         RememberCarry();
@@ -543,6 +564,149 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
             : type.ClipSize;
 
     /// <summary>
+    /// The emptied held weapon's selectability bit, written into the player's
+    /// working copy on the command whose press spent the last round: the
+    /// server's frame recomputes both masks after every command
+    /// (Arsenal.PublishSelection) and the ack for the spend carries that word,
+    /// so the replayed command must carry it too — the ring slot the ack is
+    /// judged against is the working copy saved here. The held weapon's own
+    /// Reserve words mirror the pools the server's answer reads
+    /// (RefreshReserves), and the machine spent them identically this command.
+    /// </summary>
+    private void SyncHeldEmpty()
+    {
+        if (WorkingPlayer is not { } working)
+            return;
+
+        int held = _weapon.WeaponTypeId;
+        if (held < 0 || held >= PlayerNetState.WeaponMaskBits
+            || _weapons.ByIndex(held) is not { } type)
+            return;
+
+        UInt128 bit = (UInt128)1 << held;
+        working.EmptyMask = HeldSelectable(in type) ? working.EmptyMask & ~bit : working.EmptyMask | bit;
+    }
+
+    /// <summary>
+    /// The server's CanBeSelected for the held slot (Arsenal.cs:1854-1863):
+    /// the row's SelectOnEmpty flag first, else a round in the clip or in the
+    /// pools; a row naming no pools is always selectable. The held weapon's
+    /// Reserve is the mirror of its primary pool and SecondaryReserve of its
+    /// secondary's, so this side answers from the same numbers the server's
+    /// PublishSelection reads.
+    /// </summary>
+    private bool HeldSelectable(in WeaponType type)
+    {
+        if (_scripts?.ReadScript(type.Name) is { } script
+            && (script.Flags & WeaponItemFlags.SelectOnEmpty) != 0)
+            return true;
+
+        bool usesPrimary = type.AmmoName.Length > 0, usesSecondary = type.SecondaryAmmoName.Length > 0;
+        if (!usesPrimary && !usesSecondary)
+            return true;
+
+        bool primary = usesPrimary &&
+                       ((ClipSizeOf(in type) > 0 && _weapon.Clip > 0) || _weapon.Reserve > 0);
+        return primary || (usesSecondary && _weapon.SecondaryReserve > 0);
+    }
+
+    //-------------------------------------------------------------------------
+    // The exhausted hands' switch, the client's half of
+    // ReloadOrSwitchWeapons: the arms' ask inside the machine's run picks
+    // here, and the walk takes the pick once the run has finished with the
+    // state — the server's own order (machine, then TakePendingSwitch).
+    //-------------------------------------------------------------------------
+
+    // The type the ask picked, to deploy after the machine's run; -1 none.
+    private int _pendingExhaustedSwitch = -1;
+
+    /// <summary>
+    /// The arms' SwitchToNextBest, the server Arsenal arms' twin: pick the
+    /// next best carried weapon and hold it for the walk after the run.
+    /// </summary>
+    internal bool AskExhaustedSwitch()
+    {
+        _pendingExhaustedSwitch = PickExhaustedSwitch();
+        return _pendingExhaustedSwitch >= 0;
+    }
+
+    /// <summary>The pick the ask held, once, after the machine's run.</summary>
+    private void TakeExhaustedSwitch(float now)
+    {
+        if (_pendingExhaustedSwitch < 0)
+            return;
+
+        int typeIndex = _pendingExhaustedSwitch;
+        _pendingExhaustedSwitch = -1;
+        MirrorDeploy(typeIndex, now);
+    }
+
+    /// <summary>
+    /// The server's NextBestSlot (CMultiplayRules::GetNextBestWeapon) over the
+    /// mirrored carry: neither the held weapon that will not switch from
+    /// empty (the script's NOAUTOSWITCHEMPTY) nor one its behaviour will not
+    /// put away; else the first other carried weapon of the same weight with
+    /// any ammo, or the heaviest with any. The carried set is the working
+    /// player's mask, the weights and flags the same scripts' rows the
+    /// server read, and a carried weapon's ammo its published clip and pool
+    /// — the words the server's carry settles into.
+    /// </summary>
+    private int PickExhaustedSwitch()
+    {
+        if (_weapon.WeaponTypeId < 0 || _weapons.ByIndex(_weapon.WeaponTypeId) is not WeaponType current
+            || WorkingPlayer is not { } working)
+            return -1;
+
+        WeaponScript? currentScript = _scripts?.ReadScript(current.Name);
+        if (currentScript is not null && (currentScript.Flags & WeaponItemFlags.NoAutoSwitchEmpty) != 0)
+            return -1;
+
+        if (_behaviours.For(current.Behaviour) is { } behaviour
+            && !behaviour.CanHolster(new WeaponAttackContext(current, _weapon, _viewModel, _commandClock,
+                                                             EffectsLive: false, new ClientWeaponArms(this), default)))
+            return -1;
+
+        int currentWeight = currentScript?.Weight ?? 0;
+        int best = -1, bestWeight = -1;
+        for (int typeIndex = 0; typeIndex < PlayerNetState.WeaponMaskBits; typeIndex++)
+        {
+            if (typeIndex == _weapon.WeaponTypeId
+                || (working.CarriedMask & (UInt128)1 << typeIndex) == 0
+                || _weapons.ByIndex(typeIndex) is not WeaponType check)
+                continue;
+
+            int weight = _scripts?.ReadScript(check.Name)?.Weight ?? 0;
+            bool hasAmmo = CarriedHasAmmo(typeIndex, in check);
+
+            if (weight > -1 && weight == currentWeight)
+            {
+                if (hasAmmo)
+                    return typeIndex;
+            }
+            else if (weight > bestWeight && hasAmmo)
+            {
+                bestWeight = weight;
+                best = typeIndex;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>The server's HasAnyAmmo for a carried weapon: its clip, or its pools.</summary>
+    private bool CarriedHasAmmo(int typeIndex, in WeaponType type)
+    {
+        bool usesPrimary = type.AmmoName.Length > 0, usesSecondary = type.SecondaryAmmoName.Length > 0;
+        if (!usesPrimary && !usesSecondary)
+            return true;
+
+        bool primary = usesPrimary &&
+                       ((ClipSizeOf(in type) > 0 && ClipOf(typeIndex, FreshClip(type)) > 0)
+                        || PoolOf(type.AmmoName, FreshReserve(in type)) > 0);
+        return primary || (usesSecondary && PoolOf(type.SecondaryAmmoName, FreshSecondaryReserve(in type)) > 0);
+    }
+
+    /// <summary>
     /// The server's DeployDelayOf, replayed with the local index: the row's
     /// deploy seconds through the behaviour chain, so the mirror's clocks land
     /// where the server wrote them.
@@ -650,6 +814,11 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
 
         ClearWitnessedPoke(ring, acknowledged, className);
 
+        // THE VALUES, as the player compare's line carries them: the two
+        // sides' readings of every standing field, on the same line.
+        var record = _errorRing.Observe(NetSchema.TypeIdOf(className), acknowledged, judged, arrived,
+                                        DateTime.UtcNow);
+
         int standing = PredictionJudge.Judge(_catalog, NetSchema.TypeIdOf(className),
             judged, arrived, out string fields, out _);
 
@@ -673,6 +842,7 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         {
             _log.Msg($"[SourceSharp] weapon prediction: MISPREDICTION on '{className}' at command " +
                     $"{acknowledged} — {standing} byte(s) stand: {fields}" +
+                    (record is null ? "" : $" [{ClientPlayerPrediction.StandingValues(record)}]") +
                     (_mispredicts == QuietAfter
                         ? " (quiet from here; the tally keeps counting)"
                         : "") + "\n");
@@ -1160,6 +1330,18 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
 
             return _owner._render.SequenceDuration(_owner._localViewModel.Handle, sequence);
         }
+
+        // The exhausted hands' switch, asked inside the machine's run exactly
+        // where the server's arms are (WeaponLogic.SwitchIfExhausted): the
+        // pick is the server's NextBestSlot rule over the mirrored carry, and
+        // the walk itself is TakePendingSwitch's, after the machine's run has
+        // finished with the state it ran on. Stock predicts the switch too —
+        // the shared ItemPostFrame chain runs on the client's prediction
+        // (baseplayer_shared.cpp:228) and m_hActiveWeapon is a predicted
+        // field (c_basecombatcharacter.cpp:194) — so a replay that left the
+        // ask unanswered mispredicted the held word by that byte on every
+        // empty-gun wind-down.
+        public bool SwitchToNextBest() => _owner.AskExhaustedSwitch();
     }
 }
 

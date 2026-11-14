@@ -2479,7 +2479,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // compensation reads.
         using PlayerCurrentCommands.Scope running = _currentCommands.Begin(player, in cmd);
 
-        _arsenal.OnPlayerCommand(player, in cmd, firstTime);
+        _arsenal.OnPlayerCommand(player, in cmd, firstTime, CommandClock(player));
 
         // The impulse cheats, AFTER the weapon frame — stock's order: player.cpp
         // ran ImpulseCommands at the end of ItemPostFrame. The sv_cheats gate is
@@ -2493,6 +2493,31 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         // CHL2_Player::ItemPostFrame's tail, after its base's weapons and impulses.
         _playerUse.AfterMove(player);
+    }
+
+    /// <summary>
+    /// The clock this command runs on: the player's server-tracked tick base
+    /// times the tick interval — stock's <c>CPlayerMove::RunCommand</c>, which
+    /// writes <c>gpGlobals-&gt;curtime = m_nTickBase * TICK_INTERVAL</c> before
+    /// each queued command runs (player_command.cpp:336), and whose tick base
+    /// the command loop's stage 2 steps only AFTER the weapon frame (the same
+    /// order stock keeps: the advance sits after RunPostThink, :450-460). A
+    /// burst held to one frame therefore runs command by command on its own
+    /// tick, which is exactly the clock the predicting client derives from the
+    /// command's tick base. Never the command's claimed tick count: a client
+    /// could send one tick ahead and fire before its refire time.
+    /// </summary>
+    private float CommandClock(EntityHandle player)
+    {
+        ServerPlayerMove m = _playerMoves.For(player);
+
+        // A tick base never placed (0) names no clock yet: the frame's own.
+        if (m.TickBase <= 0)
+            return _clock.Now;
+
+        Globals g = _services.Require<IEngineEnvironment>().Globals;
+        float tick = g.IsAvailable ? g.IntervalPerTick : ServerGameDll.DefaultTickInterval;
+        return m.TickBase * tick;
     }
 
     /// <summary>

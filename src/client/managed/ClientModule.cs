@@ -2037,6 +2037,21 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // first prediction of a command plays the weapon's own sounds and
         // impacts, as stock's client does (PredictedWeaponFx).
         _services.AddInstance<IPredictedWeaponFx>(_services.Create<PredictedWeaponFx>());
+
+        // THE WEAPON SCRIPTS, read over the engine's GAME paths (a shipped
+        // mod's scripts ride only in a VPK), the plain <name>.txt first and
+        // then the ICE-sealed <name>.ctx with the mod's encryption key, as
+        // stock's ReadEncryptedKVFile. Registered BEFORE the arsenal: the
+        // replay's held-weapon selectability answer gates on the same rows the
+        // server's PublishSelection reads, and both sides must read the same
+        // files. The hud's selection below takes this instance too.
+        var weaponFiles = _services.Resolve<IEngineFiles>();
+        var weaponScripts = new WeaponScriptDatabase(Log,
+            path => weaponFiles?.ReadGameFileBytes(path) is { } bytes ? System.Text.Encoding.UTF8.GetString(bytes) : null,
+            path => weaponFiles?.ReadGameFileBytes(path),
+            _services.Require<IModInfo>().EncryptionKey);
+        _services.AddInstance(weaponScripts);
+
         _clientArsenal = _services.Create<ClientArsenal>();
         _services.AddInstance(_clientArsenal);
         _services.AddInstance<ILocalArsenal>(_clientArsenal);
@@ -2066,16 +2081,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // THE WEAPON SELECTION (stock CBaseHudWeaponSelection / HL2's
         // CHudWeaponSelection): the binds, the cancel key and the attack
-        // buttons drive it, the HUD draws it. Over the weapons' scripts on the
-        // engine's GAME paths (a shipped mod's scripts ride only in a VPK), the
-        // plain <name>.txt first and then the ICE-sealed <name>.ctx with the
-        // mod's encryption key, as stock's ReadEncryptedKVFile.
-        var weaponFiles = _services.Resolve<IEngineFiles>();
-        var weaponScripts = new WeaponScriptDatabase(Log,
-            path => weaponFiles?.ReadGameFileBytes(path) is { } bytes ? System.Text.Encoding.UTF8.GetString(bytes) : null,
-            path => weaponFiles?.ReadGameFileBytes(path),
-            _services.Require<IModInfo>().EncryptionKey);
-        _services.AddInstance(weaponScripts);
+        // buttons drive it, the HUD draws it, over the scripts registered
+        // above.
         var localSelection = _services.Create<LocalWeaponSelection>();
         var fastSwitch = _services.Require<HudFastSwitchConVar>();
         // The hud's bucket table: a mod's own IWeaponSlots (TF2's, with the
@@ -2233,6 +2240,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance(new Vgui.ShowInfo(() => uiLoader.Current, Log));
         _keys = new Vgui.ClientKeyInput(chatOpener, observer, _engineClient, _weaponSelection,
                                         _services.Require<IHooks<Vgui.IHudMenuKeys>>());
+        _services.AddInstance<IClientKeyEvents>(_keys);
 
         // THE PLAYER'S REPLAY (plan_entity.md step 6f). After the arsenal,
         // which it drives: the weapon machine's two phases are direct calls

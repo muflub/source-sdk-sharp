@@ -951,7 +951,7 @@ public sealed class ClientPlayerPrediction
         // difference that is GROWING is the early warning for one that will not
         // be, and a capture that only fired on the standing case could not show
         // it.
-        _errors.Observe(typeId, acknowledged, predicted, arrived, DateTime.UtcNow);
+        var record = _errors.Observe(typeId, acknowledged, predicted, arrived, DateTime.UtcNow);
 
         int standing = PredictionJudge.Judge(_catalog, typeId, predicted, arrived,
                                              out string fields, out _);
@@ -971,14 +971,49 @@ public sealed class ClientPlayerPrediction
         // reason: a misprediction that repeats does so twenty times a second and
         // drowns the console for anyone looking at anything else. Nothing is
         // lost — the tally keeps counting and the report reads the last one.
+        // Each standing field's two readings ride the line, so the console
+        // names the write and not only the field: the same numbers the
+        // visualiser's record carries, asked for where the hunt starts.
         if (_mispredicts <= QuietAfter)
         {
             _log.Msg($"[SourceSharp] player prediction: MISPREDICTION at command {acknowledged} — " +
                     $"{standing} byte(s) stand: {_lastMissFields}" +
+                    (record is null ? "" : $" [{StandingValues(record)}]") +
                     (_mispredicts == QuietAfter
                         ? " (quiet from here; the tally keeps counting)"
                         : "") + "\n");
         }
+    }
+
+    /// <summary>
+    /// The standing fields' two readings, "predicted|server" per field, from
+    /// the compare's own record — the console line's answer to "which write?".
+    /// </summary>
+    internal static string StandingValues(PredictionErrorRecord record)
+    {
+        var text = new System.Text.StringBuilder();
+
+        foreach (var field in record.Fields)
+        {
+            if (field.DifferingBytes <= 0 || field.Components.Count == 0)
+                continue;
+
+            if (text.Length > 0)
+                text.Append(", ");
+
+            text.Append(field.Name).Append('=');
+            for (int c = 0; c < field.Components.Count; c++)
+            {
+                if (c > 0)
+                    text.Append('/');
+
+                text.Append(field.Components[c].Predicted.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))
+                    .Append('|')
+                    .Append(field.Components[c].Server.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
+            }
+        }
+
+        return text.ToString();
     }
 
     /// <summary>How many mispredictions are reported before the log goes quiet.</summary>

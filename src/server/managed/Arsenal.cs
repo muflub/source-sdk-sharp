@@ -1456,6 +1456,18 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     /// snapshot and the pool is the authority.
     /// </summary>
     public void OnPlayerCommand(EntityHandle player, in UserCmd cmd, bool firstTime)
+        => OnPlayerCommand(player, in cmd, firstTime, _clock.Now);
+
+    /// <summary>
+    /// The same run on the command's own clock: stock's
+    /// <c>CPlayerMove::RunCommand</c> sets the clock a queued command runs on
+    /// to that player's tracked tick base times the tick interval before it
+    /// runs (player_command.cpp:336), so with a burst held to one frame each
+    /// command carries the next tick — which is how the predicting client
+    /// derives the same command's clock from its tick base too. The command's
+    /// claimed tick count is not that clock: the client may send one ahead.
+    /// </summary>
+    public void OnPlayerCommand(EntityHandle player, in UserCmd cmd, bool firstTime, float commandTime)
     {
         if (!_carries.TryGetValue(player.Value, out var carry) || carry.ActiveSlot < 0)
             return;
@@ -1513,7 +1525,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                 // of this command derives them (WeaponCommand.For), for a behaviour's roll.
                 carry.Arms.ResetGestureAsks();
                 carry.Machine.RunCommand(weapon.State, viewModel.State,
-                                         cmd.Buttons, _clock.Now, effectsLive: firstTime,
+                                         cmd.Buttons, commandTime, effectsLive: firstTime,
                                          WeaponCommand.For(in cmd, carry.Weapon, player));
             }
         }
@@ -1547,7 +1559,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         // The held-aside meters charge on the command too, and a finished one
         // grants, stock's walk over every slot each frame
         // (tf_player_shared.cpp:7870-7904) with the regen's finish beside it.
-        SettleItemMeters(carry, _clock.Now);
+        SettleItemMeters(carry, commandTime);
 
         // The weapon asked to be put away for the next best (ReloadOrSwitchWeapons):
         // taken now the command is done with the state it ran on.

@@ -61,7 +61,7 @@ public class ClientArsenalDeployAdoptTests
         public readonly EntityHandle Player = new(0x0001_0000u | LocalPlayer);
 
         public Rig(int pistol, int clip = 18, ILocalAmmoPools? pools = null, ILocalWeaponClips? clips = null,
-                   ViewmodelSkin? skin = null)
+                   ViewmodelSkin? skin = null, WeaponBehaviours? behaviours = null)
         {
             Engine.Returns("Hud.LocalPlayerIndex", LocalPlayer);
             Engine.Returns("Clock.Now", 5000f);
@@ -88,6 +88,7 @@ public class ClientArsenalDeployAdoptTests
 
             Arsenal = new ClientArsenal(Log, Standalones, Engine, Engine, Engine,
                                         NetStateCatalog.Of(TestServices.ClientGame, new RecordingLog()),
+                                        behaviours: behaviours,
                                         localAmmoPools: pools,
                                         localWeaponClips: clips,
                                         viewmodelSkin: skin);
@@ -259,6 +260,46 @@ public class ClientArsenalDeployAdoptTests
         Assert.True(holds == 2 && mispredicts == 0 && tolerated == 0,
             $"both rings judged and held: holds {holds}, tolerated {tolerated}, " +
             $"mispredicts {mispredicts}");
+    }
+
+    [Fact]
+    public void AMirroredSwitchAWeaponCannotDeployWritesNothing()
+    {
+        // The mirror's own CanDeploy ask (stock's Weapon_CanSwitchTo through
+        // Weapon_Switch, basecombatcharacter_shared.cpp:88): a behaviour that
+        // refuses the deploy holds the switch — nothing is written, the held
+        // weapon and its deploy stamp stand as the command found them, the
+        // server's word to correct them by.
+        int pistol = WeaponCatalog.Stock().IndexOf(EntityNames.WeaponPistol);
+        int ar2 = WeaponCatalog.Stock().IndexOf(EntityNames.WeaponAr2);
+
+        var rig = new Rig(pistol, behaviours: new WeaponBehaviours(
+            () => new IWeaponBehaviourSource[] { new RefusingAr2() }));
+
+        var basis = new UserCmd { CommandNumber = 10 };
+        rig.Arsenal.OnPlayerCommand(rig.Player, in basis, 2, false);
+
+        var cmd = new UserCmd { CommandNumber = 11, WeaponSelect = ar2 + 1 };
+        rig.Arsenal.OnPlayerCommand(rig.Player, in cmd, 1, true, commandTime: 10f);
+
+        Assert.Equal(pistol, rig.Arsenal.WorkingWeapon.WeaponTypeId);
+        Assert.Equal(1, rig.Arsenal.WorkingWeapon.DeployEpoch);
+    }
+
+    /// <summary>The AR2's behaviour, refusing every deploy: the stand-in refusal.</summary>
+    private sealed class RefusingAr2Behaviour : IWeaponBehaviour
+    {
+        public bool CanDeploy(in WeaponAttackContext attack) => false;
+    }
+
+    private sealed class RefusingAr2 : IWeaponBehaviourSource
+    {
+        public const string Key = Hl2mpWeaponBehaviours.Ar2;
+
+        public IEnumerable<KeyValuePair<string, IWeaponBehaviour>> Behaviours()
+        {
+            yield return KeyValuePair.Create<string, IWeaponBehaviour>(Key, new RefusingAr2Behaviour());
+        }
     }
 
     [Fact]
