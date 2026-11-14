@@ -14,6 +14,14 @@ using TF2.Shared;
 
 namespace TF2.Server.Entities.Items;
 
+/// <summary><c>AmmoPackType_t</c> (<c>tf_ammo_pack.h:15-21</c>): the three looks a pack can wear.</summary>
+public enum AmmoPackType
+{
+    Normal = 0,
+    Halloween,
+    Christmas,
+}
+
 /// <summary>
 /// <c>tf_ammo_pack</c> — the pack a TF2 death leaves behind, stock's
 /// <c>CTFAmmoPack</c> (tf_ammo_pack.cpp). A throwaway physics prop that
@@ -76,6 +84,10 @@ public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices,
     [SaveField] private int _ammoGrenades1;
     [SaveField] private int _weaponId;
     [SaveField] private int _skin;
+
+    // m_PackType (tf_ammo_pack.h:31): the ctor's AP_NORMAL is the field's own
+    // default; the holiday draw (:123-134) that would raise it is deferred.
+    [SaveField] private AmmoPackType _packType = AmmoPackType.Normal;
 
     /// <summary><c>GetOwnerEntity()</c>: whose death this pack is.</summary>
     public EntityHandle PackOwner => new(_owner);
@@ -171,10 +183,12 @@ public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices,
     /// <param name="isSuicide"><c>bIsSuicide</c> — stock reads it only in the
     /// holiday arms (:123-134, deferred), so the port records the arm and carries the value.</param>
     /// <param name="ammoRatio"><c>flAmmoRatio</c>: stock's default, half.</param>
+    /// <param name="packType"><c>m_PackType</c>: which holiday dressed the pack;
+    /// the draw itself (<c>:123-134</c>) stays deferred, so the caller names the answer.</param>
     public void Init(EntityHandle owner, int weaponId, TFClass ownerClass,
                      int primary, int secondary, int metal,
                      int skin = 0, bool empty = false, bool isSuicide = false,
-                     float ammoRatio = 0.5f)
+                     float ammoRatio = 0.5f, AmmoPackType packType = AmmoPackType.Normal)
     {
         _owner = owner.Value;
         _weaponId = weaponId;
@@ -183,8 +197,11 @@ public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices,
         if (!empty)
         {
             // The holiday-pack draw (:123-134) is deferred with the holiday
-            // calendar and m_PackType; isSuicide is read only there.
+            // calendar (docs/plans/tf2/deferred.tsv); the answer it reaches —
+            // the pack's type — rides in on packType, and isSuicide is read
+            // only by that draw.
             _ = isSuicide;
+            _packType = packType; // m_PackType, the ctor's AP_NORMAL until dressed
 
             // Fill the pack with the dead player's ammo, at a stock minimum (:137-139).
             StoreAmmo(Math.Max(5, primary), TFAmmo.Primary);       // :142, "recalculated in PackTouch"
@@ -250,14 +267,23 @@ public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices,
 
     /// <summary>
     /// <c>PackTouch</c> (:271-446): who may take it, what they get, and the
-    /// pack going when they do. The world z-damp (:275-280), the spy's
-    /// stealthed-empty skip (:302-304), the knife and charge arms
+    /// pack going when they do — world-push and owner first (:275-280,
+    /// :302-304). The knife meter and the demoman's charge arm
     /// (:371-391 — TFPlayerShared meters this build does not port), the
     /// objgib achievement (:358-361) and the holiday arms (:399-430) are
     /// deferred (docs/plans/tf2/deferred.tsv).
     /// </summary>
     public override void OnTouch(EntityHandle toucher)
     {
+        // :275-280: the worldbrush flattens only a dressed pack — the gift
+        // must keep its bounce; a normal pack's push rides on untouched.
+        if (toucher.EntryIndex == 0 && _packType != AmmoPackType.Normal)
+        {
+            var velocity = Entities.GetVelocity(Handle);
+            Entities.SetVelocity(Handle, new Vector(0f, 0f, velocity.Z));
+            return;
+        }
+
         if (!Entities.IsPlayer(toucher))
             return; // :282
 
@@ -274,6 +300,16 @@ public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices,
 
         if (_emptyPack)
         {
+            // :302-304 — stock's comment: "we never pick up our own empties
+            // while stealthed", the Dead Ringer's fakeout staying put. The
+            // IsStealthed triad (:8112-8116) plus the blink condition.
+            if (toucher == PackOwner
+                && (players.InCond(toucher, TFCond.Stealthed)
+                    || players.InCond(toucher, TFCond.StealthedUserBuff)
+                    || players.InCond(toucher, TFCond.StealthedUserBuffFading)
+                    || players.InCond(toucher, TFCond.StealthedBlink)))
+                return;
+
             // :299-311: the fakeout is pickable — and it is full of nothing.
             StoreAmmo(1, TFAmmo.Primary); // :308 — the member store; the picker gets no arm
             Remove();

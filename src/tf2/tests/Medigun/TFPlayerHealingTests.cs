@@ -424,6 +424,77 @@ public sealed class TFPlayerHealingTests
         Assert.True(rig.Conditions.Holds(3, TFCond.Invulnerable));
     }
 
+    // ---- the per-charge on/off sounds (tf_player_shared.cpp:9060-9099) --------------
+
+    [Fact]
+    public void The_grant_emits_the_on_sound_once_to_the_patient_alone()
+    {
+        var rig = new MedigunRig();
+        rig.Give(3, 100, 125);
+        rig.Healing.Heal(H(3), H(1), 24f, 10f);
+        rig.Healing.NoteReleasing(1, true);
+
+        rig.Healing.RecalculateChargeEffects(H(3), now: 10f);      // the grant, tf_player_shared.cpp:9078-9079
+
+        Assert.Single(rig.Engine.AllOf("Sound.EntityEmitSound"),
+                      c => (string)c.Args[1]! == "TFPlayer.InvulnerableOn"
+                        && (EntityHandle)c.Args[0]! == H(3));     // CSingleUserRecipientFilter: the patient only
+
+        rig.Healing.RecalculateChargeEffects(H(3), now: 10.5f);    // already held: the equal-state arm re-emits nothing (:9038)
+
+        Assert.Single(rig.Engine.AllOf("Sound.EntityEmitSound"),
+                      c => (string)c.Args[1]! == "TFPlayer.InvulnerableOn");
+    }
+
+    [Fact]
+    public void The_wear_off_stops_the_on_sound_once_and_puts_the_off_sound_once()
+    {
+        var rig = new MedigunRig();
+        rig.Give(3, 100, 125);
+        rig.Healing.Heal(H(3), H(1), 24f, 10f);
+        rig.Healing.NoteReleasing(1, true);
+        rig.Healing.RecalculateChargeEffects(H(3), now: 10f);
+        rig.Healing.NoteReleasing(1, false);
+
+        rig.Healing.RecalculateChargeEffects(H(3), now: 10.5f);   // wear-off, tf_player_shared.cpp:9085-9098
+
+        Assert.Single(rig.Engine.AllOf("Sound.EntityStopSound"),
+                      c => (string)c.Args[1]! == "TFPlayer.InvulnerableOn"
+                        && (EntityHandle)c.Args[0]! == H(3));     // the on sound stopped first (:9087)
+        Assert.Single(rig.Engine.AllOf("Sound.EntityEmitSound"),
+                      c => (string)c.Args[1]! == "TFPlayer.InvulnerableOff"
+                        && (EntityHandle)c.Args[0]! == H(3));
+
+        rig.Healing.RecalculateChargeEffects(H(3), now: 10.7f);   // the pending expiry early-returns (:9112 arm)
+
+        Assert.Single(rig.Engine.AllOf("Sound.EntityStopSound"),
+                      c => (string)c.Args[1]! == "TFPlayer.InvulnerableOn");
+        Assert.Single(rig.Engine.AllOf("Sound.EntityEmitSound"),
+                      c => (string)c.Args[1]! == "TFPlayer.InvulnerableOff");
+    }
+
+    [Fact]
+    public void An_instant_remove_leaves_the_on_sound_to_be_stopped_once_on_the_next_expire_tick()
+    {
+        var rig = new MedigunRig();
+        rig.Give(3, 100, 125);
+        rig.Healing.Heal(H(3), H(1), 24f, 10f);
+        rig.Healing.NoteReleasing(1, true);
+        rig.Healing.RecalculateChargeEffects(H(3), now: 10f);      // the grant puts the on sound on
+        rig.Healing.RemoveChargeEffect(H(3));                      // instant loss: stock's RecalcEffectOnTarget(target, true)
+
+        rig.Healing.TestAndExpireChargeEffect(H(3), now: 10.1f);   // stock's else-if (:8980-8987) stops it, once
+
+        Assert.Single(rig.Engine.AllOf("Sound.EntityStopSound"),
+                      c => (string)c.Args[1]! == "TFPlayer.InvulnerableOn"
+                        && (EntityHandle)c.Args[0]! == H(3));
+
+        rig.Healing.TestAndExpireChargeEffect(H(3), now: 10.2f);
+
+        Assert.Single(rig.Engine.AllOf("Sound.EntityStopSound"),
+                      c => (string)c.Args[1]! == "TFPlayer.InvulnerableOn");
+    }
+
     [Fact]
     public void A_flag_carrier_receives_no_charge_effect()
     {

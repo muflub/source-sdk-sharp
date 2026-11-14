@@ -1115,6 +1115,66 @@ public sealed class TFDeathDropsTests
         Assert.Contains("Entities.Remove", engine.Calls.Select(c => c.Member));
     }
 
+    /// <summary>
+    /// The world-push damp (:275-280): a dressed pack keeps only its z when
+    /// the worldbrush touches it — the flat push is what makes the gift
+    /// bounce instead of skid — and an undressed pack keeps every component.
+    /// </summary>
+    [Fact]
+    public void The_holiday_pack_touching_the_world_keeps_only_its_z_velocity()
+    {
+        var rig = new Rig();
+        var (pack, engine) = rig.BuildPack(10f);
+        engine.Returns("Entities.GetVelocity", new Vector(100f, -50f, 30f));
+        pack.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier,
+                  5, 5, 5, packType: AmmoPackType.Halloween);
+
+        pack.OnTouch(new EntityHandle(0u)); // the worldbrush: entry 0 (:275)
+
+        Assert.Equal(new Vector(0f, 0f, 30f), engine.Last("Entities.SetVelocity").ArgAs<Vector>(1));
+
+        // The guard's other half (:275): a normal pack's velocity rides
+        // through untouched — one SetVelocity, the Init throw, nothing added.
+        var (plain, plainEngine) = rig.BuildPack(10f);
+        plain.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier,
+                   5, 5, 5);
+        plain.OnTouch(new EntityHandle(0u));
+        Assert.Equal(1, plainEngine.CountOf("Entities.SetVelocity"));
+    }
+
+    /// <summary>
+    /// The stealthed-empty skip (:302-304): stock's comment — "we never pick
+    /// up our own empties while stealthed", the Dead Ringer's fakeout staying
+    /// put. Any of the four stealth answers skips the take; visible, the
+    /// owner's empty goes as the empty fact above shows.
+    /// </summary>
+    [Theory]
+    [InlineData(TFCond.Stealthed)]                    // IsStealthed's triad (:8112-8116),
+    [InlineData(TFCond.StealthedUserBuff)]
+    [InlineData(TFCond.StealthedUserBuffFading)]
+    [InlineData(TFCond.StealthedBlink)]               // TF_COND_STEALTHED_BLINK (:303)
+    public void The_stealthed_owner_leaves_their_own_empty_pack(TFCond stealth)
+    {
+        var rig = new Rig();
+        var owner = rig.Dead;
+        owner.Player.Conditions.Add(stealth);
+        var (pack, engine) = rig.BuildPack(10f);
+        pack.Init(owner.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier,
+                  5, 5, 5, empty: true);
+        pack.OnThink(); // landed (:265-269): stealth answers here, not the flight gate
+
+        pack.OnTouch(owner.Handle); // :302-304
+
+        Assert.Equal(0, pack.AmmoPrimary); // StoreAmmo(1) never ran (:308)
+        Assert.DoesNotContain("Entities.Remove", engine.Calls.Select(c => c.Member));
+
+        owner.Player.Conditions.Clear();
+        pack.OnTouch(owner.Handle); // visible again: :306-310, the empty pack goes
+
+        Assert.Equal(1, pack.AmmoPrimary);
+        Assert.Contains("Entities.Remove", engine.Calls.Select(c => c.Member));
+    }
+
     [Theory]
     [InlineData(TFClass.Scout, 75)] // the scout movie (:321)
     [InlineData(TFClass.Soldier, 50)]

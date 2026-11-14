@@ -83,6 +83,10 @@ public sealed class TFTauntAttackTests
         public TauntDamage Damage { get; }
         public TFWeaponScripts Scripts { get; } = new(new RecordingLog(), WeaponFixtures.WithExtras(WeaponFixtures.ShippedWithClasses()));
 
+        /// <summary>The arm's draw: the least of the range, the way every
+        /// other test random answers (see <see cref="FixedRandom"/>).</summary>
+        public FixedRandom Random { get; } = new();
+
         /// <summary>The tick's fighter, alive: the fired gate's leg a fact can drop.</summary>
         public bool Alive { set => Players.All[Fighter].Alive = value; }
 
@@ -106,7 +110,8 @@ public sealed class TFTauntAttackTests
 
             Damage = new TauntDamage(Scopes);
             Attack = new TFTauntAttack(Carriers, Players, Engine, Engine, Damage, Engine, Engine, Scripts, Scopes, new NoEntities(),
-                                       lunchbox ?? new LunchboxStub(), owners ?? new NoTFWeaponOwners(), hooks ?? new AttributeHooks());
+                                       lunchbox ?? new LunchboxStub(), owners ?? new NoTFWeaponOwners(), hooks ?? new AttributeHooks(),
+                                       Random, Engine);
             Attack.Attach(Fighter);
 
             Engine.Returns("Networking.EntityGetState", EntityState.Solid);
@@ -526,6 +531,182 @@ public sealed class TFTauntAttackTests
                                         false, false, AttributeValueType.Default, MergedKeys.Block("taunttime")),
                 seconds));
         return item;
+    }
+
+    /// <summary>The Eyelander's swing (:18941-18961): the eye's 128-unit line
+    /// without hitboxes — MASK_SOLID never carries them (:18948) — and whoever
+    /// it stops on, another team's player, takes 500 DMG_CLUB at the taunter's
+    /// centre, thrown towards the taunter on stock's own sign (:18956-18958).</summary>
+    [Fact]
+    public void TheBarbarianSwingThrowsTheVictimTowardsTheTaunter()
+    {
+        var rig = Armed(TFClass.Demoman, TFTauntAttack.DemomanBarbarianScene);
+
+        rig.Attack.Tick(102.6f);
+
+        TauntHit hit = Assert.Single(rig.Damage.Hits);
+        Assert.Equal(500f, hit.Damage);
+        Assert.Equal(DamageType.Club, hit.Type);
+        Assert.Equal(TFDamageCustom.TauntatkBarbarianSwing, hit.Custom);
+        Assert.Equal(-12000f, hit.Force.X, 1);
+        Assert.Equal(0f, hit.Force.Y, 1);
+        Assert.Equal(0f, hit.Force.Z, 1);
+        Assert.Equal(new Vector(0f, 0f, 64f), hit.Position);
+
+        EngineCall trace = Assert.Single(rig.Engine.Calls, c => c.Member == "WorldQuery.TraceLine");
+        Assert.Equal(new Vector(128f, 0f, 64f), trace.ArgAs<Vector>(1));   // eye + the 128 of :18945
+        Assert.Equal(TraceMask.Solid, trace.ArgAs<TraceMask>(2));
+    }
+
+    /// <summary>:18950 — the line flies its whole 128 past a further victim;
+    /// nobody is stopped, nobody is hit.</summary>
+    [Fact]
+    public void AVictimPastTheSwingsHundredTwentyEightIsNotHit()
+    {
+        var rig = Armed(TFClass.Demoman, TFTauntAttack.DemomanBarbarianScene);
+        rig.Trace = new TraceResult(false, 1f, default, default, EntityHandle.None);
+
+        rig.Attack.Tick(102.6f);
+
+        Assert.Empty(rig.Damage.Hits);
+    }
+
+    /// <summary>:18954 — the same team's number is refused, as the high noon's
+    /// is: a swing spares its own side.</summary>
+    [Fact]
+    public void TheBarbarianSwingSparesTheSameTeam()
+    {
+        var rig = Armed(TFClass.Demoman, TFTauntAttack.DemomanBarbarianScene);
+        rig.VictimTeam = (int)TFTeam.Red;
+
+        rig.Attack.Tick(102.6f);
+
+        Assert.Empty(rig.Damage.Hits);
+    }
+
+    /// <summary>The scene's two and a half seconds (:18093-18100): the swing
+    /// waits the whole delay and fires only past it.</summary>
+    [Fact]
+    public void TheBarbarianSwingWaitsTwoAndAHalfSeconds()
+    {
+        var rig = Armed(TFClass.Demoman, TFTauntAttack.DemomanBarbarianScene);
+
+        rig.Attack.Tick(102.5f);
+        Assert.Empty(rig.Damage.Hits);
+
+        rig.Attack.Tick(102.6f);
+        Assert.Single(rig.Damage.Hits);
+    }
+
+    /// <summary>The Sandman's grand slam (:18676-18730): with the sight line
+    /// reaching whole (:18709), the knock stands the victim up (:18712-18715),
+    /// takes 500 DMG_BULLET on the -45° launch of 130000 (:18717-18718), and
+    /// fires the achievement event with both user ids (:18720-18727).</summary>
+    [Fact]
+    public void TheGrandSlamKnocksTheFacedVictimUpAndFilesItsEvent()
+    {
+        var rig = Armed(TFClass.Scout, TFTauntAttack.ScoutGrandSlamScene);
+        rig.Trace = new TraceResult(true, 1f, default, default, rig.Victim);   // clear sight (:18709)
+        rig.Engine.Returns("Players.GetUserId", 7);                             // both ids answer it (:18724-18725)
+        rig.Engine.Returns("GameEvents.EventCreate", new IntPtr(42));           // :18721
+        rig.Engine.Returns("GameEvents.EventFire", true);                       // :18726
+
+        rig.Attack.Tick(104.1f);
+
+        TauntHit hit = Assert.Single(rig.Damage.Hits);
+        Assert.Equal(500f, hit.Damage);
+        Assert.Equal(DamageType.Bullet, hit.Type);
+        Assert.Equal(TFDamageCustom.TauntatkGrandSlam, hit.Custom);
+        Assert.Equal(91923.9f, hit.Force.X, 1);      // Forward(-45 pitch, yaw, 0) * 130000 (:18717)
+        Assert.Equal(91923.9f, hit.Force.Z, 1);      // the upward half of the launch
+        Assert.Equal(new Vector(0f, 0f, 64f), hit.Position);
+
+        Assert.Equal(1, rig.Engine.CountOf("Entities.SetVelocity"));             // stand still (:18712)
+
+        EngineCall punch = Assert.Single(rig.Engine.Calls, c => c.Member == "Players.SetPunch");
+        Assert.Equal(10f, punch.ArgAs<Vector>(1).X, 1);                          // the drawn least of 10 to 15 (:18715)
+        Assert.Equal(0f, punch.ArgAs<Vector>(1).Y, 1);
+
+        Assert.Equal((10, 15), Assert.Single(rig.Random.DrawnRanges));           // :18715's own range
+        EngineCall los = Assert.Single(rig.Engine.Calls, c => c.Member == "WorldQuery.TraceLine");
+        Assert.Equal(TraceMask.Brushes, los.ArgAs<TraceMask>(2));                // MASK_SOLID_BRUSHONLY (:18707)
+
+        EngineCall create = Assert.Single(rig.Engine.Calls, c => c.Member == "GameEvents.EventCreate");
+        Assert.Equal("scout_grand_slam", create.ArgAs<string>(0));
+        Assert.Equal(1, rig.Engine.CountOf("GameEvents.EventFire"));
+        EngineCall scoutId = Assert.Single(rig.Engine.Calls, c => c.Member == "GameEvents.EventSetInt" && c.ArgAs<string>(1) == "scout_id");
+        Assert.Equal(7, scoutId.ArgAs<int>(2));
+        EngineCall targetId = Assert.Single(rig.Engine.Calls, c => c.Member == "GameEvents.EventSetInt" && c.ArgAs<string>(1) == "target_id");
+        Assert.Equal(7, targetId.ArgAs<int>(2));
+    }
+
+    /// <summary>:18690-18696 — the facing dot below 0.80 refuses: the victim's
+    /// bounds touch the box, but the line from the centre runs too far off
+    /// the yaw, so the knock never looks at him.</summary>
+    [Fact]
+    public void TheGrandSlamRefusesAVictimOffTheFacing()
+    {
+        var rig = Armed(TFClass.Scout, TFTauntAttack.ScoutGrandSlamScene);
+        rig.Trace = new TraceResult(true, 1f, default, default, rig.Victim);       // sight is clear, so only the facing decides
+        rig.VictimOrigin = new Vector(64f, 90f, 64f);                              // inside the box on broad bounds
+        rig.Engine.Returns("Entities.GetBounds", (new Vector(-10f, -70f, -10f), new Vector(10f, 10f, 10f)));
+        rig.Engine.ReturnsEachCall("Entities.GetWorldSpaceCenter", () => ArgIsVictim(rig) ? new Vector(64f, 90f, 64f) : new Vector(0f, 0f, 64f));
+
+        rig.Attack.Tick(104.1f);
+
+        Assert.Empty(rig.Damage.Hits);
+    }
+
+    /// <summary>:18709 — fraction below 1 means something stood between the
+    /// centres: a wall ends the knock.</summary>
+    [Fact]
+    public void AWallBetweenEndsTheGrandSlam()
+    {
+        var rig = Armed(TFClass.Scout, TFTauntAttack.ScoutGrandSlamScene);
+
+        rig.Attack.Tick(104.1f);   // the rig's line stops short, as behind a wall
+
+        Assert.Empty(rig.Damage.Hits);
+    }
+
+    /// <summary>The scene's four seconds and three hundredths (:18036-18042):
+    /// the slam waits the whole delay and fires only past it.</summary>
+    [Fact]
+    public void TheGrandSlamWaitsFourSecondsAndAHundredThreeTenths()
+    {
+        var rig = Armed(TFClass.Scout, TFTauntAttack.ScoutGrandSlamScene);
+        rig.Trace = new TraceResult(true, 1f, default, default, rig.Victim);
+        rig.Engine.Returns("GameEvents.EventCreate", IntPtr.Zero);   // the hit's tail: no event to build here
+
+        rig.Attack.Tick(104.0f);
+        Assert.Empty(rig.Damage.Hits);
+
+        rig.Attack.Tick(104.1f);
+        Assert.Single(rig.Damage.Hits);
+    }
+
+    /// <summary>Whose handle the engine was last asked about, the same read
+    /// the rig's own per-call answers make.</summary>
+    private static bool ArgIsVictim(TauntRig rig) =>
+        rig.Engine.Calls.Count > 0 && rig.Engine.Calls[^1].Args.Length > 0
+        && rig.Engine.Calls[^1].Args[0] is EntityHandle h && h == rig.Victim;
+
+    /// <summary>The arm's draw, shared shape with the support rig's
+    /// <c>LowestRandom</c>: the least of the range, the asked-for bounds on
+    /// record.</summary>
+    internal sealed class FixedRandom : IUniformRandom
+    {
+        public List<(int Min, int Max)> DrawnRanges { get; } = [];
+
+        public int RandomInt(int min, int max)
+        {
+            DrawnRanges.Add((min, max));
+            return min;
+        }
+
+        public float RandomFloat(float min, float max) => min;
+
+        public float RandomFloatExp(float min, float max, float exponent) => min;
     }
 
     /// <summary>The bite counter the eat arm's facts read.</summary>

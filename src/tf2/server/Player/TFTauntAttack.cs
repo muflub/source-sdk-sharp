@@ -42,7 +42,8 @@ public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers playe
                                   IEngineWorldQuery world, IEngineDamage damage, IEnginePlayers enginePlayers,
                                   IEngineNetworking networking, TFWeaponScripts scripts, TFDamageScopes scopes,
                                   IEntityDirectory directory, ITFLunchboxEffects lunchbox,
-                                  ITFWeaponOwners owners, AttributeHooks hooks)
+                                  ITFWeaponOwners owners, AttributeHooks hooks,
+                                  IUniformRandom random, IEngineGameEvents events)
     : IPlayerComponent
 {
     /// <summary>After the taunt think (26): the same PostThink, stock's stop asked before the window fires.</summary>
@@ -59,6 +60,12 @@ public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers playe
 
     /// <summary>The heavy high noon's scene, 1.8 s in (:18020-18024).</summary>
     public const string HeavyHighNoonScene = "scenes/player/heavy/low/taunt03_v1.vcd";
+
+    /// <summary>The Eyelander's barbarian swing scene, 2.55 s in (:18093-18100).</summary>
+    public const string DemomanBarbarianScene = "scenes/player/demoman/low/taunt09.vcd";
+
+    /// <summary>The Sandman's grand slam scene, 4.03 s in (:18036-18042).</summary>
+    public const string ScoutGrandSlamScene = "scenes/player/scout/low/taunt05_v1.vcd";
 
     /// <summary>The spy fencing scenes' shared head — taunt03_v1 and taunt03_v2 (:18064; 29 characters, case-insensitive).</summary>
     public const string SpyFencingScenePrefix = "scenes/player/spy/low/taunt03";
@@ -115,6 +122,8 @@ public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers playe
         SpyFencingSlashB,
         SpyFencingStab,
         PyroGasBlast,
+        BarbarianSwing,
+        ScoutGrandSlam,
     }
 
     private Attack _attack = Attack.None;
@@ -123,6 +132,8 @@ public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers playe
     private readonly ITFLunchboxEffects _lunchbox = lunchbox;
     private readonly ITFWeaponOwners _owners = owners;
     private readonly AttributeHooks _hooks = hooks;
+    private readonly IUniformRandom _random = random;
+    private readonly IEngineGameEvents _events = events;
 
     /// <summary>The scene the standing taunt spoke, whose head the phlog's
     /// rage arm gates on; empty with no taunt (<c>szResponse</c>'s life, the
@@ -190,6 +201,13 @@ public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers playe
                 Arm(Attack.PyroHadouken, 2.1f, now);
                 break;
 
+            // The scout's grand slam (:18036-18042): the scene's keying, the
+            // stronger one — in stock the scene's write lands after the drink
+            // arm's (:17922-17932) and overwrites it, so it stands first here.
+            case TFClass.Scout when SceneIs(scene, ScoutGrandSlamScene):
+                Arm(Attack.ScoutGrandSlam, 4.03f, now);
+                break;
+
             // The scout's drink arm (:17922-17932): the lunchbox family's
             // drink in the hand and no phase on — the buff's own remainder
             // refuses the next press, as the drink's arm does in stock.
@@ -211,6 +229,12 @@ public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers playe
 
             case TFClass.Spy when scene.StartsWith(SpyFencingScenePrefix, StringComparison.OrdinalIgnoreCase):
                 Arm(Attack.SpyFencingSlashA, 1.8f, now);
+                break;
+
+            // The Eyelander's barbarian swing (:18093-18100): its own scene,
+            // the swing landing 2.55 s in.
+            case TFClass.Demoman when SceneIs(scene, DemomanBarbarianScene):
+                Arm(Attack.BarbarianSwing, 2.55f, now);
                 break;
         }
 
@@ -263,6 +287,10 @@ public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers playe
             if (WeaponOf() == TFWeaponId.Lunchbox)
                 _lunchbox.Drink(_player.EntryIndex);
         }
+        else if (attack == Attack.BarbarianSwing)
+            BarbarianSwing();
+        else if (attack == Attack.ScoutGrandSlam)
+            GrandSlam();
         else
             BoxAttack(attack);
 
@@ -368,6 +396,110 @@ public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers playe
         Vector launch = Angles.Forward(new Vector(LaunchPitch, eyeAngles.Y, 0f)) * 25000f;
         using (scopes.Push(TFDamageCustom.TauntatkHighNoon, WeaponOf(), WeaponNameOf()))
             damage.ApplyAt(tr.Entity, _player, 500f, DamageType.Bullet, launch, entities.GetWorldSpaceCenter(_player));
+    }
+
+    /// <summary>
+    /// The Eyelander's barbarian swing (:18941-18961): a trace of 128 units from
+    /// the eye along the full view — <see cref="TraceMask.Solid"/>'s contents
+    /// never carry the HITBOX bit, so stock's <c>MASK_SOLID &amp; ~CONTENTS_HITBOX</c>
+    /// is just <c>MASK_SOLID</c> here — and what it stops on, a player of another
+    /// real team, takes the swing: 500 DMG_CLUB, thrown from the victim towards
+    /// the taunter at 12000, stock's sign kept as written (:18956-18958).
+    /// </summary>
+    private void BarbarianSwing()
+    {
+        Vector eyeAngles = entities.GetEyeAngles(_player);
+        Vector eye = entities.GetEyePosition(_player);
+        TraceResult tr = world.TraceLine(eye, eye + Angles.Forward(eyeAngles) * 128f, TraceMask.Solid, _player);
+
+        if (tr.Fraction >= 1f || tr.Entity == EntityHandle.None || !entities.IsPlayer(tr.Entity))
+            return;
+
+        // :18954 — past the shared teams, and not ours.
+        int team = enginePlayers.GetTeam(tr.Entity);
+        if (team <= (int)TFTeam.Spectator || team == enginePlayers.GetTeam(_player))
+            return;
+
+        // The throw runs from the victim towards the taunter (:18956-18957).
+        Vector throwDirection = (entities.GetWorldSpaceCenter(_player) - entities.GetWorldSpaceCenter(tr.Entity)).Normalized;
+        Vector launch = throwDirection * 12000f;
+
+        using (scopes.Push(TFDamageCustom.TauntatkBarbarianSwing, WeaponOf(), WeaponNameOf()))
+            damage.ApplyAt(tr.Entity, _player, 500f, DamageType.Club, launch, entities.GetWorldSpaceCenter(_player));
+    }
+
+    /// <summary>
+    /// The Sandman's grand slam (:18676-18730): <see cref="BoxAttack"/>'s box —
+    /// its reach, half extent, candidate cut and contents — with the scout's own
+    /// gates: the facing dot of at least 0.80, players only, other teams only,
+    /// and the brush-only sight line that must reach the victim whole
+    /// (:18690-18710). What lands on each: the velocity zeroed, the view pitched
+    /// up by a random 10 to 15 (:18712-18715), then 500 DMG_BULLET on the -45°
+    /// launch of 130000 (:18717-18718) and the achievement event with both user
+    /// ids (:18720-18727). Stock's stun sound (:18714) is the half the stun lane
+    /// leaves out (<see cref="TFStunStack"/>'s note); the swing stands without it
+    /// here too.
+    /// </summary>
+    private void GrandSlam()
+    {
+        float yaw = entities.GetEyeAngles(_player).Y;
+        Vector flatForward = Angles.Forward(new Vector(0f, yaw, 0f)); // :18680-18681, the pitch flattened away
+        Vector myCenter = entities.GetWorldSpaceCenter(_player);
+        Vector center = myCenter + flatForward * BoxReach;
+        Vector halfExtent = new(BoxHalfExtent, BoxHalfExtent, BoxHalfExtent);
+
+        Span<EntityHandle> nearby = stackalloc EntityHandle[MaxVictims];
+        int count = world.EntitiesInSphere(center, BoxCornerRadius, nearby);
+
+        for (int i = 0; i < count; i++)
+        {
+            EntityHandle victim = nearby[i];
+            if (victim == EntityHandle.None || victim == _player)
+                continue;
+
+            // FL_CLIENT | FL_OBJECT (:18685): the same box contents as the other arms'.
+            if (!networking.EntityGetState(victim, out _).HasFlag(EntityState.Solid)
+                || !(entities.IsPlayer(victim) || directory.Get(victim) is ScriptedEntity))
+                continue;
+
+            if (!OverlapsBox(victim, center - halfExtent, center + halfExtent))
+                continue;
+
+            // Must be facing whoever we knock back (:18690-18696).
+            Vector victimCenter = entities.GetWorldSpaceCenter(victim);
+            if (flatForward.Dot((victimCenter - myCenter).Normalized) < 0.80f)
+                continue;
+
+            // Players only, other teams only (:18698-18703).
+            if (!entities.IsPlayer(victim) || enginePlayers.GetTeam(victim) == enginePlayers.GetTeam(_player))
+                continue;
+
+            // The sight line (:18705-18710): centre to centre, MASK_SOLID_BRUSHONLY —
+            // what <see cref="TraceMask.Brushes"/> answers — and fraction 1 is clear.
+            if (world.TraceLine(myCenter, victimCenter, TraceMask.Brushes, _player).Fraction < 1f)
+                continue;
+
+            // Stand still, look up, fly (:18712-18718). Stock's stun sound is the
+            // half this build leaves out; the punch velocity rides the carrier as
+            // the damage layer's punch does.
+            entities.SetVelocity(victim, default);
+            Vector punch = enginePlayers.GetPunch(victim);
+            Vector punchVelocity = directory.Get(victim) is SsPlayer holder ? holder.State.PunchAngleVel.AsVector() : default;
+            enginePlayers.SetPunch(victim, new Vector(punch.X + _random.RandomInt(10, 15), punch.Y, punch.Z), punchVelocity);
+
+            Vector launch = Angles.Forward(new Vector(LaunchPitch, yaw, 0f)) * 130000f;
+            using (scopes.Push(TFDamageCustom.TauntatkGrandSlam, WeaponOf(), WeaponNameOf()))
+                damage.ApplyAt(victim, _player, 500f, DamageType.Bullet, launch, myCenter);
+
+            // The achievement event (:18720-18727).
+            IntPtr e = _events.EventCreate("scout_grand_slam");
+            if (e != IntPtr.Zero)
+            {
+                _events.EventSetInt(e, "scout_id", enginePlayers.GetUserId(_player));
+                _events.EventSetInt(e, "target_id", enginePlayers.GetUserId(victim));
+                _events.EventFire(e);
+            }
+        }
     }
 
     private TFWeaponId WeaponOf()

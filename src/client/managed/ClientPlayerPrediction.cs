@@ -121,6 +121,7 @@ public sealed class ClientPlayerPrediction
     /// replays base CGameMovement's own max speed and no suit.
     /// </summary>
     private readonly IHl2PlayerMove? _hl2Player;
+    private readonly PredictionPlayerClip? _players;
 
     /// <summary>
     /// The working copy the replay moves, and the ONLY thing the ring saves.
@@ -277,7 +278,8 @@ public sealed class ClientPlayerPrediction
                                   IPlaybackState playback, IGameClock clock,
                                   ClSmoothConVar smooth, ClSmoothTimeConVar smoothTime,
                                   ViewReadout? view = null,
-                                  ILadderWorld? ladders = null, IHl2PlayerMove? hl2Player = null)
+                                  ILadderWorld? ladders = null, IHl2PlayerMove? hl2Player = null,
+                                  PredictionPlayerClip? players = null)
     {
 
         _log = log;
@@ -292,6 +294,7 @@ public sealed class ClientPlayerPrediction
         _view = view;
         _ladders = ladders;
         _hl2Player = hl2Player;
+        _players = players;
         _playback = playback;
         _clock = clock;
         _smooth = smooth;
@@ -608,6 +611,10 @@ public sealed class ClientPlayerPrediction
             _move.CurrentGravity = constants.CurrentGravity;
             _move.EntIndex = (int)(player.Handle.Value & HandleEntryMask);
 
+            // The other players' boxes take this command's hulls, and nobody
+            // has been stood on yet (PredictionPlayerClip).
+            _players?.BeginCommand(constants.Constants);
+
             GameMovement loop = _movement.ClientLoop(constants.Constants,
                                                      constants.JumpHeight,
                                                      constants.EngineTime);
@@ -675,10 +682,8 @@ public sealed class ClientPlayerPrediction
         // ground with a named entity sets it, and ground with none named leaves
         // what was there — which is the LEAVE arm, and is what happens when no
         // trace this command found standable ground.
-        if (!_move.HasGround)
-            _working.GroundEntity = GroundWireNone;
-        else if (groundIndex >= 0)
-            _working.GroundEntity = groundIndex & GroundWireIndexMask;
+        _working.GroundEntity = GroundWriteBack(_working.GroundEntity, _move.HasGround, _players?.LastGroundIndex ?? -1,
+                                           groundIndex);
 
         WriteBack(_working);
 
@@ -687,6 +692,24 @@ public sealed class ClientPlayerPrediction
         _previouslyPredictedOrigin = _move.Origin;
 
         _working.TickBase++;
+    }
+
+    /// <summary>
+    /// MovementGround_WriteBack's rule over the ground word: no ground clears
+    /// it; ground whose last standable trace was a player the prediction's
+    /// clip found (<see cref="PredictionPlayerClip.LastGroundIndex"/>) names
+    /// that player, as the server's last ground names it; ground the engine
+    /// named sets it; ground with none named leaves <paramref name="current"/>.
+    /// </summary>
+    public static int GroundWriteBack(int current, bool hasGround, int playerGround, int engineGround)
+    {
+        if (!hasGround)
+            return GroundWireNone;
+        if (playerGround >= 0)
+            return playerGround & GroundWireIndexMask;
+        if (engineGround >= 0)
+            return engineGround & GroundWireIndexMask;
+        return current;
     }
 
     //-------------------------------------------------------------------------

@@ -74,6 +74,7 @@ internal static class PredictionDeps
             typeof(client::TF2.Shared.TFDemomanChargeDrainTimeConVar),
             typeof(client::TF2.Shared.TFDemomanChargeRegenRateConVar),
             typeof(client::TF2.Shared.TFScoutEnergydrinkConsumeRateConVar),
+            typeof(client::TF2.Shared.TFScoutEnergydrinkRegenRateConVar),
         ]);
         return convars;
     }

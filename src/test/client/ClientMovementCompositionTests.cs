@@ -168,6 +168,7 @@ public sealed class ClientMovementCompositionTests
                 typeof(TF2.Shared.TFDemomanChargeDrainTimeConVar),
                 typeof(TF2.Shared.TFDemomanChargeRegenRateConVar),
                 typeof(TF2.Shared.TFScoutEnergydrinkConsumeRateConVar),
+                typeof(TF2.Shared.TFScoutEnergydrinkRegenRateConVar),
             ]);
             convars.PublishTo(services);
         }

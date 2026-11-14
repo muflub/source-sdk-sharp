@@ -437,12 +437,23 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                 ? _services.Require<IEngineEntityRender>().GetModelName(player.Handle)
                 : null);
         _services.AddInstance(steps);
+        // The other players in the prediction (plan A.7, F04): the engine's
+        // client trace hits no entity, so the prediction's world clips the
+        // players' boxes in itself, asking the collide rules the server's
+        // trace filter asks; the core's rule passes teammates as the server's
+        // does, from the published mp_teammates_pass.
+        _services.AddFactory<IHooks<IEntityCollideRule>>(locator => new Hooks<IEntityCollideRule>(locator, Log));
+        _services.AddInstance(new ClientTeammatesPassRule(_services.Require<MpTeammatesPassConVar>(), _standalones));
+        var playerClip = new PredictionPlayerClip(_standalones, _services.Require<IEngineEntityRender>(),
+            _services.Require<IHooks<IEntityCollideRule>>(),
+            () => _services.Require<IEngineEnvironment>() is { Globals.IsAvailable: true } env ? env.Globals.MaxClients : 1);
+        _services.AddInstance(playerClip);
         _movement = MovementRunner.For(_engine, _services.Require<IFwdEngineTrace>(), _services.Require<IFwdPhysicsSurfaceProps>(),
             world => new ClientPredictionMoveWorld(world,
             () => _prediction?.PredictingHost ?? EntityHandle.None,
             () => _prediction?.FirstRunOfFunctions ?? false,
             _clientSounds, steps,
-            () => _prediction?.PredictingMove));
+            () => _prediction?.PredictingMove, playerClip));
         _services.AddInstance(_movement);
 
         // And the module's engine itself, for what acquires an engine

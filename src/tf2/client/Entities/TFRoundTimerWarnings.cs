@@ -26,9 +26,11 @@ namespace TF2.Client.Entities;
 /// gates (:708) answer through the client's mirrors: only the elected timer
 /// plays (the HUD-index check, :763, through <see cref="TFClientRoundTimers"/>'s
 /// election), and nothing plays paused, with the countdown turned off, during
-/// waiting-for-players, or with no local player. Commentary mode has no answer
-/// in this build, so its arm is absent; the tournament stopwatch, KOTH and
-/// Merasmus arms wait on their deferred rows. Stock plays through
+/// waiting-for-players, or with no local player. In a KOTH round every live
+/// timer answers instead (:768-771), through the gamerules' word on the player
+/// resource. Commentary mode has no answer in this build, so its arm is
+/// absent; the tournament stopwatch and Merasmus arms wait on their deferred
+/// rows. Stock plays through
 /// <c>pPlayer-&gt;EmitSound</c> (:777) — the local player's ears, which here is
 /// <see cref="IClientEntitySounds.EmitFrom"/> from no entity, as the contested
 /// announcer does.
@@ -141,8 +143,9 @@ public sealed class TFRoundTimerWarnings(ITFRoundTimers timers, IGameClock clock
     /// Stock <c>SendTimeWarning</c>' gates (:708): nothing plays while paused,
     /// when the countdown is turned off, during waiting-for-players, or for a
     /// client with no local player and no objective resource; the elected HUD
-    /// timer answers for the index check (:763-766). The tournament and KOTH
-    /// arms stay on their deferred row. Stock's sound reaches the local
+    /// timer answers for the index check (:763-766), or every timer in a KOTH
+    /// round (:768-771). The tournament and Merasmus arms stay on their
+    /// deferred row. Stock's sound reaches the local
     /// player's ears through the client's emitter, from no entity.
     /// </summary>
     private void Play(ITFRoundTimer timer, string sound)
@@ -153,7 +156,10 @@ public sealed class TFRoundTimerWarnings(ITFRoundTimers timers, IGameClock clock
             return;
         if (hud.LocalPlayerIndex <= 0)
             return;
-        if (!ReferenceEquals(timers.Active, timer))
+        // Stock's two answers for the non-stopwatch case (:763-771): the
+        // elected HUD timer, or any live timer while the rules play a KOTH
+        // round — in KOTH both teams' timers announce.
+        if (!ReferenceEquals(timers.Active, timer) && (resources.Live?.State.KothMode ?? 0) == 0)
             return;
 
         sounds.EmitFrom(EntityHandle.None, sound);

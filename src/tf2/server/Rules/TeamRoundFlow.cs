@@ -85,6 +85,9 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
     private readonly IEngineHost _host;
     private readonly IHooks<ITeamRoundListener> _listeners;
     private readonly IHooks<ITimerExpiryVeto> _vetoes;
+    // The core's new-match chain (plan_bots_teams_tf2 A.6), told when the
+    // player arm of ResetScores runs: the departed players' scores go too.
+    private readonly IHooks<IMatchResetHook> _matchResets;
     private readonly ITFWinPanel _winPanel;
     private readonly ILevelInfo _level;
     private readonly TF2.Server.Entities.IObjectiveEntities _objectives;
@@ -173,7 +176,8 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
                          IRoundTimers timers, TeamBalance balance, IGameClock clock, ILog log, IRandomSeeds seeds,
                          IEngineHost host, IHooks<ITeamRoundListener> listeners, IHooks<ITimerExpiryVeto> vetoes,
                          TF2.Server.Player.TFPlayerCarriers carriers, ITFWinPanel winPanel, ILevelInfo level,
-                         TF2.Server.Entities.IObjectiveEntities objectives, TF2.Server.Player.ITFPlayerStats stats)
+                         TF2.Server.Entities.IObjectiveEntities objectives, TF2.Server.Player.ITFPlayerStats stats,
+                         IHooks<IMatchResetHook> matchResets)
     {
         _settings = settings;
         _roster = roster;
@@ -194,6 +198,7 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
         _level = level;
         _objectives = objectives;
         _stats = stats;
+        _matchResets = matchResets;
         _random = new Random(seeds.Next());
 
         // The constructor tells no listener: the listeners are resolved from
@@ -1649,6 +1654,10 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
                     _stats.ResetPlayer(player);
 
             _announcer.ScorestatsAccumulatedReset();
+
+            // Every player's score is zero: a new match, so the core forgets
+            // the departed players' scores too (ours; stock keeps none).
+            _matchResets.Raise("match restart");
         }
 
         if (_resetRoundsPlayed)

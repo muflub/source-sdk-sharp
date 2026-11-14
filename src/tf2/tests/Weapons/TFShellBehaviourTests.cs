@@ -892,6 +892,69 @@ public sealed class TFShellBehaviourTests
     }
 
     [Fact]
+    public void An_airblast_released_hands_the_weapon_back_to_the_flame()
+    {
+        // The idle home (ItemPostFrame :630-637 asking WeaponIdle :480-485):
+        // the trigger off past the blast's refire, the SECONDARY state — which
+        // the release arm (:604) exempts — comes home to idle, and the next
+        // press walks the wind-up and burns again.
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_flamethrower", clip: -1, reserve: 200);
+
+        world.Run(w, vm, Attack2, 10f, NoCrit);
+        Assert.Equal(TFFlamethrowerBehaviour.FlameState.Secondary, TFFlamethrowerBehaviour.StateOf(w));
+
+        for (float t = 10.015f; t < 11.2f; t += Tick)
+            world.Run(w, vm, 0, t, NoCrit);
+        Assert.Equal(TFFlamethrowerBehaviour.FlameState.Idle, TFFlamethrowerBehaviour.StateOf(w));
+
+        int before = world.Effects.FlameTicks.Count;
+        for (float t = 11.2f; t < 11.6f; t += Tick)
+            world.Run(w, vm, Attack, t, NoCrit);
+        Assert.Equal(TFFlamethrowerBehaviour.FlameState.Firing, TFFlamethrowerBehaviour.StateOf(w));
+        Assert.Contains(SourceSharp.Shared.Anim.WeaponGestureTrigger.WindUp, world.Arms.Gestures);
+        Assert.True(world.Effects.FlameTicks.Count > before, "the flame burns again after the blast");
+    }
+
+    [Fact]
+    public void The_held_blast_stays_secondary_until_the_trigger_comes_off()
+    {
+        // A held attack2 re-blasts on its refire (:1044-1045) and each one
+        // re-arms SECONDARY (:978); only the release's idle home takes it back.
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_flamethrower", clip: -1, reserve: 200);
+
+        world.Run(w, vm, Attack2, 10f, NoCrit);
+        for (float t = 10.015f; t < 11.0f; t += Tick)
+            world.Run(w, vm, Attack2, t, NoCrit);
+
+        Assert.Equal(2, world.Effects.AirBlasts.Count);
+        Assert.Equal(TFFlamethrowerBehaviour.FlameState.Secondary, TFFlamethrowerBehaviour.StateOf(w));
+
+        for (float t = 11.015f; t < 11.6f; t += Tick)
+            world.Run(w, vm, 0, t, NoCrit);
+        Assert.Equal(TFFlamethrowerBehaviour.FlameState.Idle, TFFlamethrowerBehaviour.StateOf(w));
+    }
+
+    [Fact]
+    public void A_tapped_blast_stays_secondary_through_its_own_window()
+    {
+        // m_flSecondaryAnimTime (:633, :982): the idle home waits out the
+        // blast's window, so a tap's puff plays out before the state goes home.
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_flamethrower", clip: -1, reserve: 200);
+
+        world.Run(w, vm, Attack2, 10f, NoCrit);
+        for (float t = 10.015f; t < 10.5f; t += Tick)
+            world.Run(w, vm, 0, t, NoCrit);
+        Assert.Equal(TFFlamethrowerBehaviour.FlameState.Secondary, TFFlamethrowerBehaviour.StateOf(w));
+
+        for (float t = 10.5f; t < 10.9f; t += Tick)
+            world.Run(w, vm, 0, t, NoCrit);
+        Assert.Equal(TFFlamethrowerBehaviour.FlameState.Idle, TFFlamethrowerBehaviour.StateOf(w));
+    }
+
+    [Fact]
     public void A_rage_press_with_the_eyes_under_water_is_refused()
     {
         // SecondaryAttack's water return (tf_weapon_flamethrower.cpp:1175),

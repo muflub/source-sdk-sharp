@@ -56,6 +56,31 @@ public sealed class TFPlayerResupplyTests
         Assert.Equal(100f, rig.State.CloakMeter);
     }
 
+    /// <summary>Regenerate's refill trio (:4096-4098): beside the cloak, the
+    /// drink meter fills with the resupply too.</summary>
+    [Fact]
+    public void A_resupply_fills_the_drink_meter()
+    {
+        var (rig, resupply, _) = Make(TFClass.Scout);
+        rig.State.EnergyDrinkMeter = 20f;
+
+        resupply.Regenerate(PlayerRig.Player);
+
+        Assert.Equal(100f, rig.State.EnergyDrinkMeter);
+    }
+
+    /// <summary>The trio's third name (:4098): the demoman's charge meter.</summary>
+    [Fact]
+    public void A_resupply_fills_the_charge_meter()
+    {
+        var (rig, resupply, _) = Make(TFClass.Demoman);
+        rig.State.ChargeMeter = 30f;
+
+        resupply.Regenerate(PlayerRig.Player);
+
+        Assert.Equal(100f, rig.State.ChargeMeter);
+    }
+
     [Fact]
     public void Max_health_is_the_classs()
     {

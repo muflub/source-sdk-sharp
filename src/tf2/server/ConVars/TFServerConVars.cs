@@ -166,6 +166,22 @@ public sealed class TFWeaponRagdollVelocityMaxConVar : FloatConVar { }
 [ConVar("tf_weapon_ragdoll_maxspeed", "300", Flags = ConVarFlags.Cheat | ConVarFlags.DevelopmentOnly)]
 public sealed class TFWeaponRagdollMaxSpeedConVar : FloatConVar { }
 
+// ---- server/tf/tf_obj.cpp -----------------------------------------------------
+
+// The gib band the destroyed building's packs ride (:2290-2296).
+
+/// <summary>The floor of the gib throw's speed band (<c>tf_obj.cpp:96</c>).</summary>
+[ConVar("tf_obj_gib_velocity_min", "100", Flags = ConVarFlags.Cheat | ConVarFlags.DevelopmentOnly)]
+public sealed class TFObjGibVelocityMinConVar : FloatConVar { }
+
+/// <summary>The ceiling of the gib throw's speed band (<c>tf_obj.cpp:97</c>).</summary>
+[ConVar("tf_obj_gib_velocity_max", "450", Flags = ConVarFlags.Cheat | ConVarFlags.DevelopmentOnly)]
+public sealed class TFObjGibVelocityMaxConVar : FloatConVar { }
+
+/// <summary>The cap on a gib pack's launch speed (<c>tf_obj.cpp:98</c>).</summary>
+[ConVar("tf_obj_gib_maxspeed", "800", Flags = ConVarFlags.Cheat | ConVarFlags.DevelopmentOnly)]
+public sealed class TFObjGibMaxSpeedConVar : FloatConVar { }
+
 // ---- shared/tf/tf_dropped_weapon.cpp -----------------------------------------
 
 [ConVar("tf_dropped_weapon_lifetime", "30", Flags = ConVarFlags.Cheat)]

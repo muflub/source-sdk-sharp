@@ -4,6 +4,7 @@ using SourceSharp.Shared;
 using SourceSharp.Tests;
 
 using TF2.Server.Player;
+using TF2.Server.Weapons;
 using TF2.Shared;
 using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
@@ -40,6 +41,7 @@ public sealed class TFPlayerSpawnsTests
         public readonly Observers Observers;
         public readonly ConVarRegistry ConVars;
         public readonly TFPlayerResupply Resupply;
+        public readonly LunchboxRecorder Lunchbox;
 
         public Rig()
         {
@@ -68,8 +70,9 @@ public sealed class TFPlayerSpawnsTests
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
                                             clock: engine);
+            Lunchbox = new();
             Spawns = new TFPlayerSpawns(Player.Carriers, Player.Classes, engine, engine, engine, Conditions, Buckets,
-                                        directory, Observers, new Carried(Weapon), Resupply,
+                                        directory, Observers, new Carried(Weapon), Resupply, Lunchbox,
                                         convars.Declared<TFSpawnGlowsDurationConVar>(), Player.Log);
         }
 
@@ -83,6 +86,23 @@ public sealed class TFPlayerSpawnsTests
     private sealed class Carried(EntityHandle weapon) : ITFCarriedWeapons
     {
         public EntityHandle WeaponOf(EntityHandle player) => weapon;
+    }
+
+    /// <summary>The lunchbox arm of the rig: records the weapon removals the
+    /// spawn's item strip asks for.</summary>
+    private sealed class LunchboxRecorder : ITFLunchboxEffects
+    {
+        public List<int> WeaponRemoved { get; } = [];
+
+        public void LunchboxEat(in WeaponAttackContext attack, TFWeaponScript script) { }
+
+        public void LunchboxDrop(in WeaponAttackContext attack, TFWeaponScript script, int mode) { }
+
+        public void Bite(int playerIndex) { }
+
+        public void Drink(int playerIndex) { }
+
+        public void OnWeaponRemoved(int playerIndex) => WeaponRemoved.Add(playerIndex);
     }
 
     private sealed class NoPlayers : IEntityDirectory
@@ -174,6 +194,22 @@ public sealed class TFPlayerSpawnsTests
         rig.Spawns.OnSpawning(PlayerRig.Player, 0f);
 
         Assert.Equal(1, rig.Player.Engine.CountOf("Players.RemoveAllItems"));
+    }
+
+    /// <summary>The class switch's item strip removes the lunchbox's thrown
+    /// pack with the weapon (<c>CTFLunchBox::UpdateOnRemove</c>,
+    /// shared/tf/tf_weapon_lunchbox.cpp:100-112): the pack cannot be left out
+    /// under the old life and taken back under the new one.</summary>
+    [Fact]
+    public void The_class_switch_removes_the_lunchboxs_thrown_pack_with_the_weapon()
+    {
+        var rig = new Rig();
+        rig.Class.Desired = TFClass.Scout;
+
+        rig.Spawns.OnSpawning(PlayerRig.Player, 0f);
+
+        Assert.Contains("Players.RemoveAllItems", rig.Player.Engine.Calls.Select(c => c.Member));
+        Assert.Equal(new[] { PlayerRig.Index }, rig.Lunchbox.WeaponRemoved.ToArray());
     }
 
     [Fact]
@@ -361,6 +397,7 @@ public sealed class TFPlayerSpawnsTests
                                                              hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                                              deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
                                                              clock: engine),
+                                        new LunchboxRecorder(),
                                         convars.Declared<TFSpawnGlowsDurationConVar>(), log);
 
         spawns.OnSpawned(PlayerRig.Player, 1f);

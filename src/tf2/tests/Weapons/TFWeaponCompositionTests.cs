@@ -365,6 +365,7 @@ public sealed class TFWeaponCompositionTests
         c.AddInstance(DeclaredClientConVars.Fresh<CTF.TFDemomanChargeDrainTimeConVar>());
         c.AddInstance(DeclaredClientConVars.Fresh<CTF.TFDemomanChargeRegenRateConVar>());
         c.AddInstance(DeclaredClientConVars.Fresh<CTF.TFScoutEnergydrinkConsumeRateConVar>());
+        c.AddInstance(DeclaredClientConVars.Fresh<CTF.TFScoutEnergydrinkRegenRateConVar>());
         // The owners' required deps the module itself holds: the catalogue over
         // the sides' rows (ClientModule's own), the local arsenal it registers,
         // and the hud the engine compose binds.

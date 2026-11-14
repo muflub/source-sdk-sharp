@@ -336,10 +336,16 @@ public sealed class TFRocketPackImpactPushMaxConVar : FloatConVar { }
 
 // ---- shared/tf/tf_player_shared.cpp ------------------------------------------
 
-// tf_player_shared.cpp:173, shared: the scout energy drink's drain, read by
-// the drink's own fall-back dead time (tf_player.cpp:18644). The regen rate
-// (:172) rides with the meter refill the lunchbox behaviour already keeps,
-// and the activation delay (:174) waits for its consumer.
+// tf_player_shared.cpp:172-173, shared: the scout energy drink's two rates.
+// The regen rate refills the drink meter between boosts
+// (<c>UpdateEnergyDrinkMeter</c>, :14101-14119); the consume rate is the
+// drain while boosted, read by the drink's own fall-back dead time
+// (tf_player.cpp:18644). The activation delay (:174) waits for its consumer.
+[ConVar("tf_scout_energydrink_regen_rate", "3.3",
+        Flags = ConVarFlags.DevelopmentOnly | ConVarFlags.Replicated,
+        Help = "energy drink regen per second, up to 100 max")]
+public sealed class TFScoutEnergydrinkRegenRateConVar : FloatConVar { }
+
 [ConVar("tf_scout_energydrink_consume_rate", "12.5",
         Flags = ConVarFlags.DevelopmentOnly | ConVarFlags.Replicated,
         Help = "energy drink to use per second while boosted, from 100 max")]

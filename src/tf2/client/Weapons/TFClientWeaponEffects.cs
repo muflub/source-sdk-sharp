@@ -57,7 +57,16 @@ public sealed class TFClientWeaponEffects(TFPlayerPrediction players) : ITFWeapo
 
     public void SelectLast(in WeaponAttackContext attack, TFWeaponScript script) { }
 
-    public void Melee(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, in SwingTrace trace) { }
+    /// <summary>The smack rides the arms: the swing's own reach and the script's
+    /// two hit sounds, the pair stock's <c>OnSwingHit</c> picks between
+    /// (<c>shared/tf/tf_weaponbase_melee.cpp:686-689</c>).</summary>
+    public void Melee(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, in SwingTrace trace)
+    {
+        var type = attack.Type;
+        attack.Arms.MeleeSwing(in type, trace.Range,
+                               script.Sound(WeaponScriptSound.MeleeHitWorld),
+                               script.Sound(WeaponScriptSound.MeleeHit));
+    }
 
     public void MeleeSwingStarted(in WeaponAttackContext attack, float swingRange) { }
 

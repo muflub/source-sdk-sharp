@@ -407,6 +407,14 @@ internal sealed class RecordingListener : ITeamRoundListener
     public void OnRoundWon(TFTeam team, WinReason reason, float bonusSeconds) => Heard.Add($"won {team} {reason} {bonusSeconds}");
 }
 
+/// <summary>The core's new-match chain, heard: each reset's reason, in order.</summary>
+internal sealed class RecordingMatchResets : IMatchResetHook
+{
+    public readonly List<string> Heard = new();
+
+    public void OnMatchReset(string why) => Heard.Add(why);
+}
+
 internal sealed class FixedVeto : ITimerExpiryVeto
 {
     public bool Allows { get; set; } = true;
@@ -449,6 +457,7 @@ internal sealed class RoundRig
     public readonly SourceSharp.Abi.RecordingLog Log = new();
     public readonly RecordingListener Listener = new();
     public readonly FixedVeto Veto = new();
+    public readonly RecordingMatchResets MatchResets = new();
     public readonly FakeWinPanel WinPanel = new();
     public readonly TeamBalance Balance;
     public readonly RecordingEngine Engine;
@@ -476,7 +485,7 @@ internal sealed class RoundRig
                                  new RandomSeeds(seed), Engine,
                                  new ListHooks<ITeamRoundListener>(Listener), new ListHooks<ITimerExpiryVeto>(Veto),
                                  carriers ?? new TF2.Server.Player.TFPlayerCarriers(), WinPanel, level ?? new FakeLevel(),
-                                 heldObjectives, stats ?? new NoScores());
+                                 heldObjectives, stats ?? new NoScores(), new ListHooks<IMatchResetHook>(MatchResets));
     }
 
     /// <summary>Moves the clock by <paramref name="seconds"/> and thinks once.</summary>

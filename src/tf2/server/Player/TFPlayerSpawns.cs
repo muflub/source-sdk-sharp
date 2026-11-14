@@ -8,6 +8,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Server;
 
+using TF2.Server.Weapons;
 using TF2.Shared;
 
 namespace TF2.Server.Player;
@@ -40,7 +41,7 @@ public sealed class TFPlayerSpawns(TFPlayerCarriers carriers, TFClassTable class
                                    IEngineEntities entities, IEngineEntityRender render,
                                    TFPlayerConditions conditions, TFCritBuckets buckets,
                                    IEntityDirectory directory, Observers observers, ITFCarriedWeapons weapons,
-                                   ITFPlayerResupply resupply,
+                                   ITFPlayerResupply resupply, ITFLunchboxEffects lunchbox,
                                    TFSpawnGlowsDurationConVar spawnGlows, ILog log)
     : IPlayerSpawnHook, IOrderedHook
 {
@@ -67,6 +68,12 @@ public sealed class TFPlayerSpawns(TFPlayerCarriers carriers, TFClassTable class
         // a respawn without a death (a round restart, a class change) gets a
         // fresh kit, full clips included, not the one it was holding.
         players.RemoveAllItems(player, stripSuit: true);
+
+        // CTFLunchBox::UpdateOnRemove (shared/tf/tf_weapon_lunchbox.cpp:100-112):
+        // the weapon the items-strip takes takes its thrown pack with it, so
+        // the class switch does not leave a pack out to be taken back.
+        lunchbox.OnWeaponRemoved(index);
+
         conditions.RemoveAll(player);
 
         // CTFPlayerShared::Spawn's stun reset (tf_player_shared.cpp:1016-1025),
@@ -127,6 +134,10 @@ public sealed class TFPlayerSpawns(TFPlayerCarriers carriers, TFClassTable class
     private void Observe(EntityHandle player, float now)
     {
         players.RemoveAllItems(player, stripSuit: true);
+
+        // The same UpdateOnRemove arm as OnSpawning's: the observer's weapon
+        // strip takes the thrown pack with it too.
+        lunchbox.OnWeaponRemoved(player.EntryIndex);
         if (directory.Get(player) is not SsPlayer watcher)
             return;
 

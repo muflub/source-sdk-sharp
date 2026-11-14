@@ -169,10 +169,17 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
     private readonly ITFPlayerData data;
     private readonly TFPlayerItems items;
     private readonly AttributeHooks hooks;
+    private readonly IEngineSound sound;
 
     private readonly Dictionary<int, PatientHealing> patients = new();
     private readonly Dictionary<int, float[]> chargeOffTimes = new();
     private readonly Dictionary<int, int> releasers = new();
+
+    // Stock's m_bChargeSoundEffectsOn (per row) and m_bChargeOffSounded (one per player,
+    // tf_player_shared.cpp:9080-9098): which rows currently carry an on sound, and whether
+    // this grant cycle has already sounded its off.
+    private readonly Dictionary<int, bool[]> chargeSoundFlags = new();
+    private readonly Dictionary<int, bool> chargeOffSounded = new();
 
     public TFPlayerHealing(IEnginePlayers players, IEngineEntities entities,
                            ITFPlayerConditions conditions, ITFPlayerResupply resupply,
@@ -181,7 +188,7 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
                            ITFPlayerStats stats, TFDamageRecords records,
                            IEngineGameEvents events,
                            IFlagCarriers flagCarriers, ITFPlayerData data,
-                           TFPlayerItems items, AttributeHooks hooks)
+                           TFPlayerItems items, AttributeHooks hooks, IEngineSound sound)
     {
         this.players = players;
         this.entities = entities;
@@ -198,6 +205,7 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
         this.data = data;
         this.items = items;
         this.hooks = hooks;
+        this.sound = sound;
     }
 
     public int HookOrder => TFMedigunOrders.Healing;
@@ -211,6 +219,8 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
         patients.Clear();
         chargeOffTimes.Clear();
         releasers.Clear();
+        chargeSoundFlags.Clear();
+        chargeOffSounded.Clear();
     }
 
     public void OnClientDisconnected(int playerIndex)
@@ -218,6 +228,8 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
         patients.Remove(playerIndex);
         chargeOffTimes.Remove(playerIndex);
         releasers.Remove(playerIndex);
+        chargeSoundFlags.Remove(playerIndex);
+        chargeOffSounded.Remove(playerIndex);
     }
 
     // ---- CTFPlayerShared::Heal / StopHealing / the healers list ----------------
@@ -300,21 +312,24 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
     /// One row of stock's <c>g_MedigunEffects</c> (tf_weapon_medigun.cpp:49-56), the slice
     /// <c>RecalculateChargeEffects</c> walks (tf_player_shared.cpp:8904-8906): the condition
     /// the charge grants, the wearing-off condition that rides its removal
-    /// (<c>TF_COND_LAST</c> on the rows that have none) and whether the wear-off takes
+    /// (<c>TF_COND_LAST</c> on the rows that have none), whether the wear-off takes
     /// <c>tf_invuln_time</c> seconds — stock passes 0.0 for every row but the invulnerable
-    /// one, whose pending expiry the next tick clears.
+    /// one, whose pending expiry the next tick clears — and the pair of script sounds the
+    /// grant and the wear-off emit to the patient (:51-56; the Vaccinator's three rows share
+    /// one pair).
     /// </summary>
-    private readonly record struct ChargeRow(int Type, TFCond Condition, bool HasWearingOff, TFCond WearingOff, bool Timed);
+    private readonly record struct ChargeRow(int Type, TFCond Condition, bool HasWearingOff, TFCond WearingOff, bool Timed,
+                                             string ChargeOnSound, string ChargeOffSound);
 
     private static ChargeRow Row(int chargeType) => chargeType switch
     {
-        1 => new(1, TFCond.Critboosted, false, default, false),    // MEDIGUN_CHARGE_CRITICALBOOST
-        2 => new(2, TFCond.Megaheal, false, default, false),       // MEDIGUN_CHARGE_MEGAHEAL
-        // The Vaccinator's three typed bubbles (tf_weapon_medigun.cpp:54-56).
-        3 => new(3, TFCond.MedigunUberBulletResist, false, default, false),     // MEDIGUN_CHARGE_BULLET_RESIST
-        4 => new(4, TFCond.MedigunUberBlastResist, false, default, false),      // MEDIGUN_CHARGE_BLAST_RESIST
-        5 => new(5, TFCond.MedigunUberFireResist, false, default, false),       // MEDIGUN_CHARGE_FIRE_RESIST
-        _ => new(0, TFCond.Invulnerable, true, TFCond.InvulnerableWearingoff, true),  // MEDIGUN_CHARGE_INVULN
+        1 => new(1, TFCond.Critboosted, false, default, false, "TFPlayer.CritBoostOn", "TFPlayer.CritBoostOff"),    // MEDIGUN_CHARGE_CRITICALBOOST
+        2 => new(2, TFCond.Megaheal, false, default, false, "TFPlayer.QuickFixInvulnerableOn", "TFPlayer.MegaHealOff"),  // MEDIGUN_CHARGE_MEGAHEAL
+        // The Vaccinator's three typed bubbles (tf_weapon_medigun.cpp:54-56), one sound pair between them.
+        3 => new(3, TFCond.MedigunUberBulletResist, false, default, false, "WeaponMedigun_Vaccinator.InvulnerableOn", "WeaponMedigun_Vaccinator.InvulnerableOff"),     // MEDIGUN_CHARGE_BULLET_RESIST
+        4 => new(4, TFCond.MedigunUberBlastResist, false, default, false, "WeaponMedigun_Vaccinator.InvulnerableOn", "WeaponMedigun_Vaccinator.InvulnerableOff"),      // MEDIGUN_CHARGE_BLAST_RESIST
+        5 => new(5, TFCond.MedigunUberFireResist, false, default, false, "WeaponMedigun_Vaccinator.InvulnerableOn", "WeaponMedigun_Vaccinator.InvulnerableOff"),       // MEDIGUN_CHARGE_FIRE_RESIST
+        _ => new(0, TFCond.Invulnerable, true, TFCond.InvulnerableWearingoff, true, "TFPlayer.InvulnerableOn", "TFPlayer.InvulnerableOff"),  // MEDIGUN_CHARGE_INVULN
     };
 
     private const int ChargeRowCount = 6;   // MEDIGUN_NUM_CHARGE_TYPES (tf_shareddefs.h:587-598): the plain three and the Vaccinator's three resists
@@ -378,6 +393,7 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
                                  bool instantRemove, float now)
     {
         float[] offTimes = OffTimes(player.EntryIndex);
+        bool[] flags = SoundFlags(player.EntryIndex);
         int slot = row.Type;
         bool active = conditions.InCond(player, row.Condition);
         if (active == on)
@@ -401,13 +417,30 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
         {
             if (offTimes[slot] != 0f)
             {
+                sound.EntityStopSound(player, row.ChargeOffSound);      // :9064 the pending off sound stops under the re-grant
                 offTimes[slot] = 0f;
                 if (row.HasWearingOff)
                     conditions.Remove(player, row.WearingOff);
             }
             conditions.Add(player, row.Condition, ChargeSeconds(provider), provider);
             SendNewInvulnGameEvent(player);
+            sound.EntityEmitSound(player, row.ChargeOnSound);           // :9078-9079 stock's CSingleUserRecipientFilter; the sound area has no single-recipient emit, so neighbours hear it too (as HealthKit.Sound, docs/divergences.md)
+            flags[slot] = true;                                         // m_bChargeSoundEffectsOn (:9081)
+            chargeOffSounded[player.EntryIndex] = false;                // m_bChargeOffSounded (:9080)
             return;
+        }
+
+        if (flags[slot])                                                // :9085-9089: the on sound stops when the charge starts wearing off
+        {
+            sound.EntityStopSound(player, row.ChargeOnSound);
+            flags[slot] = false;
+        }
+
+        if (offTimes[slot] == 0f && !chargeOffSounded.GetValueOrDefault(player.EntryIndex))   // :9091-9098, once per grant cycle
+        {
+            sound.EntityStopSound(player, row.ChargeOffSound);          // :9094 no duplicate Off sounds
+            sound.EntityEmitSound(player, row.ChargeOffSound);
+            chargeOffSounded[player.EntryIndex] = true;
         }
 
         if (instantRemove)
@@ -467,15 +500,28 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
     {
         if (!chargeOffTimes.TryGetValue(player.EntryIndex, out var offTimes))
             return;
+        bool[] flags = SoundFlags(player.EntryIndex);
         for (int i = 0; i < ChargeRowCount; i++)
         {
-            if (offTimes[i] == 0f || now <= offTimes[i])
-                continue;
-            offTimes[i] = 0f;
             var row = Row(i);
-            conditions.Remove(player, row.Condition);
-            if (row.HasWearingOff)
-                conditions.Remove(player, row.WearingOff);
+            if (conditions.InCond(player, row.Condition))
+            {
+                if (offTimes[i] != 0f && now > offTimes[i])
+                {
+                    offTimes[i] = 0f;
+                    conditions.Remove(player, row.Condition);
+                    if (row.HasWearingOff)
+                        conditions.Remove(player, row.WearingOff);
+                }
+            }
+            else if (flags[i])
+            {
+                // Stock's else-if (:8980-8987): the charge condition is gone but its on
+                // sound is still riding — stop it once, on this tick. Stock guards the stop
+                // on a non-empty name (:8982); every row of the table carries names.
+                sound.EntityStopSound(player, row.ChargeOnSound);
+                flags[i] = false;
+            }
         }
     }
 
@@ -500,6 +546,16 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
             return offTimes;
         var fresh = new float[ChargeRowCount];
         chargeOffTimes[playerIndex] = fresh;
+        return fresh;
+    }
+
+    /// <summary>The per-row sound flags, stock's <c>m_bChargeSoundEffectsOn</c> (:9081, :9088).</summary>
+    private bool[] SoundFlags(int playerIndex)
+    {
+        if (chargeSoundFlags.TryGetValue(playerIndex, out var flags))
+            return flags;
+        var fresh = new bool[ChargeRowCount];
+        chargeSoundFlags[playerIndex] = fresh;
         return fresh;
     }
 

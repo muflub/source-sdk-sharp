@@ -147,6 +147,17 @@ public interface ITFLunchboxEffects
     /// attack at the end of the raise.
     /// </summary>
     void Drink(int playerIndex);
+
+    /// <summary>
+    /// The lunchbox's thrown pack goes with the weapon that threw it
+    /// (<c>CTFLunchBox::UpdateOnRemove</c>, shared/tf/tf_weapon_lunchbox.cpp:100-112's
+    /// GAME_DLL arm): when the weapon entity is removed — the spawn's
+    /// <c>RemoveAllItems</c>, the class switch and the respawn alike — the pack
+    /// still out from the last throw goes too, so it cannot be taken back by
+    /// switching away and back. The no-op default is the stubs' shape; the
+    /// lunchbox owner removes the thrown kit.
+    /// </summary>
+    void OnWeaponRemoved(int playerIndex) { }
 }
 
 /// <summary>

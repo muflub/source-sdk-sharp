@@ -72,7 +72,7 @@ public sealed class TFShieldChargeTests
             Ticker = new(Player.Carriers, Conditions, Player.Engine, new ShieldHealing());
             var wearables = new TFWearables(Player.Carriers, Player.Engine, Directory, Player.Engine, Player.Engine, Player.Log,
                                             new TF2.Tests.Player.TFWearablesTests.RecordingSkins(), Player.Items);
-            Shields = new(Player.Carriers, Directory, Player.Schema, Player.Engine, Player.Engine,
+            Shields = new(Player.Carriers, Conditions, Directory, Player.Schema, Player.Engine, Player.Engine,
                           Player.Engine, Player.Engine, Player.Engine,
                           new ScreenEffects(Player.Engine, Player.Engine, Player.Engine, Player.Engine),
                           Player.Log,
@@ -340,6 +340,55 @@ public sealed class TFShieldChargeTests
         var mini = world.Effects.Swings[^1];
         Assert.False(mini.Shot.Critical);
         Assert.True(mini.Shot.Mini);
+    }
+
+    /// <summary>
+    /// The charge's start strips the debuffs (<c>OnAddShieldCharge</c>'s GAME_DLL
+    /// half, tf_player_shared.cpp:6162-6166): every name of
+    /// <c>g_aDebuffConditions</c> (tf_shareddefs.cpp:276-284 — burning, urine, bleeding,
+    /// mad milk, gas) is gone the moment the charge's condition stands; the charge
+    /// itself of course stands with them.
+    /// </summary>
+    [Fact]
+    public void TheChargeStartStripsTheDebuffList()
+    {
+        var rig = new ChargeRig();
+        rig.WearsShield();
+        rig.Player.State.ChargeMeter = 100f;
+        rig.Conditions.Add(PlayerRig.Player, TFCond.Burning, 5f);
+        rig.Conditions.Add(PlayerRig.Player, TFCond.Urine, 5f);
+        rig.Conditions.Add(PlayerRig.Player, TFCond.Bleeding, 5f);
+        rig.Conditions.Add(PlayerRig.Player, TFCond.MadMilk, 5f);
+        rig.Conditions.Add(PlayerRig.Player, TFCond.Gas, 5f);
+
+        rig.Skill.DoSpecialSkill(Index);
+
+        Assert.True(rig.Player.State.InCond(TFCond.ShieldCharge));
+        Assert.False(rig.Player.State.InCond(TFCond.Burning));
+        Assert.False(rig.Player.State.InCond(TFCond.Urine));
+        Assert.False(rig.Player.State.InCond(TFCond.Bleeding));
+        Assert.False(rig.Player.State.InCond(TFCond.MadMilk));
+        Assert.False(rig.Player.State.InCond(TFCond.Gas));
+    }
+
+    /// <summary>
+    /// The strip takes the debuff list only (<c>OnAddShieldCharge</c>,
+    /// :6163 — the walk stops at <c>TF_COND_LAST</c>): a condition outside
+    /// <c>g_aDebuffConditions</c> rides through the charge's start untouched.
+    /// </summary>
+    [Fact]
+    public void TheChargeStartLeavesOtherConditionsAlone()
+    {
+        var rig = new ChargeRig();
+        rig.WearsShield();
+        rig.Player.State.ChargeMeter = 100f;
+        rig.Conditions.Add(PlayerRig.Player, TFCond.Burning, 5f);
+        rig.Conditions.Add(PlayerRig.Player, TFCond.Zoomed, 5f);
+
+        rig.Skill.DoSpecialSkill(Index);
+
+        Assert.False(rig.Player.State.InCond(TFCond.Burning));
+        Assert.True(rig.Player.State.InCond(TFCond.Zoomed));
     }
 
     /// <summary>The healing the ticker's countdown asks: nobody heals here, no healer ever.</summary>

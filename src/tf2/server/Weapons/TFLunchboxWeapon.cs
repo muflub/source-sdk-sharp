@@ -215,6 +215,23 @@ public sealed class TFLunchboxWeapon(ITFMapPlayers players, ITFPlayerResupply re
     }
 
     /// <summary>
+    /// The lunchbox's thrown pack goes with the weapon
+    /// (<c>CTFLunchBox::UpdateOnRemove</c>, shared/tf/tf_weapon_lunchbox.cpp:100-112's
+    /// GAME_DLL arm): the removed weapon's <c>m_hThrownPowerup</c> is removed
+    /// with it, so a player cannot switch away, let the pack wait out its
+    /// seconds, and take it back under the new life. Asked from the spawn's
+    /// <c>RemoveAllItems</c>, where the weapon entity goes — see
+    /// <see cref="TFPlayerSpawns.OnSpawning"/>.
+    /// </summary>
+    public void OnWeaponRemoved(int playerIndex)
+    {
+        if (playerIndex <= 0)
+            return;
+
+        RemoveThrown(enginePlayers.GetHandle(playerIndex));
+    }
+
+    /// <summary>
     /// The thrower's earlier plate, gone: every thrown kit out there that
     /// names them as owner (stock's single <c>m_hThrownPowerup</c> — at most
     /// one throw in flight per player, so the scan is the field).

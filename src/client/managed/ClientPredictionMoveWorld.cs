@@ -16,13 +16,19 @@ namespace SourceSharp.Client;
 /// questions -- traces, contents, surfaces -- go to the engine as before, and
 /// the helper's answers are taken here instead of crossing to native's inert
 /// stand-in.
+///
+/// <para>
+/// The other players are clipped in here (<see cref="PredictionPlayerClip"/>):
+/// the engine's client trace hits no entity, and the server's does.
+/// </para>
 /// </summary>
 public sealed class ClientPredictionMoveWorld(IMoveWorld engine, Func<EntityHandle> host, Func<bool> firstRun,
                                               Sounds.IClientEntitySounds sound, Sounds.ClientStepSounds steps,
-                                              Func<MoveState?> move) : IMoveWorld
+                                              Func<MoveState?> move, PredictionPlayerClip players) : IMoveWorld
 {
     public MoveTrace Trace(in Vector start, in Vector end, in Vector mins, in Vector maxs, uint mask, int collisionGroup)
-        => engine.Trace(start, end, mins, maxs, mask, collisionGroup);
+        => players.Clip(engine.Trace(start, end, mins, maxs, mask, collisionGroup), host(), start, end, mins, maxs, mask,
+                        collisionGroup);
 
     public int PointContents(in Vector point, int slot) => engine.PointContents(point, slot);
 

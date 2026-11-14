@@ -193,7 +193,7 @@ public sealed class TFDrinkTests
         var scripts = new TFWeaponScripts(new RecordingLog(), WeaponFixtures.WithExtras(WeaponFixtures.Shipped()));
         var attack = new TFTauntAttack(rig.Carriers, players, rig.Engine, rig.Engine, rig.Engine, rig.Engine,
                                        rig.Engine, scripts, new TFDamageScopes(), new NoEntities(), lunchbox,
-                                       new NoTFWeaponOwners(), new AttributeHooks());
+                                       new NoTFWeaponOwners(), new AttributeHooks(), new TFTauntAttackTests.FixedRandom(), rig.Engine);
         attack.Attach(Player);
 
         var world = new TFWeaponWorld(files: WeaponFixtures.WithExtras(WeaponFixtures.Shipped()));
@@ -271,7 +271,7 @@ public sealed class TFDrinkTests
         var scripts = new TFWeaponScripts(new RecordingLog(), WeaponFixtures.WithExtras(WeaponFixtures.Shipped()));
         var attack = new TFTauntAttack(rig.Carriers, players, rig.Engine, rig.Engine, rig.Engine, rig.Engine,
                                        rig.Engine, scripts, new TFDamageScopes(), new NoEntities(), lunchbox,
-                                       new NoTFWeaponOwners(), new AttributeHooks());
+                                       new NoTFWeaponOwners(), new AttributeHooks(), new TFTauntAttackTests.FixedRandom(), rig.Engine);
         attack.Attach(Player);
 
         var world = new TFWeaponWorld(files: WeaponFixtures.WithExtras(WeaponFixtures.Shipped()));

@@ -1,11 +1,21 @@
+extern alias client;
+
 using SourceSharp.Abi;
 using SourceSharp.Shared;
+using SourceSharp.Shared.Anim;
 
 using TF2.Shared;
 using TF2.Shared.Econ;
 using TF2.Shared.Player;
 
 using Xunit;
+
+using ClientAbi = client::SourceSharp.Abi;
+using ClientCarriers = client::TF2.Client.Player.TFClientCarriers;
+using ClientEffects = client::TF2.Client.Weapons.TFClientWeaponEffects;
+using ClientLog = client::SourceSharp.Abi.RecordingLog;
+using ClientPrediction = client::TF2.Client.Player.TFPlayerPrediction;
+using ClientData = client::TF2.Client.Player.ClientTFPlayerData;
 
 namespace TF2.Tests.Weapons;
 
@@ -54,6 +64,103 @@ public sealed class TFMeleeBehaviourTests
         Assert.Equal((Bat, new ShotDamage(35f), new SwingTrace(TFWeaponTypes.SwingRange, TFMeleeBehaviour.SwingHull, false)),
                      Assert.Single(world.Effects.Swings));
         Assert.Equal(0, w.BehaviourMode & TFMeleeBehaviour.ModeSwinging);
+    }
+
+    /// <summary>Stock's <c>OnSwingHit</c> pair on the client: the smack rides the
+    /// client's effects service into the arms, carrying the swing's reach and the
+    /// script's two hit sounds (the pair <see cref="TFMeleeBehaviour"/> hands
+    /// <c>Parts.Effects.Melee</c> under <c>EffectsLive</c>, as its facts above show).</summary>
+    [Fact]
+    public void The_smack_hands_the_arms_the_reach_and_the_scripts_two_hit_sounds()
+    {
+        var arms = new ClientSwingArms();
+        var attack = new client::SourceSharp.Shared.WeaponAttackContext(
+            new client::SourceSharp.Shared.WeaponType
+            {
+                Name = Bat,
+                MeleeRange = TFWeaponTypes.SwingRange,
+                MeleeDamage = 35f,
+            },
+            default!, default!, 1f, true, arms, new client::SourceSharp.Shared.WeaponCommand(1, 5, 3));
+        var script = new client::TF2.Shared.TFWeaponScripts(new ClientLog(), new ClientFiles()).Get(Bat);
+
+        Assert.NotNull(script);
+        ClientEffects().Melee(in attack, script!, new client::SourceSharp.Shared.ShotDamage(35f),
+                              new client::TF2.Shared.SwingTrace(TFWeaponTypes.SwingRange, TFMeleeBehaviour.SwingHull,
+                                                                false));
+
+        Assert.Equal((Bat, TFWeaponTypes.SwingRange, "Weapon_Bat.HitWorld", "Weapon_Bat.HitFlesh"),
+                     Assert.Single(arms.ArmSwings));
+    }
+
+    /// <summary>The client's arms as a recorder of the swung-over call; its
+    /// other members, like the replay's, do nothing.</summary>
+    private sealed class ClientSwingArms : client::SourceSharp.Shared.IWeaponArms
+    {
+        public readonly List<(string Weapon, float Range, string HitWorldSound, string HitPlayerSound)> ArmSwings =
+            new();
+
+        public void Sound(string soundScript) { }
+        public void FireBullets(in client::SourceSharp.Shared.WeaponType type, int pellets, float spreadDegrees) { }
+        public void MeleeSwing(in client::SourceSharp.Shared.WeaponType type) { }
+        public void Launch(in client::SourceSharp.Shared.WeaponType type, string projectile, float speed,
+                           bool thrown) { }
+        public int LookupSequence(WeaponAnim anim) => -1;
+        public float AnimDuration(WeaponAnim anim) => 0f;
+
+        public void MeleeSwing(in client::SourceSharp.Shared.WeaponType type, float range,
+                               string hitWorldSound, string hitPlayerSound) =>
+            ArmSwings.Add((type.Name, range, hitWorldSound, hitPlayerSound));
+    }
+
+    /// <summary>The client's effects service over its own prediction, the way
+    /// the client's composition builds it (the <c>PredictionDeps</c> doubles).</summary>
+    private static ClientEffects ClientEffects()
+    {
+        var log = new ClientLog();
+        var files = new ClientFiles();
+        var convars = PredictionDeps.SpyConVars();
+        var schema = new client::TF2.Shared.Econ.ItemSchema(files, log);
+        var catalog = new client::SourceSharp.Shared.WeaponCatalog(
+            () => [new client::TF2.Shared.TFWeaponTypes(
+                       new client::TF2.Shared.TFWeaponScripts(log, files),
+                       new client::TF2.Shared.TFClassTable(log, files), schema)],
+            log);
+        return new ClientEffects(new ClientPrediction(
+            log, new ClientCarriers(), ClientAbi.NetStateCatalog.Of(typeof(ClientData).Assembly, log),
+            new NoClientEntities(), PredictionDeps.Engine(),
+            convars.Declared<client::TF2.Shared.TFSpyCloakConsumeRateConVar>(),
+            convars.Declared<client::TF2.Shared.TFSpyCloakRegenRateConVar>(),
+            convars.Declared<client::TF2.Shared.TFSpyInvisTimeConVar>(),
+            convars.Declared<client::TF2.Shared.TFSpyInvisUnstealthTimeConVar>(),
+            convars.Declared<client::TF2.Shared.TFDemomanChargeDrainTimeConVar>(),
+            convars.Declared<client::TF2.Shared.TFDemomanChargeRegenRateConVar>(),
+            convars.Declared<client::TF2.Shared.TFScoutEnergydrinkConsumeRateConVar>(),
+            convars.Declared<client::TF2.Shared.TFScoutEnergydrinkRegenRateConVar>(),
+            schema, catalog));
+    }
+
+    /// <summary>No client entities at all: the arms call needs none.</summary>
+    private sealed class NoClientEntities : client::SourceSharp.Client.IClientStandalones
+    {
+        public IReadOnlyList<client::SourceSharp.Client.Standalone.ClientStandaloneEntity> Live() => [];
+        public client::SourceSharp.Client.Standalone.ClientStandaloneEntity? GetByIndex(int entityIndex) => null;
+    }
+
+    /// <summary>The shipped scripts and the trimmed schema, served as the client's
+    /// file seam (the pack the client really has at boot).</summary>
+    private sealed class ClientFiles : ClientAbi.IEngineFiles
+    {
+        private readonly TFClassTableTests.Files _files = WeaponFixtures.ShippedWithClasses();
+
+        public ClientFiles() =>
+            _files.Bytes[client::TF2.Shared.Econ.ItemSchema.FilePath] =
+                System.Text.Encoding.UTF8.GetBytes(EconTestFiles.Fixture("items_game.trimmed.txt"));
+
+        public int GameFileSize(string path) => _files.GameFileSize(path);
+        public string? ReadGameFile(string path) => _files.ReadGameFile(path);
+        public byte[]? ReadGameFileBytes(string path) => _files.ReadGameFileBytes(path);
+        public byte[]? ReadFileOnPath(string path, string pathId) => _files.ReadFileOnPath(path, pathId);
     }
 
     [Fact]

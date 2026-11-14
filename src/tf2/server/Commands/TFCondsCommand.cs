@@ -69,7 +69,19 @@ public sealed class TFCondsCommand(ILog log, SourceSharp.Shared.SvCheatsConVar c
         log.Msg($"[TF2/Conds] {index} {className} team {players.GetTeam(player)} hp {entities.GetHealth(player)} " +
                 $"at {origin.X:F1} {origin.Y:F1} {origin.Z:F1} vz {(int)velocity.Z} " +
                 $"weapon {players.GetActiveWeapon(player)} conds {(conds.Count > 0 ? string.Join(",", conds) : "-")} " +
-                $"cloak {state?.CloakMeter ?? 0f:F0} charge {state?.ChargeMeter ?? 0f:F0}\n");
+                $"cloak {state?.CloakMeter ?? 0f:F0} charge {ChargeColumn(state)}\n");
         return players.IsAlive(player);
     }
+
+    /// <summary>
+    /// The charge column's number: the medic's ubercharge rides
+    /// <see cref="TFPlayerNetState.MedicCharge"/> (0..1, what
+    /// <c>SetChargeLevel</c> publishes and the Uberslice's kill moves), so it
+    /// keeps its decimals where the shield's meter (<see cref="TFPlayerNetState.ChargeMeter"/>,
+    /// 0..100) prints whole. An empty carrier answers zero.
+    /// </summary>
+    private static string ChargeColumn(TFPlayerNetState? state)
+        => state is { } s && s.PlayerClass == (int)TFClass.Medic
+            ? s.MedicCharge.ToString("0.##", CultureInfo.InvariantCulture)
+            : (state?.ChargeMeter ?? 0f).ToString("F0", CultureInfo.InvariantCulture);
 }

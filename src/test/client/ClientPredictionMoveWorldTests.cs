@@ -59,7 +59,7 @@ public class ClientPredictionMoveWorldTests
         var engine = new Engine();
         var sound = new Sounds();
         var steps = new ClientStepSounds(new NoSteps(), () => true, () => 8, _ => null);
-        return (new ClientPredictionMoveWorld(engine, () => Host, () => firstRun, sound, steps, () => null), engine, sound);
+        return (new ClientPredictionMoveWorld(engine, () => Host, () => firstRun, sound, steps, () => null, PlayerClips.None()), engine, sound);
     }
 
     [Fact]

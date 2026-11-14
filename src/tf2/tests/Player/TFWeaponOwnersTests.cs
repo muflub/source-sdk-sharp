@@ -772,6 +772,7 @@ public sealed class TFWeaponOwnersTests
         c.AddInstance(cloakVars.Declared<CTF.TFDemomanChargeDrainTimeConVar>());
         c.AddInstance(cloakVars.Declared<CTF.TFDemomanChargeRegenRateConVar>());
         c.AddInstance(cloakVars.Declared<CTF.TFScoutEnergydrinkConsumeRateConVar>());
+        c.AddInstance(cloakVars.Declared<CTF.TFScoutEnergydrinkRegenRateConVar>());
         CAbi.SideServices.Register(c, Side.Client, typeof(CTFPlayer.TFClientWeaponOwners).Assembly.GetTypes());
 
         Assert.IsType<CTFPlayer.TFClientWeaponOwners>(c.Resolve(typeof(CTF.ITFWeaponOwners)));

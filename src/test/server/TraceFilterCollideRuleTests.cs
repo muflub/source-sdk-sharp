@@ -38,25 +38,27 @@ public class TraceFilterCollideRuleTests
 
     private sealed class Refusing(EntityHandle target) : IEntityCollideRule
     {
-        public bool ShouldCollide(EntityHandle entity, CollisionGroup group, int contentsMask)
+        public bool ShouldCollide(EntityHandle mover, EntityHandle entity, CollisionGroup group, int contentsMask)
             => entity != target;
     }
 
     private sealed class Agreeing : IEntityCollideRule
     {
-        public bool ShouldCollide(EntityHandle entity, CollisionGroup group, int contentsMask) => true;
+        public bool ShouldCollide(EntityHandle mover, EntityHandle entity, CollisionGroup group, int contentsMask) => true;
     }
 
     private sealed class Recorder : IEntityCollideRule
     {
         public int Asks;
+        public EntityHandle Mover = Rocket;
         public EntityHandle Entity;
         public CollisionGroup Group;
         public int Mask;
 
-        public bool ShouldCollide(EntityHandle entity, CollisionGroup group, int contentsMask)
+        public bool ShouldCollide(EntityHandle mover, EntityHandle entity, CollisionGroup group, int contentsMask)
         {
             Asks++;
+            Mover = mover;
             Entity = entity;
             Group = group;
             Mask = contentsMask;
@@ -74,9 +76,9 @@ public class TraceFilterCollideRuleTests
         return (TraceFilterRules.Over(blocks, CollisionRules.BuildMatrix(), rules), blocks);
     }
 
-    private static bool Hits(TraceFilterRules rules, EntityHandle candidate, int group = 0)
+    private static bool Hits(TraceFilterRules rules, EntityHandle candidate, int group = 0, EntityHandle pass = default)
     {
-        TraceFilterQuery query = rules.Resolve(default, group);
+        TraceFilterQuery query = rules.Resolve(pass, group);
         return rules.ShouldHitEntity(query, candidate.Value, MaskSolid);
     }
 
@@ -153,5 +155,35 @@ public class TraceFilterCollideRuleTests
         Assert.Equal(Crate, recorder.Entity);
         Assert.Equal((int)EngineCollisionGroup.PlayerMovement, (int)recorder.Group);
         Assert.Equal(MaskSolid, recorder.Mask);
+    }
+
+    /// <summary>
+    /// The mover is the trace's pass entity: a movement trace names the player
+    /// it moves, and a rule that compares two players (a team mode's teammate
+    /// pass, which the mask's two team bits cannot carry) reads it here.
+    /// </summary>
+    [Fact]
+    public void TheRuleHearsTheTracesPassEntityAsTheMover()
+    {
+        var recorder = new Recorder();
+        var (rules, _) = Rig(new Chained(recorder));
+
+        Hits(rules, Crate, pass: Rocket);
+
+        Assert.Equal(1, recorder.Asks);
+        Assert.Equal(Rocket, recorder.Mover);
+    }
+
+    /// <summary>A trace that names no pass entity hands the rule no mover.</summary>
+    [Fact]
+    public void ATraceWithNoPassEntityHandsNoMover()
+    {
+        var recorder = new Recorder();
+        var (rules, _) = Rig(new Chained(recorder));
+
+        Hits(rules, Crate);
+
+        Assert.Equal(1, recorder.Asks);
+        Assert.Equal(EntityHandle.None, recorder.Mover);
     }
 }

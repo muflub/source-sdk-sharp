@@ -77,6 +77,7 @@ public sealed class TFPlayerPredictionTests
                 convars.Declared<client::TF2.Shared.TFDemomanChargeDrainTimeConVar>(),
                 convars.Declared<client::TF2.Shared.TFDemomanChargeRegenRateConVar>(),
                 convars.Declared<client::TF2.Shared.TFScoutEnergydrinkConsumeRateConVar>(),
+                convars.Declared<client::TF2.Shared.TFScoutEnergydrinkRegenRateConVar>(),
                 itemSchema ?? schema, itemCatalog ?? catalog);
         }
 
@@ -153,6 +154,7 @@ public sealed class TFPlayerPredictionTests
             convars.Declared<client::TF2.Shared.TFDemomanChargeDrainTimeConVar>(),
             convars.Declared<client::TF2.Shared.TFDemomanChargeRegenRateConVar>(),
             convars.Declared<client::TF2.Shared.TFScoutEnergydrinkConsumeRateConVar>(),
+            convars.Declared<client::TF2.Shared.TFScoutEnergydrinkRegenRateConVar>(),
             schema, catalog);
 
         prediction.ResetBasis(LocalPlayer, 10);
@@ -388,6 +390,7 @@ public sealed class TFPlayerPredictionTests
             .AddInstance(convars.Declared<client::TF2.Shared.TFDemomanChargeDrainTimeConVar>())
             .AddInstance(convars.Declared<client::TF2.Shared.TFDemomanChargeRegenRateConVar>())
             .AddInstance(convars.Declared<client::TF2.Shared.TFScoutEnergydrinkConsumeRateConVar>())
+            .AddInstance(convars.Declared<client::TF2.Shared.TFScoutEnergydrinkRegenRateConVar>())
             .AddInstance(ClientItems().Item1)
             .AddInstance(ClientItems().Item2);
 

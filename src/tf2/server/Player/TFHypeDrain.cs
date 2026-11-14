@@ -21,11 +21,14 @@ namespace TF2.Server.Player;
 /// meter at or under zero takes the condition with it. Stock runs the think
 /// from <c>ConditionThink</c> (:3117), every frame whatever is held — the
 /// per-player component, not the weapon's frames, as the rage drain is. The
-/// refill half (:14101-14120) is the energy meter's, the lunchbox behaviour's
-/// guest; the hype meter refills by no clock, only by damage.
+/// refill half (:14101-14120) — the boost's drain at the consume rate, both
+/// buffs ending with an emptied meter, and the regain toward full at the regen
+/// rate while nothing boosts — rides this same frame; the hype meter itself
+/// refills by no clock, only by damage.
 /// </summary>
 public sealed class TFHypeDrain(ITFPlayerData players, ITFPlayerConditions conditions,
-                                TFScoutEnergydrinkConsumeRateConVar consume)
+                                TFScoutEnergydrinkConsumeRateConVar consume,
+                                TFScoutEnergydrinkRegenRateConVar regen)
     : IPlayerComponent
 {
     private EntityHandle _player = EntityHandle.None;
@@ -52,16 +55,38 @@ public sealed class TFHypeDrain(ITFPlayerData players, ITFPlayerConditions condi
         if (frametime <= 0f || players.Predicted(_index) is not { } state)
             return;
 
-        if (state.Class() != TFClass.Scout)                                   // :14059
+        if (state.Class() != TFClass.Scout)                                   // :14059, the whole think's gate
             return;
 
-        if (!conditions.InCond(_player, TFCond.SodapopperHype))
-            return;
+        if (conditions.InCond(_player, TFCond.SodapopperHype))
+        {
+            // :14073 — no clamp; the emptied meter's branch owns the bottom.
+            state.HypeMeter -= frametime * consume.Value * 0.75f;
+            if (state.HypeMeter <= 0f)
+                conditions.Remove(_player, TFCond.SodapopperHype);   // :14076
+        }
 
-        // :14073 — no clamp; the emptied meter's branch owns the bottom.
-        state.HypeMeter -= frametime * consume.Value * 0.75f;
-        if (state.HypeMeter <= 0f)
-            conditions.Remove(_player, TFCond.SodapopperHype);   // :14076
+        // The drink halves (:14080-14095): while the boost stands, the meter
+        // pays the frame at the consume rate, and an emptied one ends both
+        // names of the pair together.
+        if (conditions.InCond(_player, TFCond.Phase) || conditions.InCond(_player, TFCond.EnergyBuff))
+        {
+            state.EnergyDrinkMeter -= frametime * consume.Value;               // :14083
+            if (state.EnergyDrinkMeter <= 0f)                                   // :14086-14089, the names end together
+            {
+                // No clamp here either — the refill's next frame takes the
+                // negative meter back up, as stock's else-if chain does.
+                conditions.Remove(_player, TFCond.Phase);
+                conditions.Remove(_player, TFCond.EnergyBuff);
+            }
+
+            return;
+        }
+
+        // The refill half (:14101-14119): nothing boosting, the meter regains
+        // toward full at the regen rate, capped at the top.
+        if (state.EnergyDrinkMeter < 100f)
+            state.EnergyDrinkMeter = MathF.Min(100f, state.EnergyDrinkMeter + frametime * regen.Value);
     }
 
     public void Detach() => _player = EntityHandle.None;

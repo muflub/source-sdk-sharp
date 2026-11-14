@@ -281,6 +281,20 @@ public partial class TFPlayerNetState
     public partial float ChargeMeter { get; set; }
 
     /// <summary>
+    /// <c>m_flEnergyDrinkMeter</c> (tf_player_shared.h:1098): the scout's
+    /// energy drink charge, 0..100, zero from the ctor (:887) — spent by the
+    /// drink's boost at the consume rate and regained toward full between
+    /// boosts at the regen rate
+    /// (<c>UpdateEnergyDrinkMeter</c>, tf_player_shared.cpp:14080-14119),
+    /// snapped full by <c>Regenerate</c> (tf_player.cpp:4097). Predicted, as
+    /// stock's (<c>DEFINE_PRED_FIELD</c> :451, sent too by
+    /// <c>SendPropFloat</c> :569): the meter's drain and refill run in the
+    /// shared think both sides mirror (<c>ConditionThink</c>, :3118).
+    /// </summary>
+    [Predicted]
+    public partial float EnergyDrinkMeter { get; set; }
+
+    /// <summary>
     /// <c>m_iNextMeleeCrit</c> (tf_player_shared.h:1169): the next melee
     /// swing's granted crit — the charge end's <c>CalcChargeCrit</c> ladder
     /// (:6125-6146), spent by the melee crit helpers

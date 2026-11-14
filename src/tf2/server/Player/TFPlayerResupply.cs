@@ -129,9 +129,15 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
         int max = MaxHealth(player);
         entities.SetHealth(player, boosted ? Math.Max(oldHealth, max) : max);
 
-        // Regenerate's SetSpyCloakMeter( 100.0f ) (tf_player.cpp:4096).
+        // Regenerate's meter trio: SetSpyCloakMeter, SetScoutEnergyDrinkMeter
+        // and SetDemomanChargeMeter (tf_player.cpp:4096-4098), the refill
+        // half's three setters filling their meters beside the kit.
         if (carriers.Get(player.EntryIndex) is { } state)
+        {
             state.CloakMeter = 100f;
+            state.EnergyDrinkMeter = 100f;
+            state.ChargeMeter = 100f;
+        }
 
         if (refillHealthAndAmmo)
         {

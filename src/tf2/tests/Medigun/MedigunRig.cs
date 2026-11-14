@@ -91,7 +91,7 @@ internal sealed class MedigunRig
         Healing = new TFPlayerHealing(Engine, Engine, Conditions, Resupply,
                                       ConVars.Declared<TFMaxHealthBoostConVar>(), ConVars.Declared<TFBoostDrainTimeConVar>(),
                                       ConVars.Declared<TFInvulnTimeConVar>(), new FakeClock(),
-                                      Stats, Records, Events, Ctf, Data, Items, Hooks);
+                                      Stats, Records, Events, Ctf, Data, Items, Hooks, Engine);
     }
 
     /// <summary>A medigun over this rig's healing, as the composition builds it: the weapon

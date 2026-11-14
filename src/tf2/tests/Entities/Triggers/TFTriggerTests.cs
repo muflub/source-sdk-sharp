@@ -1,4 +1,7 @@
 using SourceSharp.Abi;
+using SourceSharp.Server;
+using SourceSharp.Shared;
+
 using TF2.Server.Entities.Triggers;
 using TF2.Shared;
 using TF2.Tests.Entities.Items;
@@ -334,5 +337,71 @@ public sealed class TFTriggerTests
 
         Assert.Equal(["explosion"],
             rig.Engine.AllOf("Precache.PrecacheParticleSystem").Select(c => (string)c.Arg(0)!));
+    }
+
+    // ---- trigger_ignite_arrows (tf_triggers.cpp:173-232) ---------------------
+
+    /// <summary>The rig of the bow facts: a world whose one carrier holds a
+    /// compound bow, an eye at the origin plane looking along
+    /// <paramref name="eyeAngles"/>, and the trigger's origin ten east.</summary>
+    private static (MapItemRig Rig, EntityHandle Bow) BowWorld(Vector eyeAngles)
+    {
+        var rig = new MapItemRig();
+        rig.Registry.RegisterAll(typeof(SsWeapon).Assembly);
+        rig.Engine.Returns("Entities.IsPlayer", true)
+                  .Returns("Entities.GetOrigin", new Vector(10f, 0f, 0f))      // the trigger's origin
+                  .Returns("Entities.GetEyePosition", Vector.Zero)             // the eye
+                  .Returns("Entities.GetEyeAngles", eyeAngles)
+                  .Returns("Players.GetActiveWeapon", "tf_weapon_compound_bow");
+        var bow = rig.NewHandle();
+        rig.Engine.Returns("Players.GetActiveWeaponEntity", bow);
+        rig.Registry.Spawn(bow, EntityNames.SsWeapon);
+        return (rig, bow);
+    }
+
+    /// <summary>The Touch order of stock (:202-231): a Sniper facing the
+    /// trigger origin with the bow held lights the arrow (:230).</summary>
+    [Fact]
+    public void Entering_as_a_facing_sniper_lights_the_held_bows_arrow()
+    {
+        // Straight ahead (:216-223): forward (1,0,0) against the eye-to-origin
+        // direction (1,0,0), dot 1 over the 0.95 threshold.
+        var (rig, bowHandle) = BowWorld(new Vector(0f, 0f, 0f));
+        var trigger = rig.Spawn<TriggerIgniteArrows>(TriggerIgniteArrows.MapClass);
+        var (player, _) = rig.Players.Add(playerClass: TFClass.Sniper);
+
+        rig.Touch(trigger, player);
+
+        Assert.True(((SsWeapon)rig.Registry.Get(bowHandle)!).State.ArrowAlight);
+    }
+
+    /// <summary>The dot gate (:222): the same bow held by a Sniper whose back
+    /// is turned answers nothing — the arrow stays dark.</summary>
+    [Fact]
+    public void Entering_while_facing_away_leaves_the_arrow_dark()
+    {
+        // Facing west while the origin lies east: forward (-1,0,0) against
+        // (1,0,0), dot -1 under the threshold.
+        var (rig, bowHandle) = BowWorld(new Vector(0f, 180f, 0f));
+        var trigger = rig.Spawn<TriggerIgniteArrows>(TriggerIgniteArrows.MapClass);
+        var (player, _) = rig.Players.Add(playerClass: TFClass.Sniper);
+
+        rig.Touch(trigger, player);
+
+        Assert.False(((SsWeapon)rig.Registry.Get(bowHandle)!).State.ArrowAlight);
+    }
+
+    /// <summary>The class gate (:212-214): a Soldier facing the bow-held
+    /// origin still gets no lit arrow.</summary>
+    [Fact]
+    public void Entering_as_a_non_sniper_leaves_the_arrow_dark()
+    {
+        var (rig, bowHandle) = BowWorld(new Vector(0f, 0f, 0f)); // the facing geometry
+        var trigger = rig.Spawn<TriggerIgniteArrows>(TriggerIgniteArrows.MapClass);
+        var (player, _) = rig.Players.Add(); // the rig's default Soldier
+
+        rig.Touch(trigger, player);
+
+        Assert.False(((SsWeapon)rig.Registry.Get(bowHandle)!).State.ArrowAlight);
     }
 }

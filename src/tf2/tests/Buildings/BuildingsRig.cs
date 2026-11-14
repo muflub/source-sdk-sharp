@@ -312,7 +312,7 @@ internal sealed partial class BuildingsRig
                                       Convars.Declared<TFMaxHealthBoostConVar>(), Convars.Declared<TFBoostDrainTimeConVar>(),
                                       Convars.Declared<TFInvulnTimeConVar>(), Clock,
                                       new TFHealingStats(), new TFDamageRecords(), new TFHealingEvents(),
-                                      new TFHealingCtf(), new TFHealingPlayerData(), new TFPlayerItems(), Hooks);
+                                      new TFHealingCtf(), new TFHealingPlayerData(), new TFPlayerItems(), Hooks, Engine);
         Services.AddInstance(HealingConditions);
         // The condition arm of the send (the teleporter's speed boost) joins
         // the same accumulator the dispenser's heal arm feeds.

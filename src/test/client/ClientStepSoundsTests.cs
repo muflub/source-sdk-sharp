@@ -179,7 +179,7 @@ public class ClientStepSoundsTests
     {
         var sink = new Sink();
         MoveState move = Running();
-        var world = new ClientPredictionMoveWorld(new Ground(), () => new EntityHandle(0x0001_0001u), () => true, new NoSounds(), Steps(sink), () => move);
+        var world = new ClientPredictionMoveWorld(new Ground(), () => new EntityHandle(0x0001_0001u), () => true, new NoSounds(), Steps(sink), () => move, PlayerClips.None());
 
         world.UpdateStepSound(new Vector(1, 2, 3), move.Velocity, 5);
 
@@ -193,7 +193,7 @@ public class ClientStepSoundsTests
     {
         var sink = new Sink();
         MoveState move = Running();
-        var world = new ClientPredictionMoveWorld(new Ground(), () => new EntityHandle(0x0001_0001u), () => false, new NoSounds(), Steps(sink), () => move);
+        var world = new ClientPredictionMoveWorld(new Ground(), () => new EntityHandle(0x0001_0001u), () => false, new NoSounds(), Steps(sink), () => move, PlayerClips.None());
 
         world.UpdateStepSound(Vector.Zero, move.Velocity, 5);
         world.PlayStepSound(Vector.Zero, 5, 1f, true);
@@ -206,7 +206,7 @@ public class ClientStepSoundsTests
     {
         var sink = new Sink();
         MoveState move = Running();
-        var world = new ClientPredictionMoveWorld(new Ground(), () => new EntityHandle(0x0001_0001u), () => true, new NoSounds(), Steps(sink), () => move);
+        var world = new ClientPredictionMoveWorld(new Ground(), () => new EntityHandle(0x0001_0001u), () => true, new NoSounds(), Steps(sink), () => move, PlayerClips.None());
 
         // 200 commands of 15 ms: 3 s.
         for (int i = 0; i < 200; i++)

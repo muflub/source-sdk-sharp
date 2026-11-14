@@ -91,6 +91,7 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
     private readonly TFDemomanChargeDrainTimeConVar _chargeDrain;
     private readonly TFDemomanChargeRegenRateConVar _chargeRegen;
     private readonly TFScoutEnergydrinkConsumeRateConVar _hypeConsume;
+    private readonly TFScoutEnergydrinkRegenRateConVar _drinkRegen;
 
     // The client's item world, for the watch's own mode read: the same pair
     // TFClientWeaponOwners walks.
@@ -153,6 +154,7 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
                               TFDemomanChargeDrainTimeConVar chargeDrain,
                               TFDemomanChargeRegenRateConVar chargeRegen,
                               TFScoutEnergydrinkConsumeRateConVar hypeConsume,
+                              TFScoutEnergydrinkRegenRateConVar drinkRegen,
                               ItemSchema itemSchema, WeaponCatalog weaponCatalog)
     {
         _log = log;
@@ -169,6 +171,7 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
         _chargeDrain = chargeDrain;
         _chargeRegen = chargeRegen;
         _hypeConsume = hypeConsume;
+        _drinkRegen = drinkRegen;
         _working.BindLocal();
     }
 
@@ -253,6 +256,7 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
         CloakTick(now);
         ChargeTick(now);
         HypeTick();
+        DrinkTick();
         BurnTick(now);
         DisguiseTick(now);
 
@@ -631,6 +635,38 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
         _working.HypeMeter -= dt * _hypeConsume.Value * 0.75f;    // :14073, no clamp
         if (_working.HypeMeter <= 0f)                                         // :14074
             _working.SetConditions(_working.Conditions() & ~TFCondMask.Of(TFCond.SodapopperHype));
+    }
+
+    /// <summary>
+    /// The drink meter's halves (<c>UpdateEnergyDrinkMeter</c>,
+    /// tf_player_shared.cpp:14080-14119): while the boost stands, the meter
+    /// pays the command at the consume rate and an emptied one ends both
+    /// names of the pair; nothing boosting, it regains toward full at the
+    /// regen rate, capped at the top. The server's half is the same frame of
+    /// the <c>TFHypeDrain</c> component; this mirrors it over the command's
+    /// own ticks, as the charge's <see cref="ChargeTick"/> does.
+    /// </summary>
+    private void DrinkTick()
+    {
+        float dt = Interval;
+
+        if (_working.Class() != TFClass.Scout)                                        // :14059
+            return;
+
+        if (_working.InCond(TFCond.Phase) || _working.InCond(TFCond.EnergyBuff))     // :14080
+        {
+            _working.EnergyDrinkMeter -= dt * _hypeConsume.Value;                   // :14083
+            if (_working.EnergyDrinkMeter <= 0f)                                     // :14086-14089, no clamp
+            {
+                _working.SetConditions(_working.Conditions()
+                                       & ~TFCondMask.Of(TFCond.Phase) & ~TFCondMask.Of(TFCond.EnergyBuff));
+            }
+
+            return;
+        }
+
+        if (_working.EnergyDrinkMeter < 100f)                                        // :14101-14119
+            _working.EnergyDrinkMeter = MathF.Min(100f, _working.EnergyDrinkMeter + dt * _drinkRegen.Value);
     }
 
     /// <summary>

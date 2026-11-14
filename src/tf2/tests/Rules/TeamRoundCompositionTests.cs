@@ -56,6 +56,7 @@ public sealed class TeamRoundCompositionTests
         // AddHooks, the carrier, the panel, the level and the stats rows.
         services.AddInstance<IHooks<ITeamRoundListener>>(new ListHooks<ITeamRoundListener>());
         services.AddInstance<IHooks<ITimerExpiryVeto>>(new ListHooks<ITimerExpiryVeto>());
+        services.AddInstance<IHooks<IMatchResetHook>>(new ListHooks<IMatchResetHook>());
         services.AddInstance(new TF2.Server.Player.TFPlayerCarriers());
         // The balancer's class rows: the carrier's own interface half, which
         // the server module registers as the scan's As rows.

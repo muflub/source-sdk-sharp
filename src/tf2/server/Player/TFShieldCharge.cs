@@ -58,7 +58,7 @@ public interface ITFShieldCharge
 [Precache(PrecacheKind.Sound, "DemoCharge.HitWorld")]
 [Precache(PrecacheKind.Sound, "DemoCharge.HitFlesh")]
 [Precache(PrecacheKind.Sound, "DemoCharge.HitFleshRange")]
-public sealed class TFShieldCharge(TFPlayerCarriers carriers, IEntityDirectory directory,
+public sealed class TFShieldCharge(TFPlayerCarriers carriers, TFPlayerConditions conditions, IEntityDirectory directory,
                                    ItemSchema schema, IEngineEntities entities, IEnginePlayers players,
                                    IEngineWorldQuery world, IEngineDamage damage, IEngineSound sound,
                                    IScreenEffects screen, ILog log, AttributeHooks hooks,
@@ -83,7 +83,7 @@ public sealed class TFShieldCharge(TFPlayerCarriers carriers, IEntityDirectory d
         // item class (tf_player_shared.cpp:626-643). No shield, no skill —
         // stock's DoSpecialAction never ran either.
         if (EquippedShield(playerIndex) is null
-            || carriers.ConditionsOf(playerIndex) is not { } conditions
+            || carriers.ConditionsOf(playerIndex) is null
             || carriers.Get(playerIndex) is not { } state)
             return false;
 
@@ -113,7 +113,7 @@ public sealed class TFShieldCharge(TFPlayerCarriers carriers, IEntityDirectory d
         // mod_charge_time worn on the shield is the deferred row's until the
         // wearables feed the manager.
         float chargeTime = hooks.Float(BaseChargeTime, "mod_charge_time", owners.ManagerOf(playerIndex));
-        conditions.Add(TFCond.ShieldCharge, chargeTime);
+        conditions.Add(players.GetHandle(playerIndex), TFCond.ShieldCharge, chargeTime);   // the seam's add, so the arms run
         carriers.Part<TFShieldChargeEnd>(playerIndex)?.ResetImpact();         // :132
         return true;
     }

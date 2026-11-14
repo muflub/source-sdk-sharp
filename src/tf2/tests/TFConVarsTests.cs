@@ -61,6 +61,7 @@ public sealed class TFConVarsTests
     private const string FxShared = "src/game/shared/tf/tf_fx_shared.cpp";
     private const string SharedDefs = "src/game/shared/shareddefs.h";
     private const string RocketPack = "src/game/shared/tf/tf_weapon_rocketpack.cpp";
+    private const string Obj = "src/game/server/tf/tf_obj.cpp";
 
     private const string ConVarAttributeName = "SourceSharp.Abi.ConVarAttribute";
     private const uint DllFlags = (1u << 2) | (1u << 3); // FCVAR_GAMEDLL | FCVAR_CLIENTDLL
@@ -99,6 +100,8 @@ public sealed class TFConVarsTests
         { "tf_parachute_maxspeed_xy", Movement, StockSide.Both },
         { "tf_parachute_maxspeed_z", Movement, StockSide.Both },
         { "tf_parachute_maxspeed_onfire_z", Movement, StockSide.Both },
+        // tf_gamemovement.cpp:57 tf_parachute_aircontrol( ..., "2.5f", FCVAR_DEVELOPMENTONLY | FCVAR_REPLICATED, help ): the chute's air-control multiplier TF's GetAirSpeedCap reads (:2067-2070). Outside any #if, the default quoted byte for byte.
+        { "tf_parachute_aircontrol", Movement, StockSide.Both },
         // tf_weaponbase.cpp:277 ConVar tf_weapon_criticals( "tf_weapon_criticals", "1", FCVAR_REPLICATED | FCVAR_NOTIFY, "Whether or not random crits are enabled" );
         { "tf_weapon_criticals", WeaponBase, StockSide.Both },
         // tf_weaponbase.cpp:83 ConVar tf_weapon_criticals_nopred( "tf_weapon_criticals_nopred", "1.0", FCVAR_REPLICATED | FCVAR_CHEAT );
@@ -164,6 +167,7 @@ public sealed class TFConVarsTests
         // :13366 (#ifdef GAME_DLL), server/tf/tf_player.cpp:197 and :8791 (a server file).
         { "tf_damage_disablespread", PlayerShared, StockSide.Both },
         // the drink's dead time: tf_player_shared.cpp:173 (shared), read by the scout raise.
+        { "tf_scout_energydrink_regen_rate", PlayerShared, StockSide.Both },
         { "tf_scout_energydrink_consume_rate", PlayerShared, StockSide.Both },
         { "tf_weapon_criticals_distance_falloff", TFRules, StockSide.Server },
         { "tf_weapon_minicrits_distance_falloff", TFRules, StockSide.Server },
@@ -283,6 +287,12 @@ public sealed class TFConVarsTests
         { "tf_weapon_ragdoll_velocity_min", AmmoPack, StockSide.Server },
         { "tf_weapon_ragdoll_velocity_max", AmmoPack, StockSide.Server },
         { "tf_weapon_ragdoll_maxspeed", AmmoPack, StockSide.Server },
+        // The destroyed building's gib throw: server/tf/tf_obj.cpp:96-98 (a
+        // server file), "100" / "450" / "800", FCVAR_CHEAT | DEVELOPMENTONLY,
+        // no help, no bounds — CreateAmmoPack reads them (:2290-2296).
+        { "tf_obj_gib_velocity_min", Obj, StockSide.Server },
+        { "tf_obj_gib_velocity_max", Obj, StockSide.Server },
+        { "tf_obj_gib_maxspeed", Obj, StockSide.Server },
         // the dropped weapon's lifetime: shared/tf/tf_dropped_weapon.cpp:27 (a
         // GAME_DLL arm), "30", FCVAR_CHEAT, no help, no bounds.
         { "tf_dropped_weapon_lifetime", DroppedWeapon, StockSide.Server },

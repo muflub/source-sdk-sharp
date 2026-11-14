@@ -23,7 +23,9 @@ namespace TF2.Tests;
 /// <c>CTFPlayer::ShouldCollide</c>, tf_player.cpp:10159-10178) together make
 /// a teammate pass through a player-movement trace and an enemy stop, the
 /// rule by the roster's real team so a disguised spy keeps its colours'
-/// collisions.
+/// collisions. The client's half (<c>TFClientTeamCollide</c>, stock's
+/// <c>C_TFPlayer::ShouldCollide</c>) gives the same answer over the player
+/// resource's team, for the prediction's player clip.
 /// </summary>
 public class TFTeamCollideTests
 {
@@ -211,4 +213,53 @@ public class TFTeamCollideTests
         Assert.True(HitBy(Filter(new ListHooks<IEntityCollideRule>(rule), red, mate),
                           mate, GameMovement.MaskPlayerSolid, 0));
     }
+
+    /// <summary>A team by player index (1 red, 2 the fact's), the client compilation's.</summary>
+    private sealed class ClientTeams(client::TF2.Shared.TFTeam mover, client::TF2.Shared.TFTeam other)
+        : client::TF2.Shared.Rules.ITFPlayerTeam
+    {
+        public client::TF2.Shared.TFTeam Of(int playerIndex) => playerIndex switch
+        {
+            1 => mover,
+            2 => other,
+            _ => client::TF2.Shared.TFTeam.Unassigned,
+        };
+    }
+
+    //---------------------------------------------------------------------
+    // The client's rule alone (C_TFPlayer::ShouldCollide, TFClientTeamCollide).
+    //---------------------------------------------------------------------
+
+    private static client::TF2.Client.Player.TFClientTeamCollide ClientRule(client::TF2.Shared.TFTeam other, bool avoid = true)
+    {
+        var convars = TFMovementFixtures.ClientConVars();
+        convars.RegisterTypes([typeof(client::TF2.Shared.TFAvoidTeammatesConVar)]);
+        var declared = convars.Declared<client::TF2.Shared.TFAvoidTeammatesConVar>();
+        if (!avoid)
+            declared.SetValue(false);
+        return new client::TF2.Client.Player.TFClientTeamCollide(declared, new ClientTeams(client::TF2.Shared.TFTeam.Red, other));
+    }
+
+    private static readonly EntityHandle ClientMover = new(0x0001_0001u);
+    private static readonly EntityHandle ClientOther = new(0x0001_0002u);
+
+    /// <summary>The red mover's mask (the blue bit over the stock mask) does not hit a red player.</summary>
+    private const int RedMoverMask = (int)GameMovement.MaskPlayerSolid | TFContents.BlueTeam;
+
+    [Fact]
+    public void TheClientRulePassesATeammateInMovement()
+        => Assert.False(ClientRule(client::TF2.Shared.TFTeam.Red).ShouldCollide(ClientMover, ClientOther, (client::SourceSharp.Abi.CollisionGroup)PlayerMovement, RedMoverMask));
+
+    [Fact]
+    public void TheClientRuleStopsAnEnemyInMovement()
+        => Assert.True(ClientRule(client::TF2.Shared.TFTeam.Blue).ShouldCollide(ClientMover, ClientOther, (client::SourceSharp.Abi.CollisionGroup)PlayerMovement, RedMoverMask));
+
+    [Fact]
+    public void WithAvoidTeammatesOffTheClientRuleStopsATeammate()
+        => Assert.True(ClientRule(client::TF2.Shared.TFTeam.Red, avoid: false)
+                           .ShouldCollide(ClientMover, ClientOther, (client::SourceSharp.Abi.CollisionGroup)PlayerMovement, RedMoverMask));
+
+    [Fact]
+    public void TheClientRuleLetsABulletHitATeammate()
+        => Assert.True(ClientRule(client::TF2.Shared.TFTeam.Red).ShouldCollide(ClientMover, ClientOther, (client::SourceSharp.Abi.CollisionGroup)0, RedMoverMask));
 }

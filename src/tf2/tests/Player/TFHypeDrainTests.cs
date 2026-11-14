@@ -21,12 +21,13 @@ public sealed class TFHypeDrainTests
     private static readonly EntityHandle Player = new(0x0001_0000u | 7u);
 
     private static (TFPlayerNetState State, TFHypeDrain Drain, RigConditions Conditions) Drain(
-        TFScoutEnergydrinkConsumeRateConVar? consume = null)
+        TFScoutEnergydrinkConsumeRateConVar? consume = null, TFScoutEnergydrinkRegenRateConVar? regen = null)
     {
         var players = new TFMovementFixtures.Players();
         var state = players.Add(7, TFClass.Scout);
         var conditions = new RigConditions(players);
-        var drain = new TFHypeDrain(players, conditions, consume ?? DeclaredConVars.Fresh<TFScoutEnergydrinkConsumeRateConVar>());
+        var drain = new TFHypeDrain(players, conditions, consume ?? DeclaredConVars.Fresh<TFScoutEnergydrinkConsumeRateConVar>(),
+                                    regen ?? DeclaredConVars.Fresh<TFScoutEnergydrinkRegenRateConVar>());
         drain.Attach(Player);
         return (state, drain, conditions);
     }
@@ -86,5 +87,69 @@ public sealed class TFHypeDrainTests
         drain.Tick(11f);
 
         Assert.Equal(TFHype.FullMeter, state.HypeMeter, 4);
+    }
+
+    /// <summary>
+    /// The drink halves (<c>UpdateEnergyDrinkMeter</c>, :14080-14095): while
+    /// the boost stands, the drink meter pays the frame at the whole consume
+    /// rate — stock's 0.75 belongs to the hype half only — and an emptied
+    /// meter ends both names of the boost together (:14084-14088).
+    /// </summary>
+    [Fact]
+    public void The_boost_drains_the_drink_meter_at_the_whole_consume_rate()
+    {
+        var (state, drain, conditions) = Drain();
+        state.EnergyDrinkMeter = 40f;
+        conditions.Add(Player, TFCond.Phase);
+
+        drain.Tick(10f); // the anchor frame: the first pays nothing
+        drain.Tick(11f);
+
+        Assert.Equal(40f - 12.5f, state.EnergyDrinkMeter, 4);           // :14083, no 0.75 as the hype half's (:14073)
+        Assert.True(conditions.InCond(Player, TFCond.Phase));
+    }
+
+    [Fact]
+    public void The_emptied_drink_meter_ends_both_names_of_the_boost()
+    {
+        var (state, drain, conditions) = Drain();
+        state.EnergyDrinkMeter = 1f;
+        conditions.Add(Player, TFCond.Phase);
+        conditions.Add(Player, TFCond.EnergyBuff);
+
+        drain.Tick(10f);
+        drain.Tick(11f);
+
+        // Stock leaves the drained meter past zero; the refill's next frame
+        // takes it back up (:14086-14104's chain).
+        Assert.Equal(1f - 12.5f, state.EnergyDrinkMeter, 4);
+        Assert.False(conditions.InCond(Player, TFCond.Phase));          // :14086-14088 end as one
+        Assert.False(conditions.InCond(Player, TFCond.EnergyBuff));
+    }
+
+    /// <summary>Nothing boosting (:14101-14119): the meter regains toward full
+    /// at the regen rate and stops at the top.</summary>
+    [Fact]
+    public void The_drink_meter_regains_when_nothing_boosts()
+    {
+        var (state, drain, _) = Drain();
+        state.EnergyDrinkMeter = 40f;
+
+        drain.Tick(10f); // the anchor frame: the first pays nothing
+        drain.Tick(11f);
+
+        Assert.Equal(43.3f, state.EnergyDrinkMeter, 4);                 // :14101, the regen rate's 3.3 points a second
+    }
+
+    [Fact]
+    public void The_regained_drink_meter_stops_at_full()
+    {
+        var (state, drain, _) = Drain();
+        state.EnergyDrinkMeter = 40f;
+
+        drain.Tick(10f);
+        drain.Tick(100f);                                               // 89 s at the regen rate, far past the cap
+
+        Assert.Equal(100f, state.EnergyDrinkMeter);                     // :14101 ceiling
     }
 }

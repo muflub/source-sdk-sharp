@@ -9,47 +9,27 @@ using SourceSharp.Abi;
 using SourceSharp.Shared;
 
 using TF2.Shared;
+using TF2.Shared.Rules;
 
 namespace TF2.Server.Rules;
 
 /// <summary>
-/// TF2's per-entity trace arm, <c>CTFPlayer::ShouldCollide</c>
-/// (tf_player.cpp:10159-10178): in a player-movement trace, while
-/// <c>tf_avoidteammates</c> stands, a player is hit only by a mask carrying
-/// ITS OWN team's contents bit — and the mover's mask
-/// (<c>CTFGameMovement::PlayerSolidMask</c>, the <see cref="IMovementRules"/>
-/// mask arm) carries only the OTHER team's, so a teammate is refused and an
-/// enemy is not. The team is <see cref="ITeamRoundRoster.TeamOf"/>, the real
-/// one: a disguised spy keeps colliding as its colours' team.
+/// TF2's per-entity trace arm on the server, <c>CTFPlayer::ShouldCollide</c>
+/// (tf_player.cpp:10159-10178), answered by <see cref="TFTeamCollision"/>
+/// over <see cref="ITeamRoundRoster.TeamOf"/>, the real team: a disguised spy
+/// keeps colliding as its colours' team. The mover is not asked: stock's
+/// answer is the mask's (the <see cref="IMovementRules"/> mask arm carries
+/// the mover's other team's bit).
 ///
 /// <para>
-/// Servers only. The client's movement traces are the native
-/// <c>CTraceFilterSimple</c>'s, whose answer never reaches this chain — the
-/// client's pass-through is the mask arm alone, which is also why the two
-/// must agree bit for bit.
+/// The client's half is <c>TFClientTeamCollide</c>, the same answer over the
+/// player resource's team, asked by the prediction's player clip.
 /// </para>
 /// </summary>
 [SideService(Side.Server, As = [typeof(IEntityCollideRule)])]
 public sealed class TFTeamCollide(TFAvoidTeammatesConVar avoid, ITeamRoundRoster roster) : IEntityCollideRule
 {
-    /// <summary>The trace group the arm narrows: stock's <c>COLLISION_GROUP_PLAYER_MOVEMENT</c>.</summary>
-    private const CollisionGroup PlayerMovement = (CollisionGroup)EngineCollisionGroup.PlayerMovement;
-
-    /// <summary>
-    /// Stock's switch, its fall-through included: a spectator, an unassigned
-    /// entity and every non-player pass untouched, for the chain's other arms
-    /// and the group matrix to answer as they did.
-    /// </summary>
-    public bool ShouldCollide(EntityHandle entity, CollisionGroup group, int contentsMask)
-    {
-        if (group != PlayerMovement || !avoid.Value)
-            return true;
-
-        return roster.TeamOf(entity) switch
-        {
-            TFTeam.Red => (contentsMask & TFContents.RedTeam) != 0,
-            TFTeam.Blue => (contentsMask & TFContents.BlueTeam) != 0,
-            _ => true,
-        };
-    }
+    public bool ShouldCollide(EntityHandle mover, EntityHandle entity, CollisionGroup group, int contentsMask)
+        => group != TFTeamCollision.PlayerMovement || !avoid.Value
+           || TFTeamCollision.Collides(group, true, roster.TeamOf(entity), contentsMask);
 }

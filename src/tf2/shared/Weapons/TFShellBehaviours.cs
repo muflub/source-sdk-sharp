@@ -584,9 +584,35 @@ public class TFFlamethrowerBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(pa
         }
 
         base.ItemPostFrame(in attack);
+
+        // The idle home (ItemPostFrame :630-637 asking WeaponIdle :480-485):
+        // no fire button down and no reload in flight, the machine — the
+        // SECONDARY blast included, which the release arm above exempts —
+        // comes home to idle, and the next trigger press walks the wind-up.
+        // Stock waits out the blast's own sequence first (m_flSecondaryAnimTime,
+        // :633, stamped curtime + SequenceDuration at :982) so a tapped blast's
+        // puff plays out; the shared side has no sequence length, and the
+        // blast's secondary refire (AirBlastRefire, the next blast's earliest
+        // time) stands in for it.
+        if ((attack.Weapon.LastButtons & FireButtons) == 0 && !attack.Weapon.InReload
+            && attack.Now >= attack.Weapon.NextSecondaryAttack)
+            WeaponIdle(in attack);
     }
 
-    /// <summary>The rage press's hold (<c>UseRage</c>'s :1140 server stamp;
+    /// <summary>The buttons the idle home waits for the release of (:630).</summary>
+    private const int FireButtons = (int)(InputButtons.Attack | InputButtons.Attack2 | InputButtons.Reload);
+
+    /// <summary>
+    /// The idle, <c>CTFFlameThrower::WeaponIdle</c>
+    /// (<c>tf_weapon_flamethrower.cpp:480-485</c>): stock's base idle anim
+    /// machinery runs with the viewmodel layer; here the state's home is the
+    /// whole of it, <c>SetWeaponState(FT_STATE_IDLE)</c> without the guard.
+    /// </summary>
+    private void WeaponIdle(in WeaponAttackContext attack)
+    {
+        if (StateOf(attack.Weapon) != FlameState.Idle)
+            SetState(attack.Weapon, FlameState.Idle);
+    }
     /// the client's :1143 is unconditional, and the predicted field is the
     /// client's shape).</summary>
     public const float RageRefire = 1f;

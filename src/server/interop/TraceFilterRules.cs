@@ -76,7 +76,8 @@ public readonly record struct TraceFilterQuery(
 ///   <item>THE ENTITY AND THE RULES: anything that is not a game entity is not
 ///   hit; a game entity's own <c>ShouldCollide</c> is CStandaloneEntity's,
 ///   which answers true, with a registered <see cref="IEntityCollideRule"/>
-///   chain able to except a single entity (every rule must agree); the rules'
+///   chain able to except a single entity (every rule must agree, each handed
+///   the pass entity as the mover); the rules'
 ///   group matrix (CollisionRules' rows, stock's predicate) decides the pair;
 ///   out of range is true.</item>
 /// </list>
@@ -201,10 +202,11 @@ public sealed class TraceFilterRules
         // after the pass checks and before the matrix, for game entities only,
         // with the trace's own group, as stock hands the entity m_collisionGroup
         // (util_shared.cpp:305; CTFPlayer::ShouldCollide tests it for
-        // COLLISION_GROUP_PLAYER_MOVEMENT).
+        // COLLISION_GROUP_PLAYER_MOVEMENT), and the trace's pass entity as
+        // the mover (none when the trace named none).
         foreach (IEntityCollideRule rule in _collideRules.All)
         {
-            if (!rule.ShouldCollide(touch, (CollisionGroup)query.CollisionGroup, contentsMask))
+            if (!rule.ShouldCollide(query.Pass, touch, (CollisionGroup)query.CollisionGroup, contentsMask))
                 return false;
         }
 

@@ -28,7 +28,8 @@ namespace TF2.Server.Player;
 [SideService(Side.Server)]
 public sealed class TFPlayerResourceRows(TFPlayerCarriers carriers, ITFPlayerResupply resupply, TFPlayerStats stats,
                                          IEnginePlayers players, ITeamRespawnWaves waves,
-                                         Combat.TFDominations dominations, ITeamRoundState rounds)
+                                         Combat.TFDominations dominations, ITeamRoundState rounds,
+                                         Entities.IKothRoundState koth)
 {
     /// <summary><c>STATS_SEND_FREQUENCY</c> (tf_player_resource.cpp:17).</summary>
     public const float StatsSendFrequency = 1f;
@@ -43,6 +44,7 @@ public sealed class TFPlayerResourceRows(TFPlayerCarriers carriers, ITFPlayerRes
         state.RoundState = (byte)rounds.State;
         state.WinningTeam = (byte)rounds.WinningTeam;
         state.WaitingForPlayers = rounds.InWaitingForPlayers ? (byte)1 : default;
+        state.KothMode = koth.InKothMode ? (byte)1 : default;
         state.InSetup = rounds.InSetup ? (byte)1 : default;
         state.MapResetTime = rounds.MapResetTime;
 

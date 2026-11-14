@@ -127,6 +127,40 @@ public sealed class TFCondsCommandTests
         Assert.Contains("conds - cloak 0 charge 0", lines[^1].Text);
     }
 
+    private sealed class MedicState : ITFPlayerData
+    {
+        private readonly TFPlayerNetState _state = Build();
+
+        private static TFPlayerNetState Build()
+        {
+            var state = new TFPlayerNetState();
+            state.BindLocal();
+            state.PlayerClass = (int)TFClass.Medic;
+            state.MedicCharge = 0.5f;
+            return state;
+        }
+
+        public TFPlayerNetState? Predicted(int playerIndex) => _state;
+        public TFPlayerNetState? Networked(int playerIndex) => _state;
+    }
+
+    /// <summary>
+    /// The medic's own half of the charge column: the ubercharge meter is
+    /// published as <see cref="TFPlayerNetState.MedicCharge"/>, not the shield's
+    /// <see cref="TFPlayerNetState.ChargeMeter"/> (the Ubersaw's kill adds half
+    /// a charge through <c>SetChargeLevel</c>, which publishes there), so the
+    /// medic line must answer it with its decimals — a half charge reads
+    /// <c>charge 0.5</c>, where the plain meter field's integer format would
+    /// flatten it away. Other classes keep the shield meter's whole numbers.
+    /// </summary>
+    [Fact]
+    public void The_medic_line_reads_the_charge_column_from_the_medic_meter()
+    {
+        Command(Engine(), new MedicState()).RunLine("3");
+
+        Assert.Contains("charge 0.5", _log.Lines.Single(l => !l.Warning).Text);
+    }
+
     private sealed class NoCarriers : ITFPlayerData
     {
         public TFPlayerNetState? Predicted(int playerIndex) => null;

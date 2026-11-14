@@ -161,7 +161,9 @@ public sealed class TFPlayerComponents(IEngineEntities entities, IEntityDirector
                                        TFShieldCharge shields,
                                        TF2.Shared.TFDoubleDonkWindowConVar donkWindow,
                                        TFScoutEnergydrinkConsumeRateConVar drink,
-                                       TFEurekaTeleport eureka)
+                                       TFScoutEnergydrinkRegenRateConVar drinkRegen,
+                                       TFEurekaTeleport eureka,
+                                       IUniformRandom random)
     : IPlayerComponentSource, IOrderedHook
 {
     public int HookOrder => TFPlayerOrders.Components;
@@ -176,7 +178,7 @@ public sealed class TFPlayerComponents(IEngineEntities entities, IEntityDirector
         yield return new TFBlastJumpState(carriers, conditions, networking, directory, enginePlayers, events);
         yield return new TFTauntThink(conditions, directory);
         yield return new TFTauntAttack(carriers, players, entities, world, damage, enginePlayers, networking, weaponScripts, damageScopes, directory, lunchbox,
-                                       owners, hooks);
+                                       owners, hooks, random, events);
         yield return new TFEurekaTauntWatch(eureka, conditions);
         yield return new TFTauntHeal(carriers, conditions, enginePlayers, entities, world, owners, hooks, healing);
         yield return new TFScattergunKnockback(carriers, entities, damageLayer);
@@ -184,7 +186,7 @@ public sealed class TFPlayerComponents(IEngineEntities entities, IEntityDirector
         yield return new TFDonkVictims(carriers, clock, donkWindow);
         yield return new TFRespawnOverride(carriers, clock);
         yield return new TFBuffRageTicker(carriers, buffs, enginePlayers);
-        yield return new TFHypeDrain(carriers, conditions, drink);
+        yield return new TFHypeDrain(carriers, conditions, drink, drinkRegen);
         yield return new TFPlayerAttributes(carriers, items, schema, clock);
         yield return new TFAmmoPoolMirror(entities, carriers, arsenal);
         yield return new TFWeaponClipMirror(entities, carriers, arsenal);
