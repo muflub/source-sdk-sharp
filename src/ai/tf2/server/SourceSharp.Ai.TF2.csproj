@@ -14,6 +14,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\server\SourceSharp.Ai.Server.csproj" />
     <ProjectReference Include="..\..\core\SourceSharp.Ai.csproj" />
+    <ProjectReference Include="..\..\nav\SourceSharp.Ai.Nav.csproj" />
     <ProjectReference Include="..\..\..\abi\SourceSharp.Abi.csproj" />
     <ProjectReference Include="..\..\..\server\managed\SourceSharp.Server.csproj" />
     <ProjectReference Include="..\..\..\tf2\server\TF2.Server.csproj" />

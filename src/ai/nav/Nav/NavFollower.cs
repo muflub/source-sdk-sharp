@@ -164,7 +164,8 @@ public sealed class NavFollower
         _builds++;
         Tally?.Note();
         _builtOver = _obstacles.Cells;
-        _field.Build(_graph, Objective, Class, _obstacles, _avoided.Count > 0 ? _avoided : null, At);
+        _linksSeen = _obstacles.Links;
+        _field.Build(_graph, Objective, Class, _obstacles, _avoided.Count > 0 ? _avoided : null, At, _avoidedLinks.Count > 0 ? _avoidedLinks : null);
     }
 
     // What the last build knew of the entities.
@@ -324,6 +325,20 @@ public sealed class NavFollower
             _avoided.Remove(Objective.Index);
             _rebuildCarried = true;
         }
+
+        // The links refused or failed, and a link under way or waited for: a hunt re-goals every half second, and
+        // a wait that started over with each new goal would never end, nor a flight's landing be judged.
+        if (ReferenceEquals(old._linksSeen, _obstacles.Links))
+        {
+            if (old._linkAvoidLeft > 0)
+            {
+                _linkAvoidLeft = old._linkAvoidLeft;
+                _avoidedLinks.UnionWith(old._avoidedLinks);
+                _rebuildCarried = true;
+            }
+
+            (_linkPhase, _link, _linkLeft, _linkFloor, _linkStill, _linkLastZ) = (old._linkPhase, old._link, old._linkLeft, old._linkFloor, old._linkStill, old._linkLastZ);
+        }
     }
 
     private int _stuckReports;
@@ -349,10 +364,26 @@ public sealed class NavFollower
             Rebuild();
         }
 
+        LinksArrived();
+        if (_linkAvoidLeft > 0 && --_linkAvoidLeft == 0)
+        {
+            _avoidedLinks.Clear();
+            Rebuild();
+        }
+
         At = Locate(origin);
         _corners.Clear();
         _corridor.Clear();
         _passed = 0;
+        LinkStep = NavLinkStep.None;
+        // A link begun: the program has the bot's commands; the follower only sees where it comes down.
+        if (_linkPhase is LinkPhase.Begun or LinkPhase.Airborne)
+        {
+            FlyLink(origin);
+            state = FollowState.Moving;
+            return MoveIntent.Hold;
+        }
+
         if (!At.IsValid)
         {
             state = FollowState.OffGraph;
@@ -416,15 +447,26 @@ public sealed class NavFollower
         _corridor.Clear();
         _corridor.Add(At);
         bool crouch = _graph.Cell(At).CrouchOnly;
-        for (int at = At.Index, i = 0; i < CorridorCells && _field.NextFrom(at).IsValid; i++)
+        int link = _field.LinkFrom(At.Index);
+        for (int at = At.Index, i = 0; link < 0 && i < CorridorCells && _field.NextFrom(at).IsValid; i++)
         {
             at = _field.NextFrom(at).Index;
             _corridor.Add(new CellId(at));
             if (i < CrouchLookahead && _graph.Cell(at).CrouchOnly)
                 crouch = true;
+            link = _field.LinkFrom(at);
         }
 
-        AiVector end = _corridor[^1] == Objective ? Target with { Z = _graph.Cell(Objective).FloorZ } : _graph.Cell(_corridor[^1]).Centre;
+        if (link >= 0 && LeadToLink(link, origin) is { } leading)
+        {
+            state = FollowState.Moving;
+            return leading;
+        }
+
+        if (link < 0)
+            _linkPhase = LinkPhase.None;
+        AiVector end = link >= 0 ? LinkStart(link)
+                     : _corridor[^1] == Objective ? Target with { Z = _graph.Cell(Objective).FloorZ } : _graph.Cell(_corridor[^1]).Centre;
         PathSmoother.Funnel(_graph, _corridor, origin, end, _corners);
         // Routing round a stuck spot, the corners keep to the corridor: a
         // shortcut's straight line knows nothing of the avoided cells.
@@ -475,7 +517,7 @@ public sealed class NavFollower
         // moat's floor circled the corner beside it (live, ctf_2fort). A corner above it stays.
         AiVector Afloat(AiVector point) => _swimming && point != default && point.Z < origin.Z ? point with { Z = origin.Z } : point;
 
-        AiVector? held = HoldCorner(via, count > 0 ? _corners[1 + skip] : default, origin) is { } h ? Afloat(h) : null;
+        AiVector? held = link < 0 && HoldCorner(via, count > 0 ? _corners[1 + skip] : default, origin) is { } h ? Afloat(h) : null;
         if (held is not null)
             count = 1;
 
@@ -520,6 +562,206 @@ public sealed class NavFollower
 
         state = FollowState.Moving;
         return new MoveIntent(kind, MoveSpeed.Run, (byte)Math.Max(count, 0), held ?? Corner(0), Corner(1), Corner(2), Corner(3), default, crouch, 0);
+    }
+
+    // ------------------------------------------------------------------ links (lane G5c-2b)
+
+    private enum LinkPhase : byte
+    {
+        None = 0,
+
+        /// <summary>The bot stands at the link's start: the brain is told, and has <see cref="LinkHoldMoves"/> to begin it.</summary>
+        Holding,
+
+        /// <summary>The brain began it: the program runs up, aims and launches.</summary>
+        Begun,
+
+        /// <summary>Off the ground on it, until it comes down.</summary>
+        Airborne,
+    }
+
+    private readonly HashSet<int> _avoidedLinks = new();
+    private int _linkAvoidLeft;
+    private NavLinks? _linksSeen;
+    private LinkPhase _linkPhase;
+    private int _link = -1, _linkLeft, _linkStill;
+    private float _linkFloor;
+
+    /// <summary>How near a link's start, flat, the bot stops and waits for the brain: the program walks the rest (its own side slack is 48 u).</summary>
+    public const float LinkLeadRadius = 48f;
+
+    /// <summary>How long the bot stands at a link's start for the brain to begin it (1 s: a decide comes every 6 ticks), before the link is left out for a while.</summary>
+    public const int LinkHoldMoves = 66;
+
+    /// <summary>How long a link refused or failed is left out of the route (8 s at a move a tick, as a stuck spot is).</summary>
+    public const int LinkAvoidMoves = 533;
+
+    /// <summary>How long a link begun may take to leave the ground (4 s: a program's approach is 3 s at most), and then to come down (5 s).</summary>
+    public const int LinkLaunchMoves = 266, LinkFlightMoves = 333;
+
+    /// <summary>How far over the start's floor the body is off the ground on a link, and how near the landing's cell, flat, it has come down on it.</summary>
+    public const float LinkAirborneRise = 16f, LinkLandReach = 96f;
+
+    /// <summary>How many moves the body's height must hold still on a floor for a flight to be over.</summary>
+    public const int LinkStillMoves = 2;
+
+    /// <summary>What the route's next link is, as the last <see cref="Next"/> found it: what the brain is told.</summary>
+    public NavLinkStep LinkStep { get; private set; } = NavLinkStep.None;
+
+    /// <summary>Whether the bot is at a link: standing at its start for the brain, or on it. The driver's watches leave it alone then.</summary>
+    public bool InLink => _linkPhase != LinkPhase.None;
+
+    /// <summary>The links left out of the route for now (refused or failed), by index.</summary>
+    public IReadOnlyCollection<int> AvoidedLinks => _avoidedLinks;
+
+    /// <summary>Links begun, landed on and failed (called off, fizzled, down elsewhere), and waits that ran out, for the counters.</summary>
+    public int LinksBegun { get; private set; }
+
+    public int LinksLanded { get; private set; }
+
+    public int LinksFailed { get; private set; }
+
+    public int LinkWaitsOut { get; private set; }
+
+    /// <summary>
+    /// The brain began link <paramref name="link"/> (its one-shot names it, <see cref="NavLinks.Argument"/>): if it
+    /// is the link the bot stands at, the wait is over and the hands are off until it comes down.
+    /// </summary>
+    public void BeginLink(int link)
+    {
+        if (_linkPhase != LinkPhase.Holding || link != _link)
+            return;
+        _linkPhase = LinkPhase.Begun;
+        _linkLeft = LinkLaunchMoves;
+        LinksBegun++;
+    }
+
+    /// <summary>A new set of links (or none) since the field was built: built again, for an agent with a reach either set needs.</summary>
+    private void LinksArrived()
+    {
+        NavLinks? now = _obstacles.Links;
+        if (ReferenceEquals(now, _linksSeen))
+            return;
+        JumpReach needs = (now?.Reaches ?? JumpReach.None) | (_linksSeen?.Reaches ?? JumpReach.None);
+        _linksSeen = now;
+        _avoidedLinks.Clear();
+        _linkAvoidLeft = 0;
+        _linkPhase = LinkPhase.None;
+        if ((_obstacles.Reach & needs) != 0 && _builds > 0)
+            Rebuild();
+    }
+
+    /// <summary>Where a bot stands to take link <paramref name="link"/>: its start, or its takeoff cell's centre.</summary>
+    private AiVector LinkStart(int link)
+    {
+        NavLink l = _field.Links![link];
+        return l.Start != default ? l.Start : _graph.Cell(l.From).Centre;
+    }
+
+    /// <summary>
+    /// The route's next step is <paramref name="link"/>: told to the brain, and the bot led to its start. Null while it
+    /// is on its way there (the corners lead it, the corridor ending at the start); the hold at the start; or, when the
+    /// link is no longer the bot's to take (its health has fallen under it) or the wait has run out, the link left out
+    /// and the field built again, the bot holding this one move.
+    /// </summary>
+    private MoveIntent? LeadToLink(int link, AiVector origin)
+    {
+        _held = null;
+        NavLinks links = _field.Links!;
+        if (!links.Admits(_graph, link, Class, _obstacles))
+        {
+            AvoidLink(link);
+            return MoveIntent.Hold;
+        }
+
+        AiVector start = LinkStart(link);
+        bool there = Flat(start, origin) <= LinkLeadRadius && MathF.Abs(start.Z - origin.Z) <= OnFloorReach;
+        if (!there)
+        {
+            _linkPhase = LinkPhase.None;
+            LinkStep = new NavLinkStep(link, links.Hash, Target, false);
+            return null;
+        }
+
+        if (_linkPhase != LinkPhase.Holding || _link != link)
+            (_linkPhase, _link, _linkLeft, _linkFloor) = (LinkPhase.Holding, link, LinkHoldMoves, origin.Z);
+        if (--_linkLeft < 0)
+        {
+            LinkWaitsOut++;
+            AvoidLink(link);
+            return MoveIntent.Hold;
+        }
+
+        LinkStep = new NavLinkStep(link, links.Hash, Target, true);
+        return MoveIntent.Hold;
+    }
+
+    /// <summary>A link refused, failed or out of the bot's reach: left out for <see cref="LinkAvoidMoves"/>, and the field built again so the route goes round.</summary>
+    private void AvoidLink(int link)
+    {
+        _linkPhase = LinkPhase.None;
+        _link = -1;
+        _avoidedLinks.Add(link);
+        _linkAvoidLeft = LinkAvoidMoves;
+        Rebuild();
+    }
+
+    /// <summary>
+    /// A link under way: off the ground over its start's floor, then still on a floor. Down near its landing, on the
+    /// landing's floor: done, and the route goes on from there. Down anywhere else, never off the ground in
+    /// <see cref="LinkLaunchMoves"/>, or not down in <see cref="LinkFlightMoves"/>: failed, and left out for a while.
+    /// </summary>
+    private void FlyLink(AiVector origin)
+    {
+        if (_field.Links is not { } links || (uint)_link >= (uint)links.Count)
+        {
+            _linkPhase = LinkPhase.None;
+            return;
+        }
+
+        NavLink l = links[_link];
+
+        if (_linkPhase == LinkPhase.Begun)
+        {
+            if (origin.Z - _linkFloor > LinkAirborneRise)
+                (_linkPhase, _linkLeft, _linkStill) = (LinkPhase.Airborne, LinkFlightMoves, 0);
+            else if (--_linkLeft < 0)
+                FailLink();
+            return;
+        }
+
+        float floor = At.IsValid ? _graph.Cell(At).FloorZ : float.NegativeInfinity;
+        bool onFloor = At.IsValid && origin.Z - floor <= OnFloorReach && origin.Z - floor >= -1f;
+        _linkStill = onFloor && MathF.Abs(origin.Z - _linkLastZ) < 0.5f ? _linkStill + 1 : 0;
+        _linkLastZ = origin.Z;
+        if (_linkStill >= LinkStillMoves)
+        {
+            NavCell landing = _graph.Cell(l.To);
+            bool landed = MathF.Abs(floor - landing.FloorZ) <= OnFloorReach && Flat(landing.Centre, origin) <= LinkLandReach;
+            if (landed)
+            {
+                LinksLanded++;
+                _linkPhase = LinkPhase.None;
+                _link = -1;
+            }
+            else
+            {
+                FailLink();
+            }
+
+            return;
+        }
+
+        if (--_linkLeft < 0)
+            FailLink();
+    }
+
+    private float _linkLastZ;
+
+    private void FailLink()
+    {
+        LinksFailed++;
+        AvoidLink(_link);
     }
 
     /// <summary>How far over a swimmer's feet the way on may rise before it holds jump to swim up to it: a step's height.</summary>

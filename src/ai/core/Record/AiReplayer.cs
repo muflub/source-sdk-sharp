@@ -88,7 +88,10 @@ public static class AiReplayer
 
         AiRecordingHeader header = Parse(headerBytes, AiRecordFormat.ReadHeader);
         var replayed = new IntentCapture();
-        var session = new AiSession(transport, replayed, header.Slots, header.SightedCapacity) { World = world, Curves = curves, Deciders = deciders };
+        var session = new AiSession(transport, replayed, header.Slots, header.SightedCapacity)
+        {
+            World = world, Curves = curves, Deciders = deciders, TeamCallouts = header.TeamCallouts,
+        };
         prepare?.Invoke(session);
         var recorded = new IntentCapture();
         int userCmds = 0;
@@ -101,10 +104,8 @@ public static class AiReplayer
                 case AiRecordType.Header:
                     throw new InvalidDataException("an .airec file has one Header record");
                 case AiRecordType.BotAdded:
-                    ActorId bot = AiRecordFormat.ReadActor(r);
-                    ulong seed = r.ReadUInt64();
-                    byte[] skills = r.ReadBytes(r.ReadUInt16());
-                    session.AddBot(bot, seed, skills);
+                    (ActorId bot, ulong seed, byte[] skills, AiVector? home) = AiRecordFormat.ReadBotAdded(r);
+                    session.AddBot(bot, seed, skills, home: home);
                     break;
                 case AiRecordType.BotRemoved:
                     session.RemoveBot(AiRecordFormat.ReadActor(r));

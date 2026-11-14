@@ -43,6 +43,7 @@
   <Project Path="src/debug_api/interfaces/Debug.Api.Server.Interfaces.csproj" />
   <Project Path="src/debug_api_client/interfaces/Debug.Api.Client.Interfaces.csproj" />
   <Project Path="src/ai/core/SourceSharp.Ai.csproj" />
+  <Project Path="src/ai/nav/SourceSharp.Ai.Nav.csproj" />
   <Project Path="src/ai/server/SourceSharp.Ai.Server.csproj" />
   <Project Path="src/ai/client/SourceSharp.Ai.Client.csproj" />
   <Project Path="src/ai/interface/SourceSharp.Ai.Client.Interface.csproj" />

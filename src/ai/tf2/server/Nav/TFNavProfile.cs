@@ -1,6 +1,8 @@
 using SourceSharp.Abi;
 using SourceSharp.Ai.Server.Nav;
+using SourceSharp.Ai.TF2.Jump;
 using SourceSharp.Ai.TF2.Knowledge;
+using SourceSharp.Ai.TF2.Trees;
 using TF2.Server.Player;
 using TF2.Shared;
 using TF2.Shared.Combat;
@@ -23,11 +25,15 @@ namespace SourceSharp.Ai.TF2.Nav;
 /// <item>A crouch-only place costs <see cref="CrouchOnlyCost"/> times a standing one to cross.</item>
 /// <item>The respawn room visualizers are solid to the other team (<see cref="TFTeamSolids"/>), read
 /// from the level's entities when the map's lump is compressed (<see cref="TFPlacedEntities"/>).</item>
+/// <item>The Soldier blast jumps (lane G5c-2b): its searches take the level's blast links
+/// (<see cref="TFBlastLinks"/>), each that costs no more health than it has over the floor a jump
+/// leaves it at (<see cref="TFDecider.RocketJumpHealthFloor"/>).</item>
 /// </list>
-/// A player's reach is read from its own carrier: the profile is asked for the bot itself.
+/// A player's reach is read from its own carrier, and its health from its own entity: the profile is
+/// asked for the bot itself.
 /// </summary>
 [SideService(Side.Server, As = [typeof(INavProfile)])]
-public sealed class TFNavProfile(ITFActorFacts actors, ITFLevelEntities placed) : INavProfile
+public sealed class TFNavProfile(ITFActorFacts actors, ITFLevelEntities placed, IEngineEntities entities, TFBlastLinks links) : INavProfile
 {
     /// <summary>The derivation's numbers, worked from the mod's movement constants.</summary>
     public static NavNumbers ModNumbers
@@ -52,12 +58,27 @@ public sealed class TFNavProfile(ITFActorFacts actors, ITFLevelEntities placed) 
 
     public NavNumbers Numbers(float fileJumpHeight) => ModNumbers;
 
-    /// <summary>The Scout double-jumps; a player whose class is not known yet reaches no further than a crouch jump.</summary>
+    /// <summary>The Scout double-jumps, the Soldier blast jumps; a player whose class is not known yet reaches no further than a crouch jump.</summary>
     public JumpReach Reach(EntityHandle player)
         => actors.TryRead(player.EntryIndex, out TFActorFacts facts) ? ReachOf(facts.Class) : JumpReach.None;
 
-    /// <summary>The jump reaches of a player of <paramref name="playerClass"/>: the Scout's double jump, else none.</summary>
-    public static JumpReach ReachOf(TFClass playerClass) => playerClass == TFClass.Scout ? JumpReach.Double : JumpReach.None;
+    /// <summary>The jump reaches of a player of <paramref name="playerClass"/>: the Scout's double jump, the Soldier's blast jump, else none.</summary>
+    public static JumpReach ReachOf(TFClass playerClass) => playerClass switch
+    {
+        TFClass.Scout => JumpReach.Double,
+        TFClass.Soldier => JumpReach.Blast,
+        _ => JumpReach.None,
+    };
+
+    /// <summary>
+    /// A player with the blast reach takes the level's links (none while they are being found), spending on one no more
+    /// than its health over the jump's floor as it stands now (<see cref="LinkHealthOf"/>); anyone else none.
+    /// </summary>
+    public NavLinkAllowance LinksFor(EntityHandle player)
+        => (Reach(player) & JumpReach.Blast) != 0 && links.Set is { } set ? new NavLinkAllowance(set.Links, LinkHealthOf(entities.GetHealth(player))) : default;
+
+    /// <summary>The health a bot of <paramref name="health"/> may spend on a link: what it has over the floor a jump must leave it at, none under it.</summary>
+    public static float LinkHealthOf(int health) => MathF.Max(0f, health - TFDecider.RocketJumpHealthFloor);
 
     /// <summary>
     /// The visualizers' solids, from the map's lump or, when the lump is compressed (every shipped

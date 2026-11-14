@@ -60,7 +60,7 @@ public sealed class BrainDriver
         Driven? d = null;
         if (move.Kind is MoveKind.Follow or MoveKind.Retreat && move.CornerCount >= 1 && graph is not null && obstacles is not null)
         {
-            move = Follow(slot, move, origin, tick, graph, obstacles);
+            move = Follow(slot, move, origin, tick, graph, obstacles, action);
             _driven.TryGetValue(slot, out d);
         }
         else
@@ -74,6 +74,14 @@ public sealed class BrainDriver
         {
             _progress.Remove(slot);
             _body.Remove(slot);
+        }
+        else if (d is not null && !onLadder && d.Follower.InLink)
+        {
+            // At a link's start for the brain, or on the link: no give-way off the start, and no patience to run out
+            // (the follower's own wait ends the hold; the program has the commands in the air).
+            _progress.Remove(slot);
+            _body.Remove(slot);
+            _wedged.Remove(slot);
         }
         else if (d is not null && !onLadder)
         {
@@ -602,7 +610,10 @@ public sealed class BrainDriver
     /// <summary>How far a bot off the field must move from where it was to count as moving.</summary>
     public const float ProgressRadius = 48f;
 
-    private MoveIntent Follow(int slot, MoveIntent move, AiVector origin, Tick tick, NavGraph graph, NavObstacleState obstacles)
+    /// <summary>The route's next link for the bot's follower, as its last move found it (lane G5c-2b): what its brain is told.</summary>
+    public NavLinkStep LinkStepOf(int slot) => _driven.TryGetValue(slot, out Driven? d) ? d.Follower.LinkStep : NavLinkStep.None;
+
+    private MoveIntent Follow(int slot, MoveIntent move, AiVector origin, Tick tick, NavGraph graph, NavObstacleState obstacles, ActionIntent action = default)
     {
         AiVector goal = move.Corner0;
         CellId cell = graph.FindCell(goal + new AiVector(0f, 0f, 1f));
@@ -626,7 +637,10 @@ public sealed class BrainDriver
         }
 
         bool have = _driven.TryGetValue(slot, out Driven? d);
-        if (!have || (d!.Follower.Objective != cell && d.Instead != cell && tick.Value - d.Built >= RegoalTicks))
+        // As near as it could get because the links it would take were left out for a while (refused or failed): when
+        // they are back, the goal itself is tried again (live, ss_ai_tf_jump: a bot stood beside the ledge for good).
+        if (!have || (d!.Follower.Objective != cell && d.Instead != cell && tick.Value - d.Built >= RegoalTicks)
+            || (d.Instead == cell && d.InsteadForLinks && d.Follower.AvoidedLinks.Count == 0))
         {
             var fresh = new NavFollower(graph, cell, goal, ClearanceClass.Crouch, obstacles) { Tally = Tally };
             if (have)
@@ -636,6 +650,12 @@ public sealed class BrainDriver
         }
 
         Driven driven = d!;
+        // The brain began the link the bot waits at: its one-shot names it (lane G5c-2b).
+        // A follower not waiting at that link pays it no heed (BeginLink), so an intent that goes on carrying the one-shot
+        // for a few ticks begins nothing more.
+        if (action.Kind == ActionKind.Ability && action.OneShotSeq != 0 && NavLinks.LinkOf(AbilityCall.Argument(action.WeaponSlot)) is >= 0 and var begun)
+            driven.Follower.BeginLink(begun);
+
         MoveIntent next = driven.Follower.Next(origin, out FollowState state);
 
         // A goal nothing reaches (behind glass, a shut gate): as near as it can
@@ -649,7 +669,7 @@ public sealed class BrainDriver
                 CellId near = graph.NearestReachable(driven.Follower.At, goal, ClearanceClass.Crouch, obstacles.Shoved());
                 var instead = new NavFollower(graph, near, graph.Cell(near).Centre, ClearanceClass.Crouch, obstacles) { Tally = Tally };
                 instead.GoOnFrom(driven.Follower);
-                driven = new Driven(instead, tick.Value) { Instead = cell };
+                driven = new Driven(instead, tick.Value) { Instead = cell, InsteadForLinks = instead.AvoidedLinks.Count > 0 };
                 _driven[slot] = driven;
                 _unreachable[slot] = goal;
                 next = instead.Next(origin, out state);
@@ -684,6 +704,9 @@ public sealed class BrainDriver
         public FollowState State { get; set; }
         public int NoRouteSince { get; set; } = -1;
         public CellId Instead { get; set; } = CellId.None;
+
+        /// <summary>Whether the goal was given up for a nearer one while links were left out of the route.</summary>
+        public bool InsteadForLinks { get; set; }
     }
 
     /// <summary>One bot's climb, from the mount to getting off; a null <see cref="To"/> is a ladder it means to get off.</summary>

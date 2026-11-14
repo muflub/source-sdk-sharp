@@ -43,8 +43,13 @@ public readonly record struct DriveCounters(long Breaks, long BreaksGivenUp, lon
 /// command, and everything the main thread would otherwise have asked the
 /// driver. <see cref="BreakableCell"/> is the breakable the bot wants a line
 /// to, -1 for none: the trace is the main thread's, before the next step.
+/// <see cref="Link"/> is what the follower says of the route's next link
+/// (lane G5c-2b), which the main thread hands on to the game's brains.
 /// </summary>
-public readonly record struct DriveOutput(IntentCommand Command, AiVector? Unreachable, string? StuckLine, int BreakableCell, DriveCounters Counters);
+public readonly record struct DriveOutput(IntentCommand Command, AiVector? Unreachable, string? StuckLine, int BreakableCell, DriveCounters Counters)
+{
+    public NavLinkStep Link { get; init; }
+}
 
 /// <summary>What <see cref="BotDriveLanes.Take"/> found for a bot.</summary>
 public enum DriveTaken : byte
@@ -359,7 +364,10 @@ public sealed class BotDriveLanes(Func<IAiTransport> transport, int slots)
                 Driver.Breakables = input.Breakables ? _aim : null;
                 IntentCommand brain = input.Brain;
                 IntentCommand command = Driver.Drive(in brain, input.Origin, input.Tick, 0, input.Graph, _obstacles, input.OnLadder, input.View, input.Shooter, input.Frozen);
-                _output = new DriveOutput(command, Driver.TakeUnreachable(slot), Driver.TakeStuckLine(slot), _aim.Wanted, Driver.CountersOf(_tally));
+                _output = new DriveOutput(command, Driver.TakeUnreachable(slot), Driver.TakeStuckLine(slot), _aim.Wanted, Driver.CountersOf(_tally))
+                {
+                    Link = Driver.LinkStepOf(slot),
+                };
                 _fault = null;
                 if (_routeAsked)
                 {

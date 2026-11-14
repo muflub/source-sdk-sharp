@@ -58,9 +58,10 @@ public sealed class AiBots : IFrameLifecycle
                      WeaponCatalog weapons, IEngineFrame frame, IAiNavigation nav, IBotGame game, IBotInventory inventory,
                      IBotNameSource names, IScoreboardTags tags, ILog log, SourceSharp.Ai.Server.Senses.ServerAiSession? ai = null,
                      IEngineNetworking? networking = null, AiMainBudget? budget = null, IBotClientCommand? commands = null,
-                     IPlayerStances? stances = null)
+                     IPlayerStances? stances = null, INavLinkReports? linkReports = null)
     {
         _ai = ai;
+        _linkReports = linkReports;
         _budget = budget;
         _nav = nav;
         _game = game;
@@ -414,6 +415,9 @@ public sealed class AiBots : IFrameLifecycle
     private readonly SourceSharp.Ai.Server.Senses.ServerAiSession? _ai;
     private readonly AiMainBudget? _budget;
 
+    // What each bot's follower says of its route's next link, handed to the game's brains (lane G5c-2b); null without links.
+    private readonly INavLinkReports? _linkReports;
+
     // A scripted walk's ladders (ai_bot_goto): a dev command's, on the main thread. The brains' drivers are the lanes'.
     private readonly BrainDriver _scripted = new();
 
@@ -459,6 +463,7 @@ public sealed class AiBots : IFrameLifecycle
 
             IntentCommand now = step.Command with { Seq = ++_seq };
             _wantedBreakable[bot.Id.Slot] = step.BreakableCell;
+            _linkReports?.Note(bot.Id, step.Command.FromTick, step.Link);
             _applier.Submit(in now);
             SayLadder(bot.Id, bot.Name, self, tick);
             SayJump(bot.Id, bot.Name, now.Move.Kind, tick, self);

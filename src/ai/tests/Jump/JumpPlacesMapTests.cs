@@ -48,7 +48,7 @@ public class JumpPlacesMapTests
         return new JumpPlaces(graph, columns, Search(columns, walk: walk), walk, reach, settings);
     }
 
-    private static readonly Lazy<Passed> Shared = new(() =>
+    internal static readonly Lazy<Passed> Shared = new(() =>
     {
         VoxelColumns columns = JumpRecording.Columns();
         NavGraph graph = JumpRecording.Graph();
@@ -250,6 +250,25 @@ public class JumpPlacesMapTests
         // No more links than candidates, one search a candidate and the flight that finds a link's cell.
         Assert.True(r.Links.Count <= r.Candidates.Count);
         Assert.InRange(r.Flights, r.Links.Count, r.Candidates.Count * (new JumpSearchSettings().MaxFlights + 1));
+    }
+
+    [JumpMapFact]
+    public void TheReplayToolsPassFindsWhatTheFactsPassFinds()
+    {
+        // tools/ai-replay jumps builds the simulator with no game (OfflineTF2: the class script, the mod's convars at their
+        // defaults, the stock launcher) and derives the graph with the map's own entities: on this map it is the rig's pass.
+        Passed p = Shared.Value;
+        string bsp = Path.ChangeExtension(JumpRecording.NavPath, ".bsp");
+        Func<double> micros = ThreadCpuClock.Micros() ?? (static () => Stopwatch.GetTimestamp() * 1e6 / Stopwatch.Frequency);
+        Replay.JumpPlacesReport r = Replay.JumpPlacesTool.Measure(JumpRecording.Map, File.ReadAllBytes(JumpRecording.NavPath), File.ReadAllBytes(bsp),
+                                                                  SourceSharp.Tests.RepoLayout.Repo("src", "tf2", "tests", "TestData", "playerclasses", "soldier.txt"), micros);
+        Assert.False(r.Cancelled);
+        Assert.Equal(p.Graph.Hash, r.Graph.Hash);
+        Assert.Equal(p.Reach, r.Reach);
+        Assert.Equal(p.Result.Candidates, r.Result.Candidates);
+        Assert.Equal(p.Result.Links, r.Result.Links);
+        Assert.Equal((p.Result.Flights, p.Result.Work), (r.Result.Flights, r.Result.Work));
+        Assert.True(r.Result.Links.Count > 0 && r.Cost.PassMs > 0d && r.Cost.PeakMb > 0d, "the control: the tool found links and measured them");
     }
 
     /// <summary>Which level stretch each cell is in, worked out here: cells joined by walks between floors no more than a unit apart.</summary>

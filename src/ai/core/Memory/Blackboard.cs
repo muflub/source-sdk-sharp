@@ -124,6 +124,9 @@ public sealed class KnownActor
     /// </summary>
     public bool Nemesis { get; internal set; }
 
+    /// <summary>It lies downed and can be revived (<see cref="AiEventKind.HeroDowned"/>): no threat until it gets up, dies or respawns.</summary>
+    public bool Downed { get; internal set; }
+
     /// <summary>
     /// Where it is now while unseen (§5.3.1). Null with no nav graph, for a teammate, and until an
     /// enemy has a place on the graph to be believed at: the memory makes it then, not before.
@@ -163,7 +166,7 @@ public sealed class KnownActor
         Spectating = false;
         LastSeenPos = LastSeenVel = LastHeardPos = default;
         LastSeenTick = LastHeardTick = default;
-        EverSeen = EverHeard = InSight = Dead = Nemesis = false;
+        EverSeen = EverHeard = InSight = Dead = Nemesis = Downed = false;
         _grudge = 0f;
         LastHeardKind = SoundKind.Unknown;
         Confidence = 0f;

@@ -187,6 +187,17 @@ public sealed class ChokeMapTests
         }
     }
 
+    /// <summary>Work derived from a graph is cached beside it, named after the graph's own file: the choke points' name is one such.</summary>
+    [Fact]
+    public void ASideFileIsNamedAfterTheGraphsOwnFile()
+    {
+        var cache = new NavGraphCache("/cache", NavEdgeCosts.Default);
+        string a = new('a', 64), b = new('b', 64);
+        Assert.Equal(cache.PathFor("m", a, b, "nk") + ".blast3", cache.SidePathFor("m", a, b, "nk", "blast3"));
+        Assert.Equal(cache.SidePathFor("m", a, b, "", $"chokes{ChokeMap.Revision}"), cache.ChokesPathFor("m", a, b));
+        Assert.NotEqual(cache.SidePathFor("m", a, b, "nk", "blast3"), cache.SidePathFor("m", a, new string('c', 64), "nk", "blast3"));
+    }
+
     /// <summary>A cached map of another graph is no answer: the graph it was made of is in its header.</summary>
     [Fact]
     public void AnotherGraphsCacheIsNotRead()

@@ -52,7 +52,8 @@ public sealed record AiRecordedWorld(MapKnowledge Map, float TickSeconds, string
 
 /// <summary>
 /// What a recording was made under: the match seed, the map, the nav graph's
-/// hash, the skill parameters' hash, and the session's sizes.
+/// hash, the skill parameters' hash, the session's sizes, and how the session
+/// ran (<see cref="Flags"/>, format 8: 0 in an older file).
 /// </summary>
 public readonly record struct AiRecordingHeader(
     ulong MatchSeed,
@@ -60,7 +61,15 @@ public readonly record struct AiRecordingHeader(
     ulong NavGraphHash,
     ulong SkillParamsHash,
     int Slots,
-    int SightedCapacity);
+    int SightedCapacity,
+    byte Flags = 0)
+{
+    /// <summary>The session ran without its team layer (<see cref="AiSession.TeamCallouts"/> false): a replay runs without it too.</summary>
+    public const byte TeamLayerOff = 1;
+
+    /// <summary>Whether the session that made the recording ran its team layer.</summary>
+    public bool TeamCallouts => (Flags & TeamLayerOff) == 0;
+}
 
 /// <summary>The file's framing and every payload's encoding. Pure functions; the stream is the caller's.</summary>
 public static class AiRecordFormat
@@ -76,9 +85,11 @@ public static class AiRecordFormat
     /// record with no tail, an older one, has none of either; format 6 a second tail on the
     /// Snapshot record, each view's own team and its sighted actors' (plan_bots_teams_tf2 B.2),
     /// and an optional tail on the Intent record, its say slot (B.4), written only when it says something);
-    /// format 7 a second tail on the World record, the map's team spawns (B.5).
+    /// format 7 a second tail on the World record, the map's team spawns (B.5); format 8 a tail on the
+    /// Header record, its flags (<see cref="AiRecordingHeader.TeamLayerOff"/>), and one on the BotAdded
+    /// record, the bot's home point when it has one (cf's Descent proposals 4 and 6).
     /// </summary>
-    public const ushort Version = 7;
+    public const ushort Version = 8;
 
     /// <summary>The largest payload a reader accepts; anything bigger is a corrupt length.</summary>
     public const int MaxPayload = 1 << 24;
@@ -155,6 +166,8 @@ public static class AiRecordFormat
         w.Write(h.SkillParamsHash);
         w.Write(h.Slots);
         w.Write(h.SightedCapacity);
+        // Format 8's tail: how the session ran.
+        w.Write(h.Flags);
     }
 
     public static void Write(BinaryWriter w, AiRecordedWorld world)
@@ -290,7 +303,30 @@ public static class AiRecordFormat
     {
         ulong seed = r.ReadUInt64();
         string map = Encoding.UTF8.GetString(r.ReadBytes(r.ReadUInt16()));
-        return new AiRecordingHeader(seed, map, r.ReadUInt64(), r.ReadUInt64(), r.ReadInt32(), r.ReadInt32());
+        var header = new AiRecordingHeader(seed, map, r.ReadUInt64(), r.ReadUInt64(), r.ReadInt32(), r.ReadInt32());
+        return More(r) ? header with { Flags = r.ReadByte() } : header;
+    }
+
+    /// <summary>A BotAdded record's payload: the bot, its seed, its skill levels and (format 8's tail) its home point.</summary>
+    public static void WriteBotAdded(BinaryWriter w, ActorId bot, ulong seed, ReadOnlySpan<byte> skillLevels, AiVector? home)
+    {
+        Write(w, bot);
+        w.Write(seed);
+        w.Write((ushort)skillLevels.Length);
+        w.Write(skillLevels);
+        w.Write(home.HasValue);
+        if (home is { } at)
+            Write(w, at);
+    }
+
+    /// <summary>Reads a BotAdded record's payload; an older record (no tail) has no home point.</summary>
+    public static (ActorId Bot, ulong Seed, byte[] Skills, AiVector? Home) ReadBotAdded(BinaryReader r)
+    {
+        ActorId bot = ReadActor(r);
+        ulong seed = r.ReadUInt64();
+        byte[] skills = r.ReadBytes(r.ReadUInt16());
+        AiVector? home = More(r) && r.ReadBoolean() ? ReadVector(r) : null;
+        return (bot, seed, skills, home);
     }
 
     public static void Write(BinaryWriter w, ActorId a)

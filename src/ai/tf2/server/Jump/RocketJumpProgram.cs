@@ -148,12 +148,23 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
     /// <summary>The looks the program asks of the motion: the shot's, then the way it goes.</summary>
     public const int ShotLook = 1, WayLook = 2;
 
-    /// <summary>Jumps begun, and one-shots that named no plan the book holds.</summary>
+    /// <summary>Jumps begun, and one-shots that named no plan the book holds; of the jumps begun, those of a link's plan.</summary>
     public long Begun => Interlocked.Read(ref _begun);
 
     public long Unknown => Interlocked.Read(ref _unknown);
 
-    private long _begun, _unknown;
+    public long LinksBegun => Interlocked.Read(ref _linksBegun);
+
+    private long _begun, _unknown, _linksBegun;
+
+    /// <summary>How near the recipe's start a plan that starts standing is placed before it is flown, and how slowly the body must be moving.</summary>
+    public const float PlaceSlack = 8f, StillSpeed = 20f;
+
+    /// <summary>How far from the recipe's start a plan that starts standing may be begun: the follower holds a bot within 48 u of it.</summary>
+    public const float PlaceReach = 96f;
+
+    /// <summary>The speed a body is walked onto the recipe's start at, per unit it has still to go, and the least: over the floor's friction to the end.</summary>
+    public const float PlaceGain = 4f, PlaceSpeedMin = 60f;
 
     /// <summary>The tolerance for a bot whose view turns at most as <paramref name="motion"/> says.</summary>
     public static float Tolerance(in MotionParams motion)
@@ -171,6 +182,8 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
         }
 
         Interlocked.Increment(ref _begun);
+        if (plan.StartsStanding)
+            Interlocked.Increment(ref _linksBegun);
         JumpPilotLimits limits = JumpPilotLimits.Of(TFViewVectors.Params, classes[TFClass.Soldier].MaxSpeed, tickSeconds, motion.TurnPeakDegPerSec);
         return new Run(plan, limits, motion, flew, approachCommands);
     }
@@ -193,6 +206,7 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
         private float _slid, _top;
         private float? _stoodAt;
         private int _roundBy, _likelyBy;
+        private bool _placed, _aimedStanding;
         private int _feltAfterShot = -1;
         private Vector _leap;
 
@@ -263,6 +277,8 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
         private AbilityCommand? Approach(in JumpBody b, Vector shot)
         {
             _approach++;
+            if (_plan.StartsStanding && Place(b, shot) is { } placing)
+                return placing;
             float yaw = _recipe.TravelYaw * (MathF.PI / 180f), wx = MathF.Cos(yaw), wy = MathF.Sin(yaw);
             float dx = _plan.Recipe.Takeoff.X - b.Origin.X, dy = _plan.Recipe.Takeoff.Y - b.Origin.Y;
             float along = dx * wx + dy * wy, aside = dx * wy - dy * wx;
@@ -280,6 +296,14 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
             {
                 float turn = JumpPilot.ViewGap(b.View, shot);
                 (_roundBy, _likelyBy) = (TurnCommandsAtMost(_motion, turn, _limits.TickSeconds), TurnCommandsLikely(_motion, turn, _limits.TickSeconds));
+            }
+
+            // A plan flown from standing runs at its jump only once its view is round, as the simulator flew it.
+            if (_plan.StartsStanding && runs && !_aimedStanding)
+            {
+                if (!onAim)
+                    return _approach > _approachMost ? Finish(JumpEnd.ViewLate, b.Origin) : new AbilityCommand(new AiAngles(shot.X, shot.Y, 0f), ShotLook, default, 0);
+                _aimedStanding = true;
             }
 
             // On the line with the view there: launched, a bot that stood no sooner than the plan's hold run from where it did, at its speed again.
@@ -316,6 +340,39 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
                 float pull = Math.Clamp(aside / AsidePull, -1f, 1f) * 0.5f;
                 float x = wx + wy * pull, y = wy - wx * pull, length = MathF.Sqrt(x * x + y * y);
                 wish = new AiVector(x / length * _limits.FullMove, y / length * _limits.FullMove, 0f);
+            }
+
+            return new AbilityCommand(new AiAngles(shot.X, shot.Y, 0f), ShotLook, wish, 0);
+        }
+
+        /// <summary>
+        /// A plan that starts standing (a link's): the body walked onto the recipe's start, slower as it nears it, until it
+        /// is within <see cref="PlaceSlack"/> and moving under <see cref="StillSpeed"/>, its view turning to the shot's line
+        /// meanwhile; null once it is placed. Off the ground, or begun further than <see cref="PlaceReach"/> from the start,
+        /// the jump is called off (astray); so is a placing that takes the approach's whole time.
+        /// </summary>
+        private AbilityCommand? Place(in JumpBody b, Vector shot)
+        {
+            if (_placed)
+                return null;
+            JumpStart start = _plan.Recipe.Start();
+            float dx = start.Origin.X - b.Origin.X, dy = start.Origin.Y - b.Origin.Y, far = MathF.Sqrt(dx * dx + dy * dy);
+            if (!b.OnGround || far > PlaceReach)
+                return Finish(JumpEnd.Astray, b.Origin);
+            if (_approach > _approachMost)
+                return Finish(JumpEnd.ViewLate, b.Origin);
+            float speed = MathF.Sqrt(b.Velocity.X * b.Velocity.X + b.Velocity.Y * b.Velocity.Y);
+            AiVector wish = default;
+            if (far > PlaceSlack)
+            {
+                // A wish's length is the speed it asks for (the movement holds it to the class's own).
+                float want = Math.Clamp(far * PlaceGain, PlaceSpeedMin, _limits.RunSpeed);
+                wish = new AiVector(dx / far * want, dy / far * want, 0f);
+            }
+            else if (speed <= StillSpeed)
+            {
+                _placed = true;
+                return null;
             }
 
             return new AbilityCommand(new AiAngles(shot.X, shot.Y, 0f), ShotLook, wish, 0);

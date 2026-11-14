@@ -358,6 +358,7 @@ public sealed class BotMemory
                     }
 
                     dead.Dead = true;
+                    dead.Downed = false;
                     dead.InSight = false;
                     dead.HealthEstimate = 100;
                     dead.Ammo.Reset();
@@ -414,6 +415,26 @@ public sealed class BotMemory
             case AiEventKind.Callout:
                 Callout(e);
                 break;
+            case AiEventKind.Arrived:
+                LastArrived = (e.Tick, e.Position);
+                break;
+            case AiEventKind.AllyDamaged:
+                LastAllyHurt = (e.Other, e.Killer, e.Tick, e.Position);
+                break;
+            case AiEventKind.AllyDied:
+                LastAllyDied = (e.Other, e.Killer, e.Tick, e.Position);
+                AlliesLost++;
+                if (Board.Of(e.Other, make: false) is { } fallen)
+                {
+                    fallen.Dead = true;
+                    fallen.InSight = false;
+                }
+
+                break;
+            case AiEventKind.HeroDowned:
+                if (Board.Of(e.Other, make: true) is { } hero)
+                    hero.Downed = e.Code != 0;
+                break;
             case AiEventKind.Order:
                 // A teammate's order only (B.9: one who swapped away is not listened to).
                 if (Board.Of(e.Other, make: true) is { } from && IsFriend(from))
@@ -424,6 +445,18 @@ public sealed class BotMemory
 
     /// <summary>The last order a teammate gave in team chat (B.5, Q5): what, who, when; None before one.</summary>
     public (OrderKind Kind, ActorId From, Tick When) LastOrder { get; private set; }
+
+    /// <summary>When and where the bot last reached the place its intent moved it to (<see cref="AiEventKind.Arrived"/>); tick 0 before.</summary>
+    public (Tick When, AiVector Where) LastArrived { get; private set; }
+
+    /// <summary>The last teammate the bot knew hurt (<see cref="AiEventKind.AllyDamaged"/>): who, by whom, when, where; None before one.</summary>
+    public (ActorId Ally, ActorId Attacker, Tick When, AiVector Where) LastAllyHurt { get; private set; }
+
+    /// <summary>The last teammate the bot knew killed (<see cref="AiEventKind.AllyDied"/>): who, by whom, when, where; None before one.</summary>
+    public (ActorId Ally, ActorId Killer, Tick When, AiVector Where) LastAllyDied { get; private set; }
+
+    /// <summary>How many teammates the bot has known to die this level (a morale's count, <see cref="AiEventKind.AllyDied"/>).</summary>
+    public int AlliesLost { get; private set; }
 
     /// <summary>When the bot's own team last changed (B.9): its role and goal end there.</summary>
     public Tick OwnSwap { get; private set; }

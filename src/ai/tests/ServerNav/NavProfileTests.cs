@@ -84,10 +84,72 @@ public sealed class NavProfileTests : IDisposable
 
     [Theory]
     [InlineData(TFClass.Scout, JumpReach.Double)]
-    [InlineData(TFClass.Soldier, JumpReach.None)]
+    [InlineData(TFClass.Soldier, JumpReach.Blast)]
     [InlineData(TFClass.Undefined, JumpReach.None)]
-    public void OnlyTheScoutDoubleJumps(TFClass playerClass, JumpReach reach)
+    public void TheScoutDoubleJumpsAndTheSoldierBlastJumps(TFClass playerClass, JumpReach reach)
         => Assert.Equal(reach, TFNavProfile.ReachOf(playerClass));
+
+    /// <summary>Lane G5c-2b: the Soldier's searches take the level's blast links, and no other class's (G5c-2a held that nobody's did yet).</summary>
+    [Fact]
+    public void OnlyTheSoldierHasTheBlastReach()
+        => Assert.Equal([TFClass.Soldier], Enum.GetValues<TFClass>().Where(c => (TFNavProfile.ReachOf(c) & JumpReach.Blast) != 0));
+
+    /// <summary>TF2's profile for one player of <paramref name="playerClass"/> at <paramref name="health"/>, the level's links published or not.</summary>
+    private static (TFNavProfile Profile, SourceSharp.Ai.TF2.Jump.TFBlastLinks Published) Tf(TFClass playerClass, int health)
+    {
+        var facts = new FactsOf(playerClass);
+        IEngineEntities entities = SourceSharp.Ai.Tests.Senses.FakeEngine.Of<IEngineEntities>((m, _) => m.Name == nameof(IEngineEntities.GetHealth)
+            ? health : throw SourceSharp.Ai.Tests.Senses.FakeEngine.Unasked(m));
+        var published = new SourceSharp.Ai.TF2.Jump.TFBlastLinks();
+        return (new TFNavProfile(facts, null!, entities, published), published);
+    }
+
+    private sealed class FactsOf(TFClass playerClass) : global::TF2.Server.Player.ITFActorFacts
+    {
+        public bool TryRead(int playerIndex, out global::TF2.Server.Player.TFActorFacts facts)
+        {
+            facts = default(global::TF2.Server.Player.TFActorFacts) with { Class = playerClass };
+            return true;
+        }
+    }
+
+    private static SourceSharp.Ai.TF2.Jump.JumpLinkSet Links()
+    {
+        var (g, ids) = SourceSharp.Ai.Tests.Nav.Grids.Parse("..... .....");
+        var recipe = new SourceSharp.Ai.TF2.Jump.JumpRecipe(new Vector(144f, 16f, 0f), new Vector(208f, 16f, 0f), 0f, 60f, 180f, 2, false);
+        return SourceSharp.Ai.TF2.Jump.JumpLinkSet.Of(g, [new SourceSharp.Ai.TF2.Jump.JumpLink(ids[4, 0], ids[6, 0], recipe, SourceSharp.Ai.TF2.Jump.JumpFamily.Up, 1f, 2f, 1.5f, 40f, null)],
+                                                     new NavLinkCosts { RunSpeed = 240f });
+    }
+
+    private static readonly EntityHandle Player = new(0x0001_0002u);
+
+    [Fact]
+    public void ASoldiersSearchesTakeThePublishedLinksSpendingItsHealthOverTheJumpsFloor()
+    {
+        var (profile, published) = Tf(TFClass.Soldier, 150);
+        Assert.Equal(default, profile.LinksFor(Player));
+        SourceSharp.Ai.TF2.Jump.JumpLinkSet set = Links();
+        published.Set = set;
+        NavLinkAllowance allowance = profile.LinksFor(Player);
+        Assert.Same(set.Links, allowance.Links);
+        Assert.Equal(150f - SourceSharp.Ai.TF2.Trees.TFDecider.RocketJumpHealthFloor, allowance.Health);
+    }
+
+    [Fact]
+    public void ABotUnderTheJumpsFloorMaySpendNothing()
+    {
+        var (profile, published) = Tf(TFClass.Soldier, (int)SourceSharp.Ai.TF2.Trees.TFDecider.RocketJumpHealthFloor - 10);
+        published.Set = Links();
+        Assert.Equal(0f, profile.LinksFor(Player).Health);
+    }
+
+    [Fact]
+    public void AnotherClassTakesNoLinks()
+    {
+        var (profile, published) = Tf(TFClass.Scout, 150);
+        published.Set = Links();
+        Assert.Equal(default, profile.LinksFor(Player));
+    }
 
     [Fact]
     public void AProfilesNumbersNameItsCachedGraphAndTheDefaultsDoNot()

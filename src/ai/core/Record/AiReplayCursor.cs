@@ -121,7 +121,7 @@ public sealed class AiReplayCursor
     private void Restart()
     {
         _replayed.Clear();
-        _session = new AiSession(new InlineTransport(), new Capture(_replayed), Header.Slots, Header.SightedCapacity);
+        _session = new AiSession(new InlineTransport(), new Capture(_replayed), Header.Slots, Header.SightedCapacity) { TeamCallouts = Header.TeamCallouts };
         _next = 0;
         At = null;
     }
@@ -143,9 +143,8 @@ public sealed class AiReplayCursor
                 _session.Deciders = _deciders;
                 break;
             case AiRecordType.BotAdded:
-                ActorId bot = AiRecordFormat.ReadActor(r);
-                ulong seed = r.ReadUInt64();
-                _session.AddBot(bot, seed, r.ReadBytes(r.ReadUInt16()));
+                (ActorId bot, ulong seed, byte[] skills, AiVector? home) = AiRecordFormat.ReadBotAdded(r);
+                _session.AddBot(bot, seed, skills, home: home);
                 break;
             case AiRecordType.BotRemoved:
                 _session.RemoveBot(AiRecordFormat.ReadActor(r));

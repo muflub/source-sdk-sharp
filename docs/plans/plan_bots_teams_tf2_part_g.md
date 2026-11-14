@@ -719,6 +719,8 @@ Everything below is on local main; nothing is pushed.
 | G5c-1, the jump in the game | `2b1e7bff0` (20 commits) | the pilot flies it; faster than the walk; three in ten fizzle on ctf_2fort |
 | the jump map by room, measured (lane Groom) | `681473095` (3 commits) | a region source the derivation runs on unchanged; `tools/ai-replay navrooms`; nothing in the game calls it |
 | G5d, the fizzles | `065ad9fac` (2 commits) | the cause is the mod's rocket, not the AI; the jump's record and tally say when a blast was felt |
+| G5c-2a, blast links | `49a67813c` (10 commits) | jumps as links beside the graph, found on a worker, cached, searched under a reach and a health gate; no bot has the reach |
+| G5c-2b, the Soldier takes a link | `35075b8db` (12 commits) | the flow field, the follower and the tree learn the links; the 250 u ledge by a link in 10 of 10 tries; only the Soldier has the reach |
 
 **The physics changed under the jump (F231, the TF2 port's lane).** A TF2
 player now carries TF2's hull (48 × 48 × 82, 62 ducked), not HL2's box, so a
@@ -846,13 +848,108 @@ name); and a game launch runs `make debug`, so a branch that stops compiling
 after a rebase starts no game, which reads as a failed run and not as a build
 error.
 
-**Still to do, in order:** G5c-2 in two lanes (a: blast links a route search
-can take, found for a whole map off the game's thread and cached, running
-since `065ad9fac`; b: the follower, the decider's rule, the applier telling
-the decider a program runs); the recording format 7 → 8, after the user's
-ruling on the rooms proposal, since a room change would be a record of its
-own; G4 (the experience's cost field on the pathfinder); G6; the jump map's
-rooms, when approved; the prefire lift.
+**G5c-2a, blast links.** G.5's step 5 says an edge type inside the graph.
+Built otherwise, and why: the finder is TF2's and the graph is generic, so
+an edge in the graph would make the graph's hash change with TF2's physics,
+rebuild every map's cache and put the pass on the level load. The links are
+a set **beside** the graph, as the choke map is (`NavLinks`, `NavLinkSlot`
+in `src/ai/core/Nav/NavLinks.cs`): found by `JumpPlaces` on a worker after
+the level loads (`JumpLinkWork`, started by `TFJumps`), cached in a file
+named after the graph's (`.navgraph.blast1`, refused on another revision,
+graph or inputs), and published through a slot. `NavPathfinder` takes them
+only for an agent whose `NavObstacleState` has `JumpReach.Blast` and a
+`LinkHealth` that covers the link; without the reach a search is the old one
+exactly. A link costs its seconds, 0.03 s a hit point and (1 − robustness)
+× 4 s (`NavLinkCosts`). Nobody has the reach yet, and a fact holds that.
+
+- **The place finder was wrong on a real map, and is fixed.** Its first run
+  on ctf_2fort gave 21 links, 16 of them taking off where no player stands
+  (clip and cliff tops, the river), two landing hundreds of units below where
+  the flight came to rest. Now it proposes takeoffs only where the graph
+  leads from a spawn, goes on in rounds from where its links land, links only
+  to a cell at the rest's height, and tries up to three takeoffs a pair of
+  levels.
+- **Numbers** (`tools/ai-replay jumps`, one thread's CPU, at `955f3526f`):
+  ctf_2fort 49 candidates, 8 links, 1,263 flights, 2.11 s debug and 1.05 s
+  release; `ss_ai_tf_jump` 11 candidates, 11 links, 1.36 s and 0.81 s. In a
+  running game (debug, at `974f22107`): 8 and 11 links found, 2.6 s and 1.9 s
+  of a worker.
+- **What it is worth on ctf_2fort: little.** Of 56 routes between the spawn
+  rooms, flags and capture zones (`tools/ai-replay jumps --routes`, a Soldier
+  with 110 health to spend), 18 take a link, all one of two jumps on the blue
+  side at x = 8, the best saving 5.4 s of 67.7. The battlements-to-roof jump
+  is found on both sides, and the roof is a dead end in the graph. On
+  `ss_ai_tf_jump` 9 of 11 landings are reached only by a link.
+- **What the next lane has to know:** `NavFollower` routes by a `FlowField`,
+  not by `NavPathfinder`, so the field has to learn the links; and a TF2 map's
+  entity lump is LZMA-packed, which `MapEntities.Read` does not unpack, so in
+  the game `LoadedNav.Entities` is empty on shipped TF2 maps (the finder's
+  seeds come from `ITFLevelEntities`).
+
+**G5c-2b, the Soldier takes a link.** G.5's step 6, built as follows.
+
+- **Who may.** The level's links ride on each player's obstacle state
+  (`NavObstacleState.Links`, beside `Reach` and `LinkHealth`), set by the
+  game's profile (`INavProfile.LinksFor`). TF2 gives them to the Soldier
+  only, with its health less the jump's floor of 90 to spend, refreshed each
+  drive step. The fact `OnlyTheSoldierHasTheBlastReach` replaced the one
+  that said nobody has it.
+- **The route.** `FlowField` relaxes the links into a cell after its edges
+  and names the link a cell steps over (`LinkFrom`, `NavEdgeType.Link`,
+  which no graph holds). An agent without the reach builds the old field
+  exactly (0 cells differ on ctf_2fort). A build over 162,712 cells costs
+  the same with and without links within the box's noise (26.9, 25.5 and
+  26.1 ms of thread CPU, debug, `tools/ai-replay jumps ctf_2fort --routes`,
+  at `d405c72ab`).
+- **The follower only reports.** It leads the bot to the link's start (the
+  recipe's run-up start), holds within 48 u of it and says so
+  (`NavLinkStep`). The tree begins the jump, under `JumpAllowed`'s rule
+  unchanged plus "health after the blast is over the floor"; the drive sees
+  the one-shot and takes its hands off until the bot is down.
+- **A bot never waits at a takeoff.** No begin within 66 ticks, a jump that
+  fails, or health that no longer covers the link: the link is left out of
+  that bot's route for 533 moves and the route goes round. A goal given up
+  while its links were left out is tried again when they are back.
+- **The report crosses on the main thread** (`AiBots.TakeDrives` to
+  `INavLinkReports`, which is `TFJumps`), stamped with the tick the drive
+  step was handed on; a decide reads the newest stamped before its own tick,
+  so the same report whatever the thread timing.
+- **Proof** (`tools/ai-tf-jump links --tries 10 --others --reload`, debug,
+  one bot, at the lane's tip `17384775c`, tag `archive/tf2ai-G5c2b-pre-land`):
+  the 250 u ledge 10 of 10 by a link, median 294.5 ticks, landing 0.8 u from
+  the simulator's (worst 1.6); the seven other link-only landings 7 of 7;
+  after a `changelevel` (links from the cache) 10 of 10. Again at the
+  landing, 5 tries each: 5 of 5 and 5 of 5 (`971149fb2`).
+- **ctf_2fort, 560 s, debug, one run each (a sample, not a rate).** 4v4: 5
+  captures and 119 stuck reports (before: 5 and 113), 17 jumps of which 8
+  links, none fizzled. 6v6: 3 and 4 captures, 270 and 141 stuck reports
+  (before: 4 and 138), 20 and 26 jumps of which 20 and 16 links. 123 of the
+  270 were four bots under a flag dropped 180 u over the floor, where no
+  link is.
+- **Open.** The first try after a `changelevel` skips the ledge's link at
+  its start (the book advises nothing there) and goes round by another:
+  seen in both full runs, cause not found. The jumps' 6 s spacing refuses
+  the second link of a chain, so that route goes round. `ai_tf_errand` (a
+  cheat command) sends a bot to a place by its own tree; it is how the tool
+  proves a link, and a recording made under it would need its goals.
+
+**Other sessions' changes under this part, same day.** The service-free
+navigation moved to `src/ai/nav/` (`SourceSharp.Ai.Nav`, `f8f9fd1a1`,
+`df9240fc0`; pure renames, namespaces unchanged; the ctf_2fort and
+`ss_ai_tf_jump` graph hashes are the same before and after, derived fresh).
+The recording format is 8 (`a108dbc72`: a header flags byte and a bot's home
+point, for Descent), so this part's TF2 replay step is 9. `AiEventKind` ends
+at 61.
+
+**Still to do, in order:** G4, the first two uses of the experience (a
+route's cost through bins where players die, in the flow field since that is
+where a bot's route is searched, and looking where players look; lane G4a,
+running since `35075b8db`), then its other rows; G.5's step 7 (a link's
+tries and successes in the store); the recording format 8 → 9, after the
+user's ruling on the rooms proposal, since a room change would be a record
+of its own, with the links' hash and arrival, each bot's link step and each
+link jump's outcome as recorded facts; G6; the jump map's rooms, when
+approved; the prefire lift.
 
 **Ownership, from 2026-11-11.** The TF2 AI session has not run since 07:18
 that day. G.9's serialised files have no second session to be serialised

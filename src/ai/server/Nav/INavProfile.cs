@@ -28,4 +28,14 @@ public interface INavProfile
     /// visualizers), which each team's players route round; none for a game without them.
     /// </summary>
     IReadOnlyList<TeamSolid> TeamSolids(MapEntities entities);
+
+    /// <summary>
+    /// The links beside the level's graph that <paramref name="player"/>'s searches may take (TF2's blast
+    /// jumps, lane G5c-2b), and the health it may spend on one as it stands now: none for a game without
+    /// them, which every HL2MP player is.
+    /// </summary>
+    NavLinkAllowance LinksFor(EntityHandle player) => default;
 }
+
+/// <summary>The links a player's searches may take, null for none, and the health it may spend on one (<see cref="NavObstacleState.LinkHealth"/>).</summary>
+public readonly record struct NavLinkAllowance(NavLinks? Links, float Health);

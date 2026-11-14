@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The AI's navigation pieces that hold no service: the nav sources (the
+    .nav3d's, the hull voxels', the regions'), the graph derivation, the path
+    follower, a game's movement numbers, and the voxel columns and move world
+    a jump is simulated in. It registers nothing: no [SideService], no
+    registrar, so an assembly that references it (TF2.Descent.Server) gets
+    the types without SourceSharp.Ai.Server's or SourceSharp.Ai.TF2's
+    services, which LoadedAssemblies would sweep in with a reference to
+    either. AiNavLibraryTests holds that over the built assembly. The
+    namespaces are still the ones the files had in Ai.Server and Ai.TF2.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="SourceSharp.Ai.Server" />
+    <InternalsVisibleTo Include="SourceSharp.Ai.TF2" />
+    <InternalsVisibleTo Include="SourceSharp.Ai.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- map-tools' .nav3d reader (plan_hl2mp_ai §6.1), from MAPTOOLS_DIR/bin/nupkg (Directory.Build.props). -->
+    <PackageReference Include="SourceSharp.MapFormats" Version="$(MapFormatsVersion)" />
+    <ProjectReference Include="..\core\SourceSharp.Ai.csproj" />
+    <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
+    <!-- The seams VoxelMoveWorld answers (IMoveWorld): an interface assembly, no game logic. -->
+    <ProjectReference Include="..\..\server\interface\SourceSharp.Server.Interface.csproj" />
+  </ItemGroup>
+</Project>

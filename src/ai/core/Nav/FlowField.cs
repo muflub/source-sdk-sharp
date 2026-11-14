@@ -17,6 +17,7 @@ public sealed class FlowField
     private float[] _cost = [];
     private int[] _next = [];
     private NavEdgeType[] _via = [];
+    private int[] _link = [];
     private readonly PriorityQueue<int, (float, int)> _open = new();
 
     public CellId Objective { get; private set; }
@@ -41,6 +42,16 @@ public sealed class FlowField
     /// <summary>How the next step from <paramref name="cell"/> is crossed.</summary>
     public NavEdgeType ViaFrom(int cell) => (uint)cell < (uint)_via.Length ? _via[cell] : NavEdgeType.Walk;
 
+    /// <summary>
+    /// The link the next step from <paramref name="cell"/> takes (its index in the links the field was
+    /// built with: <see cref="NavObstacleState.Links"/>), or -1 when it is an edge, at the objective
+    /// or unreachable. <see cref="ViaFrom"/> is then <see cref="NavEdgeType.Link"/>.
+    /// </summary>
+    public int LinkFrom(int cell) => (uint)cell < (uint)_link.Length ? _link[cell] : -1;
+
+    /// <summary>The links the last build could take (null: none, or the agent has none of their reaches).</summary>
+    public NavLinks? Links { get; private set; }
+
     /// <summary>Whether <paramref name="a"/> beats <paramref name="b"/> as a next cell at equal cost.</summary>
     private static bool Nearer(NavGraph graph, int a, int b, AiVector target)
     {
@@ -53,7 +64,11 @@ public sealed class FlowField
     /// <summary>
     /// Builds the field to <paramref name="objective"/>; no route passes
     /// through a cell of <paramref name="avoided"/> (a follower's stuck spot,
-    /// for a while), though the objective itself is never avoided.
+    /// for a while), though the objective itself is never avoided. The links of
+    /// <see cref="NavObstacleState.Links"/> are steps too, for an agent with a reach
+    /// they need, each where <see cref="NavLinks.Admits"/> lets it and not in
+    /// <paramref name="avoidedLinks"/> (a link refused or failed, for a while): an agent
+    /// with none of their reaches builds the field it would with no links.
     /// </summary>
     /// <para>
     /// With <paramref name="from"/> (the cell the bot stands in) the search
@@ -63,7 +78,7 @@ public sealed class FlowField
     /// cost there and asks again (<see cref="IsPartial"/>).
     /// </para>
     public void Build(NavGraph graph, CellId objective, ClearanceClass cls, NavObstacleState obstacles, IReadOnlySet<int>? avoided = null,
-                      CellId from = default)
+                      CellId from = default, IReadOnlySet<int>? avoidedLinks = null)
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(obstacles);
@@ -76,11 +91,18 @@ public sealed class FlowField
             _cost = new float[n];
             _next = new int[n];
             _via = new NavEdgeType[n];
+            _link = new int[n];
+            Array.Fill(_link, -1);
         }
 
         Array.Fill(_cost, float.PositiveInfinity);
         Array.Fill(_next, -1);
         Array.Clear(_via);
+        // A link set of another graph, or one the agent has no reach for, is no link at all.
+        NavLinks? links = obstacles.Links is { } set && (obstacles.Reach & set.Reaches) != 0 && set.IsOver(graph) ? set : null;
+        if (links is not null || Links is not null)
+            Array.Fill(_link, -1);
+        Links = links;
         _open.Clear();
         Objective = objective;
         Class = cls;
@@ -125,9 +147,37 @@ public sealed class FlowField
                     _cost[e.From] = c;
                     _next[e.From] = cell;
                     _via[e.From] = e.Type;
+                    if (links is not null)
+                        _link[e.From] = -1;
                     if (improved)
                         _open.Enqueue(e.From, (c, e.From));
                 }
+            }
+
+            if (links is not null)
+                RelaxLinks(graph, links, cell, cls, obstacles, avoidedLinks, extra, target);
+        }
+    }
+
+    /// <summary>The links into <paramref name="cell"/>, relaxed as its incoming edges are.</summary>
+    private void RelaxLinks(NavGraph graph, NavLinks links, int cell, ClearanceClass cls, NavObstacleState obstacles, IReadOnlySet<int>? avoidedLinks,
+                            float extra, AiVector target)
+    {
+        foreach (int index in links.To(cell))
+        {
+            if ((avoidedLinks is not null && avoidedLinks.Contains(index)) || !links.Admits(graph, index, cls, obstacles))
+                continue;
+            int from = links[index].From;
+            float c = _cost[cell] + links.CostOf(index) + extra;
+            if (c < _cost[from] || (c == _cost[from] && Nearer(graph, cell, _next[from], target)))
+            {
+                bool improved = c < _cost[from];
+                _cost[from] = c;
+                _next[from] = cell;
+                _via[from] = NavEdgeType.Link;
+                _link[from] = index;
+                if (improved)
+                    _open.Enqueue(from, (c, from));
             }
         }
     }

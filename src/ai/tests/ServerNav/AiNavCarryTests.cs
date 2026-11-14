@@ -61,6 +61,38 @@ public sealed class AiNavCarryTests : IDisposable
         public JumpReach Reach(EntityHandle player) => reach;
 
         public IReadOnlyList<TeamSolid> TeamSolids(MapEntities entities) => solids;
+
+        /// <summary>What every player may take and spend, as the fact sets it.</summary>
+        public NavLinkAllowance Links { get; set; }
+
+        public NavLinkAllowance LinksFor(EntityHandle player) => Links;
+    }
+
+    /// <summary>The links and the health the game's profile gives a player ride on its obstacles, as they stand when asked (lane G5c-2b).</summary>
+    [Fact]
+    public void APlayersObstaclesCarryTheLinksAndTheHealthTheGamesProfileGivesIt()
+    {
+        var profile = new Profile(null, JumpReach.None);
+        NavService nav = Nav(profile);
+        ((IGameLifecycle)nav).OnLevelCarried("course");
+        NavLinks links = NavLinks.Empty(nav.Current!.Nav.Graph);
+        var player = new EntityHandle(0x0001_0002u);
+        Assert.Null(nav.ObstaclesFor(player)!.Links);
+        profile.Links = new NavLinkAllowance(links, 61f);
+        NavObstacleState state = nav.ObstaclesFor(player)!;
+        Assert.Same(links, state.Links);
+        Assert.Equal(61f, state.LinkHealth);
+        profile.Links = new NavLinkAllowance(links, 12f);
+        Assert.Equal(12f, nav.ObstaclesFor(player)!.LinkHealth);
+    }
+
+    [Fact]
+    public void HL2MPsProfileGivesNoLinks()
+    {
+        NavService nav = Nav();
+        ((IGameLifecycle)nav).OnLevelCarried("course");
+        NavObstacleState state = nav.ObstaclesFor(new EntityHandle(0x0001_0002u))!;
+        Assert.Equal((null, 0f), (state.Links, state.LinkHealth));
     }
 
     /// <summary>The players' teams the fake engine answers, by handle.</summary>

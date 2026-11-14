@@ -5,6 +5,7 @@
   tools/ai-tf-jump read FILE.json      an earlier run's numbers again, from its kept track
   tools/ai-tf-jump record [--seconds 300] [--config debug] [--keep]
   tools/ai-tf-jump sim [--config debug|release]   the simulator against the recording: its gaps and its speed
+  tools/ai-tf-jump links [--tries 10] [--others] [--reload] [--think-log] [--config debug] [--out FILE.json] [--keep]
   tools/ai-tf-jump --self-test
 
 Starts a headless tf2 game on the map (tools/ai-scenario's Game: its own
@@ -74,6 +75,23 @@ and writes what the blast-jump simulator's differential facts replay
                                                 to 34 after it came back; the rest of the session is cut
   src/ai/tests/recordings/ss_ai_tf_jump.json    the map source's sha256, the game's commit, the flights
                                                 this tool saw, the bot's slot, what was cut and the counters
+
+`links` (lane G5c-2b) sends the Soldier, by its brain (`ai_tf_errand`, which gives
+its tree a place to go), to the top of the 250 u ledge, a place only a blast link
+reaches, --tries times (10), each from the same spot on the floor
+(`LINK_START`), its health held at 200. A try is the brain's: the route takes the
+link, the follower leads the bot to the link's start, the tree begins the jump and
+the program flies the link's recipe. Per try, by server ticks: whether the bot got
+there (on the ledge's floor, within `ARRIVE_FLAT` of the place), how long it took,
+the jumps it began and how each ended, whether it got there by a link (a landed
+jump whose plan is a link's, `/ai/jumps` `plan` at `LINK_ARGUMENT_BASE` or over),
+and the landing's gap to the simulator's flight of the same recipe from the same
+launch (`gap`) and to the link's own touch (`off_plan`). Fizzles with a blast
+felt one or two commands after the trigger are counted apart (the mod's rocket on
+a teammate: none here, there is one bot). Then, with --others, each other landing
+of a link with no walk to it once; with --reload, the level is loaded again in
+the same process (`changelevel`), the links come from the cache, and --tries more.
+The game's own link counters (`ai.jump.link.*`) are printed with the summary.
 
 `sim` runs the simulator's facts (BlastJumpDifferentialTests and
 BlastJumpSpeedTests) and prints the numbers they write under
@@ -234,6 +252,19 @@ def summary(found):
 
 
 def self_test():
+    # The links mode's verdict on one try: by a link only when it got there and a link's jump landed near its touch.
+    def lj(plan, end, off=1.0, felt=-1):
+        return {"plan": plan, "end": end, "off_plan": off, "gap": 0.5, "felt_after_shot": felt}
+    t = link_try([lj(LINK_ARGUMENT_BASE + 3, "Landed")], LEDGE_250, 100, 400)
+    assert t["by_link"] and t["ticks"] == 300 and t["link_ids"] == [3] and t["gaps"] == [0.5], t
+    assert not link_try([lj(LINK_ARGUMENT_BASE + 3, "Landed")], LEDGE_250, 100, None)["by_link"]
+    assert not link_try([lj(7, "Landed")], LEDGE_250, 100, 400)["by_link"], "a stretch's jump is no link"
+    far = link_try([lj(LINK_ARGUMENT_BASE + 3, "Landed", off=1400.0), lj(LINK_ARGUMENT_BASE + 3, "Landed")], LEDGE_250, 100, 400)
+    assert far["ends"] == ["LandedElsewhere", "Landed"] and far["gaps"] == [0.5], far
+    assert link_try([lj(LINK_ARGUMENT_BASE, "Fizzled", felt=1)], LEDGE_250, 0, None)["fizzled_felt_early"] == 1
+    assert arrived((0, 1028.0, 1150.0, 266.0), LEDGE_250) and not arrived((0, 1028.0, 1150.0, 16.0), LEDGE_250)
+    s = link_summary([far, t])
+    assert (s["tries"], s["arrived"], s["by_link"], s["first_jump_landed"]) == (2, 2, 2, 1), s
     tick = 0.015
     # East along the run at 240 u/s, one sample every 7 ticks (25.2 u), flat.
     walk = [(i * 7, 300.0 + i * 25.2, 232.0, FLOOR_Z) for i in range(70)]
@@ -429,6 +460,176 @@ def arm(game, slot, health, seconds):
             "lanes": summary(found), "traverses": found, "jumps": jump_summary(jumps_before, jumps_after),
             "apply_us": {k: end.get(k) for k in ("ai.apply.us", "ai.main.cpu.us", "ai.brain.cpu.us", "ai.run.us")},
             "tick_seconds": tick_seconds, "track": [[t, round(x, 1), round(y, 1), round(z, 1)] for t, x, y, z in samples]}
+
+
+# The links mode (G5c-2b): the 250 u ledge's top (TFAiTestMaps.LedgeTop(1)), where a try starts on the floor (the yard, south
+# of the ledges, a walk of some 600 u from the link's start), how near the place a bot has got there, and the ability
+# argument from which a jump's plan is a link's (NavLinks.ArgumentBase).
+LEDGE_250 = (1028.0, 1150.0, 266.0)
+LINK_START = (1800.0, 900.0, 16.0)
+ARRIVE_FLAT, ARRIVE_Z = 64.0, 24.0
+LINK_ARGUMENT_BASE = 1 << 22
+NEAR_UNITS = 64.0
+TRY_TICKS = 2000
+
+
+def arrived(sample, target):
+    """Whether a (tick, x, y, z) sample is at the target: on its floor and within ARRIVE_FLAT of it. PURE."""
+    _, x, y, z = sample
+    return abs(z - target[2]) <= ARRIVE_Z and ((x - target[0]) ** 2 + (y - target[1]) ** 2) ** 0.5 <= ARRIVE_FLAT
+
+
+def link_try(found, target, start_tick, end_tick):
+    """One try's verdict from what it saw: the jumps that ended in it (/ai/jumps' `last`, new since the try began) and the
+    tick it got there (None: it did not). By a link: it got there and a jump of a link's plan landed. PURE."""
+    links = [j for j in found if j["plan"] >= LINK_ARGUMENT_BASE]
+    # Landed near its touch (JumpTally.NearUnits): one that "landed" far off was carried there (a round's restart puts the bot on its spawn).
+    landed = [j for j in links if j["end"] == "Landed" and j.get("off_plan", 0.0) <= NEAR_UNITS]
+    felt_early = [j for j in found if j["end"] == "Fizzled" and 0 <= j.get("felt_after_shot", -1) <= 2]
+    return {"target": list(target), "arrived": end_tick is not None, "ticks": None if end_tick is None else end_tick - start_tick,
+            "begun": len(found), "links_begun": len(links), "by_link": end_tick is not None and len(landed) > 0,
+            "ends": [j["end"] if j["end"] != "Landed" or j.get("off_plan", 0.0) <= NEAR_UNITS else "LandedElsewhere" for j in found],
+            "link_ids": [j["plan"] - LINK_ARGUMENT_BASE for j in links],
+            "gaps": [j["gap"] for j in landed if j.get("gap") is not None], "off_plan": [j["off_plan"] for j in landed],
+            "fizzled_felt_early": len(felt_early)}
+
+
+def run_try(game, slot, target, try_ticks=TRY_TICKS):
+    """Sends the bot from LINK_START to the target by its brain and watches it, by server ticks, until it is there or
+    try_ticks have gone; the errand is called off and the jumps' records read after the worker has flown them again."""
+    game.cmd("ai_tf_errand Jumper off")
+    # No settling: the bot's own brain has it moving again at once.
+    put = game.api("teleport", "pos=%g,%g,%g" % (LINK_START[0], LINK_START[1], LINK_START[2] + 1), "ang=0,180,0", "player=%d" % slot)
+    if '"ok":true' not in put:
+        raise SystemExit("ai-tf-jump: the teleport to the try's start failed: %s" % put[:300])
+    time.sleep(1.0)
+    before = jumps_of(game) or {}
+    start = game.tick()
+    game.cmd("ai_tf_errand Jumper %g %g %g" % target)
+    got, samples = None, []
+    while True:
+        world = lower(game.json("/ai/world"))
+        s = bot_sample(world, slot)
+        if s is not None:
+            samples.append(s)
+            if arrived(s, target):
+                got = s[0]
+                break
+        if world.get("tick", start) - start > try_ticks:
+            break
+        time.sleep(0.1)
+    game.cmd("ai_tf_errand Jumper off")
+    time.sleep(1.5)
+    after = jumps_of(game) or {}
+    seen = {j["serial"] for j in before.get("last", [])}
+    found = [j for j in after.get("last", []) if j["serial"] not in seen]
+    out = link_try(found, target, start, got)
+    out["track"] = [[t, round(x, 1), round(y, 1), round(z, 1)] for t, x, y, z in samples[::5]]
+    out["game"] = {k: after.get(k, 0) - before.get(k, 0) for k in after if k.startswith("ai.jump.") and isinstance(after.get(k), (int, float))
+                   and after.get(k, 0) != before.get(k, 0)}
+    print("  try -> (%.0f %.0f %.0f): %s in %s ticks, jumps %s links %s gaps %s; %s" % (
+        target[0], target[1], target[2], "there" if out["arrived"] else "NOT there", out["ticks"], out["ends"], out["link_ids"], out["gaps"], out["game"]), flush=True)
+    return out
+
+
+def wait_links(game, seconds=300):
+    """/ai/jumps once the level's links are known (found or read from the cache), or a failure."""
+    deadline = time.time() + seconds
+    while time.time() < deadline:
+        j = jumps_of(game)
+        if j and j.get("links", 0) > 0 and j.get("links.state") in ("found", "read from the cache"):
+            return j
+        time.sleep(1.0)
+    raise SystemExit("ai-tf-jump: the level's links never came: %s" % (jumps_of(game) or {}).get("links.state"))
+
+
+def link_summary(tries):
+    """The tries' totals: arrivals, by a link, the jumps and how they ended, the gaps. PURE."""
+    gaps = [g for t in tries for g in t["gaps"]]
+    off = [o for t in tries for o in t["off_plan"]]
+    ends = {}
+    for t in tries:
+        for e in t["ends"]:
+            ends[e] = ends.get(e, 0) + 1
+    ticks = [t["ticks"] for t in tries if t["ticks"] is not None]
+    return {"tries": len(tries), "arrived": sum(t["arrived"] for t in tries), "by_link": sum(t["by_link"] for t in tries),
+            "first_jump_landed": sum(1 for t in tries if t["ends"][:1] == ["Landed"]), "jumps": sum(t["begun"] for t in tries),
+            "link_jumps": sum(t["links_begun"] for t in tries), "ends": ends, "fizzled_felt_early": sum(t["fizzled_felt_early"] for t in tries),
+            "ticks_median": statistics.median(ticks) if ticks else None,
+            "gap_median": round(statistics.median(gaps), 1) if gaps else None, "gap_worst": round(max(gaps), 1) if gaps else None,
+            "off_plan_median": round(statistics.median(off), 1) if off else None, "off_plan_worst": round(max(off), 1) if off else None}
+
+
+def print_links(name, tries, jumps):
+    s = link_summary(tries)
+    print("%s: %d of %d tries got there, %d by a link; first jump landed in %d; jumps %d (%d of links) %s; fizzles felt early %d; "
+          "ticks to get there (median) %s; gap to the simulator median %s worst %s; off the link's touch median %s worst %s" % (
+              name, s["arrived"], s["tries"], s["by_link"], s["first_jump_landed"], s["jumps"], s["link_jumps"], s["ends"], s["fizzled_felt_early"],
+              s["ticks_median"], s["gap_median"], s["gap_worst"], s["off_plan_median"], s["off_plan_worst"]))
+    for i, t in enumerate(tries):
+        print("  try %d -> (%.0f %.0f %.0f): %s in %s ticks, jumps %s links %s gaps %s" % (
+            i + 1, t["target"][0], t["target"][1], t["target"][2], "there" if t["arrived"] else "NOT there", t["ticks"], t["ends"], t["link_ids"], t["gaps"]))
+    if jumps:
+        print("  game: %s" % " ".join("%s=%s" % (k, jumps[k]) for k in sorted(jumps) if k.startswith("ai.jump.link.") or k in ("links", "links.state")))
+    return s
+
+
+def other_landings(jumps):
+    """The landings of the level's links with no walk to them, but the 250 u ledge's, one a cell: /ai/jumps' `links.list`. PURE."""
+    out, cells = [], set()
+    for l in jumps.get("links.list", []):
+        if l.get("walk_seconds") is not None or l["to"] in cells:
+            continue
+        cells.add(l["to"])
+        land = tuple(l["landing"])
+        if abs(land[2] - LEDGE_250[2]) <= ARRIVE_Z and abs(land[0] - LEDGE_250[0]) <= 160 and abs(land[1] - LEDGE_250[1]) <= 160:
+            continue
+        out.append(land)
+    return out
+
+
+def links_mode(config, tries, others, reload, out, keep, think_log=False):
+    game = start_game(config)
+    if think_log:
+        game.cmd("ai_think_log 1")
+    result = {"map": MAP, "config": config, "commit": subprocess.run(["git", "-C", ROOT, "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()}
+    try:
+        slot = add_jumper(game)
+        game.cmd("ai_aim_tough %d 200" % slot)
+        jumps = wait_links(game)
+        result["links"] = {"n": jumps["links"], "state": jumps["links.state"]}
+        result["ledge"] = [run_try(game, slot, LEDGE_250) for _ in range(tries)]
+        result["ledge_summary"] = print_links("ledge 250", result["ledge"], jumps_of(game))
+        if others:
+            result["others"] = [run_try(game, slot, land) for land in other_landings(jumps)]
+            result["others_summary"] = print_links("other landings", result["others"], jumps_of(game))
+        if reload:
+            game.cmd("changelevel %s" % MAP)
+            time.sleep(10.0)
+            slot = add_jumper(game) if not any(b.get("name") == "Jumper" and b.get("truth") for b in lower(game.json("/ai/world")).get("bots") or []) else slot
+            deadline = time.time() + 120
+            while time.time() < deadline:
+                bots = [b for b in lower(game.json("/ai/world")).get("bots") or [] if b.get("name") == "Jumper" and b.get("truth")]
+                if bots:
+                    slot = bots[0]["slot"]
+                    break
+                time.sleep(1.0)
+            game.cmd("ai_aim_tough %d 200" % slot)
+            if think_log:
+                game.cmd("ai_think_log 1")
+            again = wait_links(game)
+            result["reload_links"] = {"n": again["links"], "state": again["links.state"], "from_cache": again.get("links.from_cache")}
+            print("reload: %d links, %s" % (again["links"], again["links.state"]))
+            result["reload"] = [run_try(game, slot, LEDGE_250) for _ in range(tries)]
+            result["reload_summary"] = print_links("ledge 250 after the reload", result["reload"], jumps_of(game))
+        result["counters"] = {k: v for k, v in (game.json("/ai/counters") or {}).items() if k.startswith("ai.") and isinstance(v, (int, float))}
+    finally:
+        game.stop(keep)
+    if out:
+        with open(out, "w") as f:
+            json.dump(result, f, indent=1)
+    s = result.get("ledge_summary", {})
+    return 0 if s.get("by_link", 0) >= 8 * tries // 10 else 1
 
 
 def start_game(config):
@@ -649,14 +850,20 @@ def main(argv):
         self_test()
         return 0
     p = argparse.ArgumentParser(prog="ai-tf-jump")
-    p.add_argument("what", choices=["measure", "read", "record", "sim"])
+    p.add_argument("what", choices=["measure", "read", "record", "sim", "links"])
     p.add_argument("file", nargs="?")
     p.add_argument("--seconds", type=float)
     p.add_argument("--config", default="debug")
     p.add_argument("--out")
     p.add_argument("--keep", action="store_true")
     p.add_argument("--walk-health", type=int, default=110)
+    p.add_argument("--tries", type=int, default=10)
+    p.add_argument("--others", action="store_true")
+    p.add_argument("--reload", action="store_true")
+    p.add_argument("--think-log", action="store_true")
     a = p.parse_args(argv)
+    if a.what == "links":
+        return links_mode(a.config, a.tries, a.others, a.reload, a.out, a.keep, a.think_log)
     if a.what == "read":
         if not a.file:
             raise SystemExit("ai-tf-jump: read needs a run's FILE.json")

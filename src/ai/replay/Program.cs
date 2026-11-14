@@ -207,6 +207,10 @@ if (args.Length >= 1 && args[0] == "navsize")
 if (args.Length >= 1 && args[0] == "navrooms")
     return NavRoomsTool.Run(args[1..], Console.Out, Console.Error);
 
+//   jumps <map.nav3d> <map.bsp> <soldier.txt> <out.json> <build> <commit> [candidate-limit]   TF2's blast-jump place finder on the map, measured
+if (args.Length >= 1 && args[0] == "jumps")
+    return JumpPlacesTool.Run(args[1..], Console.Out, Console.Error);
+
 if (args.Length >= 4 && args[0] == "verify")
 {
     string vNav = args[1], vBsp = args[2], vRec = args[3];

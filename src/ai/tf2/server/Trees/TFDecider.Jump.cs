@@ -46,13 +46,21 @@ public sealed partial class TFDecider
            && _self.Health >= RocketJumpHealthFloor && _hasGoal && _move.Kind == MoveKind.Follow && !_glance.Holding(_now);
 
     /// <summary>
-    /// The jump the book advises for the stretch ahead of the bot, or false: the bot is not moving
-    /// along a way, nothing is known for the stretch (it is asked about, for the next time), or
-    /// the jump's blast would take the bot under its health floor.
+    /// The jump the book advises, or false. First the route's own: a blast link its follower says the bot stands at the
+    /// start of, on its way to this decide's goal (lane G5c-2b: the follower only says it; the tree begins it, under
+    /// <see cref="JumpAllowed"/>'s rule like any jump). Then the stretch ahead: false when the bot is not moving along a
+    /// way or nothing is known for the stretch (it is asked about, for the next time). Either way false when the jump's
+    /// blast would take the bot under its health floor.
     /// </summary>
     private bool JumpAdvised([NotNullWhen(true)] out JumpPlan? plan)
     {
         plan = null;
+        if (Jumps!.RouteLink(_bot.Slot, _now, _goal) is { } link && _self.Health - link.Health >= RocketJumpHealthFloor)
+        {
+            plan = link;
+            return true;
+        }
+
         var way = new AiVector(_self.Velocity.X, _self.Velocity.Y, 0f);
         if (way.Length < RocketJumpSpeed)
             return false;
@@ -61,6 +69,18 @@ public sealed partial class TFDecider
             return false;
         plan = advised;
         return true;
+    }
+
+    /// <summary>
+    /// A place the bot was sent to by hand (<c>ai_tf_errand</c>, for proving a jump), with nobody in sight and nothing
+    /// carried: its goal this decide, whatever the tree chose. Runs after the tree and before the jump's rule.
+    /// </summary>
+    private void Errand()
+    {
+        if (Jumps is null || !Jumps.Errand(_bot.Slot, out AiVector goal) || _targetSighted || Carrying || !_self.Alive)
+            return;
+        GoTo(goal, MoveSpeed.Run);
+        _leaf = "errand";
     }
 
     /// <summary>A jump begins: the hands are off until <see cref="JumpUnderWay"/> says it is over.</summary>

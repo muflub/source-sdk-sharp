@@ -40,6 +40,11 @@ public class NoStockNavTests
     public void TheServerBindingNamesNoStockNavType()
         => Assert.Empty(StockNavTypes(typeof(SourceSharp.Ai.Server.Nav.AiNav).Assembly));
 
+    /// <summary>The binding's service-free navigation (the sources, the derivation, the follower), moved out of it.</summary>
+    [Fact]
+    public void TheNavLibraryNamesNoStockNavType()
+        => Assert.Empty(StockNavTypes(typeof(SourceSharp.Ai.Server.Nav.NavFollower).Assembly));
+
     [Fact]
     public void TheSourceRuleSeesAStockNavCitation()
         // The control: the rule matches what a ported file's row would say.

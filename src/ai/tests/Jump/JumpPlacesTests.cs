@@ -115,7 +115,7 @@ public class JumpPlacesTests
         JumpPlacesResult result = Places(Block(height)).Find();
         Assert.Equal((0, 0, 0), (result.Candidates.Count, result.Links.Count, result.Flights));
         // The control: told the jump reaches twice as far as it does, the pass proposes it, and the search, which flies it, finds nothing.
-        JumpPlacesResult fooled = Places(Block(height), s => s with { ReachShare = 2f }).Find();
+        JumpPlacesResult fooled = Places(Block(height), s => s with { ReachShare = 2f, PerPair = 1 }).Find();
         Assert.Equal((1, 0), (fooled.Candidates.Count, fooled.Links.Count));
         Assert.InRange(fooled.Flights, 20, new JumpSearchSettings().MaxFlights);
     }
@@ -310,7 +310,7 @@ public class JumpPlacesTests
         VoxelColumns columns = Block(height);
         NavGraph graph = GraphOf(columns);
         // A pass whose search keeps nothing short of more than every trial.
-        JumpPlacesResult strict = Places(columns, graph: graph, search: new JumpSearchSettings { Keep = 1.01f }).Find();
+        JumpPlacesResult strict = Places(columns, s => s with { PerPair = 1 }, graph: graph, search: new JumpSearchSettings { Keep = 1.01f }).Find();
         Assert.Equal((1, 0), (strict.Candidates.Count, strict.Links.Count));
         Assert.True(strict.Flights > 20);
         // The control: the same pass keeping at the plan's 60 % has the link.
@@ -429,5 +429,146 @@ public class JumpPlacesTests
         JumpPlacesResult result = Places(columns, graph: graph).Find();
         Assert.Single(result.Candidates);
         Assert.InRange(result.Flights, 1, new JumpSearchSettings().MaxFlights + 1);
+    }
+
+    [Fact]
+    public void ATakeoffIsProposedOnlyWhereTheGraphLeadsFromASpawn()
+    {
+        // The block on the floor, and a pen of floor in the yard's west, walled off by a solid column across the yard.
+        float height = Height(0.3f);
+        VoxelColumns columns = Yard((x, y) => x == 4 ? float.NaN : InBlock(x, y) ? height : 0f);
+        NavGraph graph = GraphOf(columns);
+        int pen = graph.FindCell(new AiVector(2 * Voxel, 2 * Voxel, 1f)).Index, floor = graph.FindCell(new AiVector(20 * Voxel, 2 * Voxel, 1f)).Index;
+        int top = graph.FindCell(new AiVector((BlockX + 8) * Voxel, (BlockY + 8) * Voxel, height + 1f)).Index;
+        Assert.True(graph.ComponentOf(pen) != graph.ComponentOf(floor) && graph.Cell(top).FloorZ == height, "the control: the pen is a part of the graph of its own");
+        JumpPlaces Seeded(params int[] seeds)
+        {
+            GraphJumpWalk walk = GraphJumpWalk.Of(graph, RunSpeed);
+            return new JumpPlaces(graph, columns, Search(columns, null, walk), walk, Reach.Value, JumpPlacesSettings.Of(TFNavProfile.ModNumbers), seeds);
+        }
+
+        // Spawned on the floor: the jump up from it. Spawned on the top: the drop leads to the floor, and the jump is
+        // from there. Spawned only in the pen: nobody stands on the floor, nothing to jump from.
+        JumpCandidate up = Assert.Single(Seeded(floor).Propose());
+        Assert.Equal(top, graph.FindCell(new AiVector(up.Landing.X, up.Landing.Y, up.Landing.Z)).Index is var t && graph.Cell(t).FloorZ == height ? top : t);
+        Assert.Single(Seeded(top).Propose());
+        Assert.Empty(Seeded(pen).Propose(out JumpPlacesWork work));
+        Assert.True(work.Unplayed > 0, $"{work}");
+        // With no spawn known, everywhere is played.
+        Assert.Single(Seeded().Propose());
+    }
+
+    [Fact]
+    public void ALedgeOnlyAJumpReachesIsSomewhereToJumpOnFrom()
+    {
+        // Two blocks side by side: a low one, and past it a high one no jump from the floor reaches but one from the low
+        // block's top does. Spawned on the floor, the low block's top is played only once a link lands on it.
+        float low = Height(0.3f), high = low + Height(0.6f);
+        var settings = JumpPlacesSettings.Of(TFNavProfile.ModNumbers);
+        Assert.True(high > settings.ReachShare * Reach.Value.Rise && high - low <= settings.ReachShare * Reach.Value.Rise, "the control: the high block is out of reach from the floor and in reach from the low one");
+        static bool In(int x, int y, int from, int to) => x >= from && x < to && y >= BlockY && y < BlockY + BlockSize;
+        VoxelColumns columns = Yard((x, y) => In(x, y, 30, 50) ? low : In(x, y, 50, 66) ? high : 0f);
+        NavGraph graph = GraphOf(columns);
+        int floor = graph.FindCell(new AiVector(100f, 100f, 1f)).Index;
+        JumpPlaces Seeded(int rounds)
+        {
+            GraphJumpWalk walk = GraphJumpWalk.Of(graph, RunSpeed);
+            return new JumpPlaces(graph, columns, Search(columns, null, walk), walk, Reach.Value, settings with { MaxRounds = rounds }, [floor]);
+        }
+
+        bool FromLowToHigh(JumpLink l) => FloorOf(graph, l.From) == low && FloorOf(graph, l.To) == high;
+        JumpPlacesResult rounds = Seeded(4).Find();
+        Assert.Contains(rounds.Links, l => FloorOf(graph, l.From) == 0f && FloorOf(graph, l.To) == low);
+        Assert.Contains(rounds.Links, FromLowToHigh);
+        Assert.Contains(rounds.Candidates, c => FloorOf(graph, c.From) == low && FloorOf(graph, c.To) == high);
+        // The control: in one round, nothing is proposed from the low block's top.
+        JumpPlacesResult one = Seeded(1).Find();
+        Assert.Contains(one.Links, l => FloorOf(graph, l.From) == 0f && FloorOf(graph, l.To) == low);
+        Assert.DoesNotContain(one.Candidates, c => FloorOf(graph, c.From) == low);
+        Assert.Equal(rounds.Candidates.OrderBy(c => c.To).ThenBy(c => c.From), rounds.Candidates);
+    }
+
+    [Fact]
+    public void WhenAPairsBestTakeoffGivesNoLinkItsAlternatesAreSearched()
+    {
+        // The block, with a search that keeps nothing: the best of the floor-to-top pair, then its alternates, are searched.
+        float height = Height(0.3f);
+        VoxelColumns columns = Block(height);
+        NavGraph graph = GraphOf(columns);
+        var never = new JumpSearchSettings { Keep = 1.01f };
+        JumpPlacesResult one = Places(columns, s => s with { PerPair = 1 }, graph, search: never).Find();
+        JumpPlacesResult three = Places(columns, s => s with { PerPair = 3 }, graph, search: never).Find();
+        Assert.Single(one.Candidates);
+        Assert.Equal(3, three.Candidates.Count);
+        Assert.Equal(3, three.Candidates.Select(c => (c.From, c.To)).Distinct().Count());
+        Assert.Contains(one.Candidates[0], three.Candidates);
+        Assert.True(three.Flights > one.Flights, $"{three.Flights} flights against {one.Flights}");
+        // And once one gives a link, no more of the pair are searched: the plan's keep finds the best's.
+        JumpPlacesResult kept = Places(columns, s => s with { PerPair = 3 }, graph).Find();
+        Assert.Equal((1, 1), (kept.Candidates.Count, kept.Links.Count));
+        Assert.Equal(one.Candidates, kept.Candidates);
+    }
+
+    [Fact]
+    public void ACancelledPassStopsBeforeItsFirstSearch()
+    {
+        VoxelColumns columns = Block(Height(0.3f));
+        JumpPlaces places = Places(columns);
+        Assert.Single(places.Propose());
+        using var cancel = new CancellationTokenSource();
+        cancel.Cancel();
+        Assert.Throws<OperationCanceledException>(() => places.Find(cancel.Token));
+        // The control: uncancelled, the same pass searches and links.
+        Assert.Single(places.Find(CancellationToken.None).Links);
+    }
+
+    [Fact]
+    public void ACappedPassSearchesOnlyItsFirstCandidates()
+    {
+        VoxelColumns columns = TwoBlocks(Height(0.3f));
+        NavGraph graph = GraphOf(columns);
+        JumpPlacesResult all = Places(columns, s => s with { PerPair = 1 }, graph: graph).Find();
+        Assert.True(all.Candidates.Count == 4 && all.Links.Select(l => l.Recipe.Landing).Distinct().Count() > 1, $"the control: {all.Candidates.Count} candidates, {all.Links.Count} links");
+        JumpPlacesResult one = Places(columns, s => s with { MaxCandidates = 1, PerPair = 1 }, graph).Find();
+        Assert.Equal(all.Candidates, one.Candidates);
+        JumpCandidate first = all.Candidates[0];
+        Assert.All(one.Links, l => Assert.True(l.From == first.From && l.Recipe.Landing.Equals(first.Landing), $"a link not of the first candidate: {l}"));
+        Assert.True(one.Flights < all.Flights, $"{one.Flights} flights capped against {all.Flights}");
+        Assert.Equal(all.Links.Where(l => l.From == first.From && l.Recipe.Landing.Equals(first.Landing)), one.Links);
+    }
+
+    [Fact]
+    public void AFlightThatRestsWhereTheGraphHasNoCellAtItsHeightIsNoLink()
+    {
+        // The block's free space, and a graph of one floor cell under everything and one cell a unit wide on the block's
+        // top where the east edge's landing is: the flight lands on the block, beside that cell, where the graph has
+        // only the floor under it. Which cell would the link go to? The floor's, 'height' below the bot: none is right.
+        float height = Height(0.3f);
+        VoxelColumns columns = Block(height);
+        var settings = JumpPlacesSettings.Of(TFNavProfile.ModNumbers);
+        float landX = (BlockX + BlockSize) * Voxel - settings.Inset, landY = (BlockY + BlockSize / 2 + 0.5f) * Voxel;
+        NavGraph Graph(float half)
+        {
+            var b = new NavGraphBuilder();
+            b.AddCell(new NavCell(0f, 0f, Wide * Voxel, Deep * Voxel, 0f, ClearanceClasses.Stand | ClearanceClasses.Crouch, NavCellFlags.None, 1f));
+            b.AddCell(new NavCell(landX - half, landY - half, landX + half, landY + half, height, ClearanceClasses.Stand | ClearanceClasses.Crouch, NavCellFlags.None, 1f));
+            return b.Build();
+        }
+
+        NavGraph narrow = Graph(0.5f);
+        JumpPlacesResult r = Places(columns, graph: narrow).Find();
+        JumpCandidate c = Assert.Single(r.Candidates);
+        Assert.Equal((0, 1), (c.From, c.To));
+        Assert.Empty(r.Links);
+
+        // The control: the search finds a recipe for it that rests on the block's top, off the unit-wide cell.
+        JumpSearch search = Search(columns);
+        JumpFound found = search.Find(new JumpAsk(c.Takeoff, c.Landing, settings.Tolerance)).Found!.Value;
+        JumpOutcome flown = search.Fly(found.Recipe);
+        Assert.True(flown.OnGround && MathF.Abs(flown.Rest.Z - height) < 1f && narrow.FindCell(new AiVector(flown.Rest.X, flown.Rest.Y, flown.Rest.Z)).Index == 0,
+                    $"the control: the flight rests at {flown.Rest}");
+        // And a graph whose cell on the top holds where it rests links to it.
+        JumpLink link = Assert.Single(Places(columns, graph: Graph(settings.Tolerance + Voxel)).Find().Links);
+        Assert.Equal(1, link.To);
     }
 }

@@ -37,6 +37,8 @@ public sealed class RecordingSwitch : IAiRecordSink
 
     public void BotAdded(ActorId bot, ulong seed, ReadOnlySpan<byte> skillLevels) => _recorder?.BotAdded(bot, seed, skillLevels);
 
+    public void BotAdded(ActorId bot, ulong seed, ReadOnlySpan<byte> skillLevels, AiVector? home) => _recorder?.BotAdded(bot, seed, skillLevels, home);
+
     public void BotRemoved(ActorId bot) => _recorder?.BotRemoved(bot);
 
     public void DecisionTree(IReadOnlyList<string> names, IReadOnlyList<int> branches) => _recorder?.DecisionTree(names, branches);

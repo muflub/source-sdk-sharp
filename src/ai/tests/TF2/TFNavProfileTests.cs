@@ -44,7 +44,7 @@ public class TFNavProfileTests
         }
     }
 
-    private static TFNavProfile Profile(Facts facts, Level? level = null) => new(facts, level ?? new Level());
+    private static TFNavProfile Profile(Facts facts, Level? level = null) => new(facts, level ?? new Level(), null!, new SourceSharp.Ai.TF2.Jump.TFBlastLinks());
 
     private static EntityHandle Player(int index) => new((uint)(0x0001_0000 | index));
 
@@ -68,9 +68,10 @@ public class TFNavProfileTests
     public void TheScoutReachesADoubleJump()
         => Assert.Equal(JumpReach.Double, Profile(new Facts((1, TFClass.Scout))).Reach(Player(1)));
 
+    /// <summary>A Soldier does not double jump; it blast jumps (lane G5c-2b).</summary>
     [Fact]
-    public void ASoldierDoesNot()
-        => Assert.Equal(JumpReach.None, Profile(new Facts((1, TFClass.Soldier))).Reach(Player(1)));
+    public void ASoldierBlastJumpsAndDoesNotDoubleJump()
+        => Assert.Equal(JumpReach.Blast, Profile(new Facts((1, TFClass.Soldier))).Reach(Player(1)));
 
     [Fact]
     public void APlayerWithNoCarrierYetReachesNoFurther()

@@ -89,6 +89,25 @@ public enum AiEventKind : byte
     /// </summary>
     Nemesis = 57,
 
+    /// <summary>The bot reached the place its intent last moved it to (its applier's feedback): Position the place.</summary>
+    Arrived = 58,
+
+    /// <summary>
+    /// A teammate was hurt where the bot could know of it (its pack's own channel, a game's team
+    /// callout): Other the ally, Position where it stands, Amount the damage, the attacker in Code
+    /// and Code2 (none for the world).
+    /// </summary>
+    AllyDamaged = 59,
+
+    /// <summary>A teammate died: Other the ally, Position where it fell, the killer in Code and Code2 (none for the world).</summary>
+    AllyDied = 60,
+
+    /// <summary>
+    /// A hero (a player the bot fights) went down and can be revived (Code 1), or got up again
+    /// (Code 0): Other the hero, Position where. A downed hero is no threat while it lies there.
+    /// </summary>
+    HeroDowned = 61,
+
     // recorded only, as Observed records (§3.4.4's hit rate): no brain is told
     /// <summary>The actor fired: Code the weapon's kind, Amount the rounds the fire took. A trigger pull, however many pellets it throws.</summary>
     ShotFired = 50,
@@ -189,8 +208,24 @@ public readonly record struct AiEvent(
     public static AiEvent KillFeed(ActorId bot, Tick tick, ActorId victim, ActorId killer)
         => new(AiEventKind.KillFeed, bot, tick, victim, default, default, 0f, killer.Slot, killer.Serial);
 
-    /// <summary>The killer of a <see cref="AiEventKind.KillFeed"/> event.</summary>
-    public ActorId Killer => Kind == AiEventKind.KillFeed ? new ActorId(Code, Code2) : ActorId.None;
+    /// <summary>The killer of a <see cref="AiEventKind.KillFeed"/> or <see cref="AiEventKind.AllyDied"/> event, the attacker of an <see cref="AiEventKind.AllyDamaged"/> one.</summary>
+    public ActorId Killer => Kind is AiEventKind.KillFeed or AiEventKind.AllyDied or AiEventKind.AllyDamaged ? new ActorId(Code, Code2) : ActorId.None;
+
+    /// <summary>The bot reached <paramref name="at"/>, where its intent last moved it.</summary>
+    public static AiEvent Arrived(ActorId bot, Tick tick, AiVector at)
+        => new(AiEventKind.Arrived, bot, tick, ActorId.None, at, default, 0f, 0, 0);
+
+    /// <summary><paramref name="ally"/>, standing at <paramref name="at"/>, took <paramref name="amount"/> damage from <paramref name="attacker"/> (none for the world).</summary>
+    public static AiEvent AllyDamaged(ActorId bot, Tick tick, ActorId ally, AiVector at, float amount, ActorId attacker)
+        => new(AiEventKind.AllyDamaged, bot, tick, ally, at, default, amount, attacker.Slot, attacker.Serial);
+
+    /// <summary><paramref name="ally"/> died at <paramref name="at"/>, killed by <paramref name="killer"/> (none for the world).</summary>
+    public static AiEvent AllyDied(ActorId bot, Tick tick, ActorId ally, AiVector at, ActorId killer)
+        => new(AiEventKind.AllyDied, bot, tick, ally, at, default, 0f, killer.Slot, killer.Serial);
+
+    /// <summary><paramref name="hero"/> went down at <paramref name="at"/> (<paramref name="down"/>), or got up again.</summary>
+    public static AiEvent HeroDowned(ActorId bot, Tick tick, ActorId hero, AiVector at, bool down)
+        => new(AiEventKind.HeroDowned, bot, tick, hero, at, default, 0f, down ? 1 : 0, 0);
 
     public static AiEvent Holdings(ActorId bot, Tick tick, int heldKinds)
         => new(AiEventKind.Holdings, bot, tick, ActorId.None, default, default, 0f, heldKinds, 0);

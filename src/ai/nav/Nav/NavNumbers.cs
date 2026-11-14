@@ -1,6 +1,3 @@
-using SourceSharp.Abi;
-using SourceSharp.Shared;
-
 namespace SourceSharp.Ai.Server.Nav;
 
 /// <summary>
@@ -16,8 +13,8 @@ namespace SourceSharp.Ai.Server.Nav;
 /// <see cref="CrouchOnlyCost"/> multiplies what a crouch-only place costs to cross (1, HL2MP's: as any
 /// place), for a game whose players all but never duck to get round: TF2's.
 /// A game's <see cref="INavProfile"/>
-/// publishes them; <see cref="Stock"/> is the core's default movement, HL2MP's
-/// (NavNumbersTests pins them).
+/// publishes them; <c>Stock</c> (Ai.Server's StockNavNumbers, read from the movement code) is
+/// the core's default movement, HL2MP's (NavNumbersTests pins them).
 /// <see cref="ExtraHulls"/> are more bodies the cells are classed for, beside the game's own:
 /// none unless a game names some, and then nothing but their bits is added to the graph.
 /// </summary>
@@ -40,21 +37,6 @@ public readonly record struct NavNumbers(
     /// name only when there are any, so a game without them keeps its graphs' names and hashes.
     /// </summary>
     public NavHulls ExtraHulls { get; init; }
-
-    /// <summary>
-    /// The core's default movement (HL2MP's): the player hull (32 wide, 72
-    /// standing, 36 crouched), the step, the highest plain jump (jump height +
-    /// step, 21 + 18 = 39), the highest crouch jump (the file's own 56), and
-    /// the highest safe drop (the fall speed that does no damage under the
-    /// game's gravity: 526.5² / (2 × 600) ≈ 231). Read from the movement code,
-    /// not restated. No double jump.
-    /// </summary>
-    public static NavNumbers Stock(float fileJumpHeight)
-    {
-        MovementParams m = Movement.Current;
-        float v = MoveMath.PlayerMaxSafeFallSpeed;
-        return new NavNumbers(32f, 72f, 36f, m.StepSize, m.JumpHeight + m.StepSize, fileJumpHeight, v * v / (2f * m.Gravity));
-    }
 }
 
 /// <summary>A body the derivation classes cells for beside the game's own: a box <see cref="Width"/> across and <see cref="Height"/> tall.</summary>

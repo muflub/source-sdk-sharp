@@ -177,6 +177,7 @@ public sealed partial class TFDecider : IDecider
         SeeThings();
         _tree.Decide(this, _run, tick);
         Engage();
+        Errand();
         RocketJump();
         Hands();
         ReactAndSpeak();

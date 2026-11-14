@@ -54,6 +54,13 @@ public enum NavEdgeType : byte
     /// <see cref="NavObstacleState.Reach"/> has <see cref="JumpReach.Double"/>.
     /// </summary>
     DoubleJump,
+
+    /// <summary>
+    /// A link beside the graph (<see cref="NavLinks"/>: a blast jump), as a <see cref="FlowField"/> says its
+    /// next step is one (<see cref="FlowField.LinkFrom"/> names it). Never an edge: no derivation makes one and
+    /// no graph holds one.
+    /// </summary>
+    Link,
 }
 
 /// <summary>
@@ -68,6 +75,9 @@ public enum JumpReach : byte
 
     /// <summary>A second jump in the air (<see cref="NavEdgeType.DoubleJump"/>).</summary>
     Double = 1 << 0,
+
+    /// <summary>A blast jump: the links of <see cref="NavLinkKind.Blast"/> beside the graph (<see cref="NavLinks"/>).</summary>
+    Blast = 1 << 1,
 }
 
 /// <summary>A cell's flags beyond its clearance.</summary>
@@ -494,6 +504,33 @@ public sealed class NavObstacleState
     /// </summary>
     public JumpReach Reach { get; set; }
 
+    /// <summary>
+    /// The health a search may spend on one link (<see cref="NavLinks.Admits"/>): a link that
+    /// costs more is no way for this state's owner, so a hurt bot's routes leave it out. 0
+    /// (no link) unless the game's binding says otherwise. A <see cref="Shoved"/> copy follows its
+    /// original's, as it follows its cells: a lane refreshes the original each step.
+    /// </summary>
+    public float LinkHealth
+    {
+        get => _live is not null ? _live.LinkHealth : _linkHealth;
+        set => _linkHealth = value;
+    }
+
+    private float _linkHealth;
+
+    /// <summary>
+    /// The links beside the graph a search of this state's owner may take (the level's blast jumps,
+    /// lane G5c-2b), or null for none: each is still taken only with its reach and its health. A
+    /// <see cref="Shoved"/> copy follows its original's.
+    /// </summary>
+    public NavLinks? Links
+    {
+        get => _live is not null ? _live.Links : _links;
+        set => _links = value;
+    }
+
+    private NavLinks? _links;
+
     /// <summary>Says a player can get through <paramref name="obstacle"/> by walking into it: a prop that moves when pushed.</summary>
     public void SetShovable(int obstacle) => (_shovable ??= new bool[_blocking.Length])[obstacle] = true;
 
@@ -523,6 +560,8 @@ public sealed class NavObstacleState
         _shovable = other._shovable;
         OpenDoors = other.OpenDoors;
         Reach = other.Reach;
+        LinkHealth = other.LinkHealth;
+        Links = other.Links;
         TeamCells = other.TeamCells;
         _cells = other.Cells;
     }
@@ -530,7 +569,7 @@ public sealed class NavObstacleState
     /// <summary>A copy as the obstacles stand now, for a field built on a worker while the main thread keeps this one current.</summary>
     public NavObstacleState Clone()
     {
-        var copy = new NavObstacleState(_blocking.Length) { OpenDoors = OpenDoors, Reach = Reach, TeamCells = TeamCells };
+        var copy = new NavObstacleState(_blocking.Length) { OpenDoors = OpenDoors, Reach = Reach, LinkHealth = LinkHealth, Links = Links, TeamCells = TeamCells };
         _blocking.CopyTo(copy._blocking, 0);
         copy._shovable = _shovable;
         copy._cells = Cells;

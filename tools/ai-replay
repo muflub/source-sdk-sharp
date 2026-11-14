@@ -67,6 +67,18 @@
 #       spawns, teleports, teleport destinations, cabinets and capture areas (the N
 #       largest listed too; 20); with --derive, what that one region costs to derive
 #       alone, step by step as navsize says it (open|regions|region|derive|sight|cache).
+#   tools/ai-replay jumps <map> [--config debug|release] [--limit N] [--routes]
+#       TF2's blast-jump place finder (JumpPlaces, plan_bots_teams_tf2_part_g G.5 step 4) on the
+#       map's tf2 navigation, offline, on one thread: the candidates, the links kept, the flights,
+#       each part's thread CPU, the peak memory and the links' spread (rise, distance, time against
+#       the walk, health, robustness); every candidate and link to
+#       bin/<config>/ai-replay/<map>-jumps.json. --limit caps the candidates searched. The nav is the
+#       tree's (tools/ai-nav-build <map> --mod tf2); a release run with no release nav reads debug's
+#       (the file is the same) and says so. The Soldier's class script is the TF2 tests' copy.
+#       --routes: then the routes between the CTF places (spawn rooms, flags, capture zones) on foot
+#       and with the links, for a Soldier with the reach and 110 health to spend on a link: which take
+#       a link, which link, and the seconds saved; and each link's landing, reached from the places
+#       on foot or only with a link.
 #
 # Builds src/ai/replay (SkiaSharp, a tool: never in the game's managed dir).
 set -euo pipefail
@@ -112,7 +124,7 @@ if [[ "$verb" == style ]]; then
   "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c Debug -v q --nologo >/dev/null
   exec "$dotnet" "$root/bin/debug/tools/ai-replay/SourceSharp.Ai.Replay.dll" style "$skills"
 fi
-[[ ( "$verb" =~ ^(nav|metrics|jank|threat|chokes|navsize|navrooms)$ && -n "${2:-}" ) || ( "$verb" =~ ^(heat|verify|tactics|cost)$ && -n "${3:-}" ) ]] || { sed -n '2,69p' "$0"; exit 2; }
+[[ ( "$verb" =~ ^(nav|metrics|jank|threat|chokes|navsize|navrooms|jumps)$ && -n "${2:-}" ) || ( "$verb" =~ ^(heat|verify|tactics|cost)$ && -n "${3:-}" ) ]] || { sed -n '2,81p' "$0"; exit 2; }
 if [[ "$verb" == navsize ]]; then
   map="$2"; shift 2
   config=debug; mod=test; ext=nav3d; stop=cache; sight=sight
@@ -138,6 +150,32 @@ if [[ "$verb" == navsize ]]; then
   cfg=Debug; [[ "$config" == release ]] && cfg=Release
   "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c "$cfg" -v q --nologo >/dev/null
   exec "$dotnet" "$root/bin/$config/tools/ai-replay/SourceSharp.Ai.Replay.dll" navsize "$game" "$nav" "$bsp" "$stop" "$sight"
+fi
+if [[ "$verb" == jumps ]]; then
+  map="$2"; shift 2
+  config=debug; limit=0; routes=
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --config) config="$2"; shift 2 ;;
+      --limit) limit="$2"; shift 2 ;;
+      --routes) routes=routes; shift ;;
+      *) echo "ai-replay jumps: what is $1?" >&2; exit 2 ;;
+    esac
+  done
+  nav="$root/bin/$config/mods/tf2/maps/$map.nav3d"
+  if [[ ! -f "$nav" && "$config" == release && -f "$root/bin/debug/mods/tf2/maps/$map.nav3d" ]]; then
+    nav="$root/bin/debug/mods/tf2/maps/$map.nav3d"; echo "ai-replay jumps: no release nav of $map: reading debug's, $nav"
+  fi
+  bsp=""
+  for d in "$root/bin/$config/content/tf/maps" "$root/bin/$config/mods/tf2/maps" "$root/bin/debug/content/tf/maps" "$root/bin/debug/mods/tf2/maps"; do
+    [[ -z "$bsp" && -f "$d/$map.bsp" ]] && bsp="$d/$map.bsp"
+  done
+  [[ -f "$nav" ]] || { echo "ai-replay: no $nav: build it with tools/ai-nav-build $map --mod tf2" >&2; exit 1; }
+  [[ -n "$bsp" ]] || { echo "ai-replay: no $map.bsp for tf2" >&2; exit 1; }
+  cfg=Debug; [[ "$config" == release ]] && cfg=Release
+  "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c "$cfg" -v q --nologo >/dev/null
+  exec "$dotnet" "$root/bin/$config/tools/ai-replay/SourceSharp.Ai.Replay.dll" jumps "$nav" "$bsp" "$root/src/tf2/tests/TestData/playerclasses/soldier.txt" \
+    "$root/bin/$config/ai-replay/$map-jumps.json" "$config" "$(git -C "$root" rev-parse --short HEAD)$([[ -n "$(git -C "$root" status --porcelain -- src tools)" ]] && echo +dirty)" "$limit" $routes
 fi
 if [[ "$verb" == navrooms ]]; then
   map="$2"; shift 2

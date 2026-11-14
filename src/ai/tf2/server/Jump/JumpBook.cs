@@ -11,6 +11,20 @@ public interface IJumpAdvisor
     /// (it is then asked about, to be known the next time), or the simulator found none.
     /// </summary>
     JumpPlan? Advise(in JumpStretchAsk ask);
+
+    /// <summary>
+    /// The link the route of the bot in <paramref name="slot"/> takes next, as the plan the program flies, when its
+    /// follower last said, before <paramref name="tick"/>, that the bot stands at the link's start on a route to
+    /// <paramref name="goal"/> (lane G5c-2b); null otherwise, or for a link of a set the level no longer has.
+    /// </summary>
+    JumpPlan? RouteLink(int slot, Tick tick, AiVector goal) => null;
+
+    /// <summary>A place the bot in <paramref name="slot"/> is sent to by hand (<c>ai_tf_errand</c>, for proving jumps), or false.</summary>
+    bool Errand(int slot, out AiVector goal)
+    {
+        goal = default;
+        return false;
+    }
 }
 
 /// <summary>The book's numbers.</summary>
@@ -162,11 +176,13 @@ public sealed class JumpBook(JumpBookSettings settings) : IJumpAdvisor
     private bool Near(in JumpStretchAsk a, in JumpStretchAsk b)
         => a.Goal.DistanceTo(b.Goal) <= settings.GoalSame && a.Origin.DistanceTo(b.Origin) <= settings.RefusalReach && a.Heading.Dot(b.Heading) >= settings.HeadingDot;
 
-    /// <summary>The plan numbered <paramref name="id"/>, or null: none the book holds (another level's, or one long gone).</summary>
+    /// <summary>The plan numbered <paramref name="id"/>, or null: none the book holds (another level's, or one long gone). A link's number answers the link's plan.</summary>
     public JumpPlan? Plan(int id)
     {
         lock (_gate)
         {
+            if (NavLinks.LinkOf(id) is >= 0 and int link)
+                return _linkPlans is { } plans && link < plans.Length ? plans[link] : null;
             foreach (JumpPlan plan in _plans)
             {
                 if (plan.Id == id)
@@ -221,7 +237,8 @@ public sealed class JumpBook(JumpBookSettings settings) : IJumpAdvisor
             if (_plans.Count >= settings.Plans)
                 _plans.RemoveAt(0);
             JumpPlan kept = plan with { Id = _nextId++ };
-            if (_nextId > AbilityCall.MaxArgument)
+            // A plan's number stays under the links' (NavLinks.ArgumentBase), so a one-shot names one or the other.
+            if (_nextId >= NavLinks.ArgumentBase)
                 _nextId = 1;
             _plans.Add(kept);
             _planned++;
@@ -239,6 +256,140 @@ public sealed class JumpBook(JumpBookSettings settings) : IJumpAdvisor
             _refused.Clear();
             _asks.Clear();
             _working = null;
+            _links = null;
+            _linkPlans = null;
+            Array.Clear(_routes);
+        }
+    }
+
+    // ------------------------------------------------------------------ the level's links (lane G5c-2b)
+
+    private NavLinks? _links;
+    private JumpPlan[]? _linkPlans;
+    private readonly RouteReports[] _routes = new RouteReports[RouteSlots];
+    private readonly AiVector?[] _errands = new AiVector?[RouteSlots];
+    private long _routeNotes, _routeAdvised;
+
+    /// <summary>The bot slots a book keeps the routes' reports and the errands of.</summary>
+    public const int RouteSlots = 256;
+
+    /// <summary>How many of a bot's last changes of report are kept: a decide a few ticks behind still finds the one of its tick.</summary>
+    public const int RouteKept = 8;
+
+    /// <summary>The level's links, and the plan the program flies for each (index for index), or none.</summary>
+    public void SetLinks(NavLinks? links, IReadOnlyList<JumpPlan>? plans)
+    {
+        if (links is not null && (plans is null || plans.Count != links.Count))
+            throw new ArgumentException($"{plans?.Count ?? 0} plans for {links.Count} links", nameof(plans));
+        lock (_gate)
+        {
+            _links = links;
+            _linkPlans = links is null ? null : [.. plans!];
+        }
+    }
+
+    /// <summary>
+    /// What the follower of the bot in <paramref name="slot"/> said in the drive step handed on <paramref name="stamp"/>
+    /// (the main thread's, as it takes the step back): kept when it differs from the last.
+    /// </summary>
+    public void NoteRoute(int slot, Tick stamp, in NavLinkStep step)
+    {
+        if ((uint)slot >= RouteSlots)
+            return;
+        lock (_gate)
+        {
+            RouteReports r = _routes[slot] ??= new RouteReports();
+            if (r.Count > 0 && r.Newest.Step == step)
+                return;
+            r.Add(stamp, step);
+            _routeNotes++;
+        }
+    }
+
+    public JumpPlan? RouteLink(int slot, Tick tick, AiVector goal)
+    {
+        if ((uint)slot >= RouteSlots)
+            return null;
+        lock (_gate)
+        {
+            if (_routes[slot] is not { } r || _links is not { } links || _linkPlans is not { } plans || r.Before(tick) is not { } step)
+                return null;
+            if (!step.IsLink || !step.AtStart || step.Links != links.Hash || (uint)step.Link >= (uint)plans.Length
+                || step.Objective.DistanceTo(goal) > settings.GoalSame)
+                return null;
+            _routeAdvised++;
+            return plans[step.Link];
+        }
+    }
+
+    /// <summary>Sends the bot in <paramref name="slot"/> to <paramref name="goal"/> by hand, or (null) calls it off.</summary>
+    public void SetErrand(int slot, AiVector? goal)
+    {
+        if ((uint)slot >= RouteSlots)
+            throw new ArgumentOutOfRangeException(nameof(slot), slot, $"slots run 0..{RouteSlots - 1}");
+        lock (_gate)
+            _errands[slot] = goal;
+    }
+
+    public bool Errand(int slot, out AiVector goal)
+    {
+        goal = default;
+        if ((uint)slot >= RouteSlots)
+            return false;
+        lock (_gate)
+        {
+            if (_errands[slot] is not { } g)
+                return false;
+            goal = g;
+            return true;
+        }
+    }
+
+    /// <summary>Reports kept (changes of what a follower said) and link plans answered to a decide.</summary>
+    public (long Notes, long Advised) RouteCounts
+    {
+        get
+        {
+            lock (_gate)
+                return (_routeNotes, _routeAdvised);
+        }
+    }
+
+    /// <summary>The level's link plans, index for index, or none: a copy.</summary>
+    public JumpPlan[] LinkPlans()
+    {
+        lock (_gate)
+            return _linkPlans is null ? [] : [.. _linkPlans];
+    }
+
+    /// <summary>One bot's last few changes of report, each with the tick of the drive step that said it, oldest first.</summary>
+    private sealed class RouteReports
+    {
+        private readonly (Tick Stamp, NavLinkStep Step)[] _ring = new (Tick, NavLinkStep)[RouteKept];
+        private int _next;
+
+        public int Count { get; private set; }
+
+        public (Tick Stamp, NavLinkStep Step) Newest => _ring[(_next + RouteKept - 1) % RouteKept];
+
+        public void Add(Tick stamp, in NavLinkStep step)
+        {
+            _ring[_next] = (stamp, step);
+            _next = (_next + 1) % RouteKept;
+            Count = Math.Min(Count + 1, RouteKept);
+        }
+
+        /// <summary>The newest report stamped before <paramref name="tick"/>, or null.</summary>
+        public NavLinkStep? Before(Tick tick)
+        {
+            for (int i = 1; i <= Count; i++)
+            {
+                (Tick stamp, NavLinkStep step) = _ring[(_next + RouteKept - i) % RouteKept];
+                if (stamp.Value < tick.Value)
+                    return step;
+            }
+
+            return null;
         }
     }
 

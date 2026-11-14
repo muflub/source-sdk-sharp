@@ -113,7 +113,7 @@ public sealed class TFBindingTests
         var services = new ServiceContainer();
         Type[] all = [.. types];
         IReadOnlyList<Type> registered = SideServices.Register(services, Side.Server, all);
-        Assembly[] ai = [typeof(AiVector).Assembly, typeof(AiBots).Assembly, Binding, typeof(SourceSharp.Ai.Hl2mp.Hl2mpBotGame).Assembly];
+        Assembly[] ai = [typeof(AiVector).Assembly, typeof(AiBots).Assembly, typeof(SourceSharp.Ai.Server.Nav.NavFollower).Assembly, Binding, typeof(SourceSharp.Ai.Hl2mp.Hl2mpBotGame).Assembly];
         return [.. registered.Where(t => ai.Contains(t.Assembly)).Distinct()
                              .SelectMany(t => t.GetConstructors().SelectMany(c => c.GetParameters()).Select(p => (t, p)))
                              .Where(x => !x.p.HasDefaultValue && x.p.ParameterType.IsInterface && ai.Contains(x.p.ParameterType.Assembly) && !services.IsRegistered(x.p.ParameterType))

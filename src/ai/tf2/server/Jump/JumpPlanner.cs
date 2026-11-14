@@ -68,6 +68,13 @@ public sealed record JumpPlan(JumpRecipe Recipe, AiVector Goal, float Slide, flo
 
     public float HoldSeconds { get; init; }
 
+    /// <summary>
+    /// Whether the jump is flown as the simulator flew it, from standing at the recipe's start (a blast link's, lane
+    /// G5c-2b): the program walks the bot there, stands it still and waits for its view before it moves on to the
+    /// jump. A stretch's plan runs at its takeoff from the bot's run.
+    /// </summary>
+    public bool StartsStanding { get; init; }
+
     /// <summary>The direction of travel over the ground, a unit vector.</summary>
     public AiVector Way
     {

@@ -89,9 +89,17 @@ public sealed class NavGraphCache(string directory, NavEdgeCosts costs)
         BuiltNavStore.Replace(PathFor(map, bspSha256, navSha256, numbersKey), Encode(map, bspSha256, navSha256, nav, numbersKey));
     }
 
+    /// <summary>
+    /// A file of work derived from a graph, beside it: the graph's own name and <paramref name="suffix"/>, which
+    /// names the work and its revision (the choke points' is <c>chokes</c> and theirs; a game's binding names its
+    /// own, as TF2's blast links do), so a changed graph or a changed revision finds no file.
+    /// </summary>
+    public string SidePathFor(string map, string bspSha256, string navSha256, string numbersKey, string suffix)
+        => $"{PathFor(map, bspSha256, navSha256, numbersKey)}.{suffix}";
+
     /// <summary>A graph's choke points beside it: the graph's own name, and the map's revision.</summary>
     public string ChokesPathFor(string map, string bspSha256, string navSha256, string numbersKey = "")
-        => $"{PathFor(map, bspSha256, navSha256, numbersKey)}.chokes{ChokeMap.Revision}";
+        => SidePathFor(map, bspSha256, navSha256, numbersKey, $"chokes{ChokeMap.Revision}");
 
     /// <summary>The cached choke points, or null when there are none or they are of another graph.</summary>
     public ChokeMap? TryReadChokes(string map, string bspSha256, string navSha256, NavGraph graph, string numbersKey = "")

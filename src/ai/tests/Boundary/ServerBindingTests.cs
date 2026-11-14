@@ -24,11 +24,12 @@ public class ServerBindingTests
 
     [Fact]
     public void TheServerBindingReferencesNoGamesBinding()
-        => Assert.DoesNotContain(References(), n => n.StartsWith("SourceSharp.Ai.", StringComparison.Ordinal) || n.StartsWith("TF2.", StringComparison.Ordinal));
+        // SourceSharp.Ai.Nav is the binding's own navigation, moved out so it registers nothing; no game's.
+        => Assert.DoesNotContain(References(), n => (n.StartsWith("SourceSharp.Ai.", StringComparison.Ordinal) && n != "SourceSharp.Ai.Nav") || n.StartsWith("TF2.", StringComparison.Ordinal));
 
     [Fact]
     public void TheServerBindingNamesNoHl2mp()
-        => Assert.Empty(CoreReferenceTests.Naming(Server, "HL2MP"));
+        => Assert.Empty(CoreReferenceTests.Naming(Server, "HL2MP").Concat(CoreReferenceTests.Naming(typeof(SourceSharp.Ai.Server.Nav.NavFollower).Assembly, "HL2MP")));
 
     /// <summary>A game's own entities are its binding's to read (plan_bots_teams_tf2 P6): the map reader names no team's spawn.</summary>
     [Fact]

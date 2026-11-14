@@ -124,6 +124,8 @@ public class ApplierAllowListTests
         "PlayerDeath::get_Origin",
         // ExperienceService: the process's command line, for the launcher's -toolgame alone: a tool's game opens no default experience file.
         "ILocalCommandLine::get_Args",
+        // VoxelMoveWorld (SourceSharp.Ai.Nav, from TF2's jumps): the movement's world over the voxels, a trace it answers and the slide's dot product.
+        "MoveTrace::Clear", "Vector::Dot",
     ];
 
     /// <summary>Calls that move or turn a player outside its usercmd (§3.3): never, from any caller.</summary>
@@ -134,8 +136,8 @@ public class ApplierAllowListTests
         "IEngineEntities::SetOrigin", "IEngineEntities::SetAngles", "IEngineEntities::SetVelocity", "IEngineEntities::Teleport",
     ];
 
-    /// <summary>The binding: the generic server half (plan_bots_teams_tf2 C.2) and HL2MP's over it.</summary>
-    private static readonly Assembly[] Binding = [typeof(BotCommandApplier).Assembly, typeof(Hl2mpBotGame).Assembly];
+    /// <summary>The binding: the generic server half (plan_bots_teams_tf2 C.2), its service-free navigation (SourceSharp.Ai.Nav) and HL2MP's over it.</summary>
+    private static readonly Assembly[] Binding = [typeof(BotCommandApplier).Assembly, typeof(SourceSharp.Ai.Server.Nav.NavFollower).Assembly, typeof(Hl2mpBotGame).Assembly];
 
     private static bool IsCore(MethodBase m)
     {

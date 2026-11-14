@@ -200,6 +200,57 @@ public sealed class BotMemoryTests
         Assert.False(m.Board.Actor(Them.Slot).Nemesis);
     }
 
+    /// <summary>The applier's arrival is kept as when and where the bot got to (cf's Descent proposal 5).</summary>
+    [Fact]
+    public void AnArrivalIsKeptAsWhenAndWhere()
+    {
+        BotMemory m = Memory();
+        Assert.Equal(default, m.LastArrived);
+        m.Apply(AiEvent.Arrived(Bot, new Tick(7), new AiVector(10, 20, 30)));
+        Assert.Equal((new Tick(7), new AiVector(10, 20, 30)), m.LastArrived);
+    }
+
+    /// <summary>A teammate's hurt is kept with who hurt it, where, and when; the world hurts with no attacker.</summary>
+    [Fact]
+    public void AnAllysHurtIsKeptWithItsAttacker()
+    {
+        BotMemory m = Memory();
+        var ally = new ActorId(4, 9);
+        m.Apply(AiEvent.AllyDamaged(Bot, new Tick(5), ally, new AiVector(1, 2, 3), 25f, Them));
+        Assert.Equal((ally, Them, new Tick(5), new AiVector(1, 2, 3)), m.LastAllyHurt);
+        m.Apply(AiEvent.AllyDamaged(Bot, new Tick(6), ally, new AiVector(4, 5, 6), 10f, ActorId.None));
+        Assert.Equal((ally, ActorId.None, new Tick(6), new AiVector(4, 5, 6)), m.LastAllyHurt);
+    }
+
+    /// <summary>A teammate's death is counted (a morale's input), kept with its killer, and marks the ally dead on the board.</summary>
+    [Fact]
+    public void AnAllysDeathIsCountedAndMarksItDead()
+    {
+        BotMemory m = Memory();
+        var ally = new ActorId(4, 9);
+        m.Apply(AiEvent.ScoreboardRow(Bot, new Tick(1), ally, 0, 0, 2));
+        Assert.False(m.Board.Actor(ally.Slot).Dead);
+        m.Apply(AiEvent.AllyDied(Bot, new Tick(8), ally, new AiVector(7, 8, 9), Them));
+        Assert.Equal((1, ally, Them, new Tick(8)), (m.AlliesLost, m.LastAllyDied.Ally, m.LastAllyDied.Killer, m.LastAllyDied.When));
+        Assert.True(m.Board.Actor(ally.Slot).Dead);
+        m.Apply(AiEvent.AllyDied(Bot, new Tick(12), new ActorId(5, 3), new AiVector(0, 0, 0), ActorId.None));
+        Assert.Equal(2, m.AlliesLost);
+    }
+
+    /// <summary>A downed hero is marked so until it gets up, and a death or respawn ends it.</summary>
+    [Fact]
+    public void ADownedHeroIsMarkedUntilItGetsUpOrDies()
+    {
+        BotMemory m = Memory();
+        m.Apply(AiEvent.HeroDowned(Bot, new Tick(3), Them, new AiVector(1, 1, 1), down: true));
+        Assert.True(m.Board.Actor(Them.Slot).Downed);
+        m.Apply(AiEvent.HeroDowned(Bot, new Tick(4), Them, new AiVector(1, 1, 1), down: false));
+        Assert.False(m.Board.Actor(Them.Slot).Downed);
+        m.Apply(AiEvent.HeroDowned(Bot, new Tick(5), Them, new AiVector(1, 1, 1), down: true));
+        m.Apply(AiEvent.KillFeed(Bot, new Tick(6), Them, ActorId.None));
+        Assert.Equal((false, true), (m.Board.Actor(Them.Slot).Downed, m.Board.Actor(Them.Slot).Dead));
+    }
+
     [Fact]
     public void AnothersHitIsAnAttack()
     {

@@ -34,9 +34,10 @@ public readonly record struct JumpLink(int From, int To, JumpRecipe Recipe, Jump
 /// <summary>
 /// What proposing looked through, for sizing its cost: the columns' edges, the
 /// runs of them long enough to land on, and the landings whose way on foot
-/// was asked (each a flood of the graph back from it, <see cref="GraphJumpWalk.Reaches"/>).
+/// was asked (each a flood of the graph back from it, <see cref="GraphJumpWalk.Reaches"/>);
+/// and the takeoffs passed over because no player gets there (<see cref="JumpPlaces"/>' seeds).
 /// </summary>
-public readonly record struct JumpPlacesWork(int Edges, int Runs, int Landings);
+public readonly record struct JumpPlacesWork(int Edges, int Runs, int Landings, int Unplayed = 0);
 
 /// <summary>What the pass answered: what it proposed, the links the search found among them, the simulated flights it spent, and what proposing looked through.</summary>
 public sealed record JumpPlacesResult(IReadOnlyList<JumpCandidate> Candidates, IReadOnlyList<JumpLink> Links, int Flights, JumpPlacesWork Work);
@@ -76,6 +77,19 @@ public sealed record JumpPlacesSettings
 
     /// <summary>How far apart two floors may be and still be one level stretch.</summary>
     public float FlatStep { get; init; } = 1f;
+
+    /// <summary>The most candidates searched, in the proposals' order; 0 searches every one.</summary>
+    public int MaxCandidates { get; init; }
+
+    /// <summary>The most rounds a pass with seeds goes on from where its links land (<see cref="JumpPlaces.Find"/>).</summary>
+    public int MaxRounds { get; init; } = 4;
+
+    /// <summary>
+    /// How many takeoffs of a pair of level stretches are searched, best first, until one gives a
+    /// link: the best, and alternates when it gives none (another edge of the ledge, another place
+    /// on the ground). 1 searches only the best.
+    /// </summary>
+    public int PerPair { get; init; } = 3;
 
     /// <summary>
     /// The settings for a body that moves by <paramref name="numbers"/> (the
@@ -123,11 +137,15 @@ public sealed record JumpPlacesSettings
 /// graph to another, one is kept: the one whose takeoff is nearest where it
 /// was wanted (ground that stops short of the standoff has a wall close
 /// behind the jump), then the one off the longest run, then the first
-/// found.</item>
+/// found. The next ones of other cells, up to
+/// <see cref="JumpPlacesSettings.PerPair"/> in all, are its alternates: the
+/// pass searches them in that order while none has given a link.</item>
 /// <item><b>The search</b> on each (<see cref="JumpSearch"/>, both families,
 /// the ask's own seed). A recipe that lands in
 /// <see cref="JumpSearchSettings.Keep"/> of its trials is a link, to the
-/// cell its unperturbed flight comes to rest in.</item>
+/// cell its unperturbed flight comes to rest in, when that cell's floor is
+/// within the search's <see cref="JumpSearchSettings.HeightTolerance"/> of
+/// where it rests.</item>
 /// </list>
 ///
 /// <para>
@@ -154,8 +172,20 @@ public sealed class JumpPlaces
     private readonly GraphJumpWalk _walk;
     private readonly JumpEnvelope _envelope;
     private readonly JumpPlacesSettings _settings;
+    private readonly IReadOnlyList<int>? _seeds;
+    private bool[]? _played;
+    private int _unplayed;
+    private readonly Dictionary<(int From, int To), List<JumpCandidate>> _alternates = [];
 
-    public JumpPlaces(NavGraph graph, VoxelColumns columns, JumpSearch search, GraphJumpWalk walk, in JumpEnvelope envelope, JumpPlacesSettings settings)
+    /// <param name="seeds">
+    /// Cells players start in (a map's spawns), or null or none for none known: then a takeoff
+    /// is proposed only in a cell the graph's edges lead to from one of them (any edge, every door
+    /// open). A map's navigation has free space a player never stands in (the tops of the clip
+    /// brushes and cliffs round a TF2 map, the river a fall the graph takes no edge down to): a
+    /// jump from there is on nobody's route.
+    /// </param>
+    public JumpPlaces(NavGraph graph, VoxelColumns columns, JumpSearch search, GraphJumpWalk walk, in JumpEnvelope envelope, JumpPlacesSettings settings,
+                      IReadOnlyList<int>? seeds = null)
     {
         _graph = graph;
         _columns = columns;
@@ -163,6 +193,7 @@ public sealed class JumpPlaces
         _walk = walk;
         _envelope = envelope;
         _settings = settings;
+        _seeds = seeds;
     }
 
     /// <summary>One column's edge: which way it faces (0 east, 1 north, 2 west, 3 south), the column across the run and along it, and its floor.</summary>
@@ -178,37 +209,102 @@ public sealed class JumpPlaces
     /// <summary>A cell under the line out from an edge, and how far out.</summary>
     private readonly record struct Ground(float Out, int Cell);
 
-    /// <summary>The whole pass: the proposals, then the search on each.</summary>
-    public JumpPlacesResult Find()
+    /// <summary>
+    /// The whole pass: the proposals, then the search on each. <paramref name="cancel"/> is
+    /// looked at before each search, so a level that changes stops the pass within one
+    /// candidate's flights (at most <see cref="JumpSearchSettings.MaxFlights"/>).
+    ///
+    /// <para>
+    /// With seeds it goes in rounds: the takeoffs the graph leads to from the seeds first; then,
+    /// while the links found land where the graph leads on to cells no round has played yet,
+    /// those too (a ledge only a jump reaches is somewhere to jump on from), each candidate
+    /// searched once, at most <see cref="JumpPlacesSettings.MaxRounds"/> rounds. The candidates
+    /// answered are every one proposed, in the order of their landing cell and then their takeoff's.
+    /// </para>
+    /// </summary>
+    public JumpPlacesResult Find(CancellationToken cancel = default)
     {
-        IReadOnlyList<JumpCandidate> candidates = Propose(out JumpPlacesWork work);
+        _played = _seeds is { Count: > 0 } ? Played(_seeds) : null;
+        var proposed = new List<JumpCandidate>();
+        var asked = new HashSet<(int From, int To)>();
         var links = new List<JumpLink>();
-        int flights = 0;
-        for (int i = 0; i < candidates.Count; i++)
+        var linkOf = new List<(int To, int From)>();
+        int flights = 0, searched = 0;
+        JumpPlacesWork work = default;
+        for (int round = 0; round < Math.Max(1, _settings.MaxRounds); round++)
         {
-            JumpCandidate c = candidates[i];
-            JumpSearchResult result = _search.Find(new JumpAsk(c.Takeoff, c.Landing, _settings.Tolerance));
-            flights += result.Flights;
-            if (result.Found is not { } found || found.Robustness < _search.Settings.Keep)
-                continue;
+            IReadOnlyList<JumpCandidate> candidates = ProposeNow(out work);
+            int linked = links.Count;
+            bool any = false;
+            foreach (JumpCandidate best in candidates)
+            {
+                // A pair an earlier round searched is done with. Else its best, then its alternates while none has given a link.
+                if (asked.Contains((best.From, best.To)))
+                    continue;
+                IEnumerable<JumpCandidate> tries = _alternates.TryGetValue((best.From, best.To), out List<JumpCandidate>? others) ? [best, .. others] : [best];
+                foreach (JumpCandidate c in tries)
+                {
+                    if (!asked.Add((c.From, c.To)))
+                        continue;
+                    any = true;
+                    proposed.Add(c);
+                    if (_settings.MaxCandidates > 0 && searched >= _settings.MaxCandidates)
+                        continue;
+                    searched++;
+                    cancel.ThrowIfCancellationRequested();
+                    if (Search(c, ref flights) is { } link)
+                    {
+                        links.Add(link);
+                        linkOf.Add((c.To, c.From));
+                        break;
+                    }
+                }
+            }
 
-            // Where it comes to rest is the cell the link goes to.
-            JumpOutcome flown = _search.Fly(found.Recipe);
-            flights++;
-            CellId to = _graph.FindCell(new AiVector(flown.Rest.X, flown.Rest.Y, flown.Rest.Z));
-            if (to.IsValid)
-                links.Add(new JumpLink(c.From, to.Index, found.Recipe, found.Family, found.Robustness, found.Seconds, found.AirSeconds, found.Health, found.WalkSeconds));
+            // On from where the new links land, when that plays a cell no round has.
+            if (_played is null || !any || !Spread(_played, links.Skip(linked).Select(l => l.To)))
+                break;
         }
 
-        return new JumpPlacesResult(candidates, links, flights, work);
+        // Both in the order of the candidate's landing cell and then its takeoff's, whichever round found them.
+        proposed.Sort(static (a, b) => a.To != b.To ? a.To.CompareTo(b.To) : a.From.CompareTo(b.From));
+        JumpLink[] ordered = [.. Enumerable.Range(0, links.Count).OrderBy(i => linkOf[i].To).ThenBy(i => linkOf[i].From).Select(i => links[i])];
+        return new JumpPlacesResult(proposed, ordered, flights, work);
+    }
+
+    /// <summary>
+    /// The search on <paramref name="c"/>: the link, or null. Where its flight comes to rest is the cell the link goes to:
+    /// one at the height it rests at. Where the graph has only a floor further down (a ledge's rim no cell of the graph
+    /// reaches), the bot would stand nowhere it knows, and there is no link.
+    /// </summary>
+    private JumpLink? Search(in JumpCandidate c, ref int flights)
+    {
+        JumpSearchResult result = _search.Find(new JumpAsk(c.Takeoff, c.Landing, _settings.Tolerance));
+        flights += result.Flights;
+        if (result.Found is not { } found || found.Robustness < _search.Settings.Keep)
+            return null;
+        JumpOutcome flown = _search.Fly(found.Recipe);
+        flights++;
+        CellId to = _graph.FindCell(new AiVector(flown.Rest.X, flown.Rest.Y, flown.Rest.Z));
+        return to.IsValid && MathF.Abs(_graph.Cell(to).FloorZ - flown.Rest.Z) <= _search.Settings.HeightTolerance
+            ? new JumpLink(c.From, to.Index, found.Recipe, found.Family, found.Robustness, found.Seconds, found.AirSeconds, found.Health, found.WalkSeconds)
+            : null;
     }
 
     /// <summary>The jumps worth searching for, one a pair of level stretches, in the order of their landing cell and then their takeoff cell. No flight is flown.</summary>
     public IReadOnlyList<JumpCandidate> Propose() => Propose(out _);
 
-    /// <summary><see cref="Propose()"/>, with what it looked through.</summary>
+    /// <summary><see cref="Propose()"/>, with what it looked through: the first round's (<see cref="Find"/>), from the seeds alone.</summary>
     public IReadOnlyList<JumpCandidate> Propose(out JumpPlacesWork work)
     {
+        _played = _seeds is { Count: > 0 } ? Played(_seeds) : null;
+        return ProposeNow(out work);
+    }
+
+    /// <summary>The proposals from the cells played so far.</summary>
+    private IReadOnlyList<JumpCandidate> ProposeNow(out JumpPlacesWork work)
+    {
+        _unplayed = 0;
         int[] level = Levels();
         var rims = new List<Rim>();
         for (int y = 0; y < _columns.Depth; y++)
@@ -252,12 +348,32 @@ public sealed class JumpPlaces
             i = end + 1;
         }
 
-        work = new JumpPlacesWork(rims.Count, runs, landings);
+        work = new JumpPlacesWork(rims.Count, runs, landings, _unplayed);
 
-        kept.Sort(static (a, b) => a.Candidate.To != b.Candidate.To ? a.Candidate.To.CompareTo(b.Candidate.To) : a.Candidate.From.CompareTo(b.Candidate.From));
-        var candidates = new JumpCandidate[kept.Count];
-        for (int i = 0; i < kept.Count; i++)
-            candidates[i] = kept[i].Candidate;
+        // One a pair: the takeoff nearest where one was wanted (ground that stops short of the standoff is a wall close
+        // behind the jump), then the longer run; the first found among equals. The next ones (up to PerPair in all, of
+        // other cells) are the pair's alternates, searched by Find when the first gives no link.
+        _alternates.Clear();
+        var candidates = new List<JumpCandidate>();
+        foreach (IGrouping<(int, int), Proposed> pair in kept.GroupBy(static p => (p.FromLevel, p.ToLevel)))
+        {
+            Proposed[] ranked = [.. pair.OrderBy(static p => p.Off).ThenByDescending(static p => p.Run)];
+            JumpCandidate first = ranked[0].Candidate;
+            candidates.Add(first);
+            var others = new List<JumpCandidate>();
+            foreach (Proposed p in ranked.Skip(1))
+            {
+                if (others.Count + 1 >= _settings.PerPair)
+                    break;
+                if ((p.Candidate.From, p.Candidate.To) != (first.From, first.To) && !others.Any(o => (o.From, o.To) == (p.Candidate.From, p.Candidate.To)))
+                    others.Add(p.Candidate);
+            }
+
+            if (others.Count > 0)
+                _alternates[(first.From, first.To)] = others;
+        }
+
+        candidates.Sort(static (a, b) => a.To != b.To ? a.To.CompareTo(b.To) : a.From.CompareTo(b.From));
         return candidates;
     }
 
@@ -333,6 +449,13 @@ public sealed class JumpPlaces
                 from = g;
         }
 
+        // Nobody stands there: no edge of the graph leads there from a seed.
+        if (_played is not null && !_played[from.Cell])
+        {
+            _unplayed++;
+            return false;
+        }
+
         var takeoff = new Vector(edgeX + dx * from.Out, edgeY + dy * from.Out, _graph.Cell(from.Cell).FloorZ + VoxelMoveWorld.DistEpsilon);
         float flat = MathF.Sqrt((landing.X - takeoff.X) * (landing.X - takeoff.X) + (landing.Y - takeoff.Y) * (landing.Y - takeoff.Y));
 
@@ -346,22 +469,46 @@ public sealed class JumpPlaces
         if (walk is { } cost && cost <= _settings.WalkFactor * straight)
             return true;
 
-        var proposed = new Proposed(new JumpCandidate(from.Cell, landingCell.Index, takeoff, landing, up ? JumpPlaceKind.Up : JumpPlaceKind.Gap, rise, flat, walk),
-                                    MathF.Abs(from.Out - wanted), run, level[from.Cell], level[landingCell.Index]);
-        for (int i = 0; i < kept.Count; i++)
-        {
-            if (kept[i].FromLevel != proposed.FromLevel || kept[i].ToLevel != proposed.ToLevel)
-                continue;
+        kept.Add(new Proposed(new JumpCandidate(from.Cell, landingCell.Index, takeoff, landing, up ? JumpPlaceKind.Up : JumpPlaceKind.Gap, rise, flat, walk),
+                              MathF.Abs(from.Out - wanted), run, level[from.Cell], level[landingCell.Index]));
+        return true;
+    }
 
-            // One a pair: the takeoff nearest where one was wanted (ground that stops short of the standoff is a
-            // wall close behind the jump), then the longer run; the first found among equals.
-            if (proposed.Off < kept[i].Off || (proposed.Off == kept[i].Off && run > kept[i].Run))
-                kept[i] = proposed;
-            return true;
+    /// <summary>The cells the graph's edges lead to from <paramref name="seeds"/>, the seeds among them.</summary>
+    private bool[] Played(IReadOnlyList<int> seeds)
+    {
+        var played = new bool[_graph.CellCount];
+        Spread(played, seeds);
+        return played;
+    }
+
+    /// <summary>Plays <paramref name="from"/> and every cell the graph's edges lead to from them; true when a cell was not played before.</summary>
+    private bool Spread(bool[] played, IEnumerable<int> from)
+    {
+        var open = new Stack<int>();
+        foreach (int seed in from)
+        {
+            if ((uint)seed < (uint)played.Length && !played[seed])
+            {
+                played[seed] = true;
+                open.Push(seed);
+            }
         }
 
-        kept.Add(proposed);
-        return true;
+        bool any = open.Count > 0;
+        while (open.Count > 0)
+        {
+            foreach (NavEdge e in _graph.EdgesFrom(open.Pop()))
+            {
+                if (!played[e.To])
+                {
+                    played[e.To] = true;
+                    open.Push(e.To);
+                }
+            }
+        }
+
+        return any;
     }
 
     /// <summary>Which level stretch each cell is in: cells joined by walks between floors no more than <see cref="JumpPlacesSettings.FlatStep"/> apart.</summary>

@@ -321,6 +321,34 @@ public sealed class BotDriveLaneTests
         Assert.NotSame(idle.Way, lanes.RouteOf(Bot.Slot)!.Value.Way);
     }
 
+    /// <summary>What the main thread handed the game's link reports, with the frame's tick it was handed on.</summary>
+    private sealed class LinkNotes : INavLinkReports
+    {
+        public readonly List<(ActorId Bot, int Stamp, int Frame, NavLinkStep Step)> Notes = [];
+        public Func<int> Frame { get; set; } = () => 0;
+
+        public void Note(ActorId bot, Tick stamp, in NavLinkStep step) => Notes.Add((bot, stamp.Value, Frame(), step));
+    }
+
+    /// <summary>
+    /// Each fresh step taken back goes to the game's link reports (lane G5c-2b), stamped with the tick it was handed on:
+    /// the tick before the one it is taken on, every step on time, whether it ran inline or on a worker.
+    /// </summary>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    public void EachStepTakenBackGoesToTheLinkReportsStampedWithTheTickItWasHandedOn(int threads)
+    {
+        var notes = new LinkNotes();
+        using var match = new Match(threads, reports: notes);
+        notes.Frame = () => match.TickNow;
+        for (int i = 0; i < 30; i++)
+            match.Tick();
+        Assert.True(notes.Notes.Count > 0, "steps were taken back");
+        Assert.All(notes.Notes, n => Assert.Equal(n.Frame - 1, n.Stamp));
+        Assert.Equal(match.Bots.Bots.Count, notes.Notes.Where(n => n.Frame == match.TickNow).Select(n => n.Bot).Distinct().Count());
+    }
+
     // ---- The whole binding: AiBots with brains, a fake engine and a real pool -------------------
 
     private sealed class Quiet : ILog
@@ -450,14 +478,14 @@ public sealed class BotDriveLaneTests
         private readonly bool _pooled;
         private int _tick;
 
-        public Match(int threads, AiMainBudget? budget = null)
+        public Match(int threads, AiMainBudget? budget = null, INavLinkReports? reports = null)
         {
             _pooled = threads > 0;
             Ai = new ServerAiSession(_nav, TestGames.Hl2mp(), null!, Log,
             DeclaredConVars.Fresh<AiThreadsConVar>(), DeclaredConVars.Fresh<AiSyncConVar>());
             IEngineFrame frame = FakeEngine.Of<IEngineFrame>((m, _) => m.Name == "TickCount" ? _tick : throw FakeEngine.Unasked(m));
             Bots = new AiBots(World, World, World.Players(), World.Entities(), WeaponCatalog.Stock(), frame, _nav, TestGames.Hl2mp(), DispatchProxy.Create<IBotInventory, Defaults>(),
-                                 new Names(), new ScoreboardTags(), Log, Ai, null, budget);
+                                 new Names(), new ScoreboardTags(), Log, Ai, null, budget, linkReports: reports);
             var map = new MapKnowledge("grid", [new ItemSpawn(0, "item_healthkit", ItemKind.Health, new AiVector(880f, 880f, 0f), 30f)], [], Duel.Weapons);
             Ai.Session.World = new MemoryWorld(map, Grid.Graph, ServerAiSession.TickSeconds, id => id.ToString());
             Ai.Session.Curves = SourceSharp.Ai.Tests.Skills.Curves.Game();
@@ -477,6 +505,9 @@ public sealed class BotDriveLaneTests
         }
 
         private static ActorId Opponent(int bot) => new(40 + bot, 0x4000_0000 | (40 + bot));
+
+        /// <summary>The frame's tick now.</summary>
+        public int TickNow => _tick;
 
         /// <summary>One tick, as the game runs it; each step done before the next tick needs it, whichever thread ran it.</summary>
         public void Tick()

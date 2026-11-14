@@ -8,6 +8,9 @@ public interface IAiRecordSink
 {
     void BotAdded(ActorId bot, ulong seed, ReadOnlySpan<byte> skillLevels);
 
+    /// <summary>A bot added with its home point (<see cref="BrainSetup.Home"/>, format 8): a sink that keeps no home answers as the one above.</summary>
+    void BotAdded(ActorId bot, ulong seed, ReadOnlySpan<byte> skillLevels, AiVector? home) => BotAdded(bot, seed, skillLevels);
+
     void BotRemoved(ActorId bot);
 
     /// <summary>The tree a bot's intents name their leaves in (format 4): an intent carries only a node's id, and ids move when a tree changes.</summary>

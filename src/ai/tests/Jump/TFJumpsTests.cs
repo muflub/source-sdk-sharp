@@ -61,6 +61,14 @@ public class TFJumpsTests
         public NavSight? Sight => null;
 
         public ChokeSlot? Chokes => null;
+
+        public string? CacheDirectory { get; set; }
+    }
+
+    /// <summary>A level whose placed entities are these.</summary>
+    private sealed class Placed(params MapEntity[] all) : ITFLevelEntities
+    {
+        public MapEntities Read() => new(all, null);
     }
 
     /// <summary>This tree's built nav of the jump map, loaded as the binding's loader hands it on.</summary>
@@ -69,23 +77,23 @@ public class TFJumpsTests
         byte[] bytes = File.ReadAllBytes(JumpRecording.NavPath);
         Nav3dReader reader = Nav3dReader.Open(bytes);
         DerivedNav derived = NavGraphFromNav3d.Derive(new Nav3dNavSource(reader), TFNavProfile.ModNumbers, NavEdgeCosts.Default, []);
-        return new LoadedNav(JumpRecording.Map, NavFile.Of(reader, "maps/" + JumpRecording.Map + ".nav3d"), derived, null!, "bsp", Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes)), false, 0d);
+        return new LoadedNav(JumpRecording.Map, NavFile.Of(reader, "maps/" + JumpRecording.Map + ".nav3d"), derived, null!, Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData("bsp"u8)), Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes)), false, 0d);
     }
 
     private sealed record Rig(TFJumps Jumps, Navigation Nav, Log Log);
 
-    private static Rig Service(bool script = true)
+    private static Rig Service(bool script = true, ITFLevelEntities? placed = null, string? cache = null)
     {
         var log = new Log();
-        var nav = new Navigation();
-        return new Rig(new TFJumps(Sims(), new global::TF2.Shared.TFWeaponScripts(log, new LauncherScript(script)), Classes(), nav, log), nav, log);
+        var nav = new Navigation { CacheDirectory = cache };
+        return new Rig(new TFJumps(Sims(), new global::TF2.Shared.TFWeaponScripts(log, new LauncherScript(script)), Classes(), nav, log, placed), nav, log);
     }
 
     /// <summary>The service with the level's navigation set and its desk open.</summary>
-    private static Rig Opened()
+    private static Rig Opened(ITFLevelEntities? placed = null, string? cache = null, LoadedNav? level = null)
     {
-        Rig rig = Service();
-        rig.Nav.Current = Level();
+        Rig rig = Service(placed: placed, cache: cache);
+        rig.Nav.Current = level ?? Level();
         rig.Jumps.OnPreThink(TickSeconds);
         Assert.False(rig.Jumps.Desk.IsOpen, "the desk opened in the frame the navigation was set: its free space was read on the game's thread");
         Assert.True(rig.Jumps.Reading!.Wait(TimeSpan.FromSeconds(60)), "the navigation's free space was not read in a minute");
@@ -177,6 +185,115 @@ public class TFJumpsTests
         Assert.Contains(rig.Log.Lines, l => l.StartsWith("warning: ", StringComparison.Ordinal) && l.Contains("no rocket launcher script", StringComparison.Ordinal));
     }
 
+    /// <summary>Waits for the links' work to have ended, however it ended.</summary>
+    private static void LinksDone(TFJumps jumps)
+    {
+        Task work = jumps.LinkWork ?? throw new Xunit.Sdk.XunitException("no links' work was started");
+        Assert.True(((IAsyncResult)work).AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(300)), "the links' work did not end in five minutes");
+    }
+
+    [JumpMapFact]
+    public void TheLevelsBlastLinksAreFoundOnAWorkerAndPublished()
+    {
+        Rig rig = Opened();
+        // The pass flies for a second or more: the frame that opened the desk came back with it under way, the slot empty.
+        Assert.False(rig.Jumps.LinkWork!.IsCompleted, "the links were found in the frame that opened the desk");
+        Assert.Null(rig.Jumps.LinkSlot.Links);
+        LinksDone(rig.Jumps);
+        NavLinks links = rig.Jumps.LinkSlot.Links ?? throw new Xunit.Sdk.XunitException($"no links: {rig.Jumps.Json()}");
+        Assert.True(links.Count > 0 && links.IsOver(rig.Nav.Current!.Nav.Graph), $"{links.Count} links");
+        Assert.Same(links, rig.Jumps.LinkSet!.Links);
+        Assert.False(rig.Jumps.LinkOutcome!.FromCache);
+        using var json = System.Text.Json.JsonDocument.Parse(rig.Jumps.Json());
+        Assert.Equal((links.Count, "found", false), (json.RootElement.GetProperty("links").GetInt32(), json.RootElement.GetProperty("links.state").GetString(),
+                                                      json.RootElement.GetProperty("links.from_cache").GetBoolean()));
+        Assert.True(json.RootElement.GetProperty("links.flights").GetInt32() > 0);
+        // Lane G5c-2b: published for the Soldiers' searches, and each link's plan in the book, flown once from its start.
+        Assert.Same(rig.Jumps.LinkSet, rig.Jumps.Published.Set);
+        JumpPlan[] plans = rig.Jumps.Book.LinkPlans();
+        Assert.Equal(links.Count, plans.Length);
+        for (int i = 0; i < plans.Length; i++)
+        {
+            Assert.Same(plans[i], rig.Jumps.Book.Plan(NavLinks.Argument(i)));
+            Assert.True(plans[i].StartsStanding && plans[i].Apex > 0f && plans[i].AirSeconds > 0f, $"link {i}'s plan: apex {plans[i].Apex}, air {plans[i].AirSeconds}");
+            Assert.Equal(rig.Jumps.LinkSet!.JumpOf(i).Recipe, plans[i].Recipe);
+        }
+
+        Assert.Equal(links.Count, json.RootElement.GetProperty("links.list").GetArrayLength());
+    }
+
+    /// <summary>What a follower said, as the main thread hands it over, is what the tree then reads from the book.</summary>
+    [Fact]
+    public void AFollowersReportGoesToTheBook()
+    {
+        Rig rig = Service();
+        var (g, ids) = SourceSharp.Ai.Tests.Nav.Grids.Parse("..... .....");
+        NavLinks links = NavLinks.Build(g, [new NavLink(ids[4, 0], ids[6, 0], NavLinkKind.Blast, 1f, 30f, 1f, 0)], new NavLinkCosts { RunSpeed = 240f });
+        JumpPlan plan = SourceSharp.Ai.Tests.TF2.TFJumpAdvice.Plan(id: NavLinks.Argument(0)) with { StartsStanding = true };
+        rig.Jumps.Book.SetLinks(links, [plan]);
+        var goal = new AiVector(10f, 20f, 0f);
+        ((SourceSharp.Ai.Server.INavLinkReports)rig.Jumps).Note(new ActorId(4, 1), new Tick(7), new NavLinkStep(0, links.Hash, goal, true));
+        Assert.Same(plan, rig.Jumps.Book.RouteLink(4, new Tick(8), goal));
+    }
+
+    [JumpMapFact]
+    public void ASecondLoadOfTheLevelReadsItsLinksFromTheCacheBesideTheGraph()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "g5c2-tfjumps-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            LoadedNav level = Level();
+            Rig first = Opened(cache: dir, level: level);
+            LinksDone(first.Jumps);
+            Assert.False(first.Jumps.LinkOutcome!.FromCache);
+            string file = Assert.Single(Directory.GetFiles(dir));
+            Assert.EndsWith(".navgraph." + new JumpLinkCache().Suffix, file, StringComparison.Ordinal);
+
+            Rig second = Opened(cache: dir, level: level);
+            LinksDone(second.Jumps);
+            Assert.True(second.Jumps.LinkOutcome!.FromCache, second.Jumps.Json());
+            Assert.Equal(first.Jumps.LinkSet!.Links.Hash, second.Jumps.LinkSet!.Links.Hash);
+            using var json = System.Text.Json.JsonDocument.Parse(second.Jumps.Json());
+            Assert.Equal(("read from the cache", true), (json.RootElement.GetProperty("links.state").GetString(), json.RootElement.GetProperty("links.from_cache").GetBoolean()));
+        }
+        finally
+        {
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [JumpMapFact]
+    public void ANavigationChangeCancelsThePassAndEmptiesTheSlot()
+    {
+        Rig rig = Opened();
+        NavLinkSlot before = rig.Jumps.LinkSlot;
+        Task work = rig.Jumps.LinkWork!;
+        Assert.False(work.IsCompleted, "the control: the pass is under way");
+        rig.Nav.Current = null;
+        rig.Jumps.OnPreThink(TickSeconds);
+        Assert.NotSame(before, rig.Jumps.LinkSlot);
+        LinksDone(rig.Jumps);
+        Assert.Null(before.Links);
+        Assert.Null(rig.Jumps.LinkSlot.Links);
+        Assert.Null(rig.Jumps.LinkSet);
+        using var json = System.Text.Json.JsonDocument.Parse(rig.Jumps.Json());
+        Assert.Equal((0, "no navigation"), (json.RootElement.GetProperty("links").GetInt32(), json.RootElement.GetProperty("links.state").GetString()));
+    }
+
+    [JumpMapFact]
+    public void TheLevelsTeamSpawnsSeedThePass()
+    {
+        // Two spawns on the jump map's floor, and an entity of another class there that is none.
+        Rig rig = Opened(new Placed(new MapEntity("info_player_teamspawn", null, new AiVector(200f, 232f, 16f), null, null, Team: 2),
+                                    new MapEntity("info_player_teamspawn", null, new AiVector(1700f, 232f, 16f), null, null, Team: 3),
+                                    new MapEntity("item_teamflag", null, new AiVector(128f, 720f, 16f), null, null)));
+        LinksDone(rig.Jumps);
+        using var json = System.Text.Json.JsonDocument.Parse(rig.Jumps.Json());
+        Assert.Equal(2, json.RootElement.GetProperty("links.seeds").GetInt32());
+        Assert.True(json.RootElement.GetProperty("links").GetInt32() > 0, rig.Jumps.Json());
+    }
+
     [Fact]
     public void TheBindingHandsItsTreesTheBookAndTheApplierTheProgram()
     {
@@ -215,9 +332,28 @@ public class TFJumpsTests
                                       .Where(t => (Bare(t) as IOrderedHook)?.HookOrder == ((IOrderedHook)Bare(typeof(TFJumps))).HookOrder)
                                       .Select(t => t.Name)];
         Assert.Equal([nameof(TFJumps)], routes);
+        string[] lifecycles = [.. concrete.Where(t => typeof(IGameLifecycle).IsAssignableFrom(t))
+                                          .Where(t => ((IGameLifecycle)Bare(t)).LifecycleOrder == ((IGameLifecycle)Bare(typeof(TFJumps))).LifecycleOrder)
+                                          .Select(t => t.Name)];
+        Assert.Equal([nameof(TFJumps)], lifecycles);
         // The control: the list has other frame members and another route provider to clash with.
         Assert.True(concrete.Count(t => typeof(IFrameLifecycle).IsAssignableFrom(t)) > 5);
         Assert.Contains(concrete, t => t != typeof(TFJumps) && typeof(global::Debug.Api.Server.Interfaces.IDebugRouteProvider).IsAssignableFrom(t));
+    }
+
+    /// <summary>
+    /// The main thread hands the followers' link steps to whatever the container has as the link reports
+    /// (AiBots, lane G5c-2b): in the tf2 mod's list that is the jumps. Live, without it the reports reached nobody and
+    /// no bot began a link.
+    /// </summary>
+    [Fact]
+    public void TheTF2ListHasTheJumpsAsTheLinkReports()
+    {
+        var services = new ServiceContainer();
+        SideServices.Register(services, Side.Server,
+            [.. typeof(global::TF2.Server.Player.TFServerActorFacts).Assembly.GetTypes(), .. typeof(SourceSharp.Ai.Server.AiBots).Assembly.GetTypes(), .. typeof(TFJumps).Assembly.GetTypes()]);
+        Assert.True(services.IsRegistered(typeof(SourceSharp.Ai.Server.INavLinkReports)), "nothing is registered as the link reports");
+        Assert.Contains(typeof(SourceSharp.Ai.Server.INavLinkReports), typeof(TFJumps).GetCustomAttributes(typeof(SideServiceAttribute), false).Cast<SideServiceAttribute>().SelectMany(a => a.As));
     }
 
     [Fact]

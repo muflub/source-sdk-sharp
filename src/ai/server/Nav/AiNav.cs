@@ -44,6 +44,9 @@ public interface IAiNavigation
 
     /// <summary>The navigation build in flight (E.3, the dev API's <c>/ai/nav/build</c>), or null.</summary>
     NavBuildProgress? BuildProgress => null;
+
+    /// <summary>Where the level's derived graph is cached, and work derived from it beside it (<see cref="NavGraphCache.SidePathFor"/>); null for no cache.</summary>
+    string? CacheDirectory => null;
 }
 
 /// <summary>A navigation build as the dev API serves it: its map, what it is doing, how far, how long, on how many threads, and the maps queued after it.</summary>
@@ -115,12 +118,14 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
 
     public NavObstacleState? Obstacles => _obstacles?.State;
 
-    /// <summary>The player's obstacles, carrying the jump reaches its class has now (the game's <see cref="INavProfile"/>).</summary>
+    /// <summary>The player's obstacles, carrying the jump reaches its class has now and the links it may take with the health it may spend on one (the game's <see cref="INavProfile"/>).</summary>
     public NavObstacleState? ObstaclesFor(EntityHandle player)
     {
         if (_field?.StateFor(player) is not { } state)
             return null;
         state.Reach = profile.Reach(player);
+        NavLinkAllowance links = profile.LinksFor(player);
+        (state.Links, state.LinkHealth) = (links.Links, links.Health);
         state.TeamCells = _teamBlockers.For(players.GetTeam(player));
         return state;
     }

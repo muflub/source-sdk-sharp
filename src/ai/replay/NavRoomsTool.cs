@@ -12,8 +12,8 @@ using SourceSharp.MapFormats.Nav;
 
 namespace SourceSharp.Ai.Replay;
 
-/// <summary>An entity of the map as <see cref="NavRoomsTool"/> places it: a point (<see cref="Mins"/> null) or a brush's bounds.</summary>
-public sealed record RoomEntity(string ClassName, string? TargetName, string? Target, AiVector Origin, AiVector? Mins, AiVector? Maxs);
+/// <summary>An entity of the map as <see cref="NavRoomsTool"/> places it: a point (<see cref="Mins"/> null) or a brush's bounds, and its <c>TeamNum</c> (0 for none).</summary>
+public sealed record RoomEntity(string ClassName, string? TargetName, string? Target, AiVector Origin, AiVector? Mins, AiVector? Maxs, int Team = 0);
 
 /// <summary>One region of free space: its boxes, its leaves (a box's columns), its bounds, the entities in it by class, the regions its teleports send a player to, and its teleport destinations' names.</summary>
 public sealed record RoomRow(int Region, int Boxes, int Leaves, AiVector Mins, AiVector Maxs, IReadOnlyDictionary<string, int> Entities, IReadOnlyList<int> TeleportsTo,
@@ -76,7 +76,8 @@ public static class NavRoomsTool
                 maxs = origin + new AiVector(F(m, 12), F(m, 16), F(m, 20));
             }
 
-            all.Add(new RoomEntity(e.ClassName, e.Get("targetname"), e.Get("target"), origin, mins, maxs));
+            int team = int.TryParse(e.Get("TeamNum"), NumberStyles.Integer, CultureInfo.InvariantCulture, out int t) ? t : 0;
+            all.Add(new RoomEntity(e.ClassName, e.Get("targetname"), e.Get("target"), origin, mins, maxs, team));
         }
 
         return all;

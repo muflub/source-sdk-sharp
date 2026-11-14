@@ -78,6 +78,8 @@ public class StaticStateCensusTests
         // would be shared between brains), its generic server binding
         // (plan_bots_teams_tf2 C.2) and the HL2MP binding over it.
         Assembly.Load("SourceSharp.Ai"),
+        // The server binding's service-free navigation, its own assembly so Descent can reference it.
+        Assembly.Load("SourceSharp.Ai.Nav"),
         Assembly.Load("SourceSharp.Ai.Server"),
         Assembly.Load("SourceSharp.Ai.Hl2mp"),
         // Phase 5c: its client side, the screens' contract and the screens.

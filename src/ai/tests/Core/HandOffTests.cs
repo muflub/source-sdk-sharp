@@ -122,6 +122,28 @@ public sealed class HandOffTests
     }
 
     /// <summary>
+    /// Taking back finished steps allocates nothing: the main thread drains
+    /// every tick, so a wait built as a lambda over the peeked step (a closure
+    /// made each time the loop's condition ran, 24 bytes a call) charged every
+    /// tick even with nothing to wait for.
+    /// </summary>
+    [Fact]
+    public void DrainingAllocatesNothing()
+    {
+        using var pool = new AiWorkerPool();
+        pool.Start(1);
+        AiSession s = Pooled(pool, _ => new Stall(at: -1, sleepMs: 0));
+        s.AddBot(Bot, 1, Medium);
+        for (int t = 1; t <= 12; t++)
+            Publish(s, t, Bot);
+        s.Drain(wait: true);
+        Assert.True(s.Counters.StepsRun > 0, "the control: steps were handed over and taken back");
+
+        Assert.Equal(0L, SteadyAllocation.Measure(() => s.Drain(), 1000));
+        Assert.Equal(0L, SteadyAllocation.Measure(() => s.Drain(wait: true), 1000));
+    }
+
+    /// <summary>
     /// A level's end (§2.5): the pool stops and is joined (a lane already
     /// running finishes its queue first), and every step handed over is
     /// accounted for, run or counted skipped; none is left in flight.

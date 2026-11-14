@@ -25,6 +25,7 @@
     <!-- map-tools' .nav3d builder (plan_bots_teams_tf2 Part E): a map with no nav is built in-process. -->
     <PackageReference Include="SourceSharp.MapTools" Version="$(MapToolsVersion)" />
     <ProjectReference Include="..\core\SourceSharp.Ai.csproj" />
+    <ProjectReference Include="..\nav\SourceSharp.Ai.Nav.csproj" />
     <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
     <ProjectReference Include="..\..\server\managed\SourceSharp.Server.csproj" />
   </ItemGroup>

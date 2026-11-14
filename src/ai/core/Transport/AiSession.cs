@@ -166,9 +166,10 @@ public sealed class AiSession
     /// <summary>
     /// Adds a bot with its own seed and skill levels; with a <see cref="World"/>,
     /// its brain remembers, its opponents' habits in <paramref name="habits"/>
-    /// (kept by the caller across the bot's lives and the maps, §5.2).
+    /// (kept by the caller across the bot's lives and the maps, §5.2), and its
+    /// <paramref name="home"/> point when the game gives one (<see cref="BrainSetup.Home"/>, recorded).
     /// </summary>
-    public void AddBot(ActorId id, ulong seed, ReadOnlySpan<byte> skillLevels, HabitStore? habits = null)
+    public void AddBot(ActorId id, ulong seed, ReadOnlySpan<byte> skillLevels, HabitStore? habits = null, AiVector? home = null)
     {
         if (!id.IsValid)
             throw new ArgumentException("a bot needs a valid actor", nameof(id));
@@ -195,11 +196,11 @@ public sealed class AiSession
 
         DecisionParams? decisions = Curves is { } curves && profile is not null ? curves.For(profile) : null;
         IDecider? decider = memory is not null && decisions is { } dp && Deciders is { } make
-            ? make(new BrainSetup(id, seed, memory, dp, World!.TickSeconds))
+            ? make(new BrainSetup(id, seed, memory, dp, World!.TickSeconds, home))
             : null;
-        _lanes[id.Slot] = new Lane(new Brain(id, seed, memory, decisions, decider) { Cost = cost }, _sightedCapacity) { Levels = skillLevels.ToArray() };
+        _lanes[id.Slot] = new Lane(new Brain(id, seed, memory, decisions, decider) { Cost = cost }, _sightedCapacity) { Levels = skillLevels.ToArray(), Home = home };
         BotCount++;
-        _sink.BotAdded(id, seed, skillLevels);
+        _sink.BotAdded(id, seed, skillLevels, home);
         if (decider is not null)
             _sink.DecisionTree(decider.NodeNames, decider.NodeBranches);
     }
@@ -230,7 +231,7 @@ public sealed class AiSession
         {
             if (lane is null)
                 continue;
-            _sink.BotAdded(lane.Brain.Bot, lane.Brain.Seed, lane.Levels);
+            _sink.BotAdded(lane.Brain.Bot, lane.Brain.Seed, lane.Levels, lane.Home);
             if (lane.Brain.Decider is { } decider)
                 _sink.DecisionTree(decider.NodeNames, decider.NodeBranches);
         }
@@ -346,6 +347,18 @@ public sealed class AiSession
         _callouts.RemoveRange(kept, _callouts.Count - kept);
     }
 
+    /// <summary>
+    /// Spins until <paramref name="job"/> has finished. A loop, not
+    /// <see cref="SpinWait.SpinUntil(Func{bool})"/>: a lambda over the peeked
+    /// step is a closure made each time the drain loop's condition runs.
+    /// </summary>
+    private static void WaitFor(BrainStepJob job)
+    {
+        SpinWait spin = default;
+        while (job.State is JobState.Queued or JobState.Running)
+            spin.SpinOnce();
+    }
+
     /// <summary>Takes back every step handed over at or before <paramref name="through"/>, waiting for one that has not finished.</summary>
     private void DrainThrough(Tick through)
     {
@@ -361,7 +374,7 @@ public sealed class AiSession
                     throw new InvalidOperationException("a step waits on a transport that runs nothing");
                 }
 
-                SpinWait.SpinUntil(() => job.State is not (JobState.Queued or JobState.Running));
+                WaitFor(job);
                 waited = true;
             }
 
@@ -426,7 +439,7 @@ public sealed class AiSession
                     throw new InvalidOperationException("a step waits on a transport that runs nothing");
                 }
 
-                SpinWait.SpinUntil(() => job.State is not (JobState.Queued or JobState.Running));
+                WaitFor(job);
                 continue;
             }
 
@@ -564,6 +577,9 @@ public sealed class AiSession
 
         /// <summary>The skill levels the bot was added with (what a recording started later announces).</summary>
         public byte[] Levels { get; init; } = [];
+
+        /// <summary>The home point the bot was added with, or null.</summary>
+        public AiVector? Home { get; init; }
 
         /// <summary>Held while a step of this brain runs; a reader takes it without waiting.</summary>
         public object BrainLock { get; } = new();

@@ -134,6 +134,41 @@ public sealed class AiWorkerPoolTests
         Assert.Contains("boom", pool.LastFault);
     }
 
+    private sealed class Nothing : IAiWork
+    {
+        public void Run()
+        {
+        }
+    }
+
+    /// <summary>
+    /// Posting allocates nothing on the main thread once the pool has seen its load: the game posts
+    /// every brain's step every tick, and a queue that made a new segment as its tail filled charged
+    /// that to the tick (about 47 bytes a tick at twelve brains, the Descent horde lane's count).
+    /// </summary>
+    [Fact]
+    public void PostingAllocatesNothingOnThePostersThreadOnceWarm()
+    {
+        using var pool = new AiWorkerPool();
+        pool.Start(2);
+        IAiWork[] brains = [.. Enumerable.Range(0, 12).Select(_ => new Nothing())];
+        void Tick()
+        {
+            long target = pool.Ran + brains.Length;
+            foreach (IAiWork w in brains)
+                pool.Post(w);
+            SpinWait spin = default;
+            while (pool.Ran < target)
+                spin.SpinOnce();
+        }
+
+        for (int i = 0; i < 2000; i++)
+            Tick();
+        Assert.True(pool.Ran >= 24000, "the control: every post ran");
+
+        Assert.Equal(0L, SteadyAllocation.Measure(Tick, 2000));
+    }
+
     [Fact]
     public void TheDefaultIsAtMostFourAndAtLeastOne()
         => Assert.InRange(AiWorkerPool.DefaultThreads, 1, Math.Max(1, Math.Min(4, Environment.ProcessorCount - 1)));
