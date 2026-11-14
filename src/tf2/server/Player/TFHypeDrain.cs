@@ -28,9 +28,12 @@ namespace TF2.Server.Player;
 /// </summary>
 public sealed class TFHypeDrain(ITFPlayerData players, ITFPlayerConditions conditions,
                                 TFScoutEnergydrinkConsumeRateConVar consume,
-                                TFScoutEnergydrinkRegenRateConVar regen)
+                                TFScoutEnergydrinkRegenRateConVar regen,
+                                IEngineEnvironment environment)
     : IPlayerComponent
 {
+    private readonly IEngineEnvironment _environment = environment;
+
     private EntityHandle _player = EntityHandle.None;
     private int _index = -1;
     private float _last = float.NaN;
@@ -49,44 +52,60 @@ public sealed class TFHypeDrain(ITFPlayerData players, ITFPlayerConditions condi
     /// <summary>One frame of the drink: the metered drain and the emptied buff.</summary>
     public void Tick(float now)
     {
-        float frametime = float.IsNaN(_last) ? 0f : now - _last;
+        float frame = float.IsNaN(_last) ? 0f : now - _last;
         _last = now;
 
-        if (frametime <= 0f || players.Predicted(_index) is not { } state)
+        if (frame <= 0f || players.Predicted(_index) is not { } state)
             return;
 
-        if (state.Class() != TFClass.Scout)                                   // :14059, the whole think's gate
-            return;
+        // The frame is integrated as the ticks it carried, one IntervalPerTick
+        // add each, as the charge meter's is: the client's replay makes exactly
+        // that add once per command, and one add of a whole frame's span rounds
+        // differently from the tick-sized adds it stands for — the rounding is
+        // the byte the prediction compare counts. No engine globals, no tick to
+        // slice by: the whole frame is one add, the shape the no-engine caller
+        // (a test) stands for.
+        float interval = _environment.Globals is { IsAvailable: true } globals
+            ? globals.IntervalPerTick
+            : 0f;
+        int slices = interval > 0f ? Math.Max(1, (int)MathF.Round(frame / interval)) : 1;
+        float dt = interval > 0f ? interval : frame;
 
-        if (conditions.InCond(_player, TFCond.SodapopperHype))
+        for (int slice = 0; slice < slices; slice++)
         {
-            // :14073 — no clamp; the emptied meter's branch owns the bottom.
-            state.HypeMeter -= frametime * consume.Value * 0.75f;
-            if (state.HypeMeter <= 0f)
-                conditions.Remove(_player, TFCond.SodapopperHype);   // :14076
-        }
+            if (state.Class() != TFClass.Scout)                               // :14059, the whole think's gate
+                return;
 
-        // The drink halves (:14080-14095): while the boost stands, the meter
-        // pays the frame at the consume rate, and an emptied one ends both
-        // names of the pair together.
-        if (conditions.InCond(_player, TFCond.Phase) || conditions.InCond(_player, TFCond.EnergyBuff))
-        {
-            state.EnergyDrinkMeter -= frametime * consume.Value;               // :14083
-            if (state.EnergyDrinkMeter <= 0f)                                   // :14086-14089, the names end together
+            if (conditions.InCond(_player, TFCond.SodapopperHype))
             {
-                // No clamp here either — the refill's next frame takes the
-                // negative meter back up, as stock's else-if chain does.
-                conditions.Remove(_player, TFCond.Phase);
-                conditions.Remove(_player, TFCond.EnergyBuff);
+                // :14073 — no clamp; the emptied meter's branch owns the bottom.
+                state.HypeMeter -= dt * consume.Value * 0.75f;
+                if (state.HypeMeter <= 0f)
+                    conditions.Remove(_player, TFCond.SodapopperHype);        // :14076
             }
 
-            return;
-        }
+            // The drink halves (:14080-14095): while the boost stands, the meter
+            // pays the tick at the consume rate, and an emptied one ends both
+            // names of the pair together.
+            if (conditions.InCond(_player, TFCond.Phase) || conditions.InCond(_player, TFCond.EnergyBuff))
+            {
+                state.EnergyDrinkMeter -= dt * consume.Value;                 // :14083
+                if (state.EnergyDrinkMeter <= 0f)                             // :14086-14089, the names end together
+                {
+                    // No clamp here either — the refill's next tick takes the
+                    // negative meter back up, as stock's else-if chain does.
+                    conditions.Remove(_player, TFCond.Phase);
+                    conditions.Remove(_player, TFCond.EnergyBuff);
+                }
 
-        // The refill half (:14101-14119): nothing boosting, the meter regains
-        // toward full at the regen rate, capped at the top.
-        if (state.EnergyDrinkMeter < 100f)
-            state.EnergyDrinkMeter = MathF.Min(100f, state.EnergyDrinkMeter + frametime * regen.Value);
+                continue;
+            }
+
+            // The refill half (:14101-14119): nothing boosting, the meter regains
+            // toward full at the regen rate, capped at the top.
+            if (state.EnergyDrinkMeter < 100f)
+                state.EnergyDrinkMeter = MathF.Min(100f, state.EnergyDrinkMeter + dt * regen.Value);
+        }
     }
 
     public void Detach() => _player = EntityHandle.None;

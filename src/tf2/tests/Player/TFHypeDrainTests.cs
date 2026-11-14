@@ -21,15 +21,33 @@ public sealed class TFHypeDrainTests
     private static readonly EntityHandle Player = new(0x0001_0000u | 7u);
 
     private static (TFPlayerNetState State, TFHypeDrain Drain, RigConditions Conditions) Drain(
-        TFScoutEnergydrinkConsumeRateConVar? consume = null, TFScoutEnergydrinkRegenRateConVar? regen = null)
+        TFScoutEnergydrinkConsumeRateConVar? consume = null, TFScoutEnergydrinkRegenRateConVar? regen = null,
+        IEngineEnvironment? env = null)
     {
         var players = new TFMovementFixtures.Players();
         var state = players.Add(7, TFClass.Scout);
         var conditions = new RigConditions(players);
         var drain = new TFHypeDrain(players, conditions, consume ?? DeclaredConVars.Fresh<TFScoutEnergydrinkConsumeRateConVar>(),
-                                    regen ?? DeclaredConVars.Fresh<TFScoutEnergydrinkRegenRateConVar>());
+                                    regen ?? DeclaredConVars.Fresh<TFScoutEnergydrinkRegenRateConVar>(),
+                                    env ?? new NoTickEnv());
         drain.Attach(Player);
         return (state, drain, conditions);
+    }
+
+    /// <summary>No engine globals: the slice ask stays unavailable, so the frame is one add.</summary>
+    private sealed class NoTickEnv : IEngineEnvironment
+    {
+        public nint GetInterface(string name) => 0;
+
+        public Globals Globals => default;
+    }
+
+    /// <summary>The engine globals with the tick: <see cref="PredictionDeps.Tick"/>, the replay's clock.</summary>
+    private sealed class TickEnv : IEngineEnvironment
+    {
+        public nint GetInterface(string name) => 0;
+
+        public Globals Globals => new(PredictionDeps.SharedGlobals());
     }
 
     [Fact]
@@ -151,5 +169,31 @@ public sealed class TFHypeDrainTests
         drain.Tick(100f);                                               // 89 s at the regen rate, far past the cap
 
         Assert.Equal(100f, state.EnergyDrinkMeter);                     // :14101 ceiling
+    }
+
+    /// <summary>
+    /// The boost pays the command clock, not the frame's: with globals live, a
+    /// frame is integrated as the ticks it carried — one <see cref="PredictionDeps.Tick"/>
+    /// add each, exactly the add the client's replay makes once per replayed
+    /// command — so a frame arriving off the tick boundary lands on the same
+    /// bytes the replay's chain does. One add of the whole frame span misses
+    /// that agreement by the off-boundary share: the byte the compare counts.
+    /// </summary>
+    [Fact]
+    public void The_boost_drains_on_the_command_clock_not_the_frame_span()
+    {
+        var (state, drain, conditions) = Drain(env: new TickEnv());
+        state.EnergyDrinkMeter = 40f;
+        conditions.Add(Player, TFCond.Phase);
+
+        drain.Tick(0f);                         // the anchor frame
+        drain.Tick(0.033f);                     // carries two ticks (round(0.033/0.015))
+        drain.Tick(0.050f);                     // and one more
+
+        float expected = 40f;
+        expected -= PredictionDeps.Tick * 12.5f;                        // three replayed commands, three adds
+        expected -= PredictionDeps.Tick * 12.5f;
+        expected -= PredictionDeps.Tick * 12.5f;
+        Assert.Equal(expected, state.EnergyDrinkMeter);
     }
 }

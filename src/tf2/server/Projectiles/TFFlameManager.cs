@@ -198,6 +198,19 @@ public sealed class TFFlameManager : ScriptedEntity
     /// </summary>
     public void SetAttacker(EntityHandle attacker) => _attacker = attacker;
 
+    /// <summary>The attacker, as the removal walk's own read of it
+    /// (stock's <c>IsEntityAttacker</c> arm).</summary>
+    public EntityHandle Attacker => _attacker;
+
+    /// <summary>Stock's <c>ClearPoints</c>: the leaving owner's flames die
+    /// with him; the manager itself stays until its think finds the list
+    /// empty, as <see cref="OnThink"/> already does.</summary>
+    public void ClearPoints()
+    {
+        _points.Clear();
+        _burnt.Clear();
+    }
+
     /// <summary>
     /// One more flame (<c>AddPoint</c> → <c>InitializePoint</c>,
     /// <c>tf_point_manager.cpp:70-101</c>): born at the muzzle,

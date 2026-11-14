@@ -35,7 +35,7 @@ namespace TF2.Server.Player;
 /// the carrier yet (docs/plans/tf2/deferred.tsv).
 /// </para>
 /// </summary>
-[SideService(Side.Server, As = [typeof(ITFPlayerResupply)])]
+[SideService(Side.Server, As = [typeof(ITFPlayerResupply), typeof(ITFFreshWeapons)])]
 public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable classes, IEnginePlayers players,
                                      IEngineEntities entities, ITFPlayerConditions conditions,
                                      TFLoadoutProvider loadout, IEngineGameEvents events,
@@ -44,7 +44,7 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
                                      Arsenal arsenal, TFMaxHealthDrainHpMinConVar hpMin,
                                      TFMaxHealthDrainDeployCostConVar deployCost,
                                      IGameClock clock, IHooks<ITFWeaponEquipHook> equipHooks)
-    : ITFPlayerResupply, IPlayerSpawnHook, IOrderedHook
+    : ITFPlayerResupply, ITFFreshWeapons, IPlayerSpawnHook, IOrderedHook
 {
     private readonly TFPlayerItems _items = items;
     private readonly AttributeHooks _attributes = attributes;
@@ -174,8 +174,7 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
         foreach (string weapon in loadout.Weapons(player))
         {
             players.GiveItem(player, weapon);
-            GiveDefaultAmmo(player, weapon);
-            FillEffectBar(player, weapon);
+            Ready(player, weapon);
         }
 
         foreach (var (ammo, count) in loadout.Ammo(player))
@@ -185,6 +184,18 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
         // asking the chain (tf_player.cpp:20590-20598) — the kit's gives are
         // the spawn's and the locker's alike.
         _equipHooks.Each(nameof(ITFWeaponEquipHook.OnEquipped), h => h.OnEquipped(player));
+    }
+
+    /// <summary>
+    /// One weapon of the kit made ready, as <see cref="GiveKit"/> makes each:
+    /// the default clip (<see cref="GiveDefaultAmmo"/>), then the effect bar
+    /// (<see cref="FillEffectBar"/>). A kit refresh's fresh give
+    /// (<see cref="TFKitRefresh"/>) is made ready the same way.
+    /// </summary>
+    public void Ready(EntityHandle player, string weapon)
+    {
+        GiveDefaultAmmo(player, weapon);
+        FillEffectBar(player, weapon);
     }
 
     /// <summary>

@@ -278,10 +278,31 @@ public sealed class LocalInventoryTests : IDisposable
     {
         var inventory = Connected();
 
-        new GiveItemCommand(inventory, _log).RunLine($"{Seat} 441");
+        new GiveItemCommand(inventory, _log, new TFLocalInventoryAccess(new Rules.ListHooks<ITFLocalInventoryGate>(), _log)).RunLine($"{Seat} 441");
 
         Assert.Single(inventory.Of(Seat)!.Items);
         Assert.Contains(_log.Lines, l => l.Text.Contains("granted #1"));
+    }
+
+    [Fact]
+    public void TheGiveCommandGrantsNothingIntoAClosedInventory()
+    {
+        var inventory = Connected();
+        var closed = new TFLocalInventoryAccess(new Rules.ListHooks<ITFLocalInventoryGate>(new ClosedGate()), _log);
+
+        new GiveItemCommand(inventory, _log, closed).RunLine($"{Seat} 441");
+
+        Assert.Empty(inventory.Of(Seat)!.Items);
+        Assert.Contains(_log.Lines, l => l.Text.Contains("tf2_give: the inventory of client 3 is closed"));
+    }
+
+    private sealed class ClosedGate : ITFLocalInventoryGate
+    {
+        public bool IsOpen(int entIndex, out string reason)
+        {
+            reason = "closed for the fact";
+            return false;
+        }
     }
 
     [Fact]

@@ -56,6 +56,14 @@ public sealed class TFKitRefreshTests
         public void OnEquipped(EntityHandle player) => Asked++;
     }
 
+    /// <summary>The weapons the refresh asked to be made ready, in order.</summary>
+    private sealed class ReadyLedger : ITFFreshWeapons
+    {
+        public List<string> Readied { get; } = [];
+
+        public void Ready(EntityHandle player, string weapon) => Readied.Add(weapon);
+    }
+
     /// <summary>A spawned soldier holding his kit's launcher, over a live arsenal.</summary>
     private sealed class Game
     {
@@ -85,6 +93,7 @@ public sealed class TFKitRefreshTests
         public readonly TFLoadoutProvider Loadout;
         public readonly Primary Source = new();
         public readonly EquipLedger Equips = new();
+        public readonly ReadyLedger Fresh = new();
         public readonly TFKitRefresh Refresh;
         public readonly ItemSchema Schema = EconTestFiles.TrimmedSchema();
 
@@ -115,7 +124,7 @@ public sealed class TFKitRefreshTests
                                           carriers: carriers, players: Engine, precache: Engine, log: Log,
                                           sources: Source);
             Refresh = new TFKitRefresh(classes, Loadout, Arsenal, carriers, Engine,
-                                       new ListHooks<ITFWeaponEquipHook>(Equips));
+                                       new ListHooks<ITFWeaponEquipHook>(Equips), Fresh);
 
             // The spawn's kit, as GiveKit hands it out, and the launcher drawn.
             foreach (string weapon in Loadout.Weapons(Player))
@@ -360,5 +369,30 @@ public sealed class TFKitRefreshTests
         game.Refresh.Refresh(game.Player);
 
         Assert.Contains(Mangler, game.Rows);
+    }
+
+    [Fact]
+    public void AWeaponTheRefreshGivesIsMadeReadyAsTheKitsGiveIs()
+    {
+        // The give's clip and bar are the kit's (TFPlayerResupply.Ready):
+        // a new item under the launcher's row is a fresh give.
+        var game = new Game();
+        game.Source.Item = game.RolledLauncher();
+
+        Assert.True(game.Refresh.Refresh(game.Player));
+
+        Assert.Equal([Launcher], game.Fresh.Readied);
+    }
+
+    [Fact]
+    public void AKeptWeaponIsNotMadeReadyAgain()
+    {
+        var game = new Game();
+        game.Source.Item = game.CowMangler();
+
+        Assert.True(game.Refresh.Refresh(game.Player));
+
+        Assert.DoesNotContain(Shotgun, game.Fresh.Readied);
+        Assert.Contains(Mangler, game.Fresh.Readied); // the stimulus: the refresh gave something
     }
 }

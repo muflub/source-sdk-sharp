@@ -83,6 +83,15 @@ public sealed class AttributeContainer(ItemDefinition? item = null, AttributePro
     public IAttributeProvider? Owner { get; set; }
 
     /// <summary>
+    /// Counts the changes to what a walk over this one reads of it: its own
+    /// list (<see cref="Set"/>, <see cref="Remove"/>) and its providers'
+    /// list (<see cref="ProvideTo"/>, <see cref="StopProvidingTo"/> on the
+    /// receiver). A reader that copied the walk out (the server's attribute
+    /// mirror, <c>TFAttributeWire</c>) compares it instead of the values.
+    /// </summary>
+    public int Version { get; private set; }
+
+    /// <summary>
     /// Sets one of this entity's own attributes: replaces the value of a
     /// definition already in the list, else appends (<c>CAttributeList::SetRuntimeAttributeValue</c>).
     /// </summary>
@@ -93,10 +102,12 @@ public sealed class AttributeContainer(ItemDefinition? item = null, AttributePro
             if (_attributes[i].Definition.Defindex == value.Definition.Defindex)
             {
                 _attributes[i] = value;
+                Version++;
                 return;
             }
         }
         _attributes.Add(value);
+        Version++;
     }
 
     /// <summary>
@@ -110,6 +121,7 @@ public sealed class AttributeContainer(ItemDefinition? item = null, AttributePro
             if (_attributes[i].Definition.Defindex == defindex)
             {
                 _attributes.RemoveAt(i);
+                Version++;
                 return true;
             }
         }
@@ -122,6 +134,7 @@ public sealed class AttributeContainer(ItemDefinition? item = null, AttributePro
         if (receiver._providers.Contains(this))
             return;
         receiver._providers.Add(this);
+        receiver.Version++;
         _receivers.Add(receiver);
     }
 
@@ -133,7 +146,10 @@ public sealed class AttributeContainer(ItemDefinition? item = null, AttributePro
     public void StopProvidingTo(AttributeContainer receiver)
     {
         if (FastRemove(receiver._providers, this))
+        {
+            receiver.Version++;
             FastRemove(_receivers, receiver);
+        }
     }
 
     private static bool FastRemove<T>(List<T> list, T item) where T : class?

@@ -74,6 +74,13 @@ public sealed class TFJoinClassCommandTests
         public float ChangeClassTime => 20f;
     }
 
+    /// <summary>The class-change gates a fact adds, asked in the order added.</summary>
+    private sealed class GateList(List<ITFClassChangeGate> gates) : SourceSharp.Abi.IHooks<ITFClassChangeGate>
+    {
+        public IReadOnlyList<ITFClassChangeGate> All => gates;
+        public void Each(string what, Action<ITFClassChangeGate> call) => gates.ForEach(call);
+    }
+
     private sealed class Rig
     {
         public readonly PlayerRig Player = new();
@@ -87,6 +94,7 @@ public sealed class TFJoinClassCommandTests
         public readonly Limits Limits = new();
         public readonly StalemateSettings Stalemate = new();
         public readonly TFPlayerClass Class;
+        public readonly List<ITFClassChangeGate> Gates = [];
         public readonly TFJoinClassCommand Command;
 
         public Rig()
@@ -99,7 +107,8 @@ public sealed class TFJoinClassCommandTests
             Player.Extra.Add(Class);
             Player.Join();
             Command = new TFJoinClassCommand(Player.Carriers, engine, Roster, Rooms, Player.Classes, Random,
-                                             engine, engine, Clock, Player.Log, Round, Waves, Limits, Stalemate);
+                                             engine, engine, Clock, Player.Log, Round, Waves, Limits, Stalemate,
+                                             new TFClassChangeAccess(new GateList(Gates), Player.Log));
         }
 
         /// <summary>The player has spawned as <paramref name="cls"/> before.</summary>
@@ -148,6 +157,24 @@ public sealed class TFJoinClassCommandTests
             }
             return this;
         }
+
+        /// <summary>The TextMsg lines sent, decoded from their payloads.</summary>
+        public TextMsg[] Texts()
+        {
+            var texts = new List<TextMsg>();
+            foreach (var c in Player.Engine.AllOf("UserMessages.Send"))
+            {
+                if (c.ArgAs<string>(0) != "TextMsg")
+                    continue;
+                var reader = new UserMessageReader(c.ArgAs<byte[]>(4));
+                texts.Add(TextMsg.Read(ref reader));
+            }
+            return texts.ToArray();
+        }
+
+        /// <summary>How many <c>player_changeclass</c> events were made.</summary>
+        public int ChangeClassEvents =>
+            Player.Engine.AllOf("GameEvents.EventCreate").Count(c => c.ArgAs<string>(0) == TFJoinClassCommand.ChangeClassEvent);
 
         /// <summary>The class panels shown, decoded from the VGUIMenu payloads.</summary>
         public (string Name, bool Show)[] Menus()
@@ -480,6 +507,134 @@ public sealed class TFJoinClassCommandTests
 
         Assert.Equal(Outcome.AtNextSpawn, rig.Join("heavyweapons"));
         Assert.Equal(0, rig.Respawns);
+    }
+
+    //-------------------------------------------------------------------------
+    // The class-change gates (ITFClassChangeGate): asked of the player's own
+    // choice, never of the game's.
+    //-------------------------------------------------------------------------
+
+    private const string Why = "#Mod_ClassIsTheSheets";
+
+    private sealed class Gate(Func<TFClass, bool> may) : ITFClassChangeGate
+    {
+        public List<(int Index, TFClass Class)> Asked { get; } = [];
+
+        public bool MayChoose(int entIndex, TFClass cls, out string reason)
+        {
+            Asked.Add((entIndex, cls));
+            reason = may(cls) ? string.Empty : Why;
+            return may(cls);
+        }
+    }
+
+    private sealed class Throwing : ITFClassChangeGate
+    {
+        public bool MayChoose(int entIndex, TFClass cls, out string reason) => throw new InvalidOperationException("broken gate");
+    }
+
+    [Fact]
+    public void With_no_gate_the_players_own_choice_goes_through()
+    {
+        var rig = new Rig().As(TFClass.Scout);
+
+        Assert.Equal(Outcome.AtNextSpawn, rig.Command.Choose(PlayerRig.Player, "pyro"));
+
+        Assert.Equal(TFClass.Pyro, rig.Class.Desired);
+        Assert.Equal(1, rig.ChangeClassEvents);
+    }
+
+    [Fact]
+    public void A_closed_gate_refuses_the_players_choice_changes_nothing_and_tells_the_reason()
+    {
+        var rig = new Rig().As(TFClass.Soldier).Watching();
+        var gate = new Gate(c => c == TFClass.Soldier);
+        rig.Gates.Add(gate);
+
+        Assert.Equal(Outcome.Vetoed, rig.Command.Choose(PlayerRig.Player, "pyro"));
+
+        Assert.Equal(TFClass.Soldier, rig.Class.Desired);
+        Assert.Equal(TFClass.Soldier, rig.Player.Carriers.ClassOf(PlayerRig.Player));
+        Assert.Equal(0, rig.Respawns);
+        Assert.Equal(0, rig.ChangeClassEvents);
+        Assert.Equal([(PlayerRig.Index, TFClass.Pyro)], gate.Asked);
+        var told = Assert.Single(rig.Texts());
+        Assert.Equal(TFMessages.HudPrintTalk, told.Destination);
+        Assert.Equal(Why, told.Text);
+        Assert.Equal([rig.Player.Classes[TFClass.Pyro].LocalizeName], told.Params);
+    }
+
+    [Fact]
+    public void A_gate_lets_the_class_it_allows_through()
+    {
+        var rig = new Rig().Watching();
+        rig.Gates.Add(new Gate(c => c == TFClass.Soldier));
+
+        Assert.Equal(Outcome.Respawned, rig.Command.Choose(PlayerRig.Player, "soldier"));
+        Assert.Equal(TFClass.Soldier, rig.Class.Desired);
+    }
+
+    [Fact]
+    public void The_joinclass_word_asks_the_gates()
+    {
+        var rig = new Rig().As(TFClass.Soldier);
+        rig.Gates.Add(new Gate(c => c == TFClass.Soldier));
+
+        Assert.True(rig.Command.Handle(PlayerRig.Player, "joinclass", ["pyro"]));
+
+        Assert.Equal(TFClass.Soldier, rig.Class.Desired);
+        Assert.Equal(Why, Assert.Single(rig.Texts()).Text);
+    }
+
+    [Fact]
+    public void A_gate_that_throws_is_logged_and_refuses_nothing()
+    {
+        var rig = new Rig().As(TFClass.Scout);
+        rig.Gates.Add(new Throwing());
+
+        Assert.Equal(Outcome.AtNextSpawn, rig.Command.Choose(PlayerRig.Player, "pyro"));
+
+        Assert.Equal(TFClass.Pyro, rig.Class.Desired);
+        Assert.Contains(rig.Player.Log.Lines, l => l.Text.Contains(nameof(Throwing)) && l.Text.Contains("broken gate"));
+    }
+
+    [Fact]
+    public void The_games_own_choice_asks_no_gate()
+    {
+        var rig = new Rig().Watching();
+        var gate = new Gate(_ => false);
+        rig.Gates.Add(gate);
+
+        Assert.Equal(Outcome.Respawned, rig.Join("pyro"));
+
+        Assert.Equal(TFClass.Pyro, rig.Class.Desired);
+        Assert.Empty(gate.Asked);
+        Assert.Empty(rig.Texts());
+    }
+
+    [Fact]
+    public void Random_never_draws_a_class_a_gate_refuses()
+    {
+        var rig = new Rig().As(TFClass.Scout);
+        rig.Random.Next = 0;
+        rig.Gates.Add(new Gate(c => c == TFClass.Medic));
+
+        Assert.Equal(Outcome.AtNextSpawn, rig.Command.Choose(PlayerRig.Player, "random"));
+
+        Assert.Equal(TFClass.Medic, rig.Class.Desired);
+    }
+
+    [Fact]
+    public void Random_with_every_other_class_refused_tells_the_reason_and_changes_nothing()
+    {
+        var rig = new Rig().As(TFClass.Soldier);
+        rig.Gates.Add(new Gate(c => c == TFClass.Soldier));
+
+        Assert.Equal(Outcome.Vetoed, rig.Command.Choose(PlayerRig.Player, "random"));
+
+        Assert.Equal(TFClass.Soldier, rig.Class.Desired);
+        Assert.Equal(Why, Assert.Single(rig.Texts()).Text);
+        Assert.Empty(rig.Menus());
     }
 
     [Fact]

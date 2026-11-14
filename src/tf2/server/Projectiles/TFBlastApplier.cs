@@ -209,7 +209,11 @@ public sealed class TFBlastApplier
                 float victimDamage = TFRadiusDamage.VictimDamage(active, distance, self, weapon);
                 float forceDamage = victimDamage;
                 float selfPushMult = 1f;
-                if (self)
+                // The self arms are a player's (CTFPlayer::OnTakeDamage's
+                // scale and jump, the player block of
+                // ApplyOnDamageAliveModifyRules, tf_gamerules.cpp:7115): an
+                // owner that is no player takes its own blast as dealt.
+                if (self && Entities.IsPlayer(attacker))
                 {
                     forceDamage = victimDamage *= SoldierJumpScale(attacker, active.Bits);
 
@@ -224,6 +228,19 @@ public sealed class TFBlastApplier
                 }
                 if (victimDamage <= 0f && !(self && forceDamage > 0f))
                     continue;
+
+                // A body that is no player but runs the damage rules takes the
+                // push with the hit (DeliverToBody); nothing after this is
+                // a body's: no player's push, no enemy player counted.
+                if (IsBody(victim))
+                {
+                    DeliverToBody(victim, attacker, victimDamage, active.Bits, weapon, weaponName, critical,
+                                  inflictor, origin, custom, item, source,
+                                  PushOf(victim, source, active, forceDamage, self, pyroFlareJump: false,
+                                         self ? Hooks.Float(1f, "mult_dmgself_push_force", item) : 1f,
+                                         TFClass.Undefined));
+                    continue;
+                }
 
                 // The push belongs to the hit: stock's ApplyPushFromDamage
                 // runs inside OnTakeDamage_Alive, so a damage the victim
@@ -261,13 +278,12 @@ public sealed class TFBlastApplier
         // THE SELF PASS (stock's :5661-5714): the attacker at their own
         // radius and the launcher's base damage, whether or not the main
         // sweep's radius reached anyone — a zero-radius blast still jumps.
-        // A player's pass only: stock asks just that there is an attacker
-        // (:5663), so an owner that is no player (ITFProjectileSpawner's)
-        // would take its own blast there, and takes none here — it was
-        // skipped in the sweep above and is not hit after it
-        // (docs/divergences.md).
-        if (selfRadius > 0f && Entities.IsPlayer(attacker) && attacker != directVictim)
+        // Stock asks just that there is an attacker (:5663), so an owner that
+        // is no player (ITFProjectileSpawner's) takes its own blast too; the
+        // player's own arms below stay a player's.
+        if (selfRadius > 0f && attacker != EntityHandle.None && attacker != directVictim)
         {
+            bool player = Entities.IsPlayer(attacker);
             Vector center = Entities.GetWorldSpaceCenter(attacker);
             Vector attackerOrigin = Entities.GetOrigin(attacker);
 
@@ -279,29 +295,43 @@ public sealed class TFBlastApplier
                 TraceResult tr = World.TraceLine(source, center, TraceMask.ShotHull, passThrough);
                 if (tr.Fraction == 1f || !BlocksBlast(tr.Entity, attacker))
                 {
-                    float distance = TFRadiusDamage.VictimDistance(source, false, true, center,
+                    float distance = TFRadiusDamage.VictimDistance(source, false, player, center,
                                                                    attackerOrigin, tr.End);
                     var selfBlast = active.SelfPass(selfRadius, selfBaseDamage);
                     float selfPushMult = Hooks.Float(1f, "mult_dmgself_push_force", item);
                     float forceDamage = TFRadiusDamage.VictimDamage(selfBlast, distance, self: true, weapon)
-                                        * SoldierJumpScale(attacker, selfBlast.Bits);
-                    float selfDamage = SelfBlastArms(item, forceDamage,
-                        // Stock's flag was stamped before this pass; anything
-                        // the sweep hurt silences the reduction (:5673,
-                        // :7451).
-                        damagedOtherPlayers: enemiesDamaged > 0,
-                        Entities.GetIndex(attacker));
+                                        * (player ? SoldierJumpScale(attacker, selfBlast.Bits) : 1f);
+                    float selfDamage = player
+                        ? SelfBlastArms(item, forceDamage,
+                            // Stock's flag was stamped before this pass; anything
+                            // the sweep hurt silences the reduction (:5673,
+                            // :7451).
+                            damagedOtherPlayers: enemiesDamaged > 0,
+                            Entities.GetIndex(attacker))
+                        : forceDamage;
                     // A blast the arms zeroed still reaches OnTakeDamage_Alive
                     // (their answer is realDamage, :10535; only -1 stops it),
                     // and the push there reads the force damage (:10647-10656):
                     // the Rocket Jumper hurts nothing and throws as hard.
-                    ClaimBlastJump(attacker, selfDamage, selfBlast.Bits, item);
-                    bool hit = selfDamage <= 0f
-                               || Deliver(attacker, attacker, selfDamage, selfBlast.Bits, weapon, weaponName, critical,
-                                          inflictor, origin, custom, item) > 0;
-                    if (hit && forceDamage > 0f)
-                        Push(attacker, source, selfBlast, forceDamage, self: true, pyroFlareJump: flareJump,
-                             selfPushMult: selfPushMult);
+                    if (player)
+                        ClaimBlastJump(attacker, selfDamage, selfBlast.Bits, item);
+                    if (!player && IsBody(attacker))
+                    {
+                        if (selfDamage > 0f)
+                            DeliverToBody(attacker, attacker, selfDamage, selfBlast.Bits, weapon, weaponName, critical,
+                                          inflictor, origin, custom, item, source,
+                                          PushOf(attacker, source, selfBlast, forceDamage, self: true,
+                                                 pyroFlareJump: false, selfPushMult, TFClass.Undefined));
+                    }
+                    else
+                    {
+                        bool hit = selfDamage <= 0f
+                                   || Deliver(attacker, attacker, selfDamage, selfBlast.Bits, weapon, weaponName, critical,
+                                              inflictor, origin, custom, item) > 0;
+                        if (hit && forceDamage > 0f)
+                            Push(attacker, source, selfBlast, forceDamage, self: true, pyroFlareJump: flareJump,
+                                 selfPushMult: selfPushMult);
+                    }
                 }
             }
         }
@@ -443,6 +473,35 @@ public sealed class TFBlastApplier
     }
 
     /// <summary>
+    /// Whether <paramref name="victim"/> is a body that is no player but runs
+    /// the damage rules (<see cref="ScriptedEntity.RunsDamageRules"/>, stock's
+    /// <c>CTFBaseBoss</c>): one that is pushed by a blast as a player is.
+    /// </summary>
+    private bool IsBody(EntityHandle victim)
+        => !Entities.IsPlayer(victim) && Directory.Get(victim) is { RunsDamageRules: true };
+
+    /// <summary>
+    /// A hit on a body (<see cref="IsBody"/>), in <see cref="Deliver"/>'s
+    /// scopes, handed the push stock's <c>ApplyPushFromDamage</c> works out
+    /// for a player (<see cref="PushOf"/>, on the body's own box) as the
+    /// hit's force, at the blast's centre (<c>CalculateExplosiveDamageForce</c>'s
+    /// damage position, tf_gamerules.cpp:5835): its <c>OnDamagedAt</c> moves
+    /// itself by its own rule, and a hit it refuses pushes it nowhere. The
+    /// answer is not asked: it gates the player's push and the enemy-player
+    /// count, and a body has neither.
+    /// </summary>
+    private void DeliverToBody(EntityHandle victim, EntityHandle attacker, float victimDamage,
+                               DamageType bits, TFWeaponId weapon, string weaponName, bool critical,
+                               EntityHandle inflictor, Vector origin, TFDamageCustom custom, IAttributeProvider? item,
+                               Vector source, Vector push)
+    {
+        using (HitGroups.Push(HitGroup.Generic, critical))
+        using (Scopes.Push(custom, weapon, weaponName, item))
+        using (Inflictors.Push(inflictor, origin))
+            Damage.ApplyAt(victim, attacker, victimDamage, bits, push, source);
+    }
+
+    /// <summary>
     /// The push (<c>CTFPlayer::ApplyPushFromDamage</c>, <c>tf_player.cpp:10232-10475</c>):
     /// the core's damage path manufactures no force, so the impulse goes onto
     /// the player's velocity here, in the direction and the magnitude
@@ -474,33 +533,8 @@ public sealed class TFBlastApplier
             return;
 
         TFClass cls = Classes.ClassOf(victim);
+        Vector impulse = PushOf(victim, source, blast, victimDamage, self, pyroFlareJump, selfPushMult, cls);
 
-        // DamageForce reads the victim's WorldAlignSize (:10245, :10365): the
-        // OBB the seam gives as the victim's own bounds, not the class hull.
-        // The self arm folds a crouched hull to the stock 55 (:10248-10252).
-        (Vector mins, Vector maxs) = Entities.GetBounds(victim);
-        Vector size = maxs - mins;
-        if (self)
-            size = TFRadiusDamage.SelfPushSize(size, CrouchHullSize);
-
-        Vector direction = TFRadiusDamage.PushDirection(source, Entities.GetWorldSpaceCenter(victim));
-        Vector impulse = TFRadiusDamage.Push(direction, size, victimDamage, self,
-                                             TFRadiusDamage.SelfPushScale(soldier: cls == TFClass.Soldier,
-                                                                          blast: (blast.Bits & DamageType.Blast) != 0,
-                                                                          onGround: IsOnGround(victim),
-                                                                          pyroFlareJump),
-                                             heavy: cls == TFClass.HeavyWeapons);
-        if (self)
-        {
-            impulse *= selfPushMult;
-        }
-        else
-        {
-            // damage_force_reduction (:10465-10467): the victim's own
-            // manager's hook scales the push, in the other-than-self arm
-            // only.
-            impulse *= Hooks.Float(1f, "damage_force_reduction", Owners.ManagerOf(Entities.GetIndex(victim)));
-        }
         // The soldier's push is also the jump's second claim
         // (:10275): BOTH of the self blast's ground arms — the grounded
         // badrj at :10266-10269 and the airborne rj at :10270-10273 — name
@@ -530,6 +564,45 @@ public sealed class TFBlastApplier
         // PlayerMove lets go of the ground for a rise over its 250
         // (gamemovement.cpp:4612), so both passes hand over the impulse alone.
         Entities.ApplyVelocityImpulse(victim, impulse, clearGround: false);
+    }
+
+    /// <summary>
+    /// The push itself, <c>ApplyPushFromDamage</c>'s vector for a victim of
+    /// class <paramref name="cls"/>: <see cref="TFRadiusDamage.Push"/> along
+    /// the line from the blast to the victim's centre, measured on the
+    /// victim's own box. A body that is no player answers no class, so it
+    /// takes the class-less arms (the self blast's 9, anyone else's 6).
+    /// </summary>
+    private Vector PushOf(EntityHandle victim, Vector source, in TFBlast blast, float victimDamage,
+                          bool self, bool pyroFlareJump, float selfPushMult, TFClass cls)
+    {
+        // DamageForce reads the victim's WorldAlignSize (:10245, :10365): the
+        // OBB the seam gives as the victim's own bounds, not the class hull.
+        // The self arm folds a crouched hull to the stock 55 (:10248-10252).
+        (Vector mins, Vector maxs) = Entities.GetBounds(victim);
+        Vector size = maxs - mins;
+        if (self)
+            size = TFRadiusDamage.SelfPushSize(size, CrouchHullSize);
+
+        Vector direction = TFRadiusDamage.PushDirection(source, Entities.GetWorldSpaceCenter(victim));
+        Vector impulse = TFRadiusDamage.Push(direction, size, victimDamage, self,
+                                             TFRadiusDamage.SelfPushScale(soldier: cls == TFClass.Soldier,
+                                                                          blast: (blast.Bits & DamageType.Blast) != 0,
+                                                                          onGround: IsOnGround(victim),
+                                                                          pyroFlareJump),
+                                             heavy: cls == TFClass.HeavyWeapons);
+        if (self)
+        {
+            impulse *= selfPushMult;
+        }
+        else
+        {
+            // damage_force_reduction (:10465-10467): the victim's own
+            // manager's hook scales the push, in the other-than-self arm
+            // only.
+            impulse *= Hooks.Float(1f, "damage_force_reduction", Owners.ManagerOf(Entities.GetIndex(victim)));
+        }
+        return impulse;
     }
 
     /// <summary>

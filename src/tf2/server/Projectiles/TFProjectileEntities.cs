@@ -55,6 +55,25 @@ public static class TFProjectileEntityNames
 }
 
 /// <summary>
+/// The one question every TF projectile answers for its removal: whose it
+/// is, as stock's <c>CTFPlayer::RemoveOwnedProjectiles</c>
+/// (<c>tf_player.cpp:13437</c>) asks it — the owner entity for the flyers
+/// (<c>GetOwnerEntity</c>), the thrower for the grenades
+/// (<c>GetThrower</c>), the scorer for a sentry's rocket
+/// (<c>GetScorer</c>) — and the CURRENT owner after a deflection, which
+/// stock re-points with <c>SetOwnerEntity</c> on the deflect. The answer is
+/// the entry index of that entity: what the engine's own index read gives
+/// its owner's handle, so a handle-backed class answers through
+/// <see cref="EntityHandle.EntryIndex"/> and an index-backed one returns
+/// the index it keeps beside the launcher's numbers.
+/// </summary>
+public interface ITFOwnedProjectile
+{
+    /// <summary>The entry index of the entity that owns the flyer now.</summary>
+    int OwnerIndex { get; }
+}
+
+/// <summary>
 /// The rocket (<c>CTFProjectile_Rocket</c>, <c>tf_projectile_rocket.cpp</c> over
 /// <c>shared/tf/tf_weaponbase_rocket.cpp</c>): straight flight at the
 /// launcher's speed, and on its first touch a blast at the stock radius
@@ -70,7 +89,7 @@ public static class TFProjectileEntityNames
 /// </summary>
 [ScriptedEntity(TFProjectileEntityNames.Rocket, ScriptedEntityKind.Projectile)]
 [Precache(PrecacheKind.ParticleSystem, "mvm_soldier_shockwave")]
-public sealed class TFRocket : FlyingProjectile
+public sealed class TFRocket : FlyingProjectile, ITFOwnedProjectile
 {
     /// <summary><c>CTFBaseRocket::PhysicsSolidMaskForEntity</c> (tf_weaponbase_rocket.cpp:354-369):
     /// no <c>CONTENTS_HITBOX</c>, so the sweep finds a player's hull. A hitbox ray let
@@ -165,6 +184,10 @@ public sealed class TFRocket : FlyingProjectile
         State.OwnerIndex = ownerIndex;
         State.WeaponName = weaponName;
     }
+
+    /// <summary>The launcher's index, then the deflector's after a deflection
+    /// (<see cref="DeflectBy"/> keeps both this and the net row current).</summary>
+    public int OwnerIndex => _ownerIndex;
 
     /// <summary>
     /// Deflected (<c>CTFProjectile_Rocket::Deflected</c>,
@@ -335,7 +358,7 @@ public sealed class TFRocket : FlyingProjectile
 /// </para>
 /// </summary>
 [ScriptedEntity(TFProjectileEntityNames.Pipebomb, ScriptedEntityKind.Prop)]
-public sealed class TFPipebomb : ScriptedEntity
+public sealed class TFPipebomb : ScriptedEntity, ITFOwnedProjectile
 {
     /// <summary><c>SURF_SKY</c> (<c>bspflags.h:82</c>), as Bolt and the core rocket name it.</summary>
     private const int SurfSky = 0x0004;
@@ -420,6 +443,11 @@ public sealed class TFPipebomb : ScriptedEntity
     private int _ownerIndex;
     private bool _touched;
     private float _createdAt;
+
+    /// <summary>Stock's grenade arm: the thrower, and the deflector once a
+    /// deflection has moved the pipe (<see cref="DeflectedBy"/> keeps the
+    /// pair current on both throws).</summary>
+    public int OwnerIndex => _thrower.EntryIndex;
 
     /// <summary>The team the throw handed in (<see cref="ITFProjectileSpawner"/>); null asks the thrower.</summary>
     private int? _team;
@@ -812,7 +840,7 @@ public sealed class TFPipebomb : ScriptedEntity
 /// (<see cref="OnDamagedAt"/>) re-sticks only once its sleep time has passed.
 /// </summary>
 [ScriptedEntity(TFProjectileEntityNames.Stickybomb, ScriptedEntityKind.Prop)]
-public sealed class TFStickybomb : ScriptedEntity
+public sealed class TFStickybomb : ScriptedEntity, ITFOwnedProjectile
 {
     /// <summary>Below this speed an armed sticky has come to rest and sticks (<c>PreArmThink</c>'s rule).</summary>
     public const float RestSpeed = 30f;
@@ -896,6 +924,11 @@ public sealed class TFStickybomb : ScriptedEntity
     private bool _fizzled;
     private TFStickyTray? _tray;
     private int _trayOwner = -1;
+
+    /// <summary>Stock's grenade arm: the bomb keeps its thrower through a
+    /// deflection (<see cref="DeflectedBy"/>), so the thrower's entry index
+    /// answers for the whole of its life.</summary>
+    public int OwnerIndex => _thrower.EntryIndex;
 
     /// <summary>
     /// Stock's <c>m_iDeflected</c> (<c>tf_weapon_grenade_pipebomb.cpp:125</c>):
@@ -1466,7 +1499,7 @@ public sealed class TFStickybomb : ScriptedEntity
 /// crit flag through the damage layer like every other TF hit.
 /// </summary>
 [ScriptedEntity(TFProjectileEntityNames.Syringe, ScriptedEntityKind.Projectile)]
-public sealed class TFSyringe : FlyingProjectile
+public sealed class TFSyringe : FlyingProjectile, ITFOwnedProjectile
 {
     private readonly TFDamageScopes Scopes;
     private readonly DamageHitGroups HitGroups;
@@ -1496,6 +1529,10 @@ public sealed class TFSyringe : FlyingProjectile
         Critical = critical;
     }
 
+    /// <summary>The needle is flown by its shooter (stock's owner entity, read
+    /// through the launch's <see cref="FlyingProjectile.FiredBy"/>).</summary>
+    public int OwnerIndex => Shooter.EntryIndex;
+
     protected override void Impact(EntityHandle hit)
     {
         if (hit == EntityHandle.None)
@@ -1522,7 +1559,7 @@ public sealed class TFSyringe : FlyingProjectile
 /// (:492-501) ride the shot's own crit flag here, as elsewhere in this port.
 /// </summary>
 [ScriptedEntity(TFProjectileEntityNames.Arrow, ScriptedEntityKind.Projectile)]
-public sealed class TFArrow : FlyingProjectile
+public sealed class TFArrow : FlyingProjectile, ITFOwnedProjectile
 {
     private readonly TFDamageScopes Scopes;
     private readonly DamageHitGroups HitGroups;
@@ -1582,6 +1619,10 @@ public sealed class TFArrow : FlyingProjectile
         _gravity = gravity;
         _projectile = projectile;
     }
+
+    /// <summary>The bow is flown by its shooter (stock's owner entity, read
+    /// through the launch's <see cref="FlyingProjectile.FiredBy"/>).</summary>
+    public int OwnerIndex => Shooter.EntryIndex;
 
     /// <summary>The stock bow's shot, scaled by its charge (<see cref="ArmedBy"/>).</summary>
     public float ShotDamage { get; private set; } = TFProjectileDefs.ArrowBaseDamage;
@@ -1673,7 +1714,7 @@ public sealed class TFArrow : FlyingProjectile
 [ScriptedEntity(TFProjectileEntityNames.EnergyRing, ScriptedEntityKind.Projectile)]
 [Precache(PrecacheKind.ParticleSystem, TFProjectileDefs.EnergyDrainEffect)]
 [Precache(PrecacheKind.Sound, TFProjectileDefs.EnergyDrainSound)]
-public sealed class TFProjectileEnergyRing : FlyingProjectile
+public sealed class TFProjectileEnergyRing : FlyingProjectile, ITFOwnedProjectile
 {
     private readonly TFDamageScopes Scopes;
     private readonly DamageHitGroups HitGroups;
@@ -1746,6 +1787,10 @@ public sealed class TFProjectileEnergyRing : FlyingProjectile
         Critical = critical;
         _ownerIndex = ownerIndex;
     }
+
+    /// <summary>The ring keeps the launcher's index beside the shot (stock's
+    /// owner entity), and the launch hands it in.</summary>
+    public int OwnerIndex => _ownerIndex;
 
     /// <summary>
     /// The item's airblast refusal: <c>energy_weapon_no_deflect</c> on the
@@ -1918,7 +1963,7 @@ public sealed class TFProjectileEnergyRing : FlyingProjectile
 /// </para>
 /// </summary>
 [ScriptedEntity(TFProjectileEntityNames.EnergyBall, ScriptedEntityKind.Projectile)]
-public sealed class TFProjectileEnergyBall : FlyingProjectile
+public sealed class TFProjectileEnergyBall : FlyingProjectile, ITFOwnedProjectile
 {
     /// <summary><c>CTFBaseRocket::PhysicsSolidMaskForEntity</c> (tf_weaponbase_rocket.cpp:354-369):
     /// no <c>CONTENTS_HITBOX</c>, so the sweep finds a player's hull. A hitbox ray let
@@ -1976,6 +2021,10 @@ public sealed class TFProjectileEnergyBall : FlyingProjectile
         Charged = charged;
         _ownerIndex = ownerIndex;
     }
+
+    /// <summary>The ball keeps the launcher's index beside the shot (stock's
+    /// owner entity), and the launch hands it in.</summary>
+    public int OwnerIndex => _ownerIndex;
 
     /// <summary>
     /// The item's airblast refusal: <c>energy_weapon_no_deflect</c> on the
@@ -2148,7 +2197,7 @@ public sealed class TFProjectileEnergyBall : FlyingProjectile
 /// </summary>
 [ScriptedEntity(TFProjectileEntityNames.HealingBolt, ScriptedEntityKind.Projectile)]
 [Precache(PrecacheKind.Sound, HealSound)]
-public sealed class TFHealingBolt : FlyingProjectile
+public sealed class TFHealingBolt : FlyingProjectile, ITFOwnedProjectile
 {
     /// <summary>The heal's cue, on the bolt (<c>ImpactSound</c>, :1235).</summary>
     internal const string HealSound = "Weapon_Arrow.ImpactFleshCrossbowHeal";
@@ -2231,6 +2280,10 @@ public sealed class TFHealingBolt : FlyingProjectile
         State.TeamNumber = Players.GetTeam(Players.GetHandle(ownerIndex));
         _createdAt = Clock.Now;
     }
+
+    /// <summary>The bolt keeps the launcher's index beside the shot (stock's
+    /// owner entity), and the launch hands it in.</summary>
+    public int OwnerIndex => _ownerIndex;
 
     protected override void Impact(EntityHandle hit)
     {
@@ -2328,7 +2381,7 @@ public sealed class TFHealingBolt : FlyingProjectile
 /// hitbox trace of the bonus test (:330-333), and the impact sounds.
 /// </summary>
 [ScriptedEntity(TFProjectileEntityNames.BallOfFire, ScriptedEntityKind.Projectile)]
-public sealed class TFBallOfFire : FlyingProjectile
+public sealed class TFBallOfFire : FlyingProjectile, ITFOwnedProjectile
 {
     /// <summary><c>CTFBaseRocket::PhysicsSolidMaskForEntity</c> (tf_weaponbase_rocket.cpp:354-369):
     /// no <c>CONTENTS_HITBOX</c>, so the sweep finds a player's hull. A hitbox ray let
@@ -2380,6 +2433,10 @@ public sealed class TFBallOfFire : FlyingProjectile
         WeaponName = weaponName;
         Critical = critical;
     }
+
+    /// <summary>The ball is flown by its shooter (stock's owner entity, read
+    /// through the launch's <see cref="FlyingProjectile.FiredBy"/>).</summary>
+    public int OwnerIndex => Shooter.EntryIndex;
 
     /// <summary>
     /// The combat touch (<c>Burn</c> :262-431): the hit-list dedup (:277-281),
@@ -2499,7 +2556,7 @@ public sealed class TFBallOfFire : FlyingProjectile
 /// </summary>
 [ScriptedEntity(TFProjectileEntityNames.Flare, ScriptedEntityKind.Projectile)]
 [Precache(PrecacheKind.Sound, TFFlare.ScorchImpactSound)]
-public sealed class TFFlare : FlyingProjectile
+public sealed class TFFlare : FlyingProjectile, ITFOwnedProjectile
 {
     /// <summary><c>CTFBaseRocket::PhysicsSolidMaskForEntity</c> (tf_weaponbase_rocket.cpp:354-369):
     /// no <c>CONTENTS_HITBOX</c>, so the sweep finds a player's hull. A hitbox ray let
@@ -2586,7 +2643,9 @@ public sealed class TFFlare : FlyingProjectile
     /// <summary>The team the launch handed in (<see cref="ITFProjectileSpawner"/>); null asks the shooter.</summary>
     private int? _team;
 
-    private int OwnerIndex { get; set; }
+    /// <summary>The launcher's index, handed in at <see cref="ArmedBy"/>, as
+    /// stock's flare keeps its owner.</summary>
+    public int OwnerIndex { get; set; }
 
     /// <summary>
     /// The flare leaves the launcher's list with itself
@@ -3000,7 +3059,7 @@ public sealed class TFStickyTray(TFPlayerCarriers carriers) : IPlayerDeathHook, 
 [ScriptedEntity(TFProjectileEntityNames.Jar, ScriptedEntityKind.Projectile)]
 [ScriptedEntity(TFProjectileEntityNames.JarMilk, ScriptedEntityKind.Projectile)]
 [ScriptedEntity(TFProjectileEntityNames.JarGas, ScriptedEntityKind.Projectile)]
-public sealed class TFJar : FlyingProjectile
+public sealed class TFJar : FlyingProjectile, ITFOwnedProjectile
 {
     /// <summary>Skybox surface bit (<c>SURF_SKY</c>), the pipebomb's own sky trace's bit.</summary>
     private const int JarSkySurface = 0x0004;
@@ -3061,6 +3120,11 @@ public sealed class TFJar : FlyingProjectile
 
         ApplyCustomModel(Owners.ActiveItemOf(ownerIndex));
     }
+
+    /// <summary>The jar is flown by its shooter — the thrower stock's grenade
+    /// arm answers with (read through the launch's
+    /// <see cref="FlyingProjectile.FiredBy"/>).</summary>
+    public int OwnerIndex => Shooter.EntryIndex;
 
     public override void OnSpawn()
     {
@@ -3301,7 +3365,7 @@ public sealed class TFJar : FlyingProjectile
 /// </para>
 /// </summary>
 [ScriptedEntity(TFProjectileEntityNames.Cleaver, ScriptedEntityKind.Projectile)]
-public sealed class TFCleaver : FlyingProjectile
+public sealed class TFCleaver : FlyingProjectile, ITFOwnedProjectile
 {
     /// <summary>Skybox surface bit (<c>SURF_SKY</c>), the pipebomb's own sky trace's bit.</summary>
     private const int CleaverSkySurface = 0x0004;
@@ -3376,6 +3440,11 @@ public sealed class TFCleaver : FlyingProjectile
         State.TeamNumber = Players.GetTeam(Players.GetHandle(ownerIndex));
         _createdAt = Clock.Now;
     }
+
+    /// <summary>The cleaver is thrown by its shooter — the thrower stock's
+    /// grenade arm answers with (read through the launch's
+    /// <see cref="FlyingProjectile.FiredBy"/>).</summary>
+    public int OwnerIndex => Shooter.EntryIndex;
 
     public override void OnSpawn()
     {
@@ -3520,7 +3589,7 @@ public sealed class TFCleaver : FlyingProjectile
 /// </para>
 /// </summary>
 [ScriptedEntity(TFProjectileEntityNames.BallOrnament, ScriptedEntityKind.Projectile)]
-public sealed class TFBallOrnament : FlyingProjectile
+public sealed class TFBallOrnament : FlyingProjectile, ITFOwnedProjectile
 {
     private readonly TFDamageScopes Scopes;
     private readonly DamageHitGroups HitGroups;
@@ -3570,6 +3639,10 @@ public sealed class TFBallOrnament : FlyingProjectile
         Critical = critical;
         _createdAt = Clock.Now; // m_flCreationTime, as the sticky's (its ThrownBy)
     }
+
+    /// <summary>The ornament's owner is who threw it, the handle the
+    /// launch's <see cref="FlyingProjectile.FiredBy"/> reads in.</summary>
+    public int OwnerIndex => Shooter.EntryIndex;
 
     public override void OnSpawn()
     {

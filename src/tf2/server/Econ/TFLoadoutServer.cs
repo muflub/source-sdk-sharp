@@ -12,9 +12,12 @@ namespace TF2.Server.Econ;
 /// the base item when nothing is equipped) and the owned items the class can
 /// use. What stock's <c>CClassLoadoutPanel</c> asks the GC for
 /// (class_loadout_panel.cpp), carried by our own <c>TF2:loadout</c> reply.
+/// A player whose local inventory a gate closes (<see cref="ITFLocalInventoryGate"/>)
+/// is answered nothing: the ask is claimed and logged.
 /// </summary>
 [SideService(Side.Server)]
-public sealed class TFLoadoutServer(LocalInventory inventory, ItemSchema schema, IUserMessageSender messages, ILog log)
+public sealed class TFLoadoutServer(LocalInventory inventory, ItemSchema schema, IUserMessageSender messages, ILog log,
+                                    TFLocalInventoryAccess access)
     : IClientLifecycle
 {
     /// <summary>A stage of its own in TF2's thousand, after the join-class command (+70).</summary>
@@ -26,6 +29,12 @@ public sealed class TFLoadoutServer(LocalInventory inventory, ItemSchema schema,
     {
         if (key != LoadoutAsk.Key || !LoadoutAsk.TryRead(payload, out byte cls))
             return false;
+
+        if (!access.IsOpen(entIndex, out string closed))
+        {
+            log.Msg($"[TF2/Loadout] client {entIndex}'s loadout is closed: {closed}\n");
+            return true;
+        }
 
         if (inventory.Of(entIndex) is null)
         {
@@ -39,11 +48,15 @@ public sealed class TFLoadoutServer(LocalInventory inventory, ItemSchema schema,
 
     /// <summary>
     /// Sends the class's reply to <paramref name="entIndex"/>. False — and
-    /// nothing sent — for an inventory-less client or a class with no
-    /// loadout screen (stock stops at <c>TF_LAST_NORMAL_CLASS</c>).
+    /// nothing sent — for an inventory-less client, a class with no
+    /// loadout screen (stock stops at <c>TF_LAST_NORMAL_CLASS</c>) or a
+    /// closed local inventory.
     /// </summary>
     public bool Send(int entIndex, TFClass cls)
     {
+        if (!access.IsOpen(entIndex, out _))
+            return false;
+
         if (inventory.Of(entIndex) is not { } player || TFLoadoutSlots.Visible(cls).Length == 0)
             return false;
 

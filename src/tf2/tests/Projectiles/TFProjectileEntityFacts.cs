@@ -56,6 +56,16 @@ public sealed class TFProjectileEntityFacts
         => EngineCallFacts.ArgAs<float>(rig.Engine.Calls.Last(
             c => c.Member == "Damage.TakeDamageAnswered" && victim.Equals(c.Args[0])), 2);
 
+    /// <summary>
+    /// The bits the blast dealt <paramref name="victim"/> with, by handle: the
+    /// rig's shooter stands in the blast too, and stock's own pass
+    /// (<c>RadiusDamage</c>'s second sweep, tf_gamerules.cpp:5661-5714) hits
+    /// him after the victim.
+    /// </summary>
+    private static DamageType BitsTo(ProjectileRig rig, EntityHandle victim)
+        => EngineCallFacts.ArgAs<DamageType>(rig.Engine.Calls.Last(
+            c => c.Member == "Damage.TakeDamageAnswered" && victim.Equals(c.Args[0])), 3);
+
     /// <summary>A second player, exactly 100 from the blast along x.</summary>
     private static readonly EntityHandle SecondVictim = new(0x0001_0000u | 6);
 
@@ -209,8 +219,8 @@ public sealed class TFProjectileEntityFacts
 
         rocket.OnTouch(EntityHandle.None); // the wall
 
-        Assert.Equal(71.5f, SeenDamage(rig), 1f);
-        Assert.Equal(TFWeaponDamageTypes.Of(TFWeaponId.Rocketlauncher), SeenBits(rig));
+        Assert.Equal(71.5f, DamageTo(rig, ProjectileRig.Victim), 1f);
+        Assert.Equal(TFWeaponDamageTypes.Of(TFWeaponId.Rocketlauncher), BitsTo(rig, ProjectileRig.Victim));
         // The touch removes it once; the explosion does not remove it again.
         Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
     }
@@ -227,12 +237,12 @@ public sealed class TFProjectileEntityFacts
         pipe.OnThink(); // the fuse
 
         // 60% of 90 at the fuse, half kept at the edge: 54 - 27 * 60/146.
-        Assert.Equal(42.9f, SeenDamage(rig), 1f);
+        Assert.Equal(42.9f, DamageTo(rig, ProjectileRig.Victim), 1f);
         // GetWeaponID answers TF_WEAPON_GRENADE_DEMOMAN for a regular pipe
         // (tf_weapon_grenade_pipebomb.cpp:142), whose
         // g_aWeaponDamageTypes row is a half-falloff blast with no
         // DMG_USEDISTANCEMOD (tf_shareddefs.cpp:770).
-        Assert.Equal(TFWeaponDamageTypes.Of(TFWeaponId.GrenadeDemoman), SeenBits(rig));
+        Assert.Equal(TFWeaponDamageTypes.Of(TFWeaponId.GrenadeDemoman), BitsTo(rig, ProjectileRig.Victim));
     }
 
     // ==== The touch's enemy test (PipebombTouch, tf_weapon_grenade_pipebomb.cpp:759):
@@ -365,7 +375,7 @@ public sealed class TFProjectileEntityFacts
         // 90 * 0.6 (the throw's timer reduction, :476) * 0.75 — a second
         // contact must not take the 0.75 again — half kept at the victim's
         // 60 over 146: 40.5 - 20.25 * 60/146.
-        Assert.Equal(32.2f, SeenDamage(rig), 1f);
+        Assert.Equal(32.2f, DamageTo(rig, ProjectileRig.Victim), 1f);
     }
 
     [Fact]
@@ -426,7 +436,7 @@ public sealed class TFProjectileEntityFacts
 
         pipe.OnThink(); // the fuse
 
-        Assert.Equal(39.2f, SeenDamage(rig), 1f);
+        Assert.Equal(39.2f, DamageTo(rig, ProjectileRig.Victim), 1f);
     }
 
     [Fact]
@@ -634,7 +644,7 @@ public sealed class TFProjectileEntityFacts
         ball.ChargedFuse(0f);
 
         Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
-        Assert.Equal(42.9f, SeenDamage(rig), 1);
+        Assert.Equal(42.9f, DamageTo(rig, ProjectileRig.Victim), 1);
     }
 
     [Fact]
@@ -652,13 +662,13 @@ public sealed class TFProjectileEntityFacts
         // Never touched the world, so the blast comes in at the air-burst
         // scale (GetDamageRadius, tf_weapon_grenade_pipebomb.cpp:1417-1434):
         // 146 * 0.85 = 124.1, and 90 - 45 * 60/124.1.
-        Assert.Equal(68.24f, SeenDamage(rig), 1f);
+        Assert.Equal(68.24f, DamageTo(rig, ProjectileRig.Victim), 1f);
         // GetDamageType (tf_weapon_grenade_pipebomb.cpp:148-162): a
         // remote-detonate pipe within 5 s of its creation ORs
         // DMG_USEDISTANCEMOD onto its row — this sticky was thrown the
         // command before it went, so it is young.
         Assert.Equal(TFWeaponDamageTypes.Of(TFWeaponId.Pipebomblauncher) | TFDamageBits.UseDistanceMod,
-                     SeenBits(rig));
+                     BitsTo(rig, ProjectileRig.Victim));
     }
 
     [Fact]
@@ -715,7 +725,7 @@ public sealed class TFProjectileEntityFacts
 
         rocket.OnTouch(EntityHandle.None);
 
-        Assert.Equal(71.5f, SeenDamage(rig), 1f);
+        Assert.Equal(71.5f, DamageTo(rig, ProjectileRig.Victim), 1f);
     }
 
     [Fact]
@@ -739,7 +749,11 @@ public sealed class TFProjectileEntityFacts
 
         rocket.OnTouch(EntityHandle.None);
 
-        Assert.Equal(0, rig.Engine.CountOf("Damage.TakeDamageAnswered"));
+        // The shooter, unplaced at the source, takes his own pass: the blast
+        // went off, and its 43.8 spared the victim.
+        var hits = rig.Engine.AllOf("Damage.TakeDamageAnswered").ToArray();
+        Assert.Contains(hits, c => c.ArgAs<EntityHandle>(0) == ProjectileRig.Player);
+        Assert.DoesNotContain(hits, c => c.ArgAs<EntityHandle>(0) == ProjectileRig.Victim);
     }
 
     [Fact]

@@ -168,7 +168,7 @@ public sealed class TFPlayerComponents(IEngineEntities entities, IEntityDirector
                                        IUniformRandom random,
                                        IEngineEffects effects, IEnginePrecache precache, TFBlastApplier blast,
                                        ITempEnts temps, ITFMedigunWeapons mediguns, ITFPlayerStats stats,
-                                       ITFProjectileEffects projectiles)
+                                       ITFProjectileEffects projectiles, WeaponCatalog catalog)
     : IPlayerComponentSource, IOrderedHook
 {
     public int HookOrder => TFPlayerOrders.Components;
@@ -192,8 +192,9 @@ public sealed class TFPlayerComponents(IEngineEntities entities, IEntityDirector
         yield return new TFCritMultTicker(carriers, trackFor);
         yield return new TFRespawnOverride(carriers, clock);
         yield return new TFBuffRageTicker(carriers, buffs, enginePlayers);
-        yield return new TFHypeDrain(carriers, conditions, drink, drinkRegen);
+        yield return new TFHypeDrain(carriers, conditions, drink, drinkRegen, environment);
         yield return new TFPlayerAttributes(carriers, items, schema, clock);
+        yield return new TFAttributeListMirror(carriers, items, catalog, log);
         yield return new TFAmmoPoolMirror(entities, carriers, arsenal);
         yield return new TFWeaponClipMirror(entities, carriers, arsenal);
         yield return new TFItemMeterMirror(entities, carriers, arsenal);

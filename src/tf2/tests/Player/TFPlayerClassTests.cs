@@ -146,6 +146,7 @@ public sealed class TFPlayerClassTests
             c => Assert.IsType<TFBuffRageTicker>(c),
             c => Assert.IsType<TFHypeDrain>(c),
             c => Assert.IsType<TFPlayerAttributes>(c),
+            c => Assert.IsType<TFAttributeListMirror>(c),                                 // the attribute lists after the runtime list's expiry (45)
             c => Assert.IsType<TFAmmoPoolMirror>(c),
             c => Assert.IsType<TFWeaponClipMirror>(c),
             c => Assert.IsType<TFItemMeterMirror>(c));

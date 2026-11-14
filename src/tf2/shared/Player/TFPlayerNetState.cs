@@ -693,4 +693,45 @@ public partial class TFPlayerNetState
     /// the arrival.
     /// </summary>
     public partial float KnifeRegenerateDuration { get; set; }
+
+    // The player's attribute walk, for every client (user ruling L11,
+    // 2026-11-11: all players see what the others have equipped): stock
+    // networks the player's m_AttributeManager (tf_player.h:647, sent at
+    // tf_player.cpp:831) and each item's own m_AttributeList on its item view;
+    // here the server's mirror (TF2.Server.Player.TFAttributeListMirror)
+    // writes the walk's order and every provider's own values in one run, and
+    // TFAttributeWire reads it back. Sent, not predicted: the server's word
+    // (CritMult's rule). Empty — AttributeProviderCount 0 — while no provider
+    // holds a value of its own: the client then builds the kit's items from
+    // WeaponItemDefIndex alone.
+
+    /// <summary>How many slots of <see cref="AttributeProviders"/> the walk fills; zero, the lists are empty.</summary>
+    public partial int AttributeProviderCount { get; set; }
+
+    /// <summary>Moves on every rewrite of the lists: the client's cache key.</summary>
+    public partial int AttributeSerial { get; set; }
+
+    /// <summary>The providers <see cref="AttributeProviders"/> holds at most (<c>TFAttributeWire.MaxProviders</c>).</summary>
+    public const int AttributeProviderSlots = 16;
+
+    /// <summary>The values <see cref="AttributeDefindex"/> and <see cref="AttributeBits"/> hold at most (<c>TFAttributeWire.MaxValues</c>).</summary>
+    public const int AttributeValueSlots = 32;
+
+    /// <summary>
+    /// Each provider of the walk, in its order: the player's own list, then
+    /// the manager's providers in <c>m_Providers</c>' order, then the kit's
+    /// items that do not provide. One word each, <c>TFAttributeWire</c>'s
+    /// packing: the item definition index, the weapon row, the provider type,
+    /// whether it provides, whether it is the player's own list.
+    /// </summary>
+    [NetArray(AttributeProviderSlots)] public partial NetArray<int> AttributeProviders { get; }
+
+    /// <summary>How many of the value rows, in order, each provider owns.</summary>
+    [NetArray(AttributeProviderSlots)] public partial NetArray<byte> AttributeProviderValues { get; }
+
+    /// <summary>Each value's attribute definition index.</summary>
+    [NetArray(AttributeValueSlots)] public partial NetArray<ushort> AttributeDefindex { get; }
+
+    /// <summary>Each value's 32 bits (<c>attribute_data_union_t</c>, a float's pattern or a stored integer).</summary>
+    [NetArray(AttributeValueSlots)] public partial NetArray<uint> AttributeBits { get; }
 }

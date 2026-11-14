@@ -62,8 +62,11 @@ public class TFProjectileSpawnerFacts
 
     /// <summary>The robot's rocket, spawned and brought to its touch on <paramref name="hit"/>.</summary>
     private static ProjectileRig RobotRocketHits(EntityHandle hit, params EntityHandle[] near)
+        => RobotRocketHits(Rig(), hit, near);
+
+    /// <summary>The same, over a <paramref name="rig"/> a fact has already turned.</summary>
+    private static ProjectileRig RobotRocketHits(ProjectileRig rig, EntityHandle hit, params EntityHandle[] near)
     {
-        var rig = Rig();
         var rocket = rig.Rocket();
         rocket.Handle = ProjectileRig.ProjectileHandle;
         rig.Directory.Instance = rocket;
@@ -99,15 +102,23 @@ public class TFProjectileSpawnerFacts
                          call => call.ArgAs<EntityHandle>(0) == victim);
 
     [Fact]
-    public void ANonPlayerOwnerTakesNoOwnPassFromItsRocket()
+    public void ANonPlayerOwnerTakesItsOwnPassFromItsRocket()
     {
-        // The own pass is a player's (docs/divergences.md): the owner standing
-        // in its rocket's blast is skipped in the sweep and not hit after it.
-        var rig = RobotRocketHits(World, Robot, ProjectileRig.Victim);
+        // Stock's second sweep asks only that there is an attacker
+        // (CTFGameRules::RadiusDamage, tf_gamerules.cpp:5663): the owner is
+        // skipped in the sweep and hit after it at the rocket-jump radius,
+        // 121, with the blast's half falloff. A non-player is scored at the
+        // trace's end (ApplyToEntity, :5803-5806), 40 out here, and takes
+        // none of a player's own arms: no soldier's 0.6 (CTFPlayer's
+        // OnTakeDamage), whatever the class seam answers.
+        var rig = Rig();
+        rig.Engine.Returns("WorldQuery.TraceLine",
+                           new TraceResult(true, 1f, new Vector(0f, 0f, 41f), default, EntityHandle.None));
+        rig = RobotRocketHits(rig, World, Robot, ProjectileRig.Victim);
 
-        Assert.Equal(Damage, HitOn(rig, ProjectileRig.Victim).ArgAs<float>(2), 0.5f); // the blast went off
-        Assert.DoesNotContain(rig.Engine.AllOf("Damage.TakeDamageAnswered"),
-                              call => call.ArgAs<EntityHandle>(0) == Robot);
+        // 37 - 18.5 * 40/121.
+        Assert.Equal(30.88f, HitOn(rig, Robot).ArgAs<float>(2), 0.01f);
+        Assert.Equal(Robot, HitOn(rig, Robot).ArgAs<EntityHandle>(1)); // its own blast
     }
 
     [Fact]

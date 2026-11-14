@@ -51,10 +51,12 @@ namespace TF2.Client.Player;
 /// back the definition's static attributes, so the predicted hooks walk the
 /// same table the server's walk does. It reads the DECODED state, as stock
 /// reads the server's item view: the defindex is the loadout's word, not a
-/// prediction (CritMult's rule). The one attribute answer still deferred is
-/// the player's own attribute manager (<see cref="ManagerOf"/>'s walk): stock
-/// networks the player's <c>m_AttributeManager</c> (tf_player.h:647, sent at
-/// tf_player.cpp:831), and nothing here carries it yet.
+/// prediction (CritMult's rule). What the definition does not hold — an
+/// item's own values, the runtime list, a standing source's — rides the
+/// carrier's attribute lists (<see cref="TFAttributeWire"/>), stock's
+/// networked <c>m_AttributeManager</c> (tf_player.h:647, sent at
+/// tf_player.cpp:831) and item views: with them, <see cref="ItemOf"/> and
+/// <see cref="ManagerOf"/> answer the server's walk for any player.
 /// </para>
 ///
 /// <para>
@@ -89,9 +91,11 @@ public sealed class TFClientWeaponOwners(ITFPlayerData data, IClientStandalones 
     /// provide gate) when the composition hands none.</summary>
     private readonly AttributeHooks _hooks = new();
 
-    /// <summary>The player's manager, cached against the carrier and the defindex
-    /// words it was built from.</summary>
-    private readonly Dictionary<int, (TFPlayerNetState Bound, int[] Rows, AttributeContainer Manager)> _managers = [];
+    /// <summary>The player's manager, cached against the carrier, the defindex
+    /// words and the attribute lists' serial it was built from; with the
+    /// lists, the kit's items by weapon row (null while the lists are empty).</summary>
+    private readonly Dictionary<int, (TFPlayerNetState Bound, int[] Rows, int Serial, AttributeContainer Manager,
+                                      Dictionary<int, AttributeContainer>? Items)> _managers = [];
 
     public TFClass ClassOf(int playerIndex) => State(playerIndex)?.Class() ?? TFClass.Undefined;
 
@@ -125,8 +129,21 @@ public sealed class TFClientWeaponOwners(ITFPlayerData data, IClientStandalones 
            && live.State.RoundState == (byte)RoundState.TeamWin
            && live.State.WinningTeam == live.State.Team[playerIndex];
 
+    /// <summary>
+    /// The item behind <paramref name="weaponName"/> for <paramref name="playerIndex"/>:
+    /// with the attribute lists, the item the server's walk holds — its own
+    /// values, owned by the player's manager (<see cref="TFAttributeWire.Read"/>);
+    /// without them, the definition's statics alone.
+    /// </summary>
     public IAttributeProvider? ItemOf(int playerIndex, string weaponName)
-        => ItemOf(itemSchema, catalog, data.Networked(playerIndex), weaponName);
+    {
+        if (Cached(playerIndex) is { Items: { } items }
+            && catalog.IndexOf(weaponName) is int row and >= 0
+            && items.TryGetValue(row, out var item))
+            return item;
+
+        return ItemOf(itemSchema, catalog, data.Networked(playerIndex), weaponName);
+    }
 
     /// <summary>
     /// The item walk itself, static so the replay's press reads the same table
@@ -166,30 +183,54 @@ public sealed class TFClientWeaponOwners(ITFPlayerData data, IClientStandalones 
     /// its own, so a hook walked on the player answers alike on both sides
     /// (the AirJump parachute ask, the blast-jump scale, the medigun's ring).
     /// </summary>
-    public IAttributeProvider? ManagerOf(int playerIndex)
+    public IAttributeProvider? ManagerOf(int playerIndex) => Cached(playerIndex)?.Manager;
+
+    /// <summary>
+    /// The player's manager and items, rebuilt once when the carrier, its
+    /// defindex words or its attribute lists' serial moved. With lists, the
+    /// server's walk read back (<see cref="TFAttributeWire.Read"/>), so every
+    /// client walks any player's items alike (user ruling L11); without them,
+    /// <see cref="BuildManager"/>.
+    /// </summary>
+    private (TFPlayerNetState Bound, int[] Rows, int Serial, AttributeContainer Manager,
+             Dictionary<int, AttributeContainer>? Items)? Cached(int playerIndex)
     {
         if (itemSchema is null || catalog is null || data.Networked(playerIndex) is not { } state)
             return null;
 
         var rows = state.WeaponItemDefIndex;
         if (_managers.TryGetValue(playerIndex, out var cache) && Holds(cache, state, rows))
-            return cache.Manager;
+            return cache;
 
-        var manager = BuildManager(playerIndex, state);
+        Dictionary<int, AttributeContainer>? items = null;
+        AttributeContainer manager;
+        if (state.AttributeProviderCount > 0)
+        {
+            items = [];
+            manager = TFAttributeWire.Read(state, itemSchema, items) ?? new AttributeContainer();
+        }
+        else
+        {
+            manager = BuildManager(playerIndex, state);
+        }
+
         var held = new int[rows.Length];
         for (int i = 0; i < held.Length; i++)
             held[i] = rows[i];
 
-        _managers[playerIndex] = (state, held, manager);
-        return manager;
+        var built = (state, held, state.AttributeSerial, manager, items);
+        _managers[playerIndex] = built;
+        return built;
     }
 
     /// <summary>Whether the cache still stands on the carrier it was built from,
-    /// with the defindex words that built it.</summary>
-    private static bool Holds((TFPlayerNetState Bound, int[] Rows, AttributeContainer Manager) cache,
+    /// with the defindex words and the lists' serial that built it.</summary>
+    private static bool Holds((TFPlayerNetState Bound, int[] Rows, int Serial, AttributeContainer Manager,
+                               Dictionary<int, AttributeContainer>? Items) cache,
                               TFPlayerNetState state, NetArray<int> rows)
     {
-        if (!ReferenceEquals(cache.Bound, state) || cache.Rows.Length != rows.Length)
+        if (!ReferenceEquals(cache.Bound, state) || cache.Rows.Length != rows.Length
+            || cache.Serial != state.AttributeSerial)
             return false;
 
         for (int i = 0; i < cache.Rows.Length; i++)

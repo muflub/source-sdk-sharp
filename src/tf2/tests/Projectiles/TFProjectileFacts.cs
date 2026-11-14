@@ -162,6 +162,9 @@ internal sealed class ProjectileRig
         Engine.Returns("WorldQuery.TraceLine", new TraceResult(true, 1f, default, default, EntityHandle.None));
         Engine.Returns("Entities.IsPlayer", false);
         Engine.Returns("Entities.GetOrigin", default(Vector));
+        // Centred where it stands: the own pass reads its owner's centre, as
+        // the sweep reads a victim's; a fact's Returns moves it.
+        Engine.Returns("Entities.GetWorldSpaceCenter", default(Vector));
         // A point collision box; a fact's Returns decides the victim's bounds.
         Engine.Returns("Entities.GetBounds", (default(Vector), default(Vector)));
         Engine.Returns("Entities.IsValid", true);
@@ -595,6 +598,96 @@ public class TFBlastApplierFacts
         Assert.NotNull(hit);
         Assert.Equal(ProjectileRig.Victim, hit!.ArgAs<EntityHandle>(0));
         Assert.Equal(71.5f, hit.ArgAs<float>(2), 1f);
+    }
+
+    [Fact]
+    public void AnOwnerThatIsNoPlayerTakesItsOwnSweepAsDealt()
+    {
+        // With no own pass armed the owner is one of the sweep's victims
+        // (tf_gamerules.cpp:5638-5640). The self arms are a player's —
+        // CTFPlayer::OnTakeDamage's soldier 0.6 and the player block of
+        // ApplyOnDamageAliveModifyRules (:7115) — so an owner that is no
+        // player keeps the falloffed 71.5 whatever the class seam answers
+        // (the rig's is a soldier, off the ground: 42.9 for a player).
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Player);
+        rig.Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(60f, 0f, 0f));
+        rig.Engine.Returns("Entities.GetOrigin", new Vector(60f, 0f, 0f));
+        rig.Engine.Returns("WorldQuery.TraceLine",
+                           new TraceResult(true, 1f, new Vector(60f, 0f, 0f), default, EntityHandle.None));
+
+        rig.Blast.Apply(new Vector(0f, 0f, 0f), RocketBlast(), ProjectileRig.Player,
+                        ProjectileRig.ProjectileHandle, ignored: ProjectileRig.ProjectileHandle,
+                        TFWeaponId.Rocketlauncher, "tf_weapon_rocketlauncher", critical: false);
+
+        var hit = Assert.Single(rig.Engine.AllOf("Damage.TakeDamageAnswered"));
+        Assert.Equal(ProjectileRig.Player, hit.ArgAs<EntityHandle>(0));
+        Assert.Equal(71.5f, hit.ArgAs<float>(2), 1f);
+    }
+
+    /// <summary>A body that is no player, at 60 out on the push's own level
+    /// (the source's 1 less the push's 10 of lift), in a box of its own.</summary>
+    private static ProjectileRig BodyAtSixty(Vector mins, Vector maxs)
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(60f, 0f, -9f));
+        rig.Engine.Returns("Entities.GetOrigin", new Vector(60f, 0f, -9f));
+        rig.Engine.Returns("Entities.GetBounds", (mins, maxs));
+        // Not a player, so stock scores it at the trace's end, 60 out.
+        rig.Engine.Returns("WorldQuery.TraceLine",
+                           new TraceResult(true, 1f, new Vector(60f, 0f, 1f), default, EntityHandle.None));
+        return rig;
+    }
+
+    [Fact]
+    public void ABodyThatRunsTheDamageRulesIsHandedTheBlastsPushWithTheHit()
+    {
+        // Stock's ApplyPushFromDamage (tf_player.cpp:10365): the push from
+        // someone else's blast is -DamageForce(WorldAlignSize, damage, 6)
+        // along the line from the blast's centre, 10 low, to the victim's.
+        // A body that is no player but runs the rules is handed that push as
+        // its hit's force, measured on ITS OWN box (40 x 40 x 60, not a
+        // player's 48 x 48 x 82), at the blast's centre:
+        // 71.5 * (48*48*82 / 40*40*60) * 6 = 844.3, away from the blast.
+        var rig = BodyAtSixty(new Vector(-20f, -20f, 0f), new Vector(20f, 20f, 60f));
+        rig.Directory.Holds(ProjectileRig.Victim, new TF2.Tests.Combat.OtherVictim());
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+
+        rig.Blast.Apply(new Vector(0f, 0f, 0f), RocketBlast(), ProjectileRig.Player,
+                        ProjectileRig.ProjectileHandle, ignored: ProjectileRig.ProjectileHandle,
+                        TFWeaponId.Rocketlauncher, "tf_weapon_rocketlauncher", critical: false);
+
+        var hit = Assert.Single(rig.Engine.AllOf("Damage.ApplyAt"));
+        Assert.Equal(ProjectileRig.Victim, hit.ArgAs<EntityHandle>(0));
+        Assert.Equal(71.5f, hit.ArgAs<float>(2), 0.1f);
+        Vector force = hit.ArgAs<Vector>(4);
+        Assert.Equal(844.3f, force.X, 0.5f);
+        Assert.Equal(0f, force.Y, 0.001f);
+        Assert.Equal(0f, force.Z, 0.001f);
+        Assert.Equal(new Vector(0f, 0f, 1f), hit.ArgAs<Vector>(5));
+    }
+
+    [Fact]
+    public void ABodyThatRunsTheDamageRulesIsHandedItsOwnBlastsSelfPush()
+    {
+        // The own pass (tf_gamerules.cpp:5661-5714) on an owner that is no
+        // player: 90 at 60 of the rocket-jump radius 121, half kept at the
+        // edge, is 67.69; the self arm's push (tf_player.cpp:10297) is
+        // -DamageForce(size, damage, 9) on its own 60 x 60 x 80 box:
+        // 67.69 * (48*48*82 / 60*60*80) * 9 = 399.6.
+        var rig = BodyAtSixty(new Vector(-30f, -30f, 0f), new Vector(30f, 30f, 80f));
+        rig.Directory.Holds(ProjectileRig.Player, new TF2.Tests.Combat.OtherVictim());
+        rig.Engine.FillsSphere();
+
+        rig.Blast.Apply(new Vector(0f, 0f, 0f), RocketBlast(), ProjectileRig.Player,
+                        ProjectileRig.ProjectileHandle, ignored: ProjectileRig.ProjectileHandle,
+                        TFWeaponId.Rocketlauncher, "tf_weapon_rocketlauncher", critical: false,
+                        selfRadius: TFProjectileDefs.RocketRadiusForRocketJumps, selfBaseDamage: 90f);
+
+        var hit = Assert.Single(rig.Engine.AllOf("Damage.ApplyAt"));
+        Assert.Equal(ProjectileRig.Player, hit.ArgAs<EntityHandle>(0));
+        Assert.Equal(67.69f, hit.ArgAs<float>(2), 0.1f);
+        Assert.Equal(399.6f, hit.ArgAs<Vector>(4).X, 0.5f);
     }
 
     [Fact]
@@ -1450,6 +1543,15 @@ public class TFStickyTrayFacts
         return sticky;
     }
 
+    /// <summary>
+    /// The blast's hits on the rig's victim. The thrower stands in the rig's
+    /// one place as well, so stock's own pass (<c>RadiusDamage</c>'s second
+    /// sweep, tf_gamerules.cpp:5661-5714) hits him beside them.
+    /// </summary>
+    private static EngineCall[] HitsOnVictim(ProjectileRig rig)
+        => rig.Engine.AllOf("Damage.TakeDamageAnswered")
+              .Where(c => c.ArgAs<EntityHandle>(0) == ProjectileRig.Victim).ToArray();
+
     [Fact]
     public void TheNinthStickyDetonatesTheOldestEvenUnarmed()
     {
@@ -1484,7 +1586,7 @@ public class TFStickyTrayFacts
         Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
         // At the never-touched air-burst scale the radius is 146 * 0.85 =
         // 124.1, so 100 - 50 * 60/124.1 (a 90 sticky would land 68.24).
-        Assert.Equal(75.83f, EngineCallFacts.ArgAs<float>(rig.Engine.Last("Damage.TakeDamageAnswered"), 2), 2f);
+        Assert.Equal(75.83f, Assert.Single(HitsOnVictim(rig)).ArgAs<float>(2), 2f);
     }
 
     [Fact]
@@ -1517,7 +1619,7 @@ public class TFStickyTrayFacts
         rig.Tray.DetonateAll(3); // the later detonation
 
         Assert.Equal(0, rig.Tray.Count(3));
-        Assert.Equal(1, rig.Engine.CountOf("Damage.TakeDamageAnswered"));
+        Assert.Single(HitsOnVictim(rig));
     }
 
     [Fact]
@@ -1570,7 +1672,7 @@ public class TFStickyTrayFacts
 
         Assert.Equal(0, rig.Tray.Count(3));
         // The taken sticky did not blast retroactively: one blast, one removal.
-        Assert.Equal(1, rig.Engine.CountOf("Damage.TakeDamageAnswered"));
+        Assert.Single(HitsOnVictim(rig));
         Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
     }
 

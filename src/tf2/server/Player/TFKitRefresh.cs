@@ -34,6 +34,20 @@ public interface ITFKitRefresh
 }
 
 /// <summary>
+/// A weapon handed to a living player outside the spawn's and the locker's
+/// kit, made ready as that kit makes each of its weapons ready
+/// (<see cref="TFPlayerResupply.GiveKit"/>): its clip the default through its
+/// own item's attributes (<c>mult_clipsize</c>, <c>auto_fires_full_clip</c>)
+/// and its effect bar regen-finished, unless its item denies the refill
+/// (<c>item_meter_resupply_denied</c>). The ammunition pools and the health
+/// are not touched.
+/// </summary>
+public interface ITFFreshWeapons
+{
+    void Ready(EntityHandle player, string weapon);
+}
+
+/// <summary>
 /// The server's <see cref="ITFKitRefresh"/>: the weapon and wearable halves
 /// of <c>CTFPlayer::ManageRegularWeapons</c> (tf_player.cpp:4496)
 /// without the regeneration around them.
@@ -45,8 +59,10 @@ public interface ITFKitRefresh
 /// :4162) on the way; none of that is here. What is kept is the walk's own
 /// rule for a carried weapon (<c>ValidateWeapons</c>, :5158-5200, over
 /// <c>ItemsMatch</c>, :4361): one whose item is no longer the loadout's is
-/// removed and the loadout's is given in its place, as a new weapon with the
-/// give's own clip; one whose item still matches is not touched. A weapon
+/// removed and the loadout's is given in its place, as a new weapon made
+/// ready as the kit's give makes one ready (<see cref="ITFFreshWeapons"/>:
+/// the clip through its item's attributes, the effect bar regen-finished);
+/// one whose item still matches is not touched. A weapon
 /// the last kit did not hand out (the builder a placement gave, a weapon
 /// picked off the floor) is not the kit's to take, as the locker's
 /// <see cref="TFPlayerResupply.GiveKit"/> leaves it.
@@ -66,7 +82,7 @@ public interface ITFKitRefresh
 [SideService(Side.Server, As = [typeof(ITFKitRefresh)])]
 public sealed class TFKitRefresh(ITFPlayerClasses classes, TFLoadoutProvider loadout, Arsenal arsenal,
                                  TFPlayerCarriers carriers, IEnginePlayers players,
-                                 IHooks<ITFWeaponEquipHook> equipHooks) : ITFKitRefresh
+                                 IHooks<ITFWeaponEquipHook> equipHooks, ITFFreshWeapons fresh) : ITFKitRefresh
 {
     public bool Refresh(EntityHandle player)
     {
@@ -114,7 +130,10 @@ public sealed class TFKitRefresh(ITFPlayerClasses classes, TFLoadoutProvider loa
             if (Holds(player, name))
                 continue;
             if (arsenal.GiveWeapon(player, name))
+            {
                 changed = true;
+                fresh.Ready(player, name);
+            }
         }
 
         // The slot's successor takes the hands the removal emptied.

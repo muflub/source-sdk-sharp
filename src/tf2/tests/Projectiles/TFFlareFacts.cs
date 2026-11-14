@@ -106,9 +106,10 @@ public sealed class TFFlareFacts
     {
         var rig = new ProjectileRig();
         rig.Conditions.EveryoneBurns = burning;
-        // The victim is a player; the world (the stick arm's handle) is not.
+        // The victim and the pyro who fired are players; the world (the
+        // stick arm's handle) is not.
         rig.Engine.ReturnsEachCall("Entities.IsPlayer", () =>
-            rig.Engine.Calls[^1].Args[0] is EntityHandle h && h == ProjectileRig.Victim);
+            rig.Engine.Calls[^1].Args[0] is EntityHandle h && (h == ProjectileRig.Victim || h == ProjectileRig.Player));
         var flare = rig.Flare();
         flare.OnSpawn();
         flare.ArmedBy(30f, TFWeaponId.Flaregun, "tf_weapon_flaregun", critical: critShot,
@@ -363,9 +364,12 @@ public sealed class TFFlareFacts
         Assert.Equal(TFProjectileDefs.FlareDetRadius, EngineCallFacts.ArgAs<float>(sweep, 1), 3);
 
         // The hit's void TakeDamage, the landing's answered one (the sweep's
-        // Deliver): the victim the shove threw takes the second.
+        // Deliver): the victim the shove threw takes the second. The pyro,
+        // standing in the rig's one place, takes his own pass beside it
+        // (RadiusDamage's second sweep, tf_gamerules.cpp:5661-5714).
         Assert.Equal(1, rig.Engine.CountOf("Damage.TakeDamage"));
-        Assert.Equal(1, rig.Engine.CountOf("Damage.TakeDamageAnswered"));
+        Assert.Single(rig.Engine.AllOf("Damage.TakeDamageAnswered"),
+                      c => c.ArgAs<EntityHandle>(0) == ProjectileRig.Victim);
         Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
     }
 

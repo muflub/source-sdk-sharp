@@ -114,9 +114,13 @@ public sealed class TFInventoryItemSource(LocalInventory inventory, BotInventory
     }
 }
 
-/// <summary>The loadout's chains (<see cref="ITFItemSource"/>), which only a registrar can name.</summary>
+/// <summary>The loadout's chains (<see cref="ITFItemSource"/>, <see cref="ITFLocalInventoryGate"/>), which only a registrar can name.</summary>
 [SideService(Side.Server)]
 public sealed class TFEconRegistrar : ISideServiceRegistrar
 {
-    public void Register(ISideServiceRegistry registry) => registry.AddHooks<ITFItemSource>();
+    public void Register(ISideServiceRegistry registry)
+    {
+        registry.AddHooks<ITFItemSource>();
+        registry.AddHooks<ITFLocalInventoryGate>();
+    }
 }

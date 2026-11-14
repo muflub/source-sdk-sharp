@@ -127,7 +127,8 @@ public sealed class TFDevBotCommandTests
             var joinclass = new TFJoinClassCommand(Player.Carriers, engine, Inner, new Rooms(), Player.Classes,
                                                    new FakeRandom(), engine, engine, new FakeClock { Now = 100f },
                                                    Player.Log, new FakeRoundState(), new Waves(), new Limits(),
-                                                   new StalemateSettings());
+                                                   new StalemateSettings(),
+                                                   new TFClassChangeAccess(new Rules.ListHooks<ITFClassChangeGate>(), Player.Log));
             Command = new TFDevBotCommand(Player.Log, DeclaredConVars.Holding<SourceSharp.Shared.SvCheatsConVar>(cheats),
                                           engine, engine, Bots, Teams, joinclass);
         }

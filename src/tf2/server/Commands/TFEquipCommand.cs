@@ -15,10 +15,13 @@ namespace TF2.Server.Commands;
 /// <see cref="PlayerInventory.Equip"/>'s) and a fresh reply. The item is an
 /// owned defindex, or <c>none</c> to clear the slot back to the base item;
 /// <c>tf2_equip &lt;class&gt; all none</c> clears the class's every slot
-/// (stock's reset is highlander-only — docs/divergences.md).
+/// (stock's reset is highlander-only — docs/divergences.md). A player whose
+/// local inventory a gate closes (<see cref="ITFLocalInventoryGate"/>) is
+/// refused: the command is claimed, logged and changes nothing.
 /// </summary>
 [SideService(Side.Server)]
-public sealed class TFEquipCommand(LocalInventory inventory, ItemSchema schema, TFLoadoutServer loadout, ILog log)
+public sealed class TFEquipCommand(LocalInventory inventory, ItemSchema schema, TFLoadoutServer loadout, ILog log,
+                                   TFLocalInventoryAccess access)
     : IClientCommandHook, IOrderedHook
 {
     public const string Verb = "tf2_equip";
@@ -33,7 +36,9 @@ public sealed class TFEquipCommand(LocalInventory inventory, ItemSchema schema, 
         if (!string.Equals(command, Verb, StringComparison.OrdinalIgnoreCase))
             return false;
 
-        if (args.Length >= 3)
+        if (!access.IsOpen(player.EntryIndex, out string closed))
+            log.Warning($"[TF2/Loadout] tf2_equip: the loadout of {player.EntryIndex} is closed: {closed}\n");
+        else if (args.Length >= 3)
             Equip(player, args[0], args[1], args[2]);
         else
             log.Warning("[TF2/Loadout] tf2_equip takes <class> <slot> <defindex|none|all>\n");

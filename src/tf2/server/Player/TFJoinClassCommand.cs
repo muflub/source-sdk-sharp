@@ -40,6 +40,10 @@ namespace TF2.Server.Player;
 /// <c>#game_respawn_as</c> (alive) or <c>#game_spawn_as</c> (dead) tells them
 /// so. A loser during the winners' round (<c>GR_STATE_TEAM_WIN</c>) never
 /// respawns from here.</item>
+/// <item>The player's own choice (<see cref="Choose"/>: the command, the
+/// class menu's) is then asked of every <see cref="ITFClassChangeGate"/>: a
+/// refusal is told to the player with the gate's reason and changes nothing.
+/// The game's own choice (<see cref="JoinClass"/>) asks no gate.</item>
 /// <item>In a stalemate an alive player outside the
 /// <c>tf_stalematechangeclasstime</c> window is refused
 /// (<c>#game_stalemate_cant_change_class</c>), and inside it the class
@@ -64,7 +68,8 @@ public sealed class TFJoinClassCommand(TFPlayerCarriers carriers, IEnginePlayers
                                        TF2.Server.Entities.Rooms.ITFRespawnRooms rooms, TFClassTable classes, IUniformRandom random,
                                        IEngineGameEvents events, IUserMessageSender messages, IGameClock clock, ILog log,
                                        ITeamRoundState round, ITeamRespawnWaves waves,
-                                       ITFClassLimitSettings limits, ITFStalemateSettings stalemate)
+                                       ITFClassLimitSettings limits, ITFStalemateSettings stalemate,
+                                       TFClassChangeAccess gates)
     : IClientCommandHook, IOrderedHook
 {
     private readonly ITFStalemateSettings _stalemate = stalemate;
@@ -101,6 +106,9 @@ public sealed class TFJoinClassCommand(TFPlayerCarriers carriers, IEnginePlayers
 
         /// <summary>The class is desired and waits for the next spawn.</summary>
         AtNextSpawn,
+
+        /// <summary>A class-change gate (<see cref="ITFClassChangeGate"/>) refused the player's own choice; its reason was told and nothing changed.</summary>
+        Vetoed,
     }
 
     public bool Handle(EntityHandle player, string command, ReadOnlySpan<string> args)
@@ -109,11 +117,26 @@ public sealed class TFJoinClassCommand(TFPlayerCarriers carriers, IEnginePlayers
             return false;
 
         if (args.Length >= 1)
-            JoinClass(player, args[0]);
+            Choose(player, args[0]);
         return true;
     }
 
-    public Outcome JoinClass(EntityHandle player, string name)
+    /// <summary>
+    /// The player's own choice (the <c>joinclass</c> command, which the class
+    /// menu sends): <see cref="JoinClass"/>, with every class-change gate
+    /// (<see cref="ITFClassChangeGate"/>) asked before anything changes. A
+    /// refusal tells the player the gate's reason and leaves him as he is.
+    /// </summary>
+    public Outcome Choose(EntityHandle player, string name) => Join(player, name, asked: true);
+
+    /// <summary>
+    /// The game's own choice of a class for <paramref name="player"/> (a mode
+    /// placing him, a dev bot): the class-change gates are not asked, the
+    /// rest of <c>joinclass</c>'s rules are.
+    /// </summary>
+    public Outcome JoinClass(EntityHandle player, string name) => Join(player, name, asked: false);
+
+    private Outcome Join(EntityHandle player, string name, bool asked)
     {
         RoundState state = round.State;
         if (state == RoundState.GameOver)
@@ -163,7 +186,9 @@ public sealed class TFJoinClassCommand(TFPlayerCarriers carriers, IEnginePlayers
         TFClass chosen;
         if (IsRandom(name))
         {
-            chosen = ChooseRandom(player, team, current);
+            chosen = ChooseRandom(player, team, current, asked, out string? vetoed);
+            if (chosen == TFClass.Undefined && vetoed is not null)
+                return Veto(player, TFClass.Undefined, vetoed);
             if (chosen == TFClass.Undefined)
             {
                 // "We failed to find a random class. Bring up the class menu
@@ -188,6 +213,9 @@ public sealed class TFJoinClassCommand(TFPlayerCarriers carriers, IEnginePlayers
                 ShowClassMenu(player, team); // :6866-6870
                 return Outcome.Limited;
             }
+
+            if (asked && !gates.MayChoose(index, chosen, out string reason))
+                return Veto(player, chosen, reason);
         }
 
         // A player with no class yet spawns the moment they pick one (the
@@ -233,6 +261,26 @@ public sealed class TFJoinClassCommand(TFPlayerCarriers carriers, IEnginePlayers
         return Outcome.AtNextSpawn;
     }
 
+    /// <summary>
+    /// A gate refused <paramref name="cls"/>: the reason goes to the player as
+    /// stock tells a refused class change (<c>HUD_PRINTTALK</c>, as
+    /// <see cref="TFMessages.StalemateCantChangeClass"/>), with the class's
+    /// name as its argument; nothing else changes.
+    /// </summary>
+    private Outcome Veto(EntityHandle player, TFClass cls, string reason)
+    {
+        int index = player.EntryIndex;
+        string named = cls == TFClass.Undefined ? "random" : TFClassNames.NonLocalized(cls);
+        log.Msg($"[TF2/Player] player {index} may not choose {named}: {reason}\n");
+        messages.Send(new TextMsg
+        {
+            Destination = TFMessages.HudPrintTalk,
+            Text = reason,
+            Params = cls == TFClass.Undefined ? [] : [classes[cls].LocalizeName],
+        }, player: index, reliable: true);
+        return Outcome.Vetoed;
+    }
+
     private Outcome SameClass(EntityHandle player, bool respawn)
     {
         if (!respawn)
@@ -264,19 +312,33 @@ public sealed class TFJoinClassCommand(TFPlayerCarriers carriers, IEnginePlayers
 
     /// <summary>
     /// <c>random</c>/<c>auto</c>: one of Scout..Engineer other than the
-    /// current class that the limit allows; none left is
-    /// <see cref="TFClass.Undefined"/> (stock reopens the class menu).
+    /// current class that the limit allows, and, for the player's own choice
+    /// (<paramref name="asked"/>), every class-change gate; none left is
+    /// <see cref="TFClass.Undefined"/> (stock reopens the class menu), with
+    /// <paramref name="vetoed"/> the first gate's reason when a gate refused
+    /// every class the limit left.
     /// </summary>
-    private TFClass ChooseRandom(EntityHandle player, int team, TFClass current)
+    private TFClass ChooseRandom(EntityHandle player, int team, TFClass current, bool asked, out string? vetoed)
     {
         Span<TFClass> choices = stackalloc TFClass[(int)TFClass.Civilian - 1];
         int count = 0;
+        vetoed = null;
         for (var c = TFClass.Scout; c < TFClass.Civilian; c++)
         {
-            if (c != current && CanPlayerChooseClass(player, team, c))
-                choices[count++] = c;
+            if (c == current || !CanPlayerChooseClass(player, team, c))
+                continue;
+
+            if (asked && !gates.MayChoose(player.EntryIndex, c, out string reason))
+            {
+                vetoed ??= reason;
+                continue;
+            }
+
+            choices[count++] = c;
         }
 
+        if (count > 0)
+            vetoed = null;
         return count == 0 ? TFClass.Undefined : choices[random.RandomInt(0, count - 1)];
     }
 

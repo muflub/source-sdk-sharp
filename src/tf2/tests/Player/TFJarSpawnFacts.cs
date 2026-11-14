@@ -63,6 +63,34 @@ public sealed class TFJarSpawnFacts
         Assert.Equal(0.25f, world.JarMeter);
     }
 
+    [Fact]
+    public void AJarMadeReadyMidLifeIsFull()
+    {
+        // A kit refresh's fresh give (ITFFreshWeapons): the bar starts as the
+        // kit's give starts it, regen-finished, whatever it read before.
+        var world = new JarWorld();
+        world.Resupply.Regenerate(PlayerRig.Player);
+        Assert.Equal(SwitchOutcome.Switched, world.Arsenal.Switch(PlayerRig.Player, JarWorld.Jar));
+        world.PrimeMeter(0.25f);
+
+        world.Resupply.Ready(PlayerRig.Player, JarWorld.Jar);
+
+        Assert.Equal(1f, world.JarMeter);
+    }
+
+    [Fact]
+    public void A_denied_bar_made_ready_keeps_its_charge()
+    {
+        var world = new JarWorld(deniedBar: true);
+        world.Resupply.Regenerate(PlayerRig.Player);
+        Assert.Equal(SwitchOutcome.Switched, world.Arsenal.Switch(PlayerRig.Player, JarWorld.Jar));
+        world.PrimeMeter(0.25f);
+
+        world.Resupply.Ready(PlayerRig.Player, JarWorld.Jar);
+
+        Assert.Equal(0.25f, world.JarMeter);
+    }
+
     /// <summary>The held item's denial, the hook's stock ordinal.</summary>
     private static AttributeDefinition DeniedBar() =>
         new(906, "item_meter_resupply_denied", "item_meter_resupply_denied",

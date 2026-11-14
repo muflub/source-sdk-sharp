@@ -56,6 +56,14 @@ public readonly record struct TFCritShot(
 /// <param name="RandomCritDamage">The owner's round's <c>TFSTAT_DAMAGE_RANGED_CRIT_RANDOM</c>, the crit share of <paramref name="RangedDamage"/> (<c>tf_gamestats.cpp:1086</c>).</param>
 /// <param name="StatsMeasured">Whether the round's two numbers came with the policy at all — true only on the server side, whose <c>CanFireRandomCriticalShot</c> measures and sets; false and the roll compares the stored value alone, as stock's client arm does.</param>
 /// <param name="MeleeCrit">The charge's grant (<c>m_iNextMeleeCrit</c>) this swing spends: the end's ladder, read by the melee helpers (<c>tf_weaponbase_melee.cpp:1100-1105</c>).</param>
+/// <param name="AddedChance">
+/// A chance a mod adds to the random crit's, as a fraction (0.05 is five
+/// points): not stock's (stock has only <paramref name="ChanceScale"/>, a
+/// factor). Added after the scaling to a gun's and a melee swing's chance,
+/// and to a rapid-fire weapon's share of time spent critting; the draw, the
+/// bucket and the observed-rate check then treat the sum as stock treats its
+/// own chance. Zero is stock's roll.
+/// </param>
 public readonly record struct TFCritOwner(
     bool CritBoosted = false,
     bool WinsCrits = false,
@@ -66,10 +74,11 @@ public readonly record struct TFCritOwner(
     int RangedDamage = 0,
     int RandomCritDamage = 0,
     bool StatsMeasured = false,
-    int MeleeCrit = (int)TFMeleeCrit.NoCrit)
+    int MeleeCrit = (int)TFMeleeCrit.NoCrit,
+    float AddedChance = 0f)
 {
-    /// <summary>A plain owner: no boost, multipliers of 1, allowed to crit, no round stats read. <c>new()</c> is this, never all-zero.</summary>
-    public TFCritOwner() : this(false, false, 1f, 1f, true, 0f, 0, 0, false, (int)TFMeleeCrit.NoCrit) { }
+    /// <summary>A plain owner: no boost, multipliers of 1, allowed to crit, no round stats read, nothing added. <c>new()</c> is this, never all-zero.</summary>
+    public TFCritOwner() : this(false, false, 1f, 1f, true, 0f, 0, 0, false, (int)TFMeleeCrit.NoCrit, 0f) { }
 }
 
 /// <summary>
@@ -200,7 +209,7 @@ public sealed class TFCritRoll
                 return new TFCritResult(false, Random: true);
             clocks.LastRapidCheck = shot.Now;
 
-            float totalCritChance = Math.Clamp(TFDamage.CritChanceRapid * owner.CritMult, 0.01f, 0.99f);
+            float totalCritChance = Math.Clamp(TFDamage.CritChanceRapid * owner.CritMult + owner.AddedChance, 0.01f, 0.99f);
             float critDuration = TFDamage.CritDurationRapid;
             float nonCritDuration = critDuration / totalCritChance - critDuration;
             float startCritChance = 1f / nonCritDuration * owner.ChanceScale;
@@ -211,7 +220,7 @@ public sealed class TFCritRoll
         }
         else
         {
-            critChance = TFDamage.CritChance * owner.CritMult * owner.ChanceScale;
+            critChance = TFDamage.CritChance * owner.CritMult * owner.ChanceScale + owner.AddedChance;
             roll = Draw(GunSeed(shot.Command));
             crit = roll < critChance * RandomRange;
         }
@@ -316,7 +325,7 @@ public sealed class TFCritRoll
         if (owner.MeleeCrit == (int)TFMeleeCrit.Crit)
             return new TFCritResult(true);
 
-        float critChance = TFDamage.CritChanceMelee * owner.CritMult * owner.ChanceScale;
+        float critChance = TFDamage.CritChanceMelee * owner.CritMult * owner.ChanceScale + owner.AddedChance;
 
         bucket.Add(shot.Damage, settings.BucketCap);
 

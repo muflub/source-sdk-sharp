@@ -130,21 +130,49 @@ public sealed class TFOwnedEntitiesRemoval(IEngineEntities entities, IEntityDire
     public void OnSpawned(EntityHandle player, float now) { }
 
     /// <summary>
-    /// Stock's <c>RemoveOwnedProjectiles</c> (:13404's first half): every
-    /// flyer whose launcher is this player — the rockets read through
-    /// their own net state, the launcher's stickies fizzled whole through
-    /// the tray, stock's quiet grenade arm.
+    /// Stock's <c>RemoveOwnedProjectiles</c> (:13437): every flyer whose
+    /// owner is this player, read through the one question the flyers wear
+    /// (<see cref="ITFOwnedProjectile"/> — stock's owner/thrower/scorer arms
+    /// collapsed into one answer), each going through the engine's removal
+    /// route. The stickies ride their launcher's tray instead of the walk
+    /// (stock's quiet grenade arm, <see cref="TFStickyTray.FizzleAll"/>),
+    /// and the flame managers lose their points to their attacker
+    /// (stock's <c>IsEntityAttacker</c> arm through
+    /// <see cref="TFFlameManager.ClearPoints"/>).
     /// </summary>
     private void RemoveOwnedProjectiles(int ownerIndex)
     {
-        foreach (ScriptedEntity flyer in directory.OfClass(TFProjectileEntityNames.Rocket))
-        {
-            if (flyer is TFRocket rocket && rocket.State.OwnerIndex == ownerIndex)
-                entities.Remove(flyer.Handle);
-        }
+        foreach (string className in FlyingClasses)
+            foreach (ScriptedEntity flyer in directory.OfClass(className))
+                if (flyer is ITFOwnedProjectile owned && owned.OwnerIndex == ownerIndex)
+                    entities.Remove(flyer.Handle);
+
+        foreach (ScriptedEntity flame in directory.OfClass(TFFlameManagerDefs.ClassName))
+            if (flame is TFFlameManager manager && manager.Attacker.EntryIndex == ownerIndex)
+                manager.ClearPoints();
 
         tray.FizzleAll(ownerIndex);
     }
+
+    /// <summary>The registered flyer names the walk covers; the sticky's
+    /// life rides its tray (<see cref="TFStickyTray"/>) and is not walked.</summary>
+    private static string[] FlyingClasses =>
+    [
+        TFProjectileEntityNames.Rocket,
+        TFProjectileEntityNames.Pipebomb,
+        TFProjectileEntityNames.Syringe,
+        TFProjectileEntityNames.Arrow,
+        TFProjectileEntityNames.HealingBolt,
+        TFProjectileEntityNames.Flare,
+        TFProjectileEntityNames.Jar,
+        TFProjectileEntityNames.JarMilk,
+        TFProjectileEntityNames.JarGas,
+        TFProjectileEntityNames.Cleaver,
+        TFProjectileEntityNames.BallOfFire,
+        TFProjectileEntityNames.BallOrnament,
+        TFProjectileEntityNames.EnergyRing,
+        TFProjectileEntityNames.EnergyBall,
+    ];
 
     /// <summary>The explode arm kills through the object's own blast; the quiet arm takes it out.</summary>
     private static void RemoveObject(TFBaseObject building, bool explodeBuildings)
