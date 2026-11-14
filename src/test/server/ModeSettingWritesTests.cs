@@ -88,13 +88,13 @@ public class ModeSettingWritesTests
         rig.Game.Tdm();
         int before = rig.Ran().Count;
 
-        Assert.Null(rig.Writes.Write("cs_sv_teams_unbalance_limit", "2"));
+        Assert.Null(rig.Writes.Write("mp_teams_unbalance_limit", "2"));
         Assert.Equal(before, rig.Ran().Count);
-        Assert.Equal((SettingApplies.NextRound, "2"), rig.Writes.Pending["cs_sv_teams_unbalance_limit"]);
+        Assert.Equal((SettingApplies.NextRound, "2"), rig.Writes.Pending["mp_teams_unbalance_limit"]);
 
         rig.Game.Tdm();   // the round's setup, as a switch runs it
 
-        Assert.Contains("cs_sv_teams_unbalance_limit 2\n", rig.Ran());
+        Assert.Contains("mp_teams_unbalance_limit 2\n", rig.Ran());
         Assert.Empty(rig.Writes.Pending);
     }
 

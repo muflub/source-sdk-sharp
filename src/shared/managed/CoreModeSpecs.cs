@@ -33,7 +33,7 @@ public static class CoreModeSpecs
         FragLimit(),
         Choice("mp_tdm_teams", "2", ("2", "2"), ("3", "3"), ("4", "4")),
         Bool("mp_teammates_collide", "0"),
-        Choice("cs_sv_teams_unbalance_limit", "0", SettingApplies.NextRound, ("0", "#SS_UI_Vote_Off"), ("1", "1"), ("2", "2")),
+        Choice("mp_teams_unbalance_limit", "0", SettingApplies.NextRound, ("0", "#SS_UI_Vote_Off"), ("1", "1"), ("2", "2")),
     ], []);
 
     /// <summary>Both core modes, deathmatch first.</summary>

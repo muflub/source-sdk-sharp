@@ -56,3 +56,6 @@ public sealed record ModeSpec(
 
 /// <summary>Whether a map can play a mode, and why not when it cannot.</summary>
 public readonly record struct MapSupport(bool Supported, string Reason);
+
+/// <summary>One mode of the catalog a server sends: its spec, and whether the map playing can play it.</summary>
+public sealed record CatalogMode(ModeSpec Spec, MapSupport OnThisMap);

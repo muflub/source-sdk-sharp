@@ -26,8 +26,8 @@ public interface IPlayerNotices
 /// <summary><see cref="IPlayerNotices"/> over stock's TextMsg, to the asking player's slot only.</summary>
 public sealed class PlayerNotices(IUserMessageSender messages, IEnginePlayers players) : IPlayerNotices
 {
-    /// <summary>Stock's HUD_PRINTCONSOLE and HUD_PRINTCENTER (shareddefs.h).</summary>
-    public const byte PrintConsole = 2, PrintCenter = 4;
+    /// <summary>Stock's HUD_PRINTCONSOLE, HUD_PRINTTALK and HUD_PRINTCENTER (shareddefs.h).</summary>
+    public const byte PrintConsole = 2, PrintTalk = 3, PrintCenter = 4;
 
     public int CommandIssuer()
     {

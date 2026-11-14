@@ -120,6 +120,23 @@ public sealed class ServerSoundRouteTests : IDisposable
         Assert.Equal(["Team 2 10040 CaptureFlag.TeamCaptured"], route.Calls);
     }
 
+    /// <summary>
+    /// The binding's single-player arm forwards to the route with the
+    /// reliability it was given, and an empty name still does not cross.
+    /// </summary>
+    [Fact]
+    public void APlayerEmitReachesTheRouteWithItsReliability()
+    {
+        var route = new Route();
+        EngineSide side = Server(route);
+
+        Sound(side).EmitSoundToPlayer(Door, Door, "HealthKit.Touch", reliable: true);
+        Sound(side).EmitSoundToPlayer(Door, Door, "Doors.Move1", reliable: false);
+        Sound(side).EmitSoundToPlayer(Door, Door, string.Empty, reliable: true);
+
+        Assert.Equal(["Player 10040 HealthKit.Touch reliable", "Player 10040 Doors.Move1 unreliable"], route.Calls);
+    }
+
     [Fact]
     public void APrecacheReachesTheRouteAndAnEmptyNameDoesNot()
     {

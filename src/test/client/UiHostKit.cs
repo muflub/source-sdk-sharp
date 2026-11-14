@@ -77,6 +77,7 @@ internal static class UiHostKit
             .AddInstance<IUiKeyActions>(new SourceSharp.Client.Ui.Screens.Samples.FakeKeyActions())
             .AddInstance<IRadialMenuSource>(radial).AddInstance<IRadialMenuActions>(radial)
             .AddInstance<IVoteSource>(new SourceSharp.Client.Ui.Screens.FakeVote { Showing = false })
+            .AddInstance<ICatalogSource>(SourceSharp.Client.Ui.Screens.FakeCatalog.Core())
             .AddInstance<IAdminKeySource>(new SourceSharp.Client.Ui.Screens.Samples.FakeAdminKey(false))
             .AddInstance<IClientStandalones>(new NoStandalones())
             .AddInstance<IPlayerNames>(new EnginePlayerNames(new DefaultForwarders.NoEngineClient(), new IdentityNameFilter()))

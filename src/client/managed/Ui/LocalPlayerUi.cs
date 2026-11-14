@@ -24,7 +24,7 @@ namespace SourceSharp.Client.Vgui;
 /// </summary>
 public sealed class LocalPlayerUi(IEngineHud screen, ILocalArsenal arsenal, Hud hud,
                                   IClientStandalones? standalones = null, WeaponNames? names = null,
-                                  ViewReadout? view = null, TeamNames? teamNames = null)
+                                  ViewReadout? view = null, TeamNames? teamNames = null, Vgui.IActiveMode? catalog = null)
     : IPlayerLife, IPlayerHealth, IPlayerArmour, IPlayerWeapon, IPlayerAmmo, IPlayerDamage, IPlayerSuitPower, IPlayerTeam
 {
     private readonly TeamNames _teamNames = teamNames ?? TeamNames.Stock();
@@ -82,7 +82,7 @@ public sealed class LocalPlayerUi(IEngineHud screen, ILocalArsenal arsenal, Hud 
         if (_resource is not { } r)
             return;
         var state = r.State;
-        _teamplay = TeamPlay.FromRoster(state);
+        _teamplay = TeamPlay.Of(catalog, state);
         int local = screen.LocalPlayerIndex;
         _team = local > 0 && local < PlayerResourceNetState.Slots ? state.Team[local] : 0;
         if (_team != _teamNamed)

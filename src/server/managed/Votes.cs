@@ -29,29 +29,32 @@ public sealed class VoteOffice
     public string Detail { get; set; } = "";
 }
 
-/// <summary>One thing a server lets its players vote on, and the server command it runs if they do.</summary>
-public sealed record VoteOption(VoteKind Kind, string Id, string Label, string Command);
+/// <summary>
+/// One thing a server lets its players vote on, and the server command it runs if they do.
+/// With a <paramref name="Ballot"/> of two to five choices it is a multiple-choice vote,
+/// each choice running its own command when it wins.
+/// </summary>
+public sealed record VoteOption(VoteKind Kind, string Id, string Label, string Command, IReadOnlyList<VoteChoice>? Ballot = null)
+{
+    /// <summary>The share of the voters that must cast for it to pass; null for <c>sv_vote_quorum_ratio</c>.</summary>
+    public float? Quorum { get; init; }
+}
+
+/// <summary>One choice of a multiple-choice vote: what the ballot calls it, and what it runs when it wins.</summary>
+public sealed record VoteChoice(string Label, string Command);
 
 /// <summary>What this server lets its players vote on now, besides a kick.</summary>
 public interface IVoteOptions
 {
     IReadOnlyList<VoteOption> Build();
+
+    /// <summary>Why the listed <paramref name="choice"/> cannot be called now; null when it can.</summary>
+    string? Refusal(VoteOption choice) => null;
 }
 
-/// <summary>The maps of the map cycle, the modes registered but the one on, a restart, the playing mode's settings; each by its convar.</summary>
-public sealed class GameVoteOptions(IEngineFiles files, GameModes modes, GameModeCatalog catalog, ModeSettingWrites writes,
-                                    MapCycleFileConVar mapCycle, VoteIssueChangeLevelAllowedConVar changeLevel,
-                                    VoteIssueModeAllowedConVar mode, VoteIssueRestartGameAllowedConVar restart,
-                                    VoteIssueSettingsAllowedConVar settings,
-                                    VoteIssueScrambleTeamsAllowedConVar? scramble = null) : IVoteOptions
+/// <summary>The pieces the vote issues build their lists from (<see cref="IVoteIssue"/>).</summary>
+public static class GameVoteOptions
 {
-    public IReadOnlyList<VoteOption> Build()
-        => Of(Intermission.ReadCycle(files, mapCycle.Value),
-              [.. modes.Registered.Select(m => m.Id)], modes.ActiveId,
-              changeLevel.Value, mode.Value, restart.Value,
-              settings.Value ? Votable(catalog.Active) : [], writes.Current,
-              allowScramble: scramble?.Value == true && modes.Active is ITeamScramble);
-
     /// <summary>
     /// The settings players may vote on: the playing mode's rows marked votable
     /// and not the admin's alone. Another mode's rows are no choice: deathmatch
@@ -102,19 +105,33 @@ public sealed class GameVoteOptions(IEngineFiles files, GameModes modes, GameMod
 /// <summary>A call's words to the option it names: only what the server's own list holds, so a command is never the client's.</summary>
 public static class VoteOptionWords
 {
-    public const string Map = "map", Mode = "mode", Restart = "restart", Setting = "setting", Scramble = "scramble";
+    public const string Map = "map", Mode = "mode", Restart = "restart", Setting = "setting", Scramble = "scramble",
+                        NextMap = "nextmap", Extend = "extend";
 
+    /// <summary>The word a call names <paramref name="kind"/> by; a choice with no id of its own carries the word as its id.</summary>
+    public static string WordOf(VoteKind kind) => kind switch
+    {
+        VoteKind.Map => Map,
+        VoteKind.Mode => Mode,
+        VoteKind.Restart => Restart,
+        VoteKind.Setting => Setting,
+        VoteKind.Scramble => Scramble,
+        VoteKind.NextMap => NextMap,
+        VoteKind.Extend => Extend,
+        _ => "",
+    };
+
+    /// <summary>
+    /// The listed option <paramref name="args"/> name: a word and an id (<c>map dm_x</c>), or a
+    /// word alone for the choice whose id is the word (<c>restart</c>, <c>nextmap</c> with no map).
+    /// </summary>
     public static VoteOption? Find(IReadOnlyList<VoteOption> options, ReadOnlySpan<string> args)
     {
-        if (args.Length == 1 && args[0] == Restart)
-            return options.FirstOrDefault(o => o.Kind == VoteKind.Restart);
-        if (args.Length == 1 && args[0] == Scramble)
-            return options.FirstOrDefault(o => o.Kind == VoteKind.Scramble);
-        if (args.Length != 2)
+        if (args.Length is < 1 or > 2)
             return null;
-        VoteKind? kind = args[0] switch { Map => VoteKind.Map, Mode => VoteKind.Mode, Setting => VoteKind.Setting, _ => null };
-        string id = args[1];
-        return kind is null ? null : options.FirstOrDefault(o => o.Kind == kind && o.Id == id);
+        string word = args[0];
+        string id = args.Length == 2 ? args[1] : word;
+        return options.FirstOrDefault(o => o.Kind != VoteKind.Kick && WordOf(o.Kind) == word && o.Id == id);
     }
 }
 
@@ -125,7 +142,7 @@ public static class VoteOptionWords
 /// cooldown. Every change goes to every player, so the count shows live; the host
 /// and the server's admins cannot be voted off.
 /// </summary>
-public sealed class ServerVotes : IClientCommandHook, IOrderedHook, IClientLifecycle
+public sealed class ServerVotes : IClientCommandHook, IOrderedHook, IClientLifecycle, IModeSwitchHook
 {
     private readonly VoteOffice _office;
     private readonly IEngineEntities _entities;
@@ -155,7 +172,13 @@ public sealed class ServerVotes : IClientCommandHook, IOrderedHook, IClientLifec
     public int ClientLifecycleOrder => (int)LifecycleStage.Votes;
 
     /// <summary>A player in the game (each level, so a new map's list goes too) hears what can be voted on.</summary>
-    public void OnClientActive(int entIndex)
+    public void OnClientActive(int entIndex) => SendOptions(entIndex);
+
+    /// <summary>A switch changes what can be voted on (the modes but the one on, its settings): everyone hears the new list.</summary>
+    public void OnModeSwitched(IGameMode? previous, IGameMode next) => SendOptions(0);
+
+    /// <summary>The vote list to one player, or to everyone at 0.</summary>
+    private void SendOptions(int entIndex)
     {
         if (_options is null)
             return;
@@ -225,29 +248,84 @@ public sealed class ServerVotes : IClientCommandHook, IOrderedHook, IClientLifec
             Refuse(slot, VoteRefusal.Immune, 0f);
             return;
         }
+        if (!kick && _options!.Refusal(option!) is { } notNow)
+        {
+            Refuse(slot, VoteRefusal.NotNow, 0f, notNow);
+            return;
+        }
+        string name = kick ? KickIssue : option!.Kind.ToString();
+        if (vote.FailedLately(name, kick ? args[1] : option!.Id, now, out float failedWait))
+        {
+            int left = (int)MathF.Ceiling(failedWait);
+            Refuse(slot, VoteRefusal.FailedLately, failedWait, $"wait {left / 60}:{left % 60:00}");
+            return;
+        }
+        if (vote.TooFewVoters(out int eligible, out int needed))
+        {
+            Refuse(slot, VoteRefusal.TooFewVoters, 0f, $"{eligible} can vote here; this server needs {needed}");
+            return;
+        }
 
         _office.Caller = slot;
         _office.Target = kick ? target : 0;
         _office.Kind = kick ? VoteKind.Kick : option!.Kind;
-        _office.Detail = kick || option!.Kind is VoteKind.Restart or VoteKind.Scramble ? "" : option.Id;
+        _office.Detail = kick ? "" : DetailOf(option!);
         var issue = kick
-            ? new VoteIssue("kick", target.ToString(System.Globalization.CultureInfo.InvariantCulture), $"kickid {_players.GetUserId(targetPlayer)} Voted off")
-            : new VoteIssue(option!.Kind.ToString(), option.Id, option.Command);
+            ? new VoteIssue(KickIssue, target.ToString(System.Globalization.CultureInfo.InvariantCulture), $"kickid {_players.GetUserId(targetPlayer)} Voted off")
+            : IssueOf(option!);
         if (vote.StartVote(caller, issue, now))
         {
             vote.CanCallVote(caller, now, out wait);
-            _messages.Send(new VoteCooldown { Refusal = (byte)VoteRefusal.None, Seconds = wait }, slot, reliable: true);
+            _messages.Send(new VoteCooldown { Refusal = (byte)VoteRefusal.None, Seconds = wait, Reason = "" }, slot, reliable: true);
         }
+    }
+
+    /// <summary>A kick's issue name on the controller (the other kinds go by their <see cref="VoteKind"/>).</summary>
+    public const string KickIssue = "kick";
+
+    /// <summary>The controller's issue for a listed choice: Yes/No, or its ballot's choices and their commands.</summary>
+    public static VoteIssue IssueOf(VoteOption option)
+        => option.Ballot is { Count: >= 2 } ballot
+            ? new VoteIssue(option.Kind.ToString(), option.Id, option.Command,
+                            Options: [.. ballot.Take(VoteWire.MaxOptions).Select(c => c.Label)],
+                            OptionCommands: [.. ballot.Take(VoteWire.MaxOptions).Select(c => c.Command)],
+                            QuorumRatio: option.Quorum)
+            : new VoteIssue(option.Kind.ToString(), option.Id, option.Command, QuorumRatio: option.Quorum);
+
+    /// <summary>What the ballot names as its subject: the map or mode it changes to; nothing for a choice or a kind with no subject.</summary>
+    public static string DetailOf(VoteOption option)
+        => option.Kind is VoteKind.Restart or VoteKind.Scramble or VoteKind.Extend || option.Ballot is not null ? "" : option.Id;
+
+    /// <summary>
+    /// A vote the server calls itself (stock's <c>CreateVote( DEDICATED_SERVER, ... )</c>):
+    /// no caller, no cooldown, nobody's yes cast for it. Answers null when the ballot
+    /// opened, else why not (votes off, another vote running).
+    /// </summary>
+    public string? CallAsServer(VoteOption option)
+    {
+        var vote = Controller();
+        if (vote is null || !vote.VotesAllowed)
+            return "votes are off on this server";
+        if (vote.IsVoteActive)
+            return "a vote is in progress";
+        _office.Caller = 0;
+        _office.Target = 0;
+        _office.Kind = option.Kind;
+        _office.Detail = DetailOf(option);
+        if (!vote.StartVote(EntityHandle.None, IssueOf(option), _clock.Now))
+            return "the vote could not start";
+        _log?.Msg($"[SourceSharp/Vote] the server called {option.Kind} {option.Id}\n");
+        return null;
     }
 
     /// <summary>A listen server's host (player 1 on one), or an admin.</summary>
     public bool IsImmune(int slot)
         => (!_host.IsDedicatedServer && slot == 1) || (_admins?.IsAdmin(slot) ?? false);
 
-    private void Refuse(int slot, VoteRefusal why, float seconds)
+    private void Refuse(int slot, VoteRefusal why, float seconds, string reason = "")
     {
-        _log?.Msg($"[SourceSharp/Vote] player {slot}'s call refused: {why}\n");
-        _messages.Send(new VoteCooldown { Refusal = (byte)why, Seconds = seconds }, slot, reliable: true);
+        _log?.Msg($"[SourceSharp/Vote] player {slot}'s call refused: {why}{(reason.Length > 0 ? ": " + reason : "")}\n");
+        _messages.Send(new VoteCooldown { Refusal = (byte)why, Seconds = seconds, Reason = reason }, slot, reliable: true);
     }
 
     private VoteController? Controller()
@@ -281,6 +359,8 @@ public sealed class ServerVotes : IClientCommandHook, IOrderedHook, IClientLifec
             SecondsLeft = vote.SecondsLeft(now),
             Kind = (byte)kind,
             Detail = detail,
+            Options = string.Join('\n', vote.Options),
+            Counts = [.. Enumerable.Range(1, vote.IsYesNoVote ? 2 : vote.Options.Count).Select(o => (byte)vote.VotesFor(o))],
         };
     }
 }
@@ -304,7 +384,8 @@ public sealed class VoteIssueModeAllowedConVar : BoolConVar;
 public sealed class VoteConVars(AllowVotesConVar allow, VoteTimerDurationConVar timerDuration, VoteCreationTimerConVar creationTimer,
                                 VoteHolderMayVoteNoConVar holderMayVoteNo, VoteEarlyFinishConVar earlyFinish,
                                 VoteQuorumRatioConVar quorumRatio, VoteCommandDelayConVar commandDelay,
-                                VoteAllowSpectatorsConVar allowSpectators, VoteBotsAllowedConVar botsAllowed)
+                                VoteAllowSpectatorsConVar allowSpectators, VoteMinVotersConVar minVoters,
+                                VoteFailureTimerConVar failureTimer)
 {
     public readonly AllowVotesConVar Allow = allow;
     public readonly VoteTimerDurationConVar TimerDuration = timerDuration;
@@ -314,7 +395,8 @@ public sealed class VoteConVars(AllowVotesConVar allow, VoteTimerDurationConVar 
     public readonly VoteQuorumRatioConVar QuorumRatio = quorumRatio;
     public readonly VoteCommandDelayConVar CommandDelay = commandDelay;
     public readonly VoteAllowSpectatorsConVar AllowSpectators = allowSpectators;
-    public readonly VoteBotsAllowedConVar BotsAllowed = botsAllowed;
+    public readonly VoteMinVotersConVar MinVoters = minVoters;
+    public readonly VoteFailureTimerConVar FailureTimer = failureTimer;
 }
 
 [ConVar("sv_vote_issue_settings_allowed", "1", Help = "Can players call votes to change game settings (friendly fire, time limit and so on)?")]
@@ -351,5 +433,29 @@ public sealed class VoteAllowSpectatorsConVar : BoolConVar;
 [ConVar("sv_vote_holder_may_vote_no", "0", Help = "1 = Vote caller is not forced to vote yes on yes/no votes.")]
 public sealed class VoteHolderMayVoteNoConVar : BoolConVar;
 
-[ConVar("sv_vote_bots_allowed", "0", Help = "Allow bots to vote or not.")]
-public sealed class VoteBotsAllowedConVar : BoolConVar;
+/// <summary>
+/// The fewest who must be able to vote for a call to be taken (plan_bots_teams_tf2
+/// D.3, §8.2 Q2): 1 lets a listen server's lone human with bots pass a vote on
+/// their own yes; a dedicated server's operator raises it so one stranger cannot.
+/// </summary>
+[ConVar("sv_vote_min_voters", "1", Min = 1, Help = "The fewest players who must be able to vote for a vote to be called")]
+public sealed class VoteMinVotersConVar : IntConVar;
+
+/// <summary>Stock TF2's: how long a failed issue waits before anyone may call it again.</summary>
+[ConVar("sv_vote_failure_timer", "300", Help = "A vote that fails cannot be re-submitted for this long")]
+public sealed class VoteFailureTimerConVar : FloatConVar;
+
+[ConVar("sv_vote_issue_nextlevel_allowed", "1", Help = "Can players call votes to set the next level?")]
+public sealed class VoteIssueNextLevelAllowedConVar : BoolConVar;
+
+/// <summary>
+/// Stock TF2's (tf_voteissues.cpp), default 1 here where stock's is 0 (plan
+/// §8.2 Q12): a listen server with bots has no other way to pick the next map
+/// without the console. On, the server calls a choice of the next map when a
+/// level's round ends, and the issue's quorum is a tenth.
+/// </summary>
+[ConVar("sv_vote_issue_nextlevel_choicesmode", "1", Help = "Present players with a list of maps to choose the next one from at the end of a level?")]
+public sealed class VoteIssueNextLevelChoicesModeConVar : BoolConVar;
+
+[ConVar("sv_vote_issue_extendlevel_allowed", "1", Help = "Can players call votes to set the extend the current level?")]
+public sealed class VoteIssueExtendLevelAllowedConVar : BoolConVar;

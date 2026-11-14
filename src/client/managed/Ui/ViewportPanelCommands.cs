@@ -52,12 +52,11 @@ public sealed class HidePanelCommand(ViewportPanelCommand panels)
 /// "team" opens, so a mod's own team menu answers it by its claim. Nothing goes
 /// to the server: the menu's choices send <c>jointeam</c>. Stock opens it only
 /// when the player may change team (CanShowTeamMenu); here that is team play,
-/// read from the roster (<see cref="TeamPlay"/>): deathmatch has no teams to
-/// choose, and a deathmatch player who joined one would make the roster read
-/// as team play.
+/// the server's mode where the client knows it, else the roster
+/// (<see cref="TeamPlay"/>): deathmatch has no teams to choose.
 /// </summary>
 [ConCommand("changeteam", Help = "Choose a new team")]
-public sealed class ChangeTeamCommand(IClientStandalones standalones, IViewportPanels panels, ILog log)
+public sealed class ChangeTeamCommand(IClientStandalones standalones, IViewportPanels panels, ILog log, IActiveMode? catalog = null)
 {
     /// <summary>Stock's PANEL_TEAM.</summary>
     public const string TeamPanel = "team";
@@ -65,7 +64,7 @@ public sealed class ChangeTeamCommand(IClientStandalones standalones, IViewportP
     public void Execute()
     {
         var resource = standalones.OfClass(EntityNames.PlayerManager).OfType<Standalone.ClientPlayerResource>().FirstOrDefault();
-        if (resource is null || !TeamPlay.FromRoster(resource.State))
+        if (resource is null || !TeamPlay.Of(catalog, resource.State))
         {
             log.Msg("[SourceSharp/Ui] changeteam: not a team game, no team to choose\n");
             return;

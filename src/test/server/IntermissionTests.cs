@@ -40,6 +40,18 @@ public class IntermissionTests
 
     private static (Intermission It, RecordingEngine Engine, Console Console, ConVarRegistry ConVars) Rig(string? mapcycle = null,
                                                                                                          params IRoundEndGate[] gates)
+        => Rig(mapcycle, null, gates);
+
+    private sealed class Holder : IIntermissionHook
+    {
+        public bool Holding;
+        public readonly List<(string Current, string Next, float Now)> Heard = [];
+        public void OnIntermission(string currentMap, string nextMap, float now) => Heard.Add((currentMap, nextMap, now));
+        public bool HoldsLevel(float now) => Holding;
+    }
+
+    private static (Intermission It, RecordingEngine Engine, Console Console, ConVarRegistry ConVars) Rig(string? mapcycle, IIntermissionHook? hook,
+                                                                                                         IRoundEndGate[] gates, NextLevelConVar? nextLevel = null)
     {
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SsPlayer).Assembly);
@@ -56,8 +68,9 @@ public class IntermissionTests
         var convars = ConVarRegistry.For(UnattachedConsole());
         convars.RegisterAll(typeof(GameRules).Assembly);
         var console = new Console();
-        var it = new Intermission(new RecordingLog(), convars.Declare<MpChatTimeConVar>(), convars.Declare<NextLevelConVar>(), convars.Declare<MapCycleFileConVar>(), registry, engine, engine, engine, console, engine,
-                                  gates.Length == 0 ? null : new ListHooks<IRoundEndGate>(gates));
+        var it = new Intermission(new RecordingLog(), convars.Declare<MpChatTimeConVar>(), nextLevel ?? convars.Declare<NextLevelConVar>(), convars.Declare<MapCycleFileConVar>(), registry, engine, engine, engine, console, engine,
+                                  gates.Length == 0 ? null : new ListHooks<IRoundEndGate>(gates),
+                                  hook is null ? null : new ListHooks<IIntermissionHook>(hook));
         it.LevelInit("dm_lockdown", 0f);
         engine.Clear();
         return (it, engine, console, convars);
@@ -163,6 +176,118 @@ public class IntermissionTests
     {
         var (it, _, _, _) = Rig("// a comment\r\n dm_a \n\ndm_b\n");
         Assert.Equal(new[] { "dm_a", "dm_b", "dm_a" }, new[] { it.NextMap(), it.NextMap(), it.NextMap() });
+    }
+
+    [Fact]
+    public void Peeking_at_the_next_map_leaves_the_cycle_where_it_is()
+    {
+        var (it, _, _, _) = Rig("dm_a\ndm_b\n");
+        Assert.Equal(new[] { "dm_a", "dm_a", "dm_a", "dm_b" }, new[] { it.PeekNextMap(), it.PeekNextMap(), it.NextMap(), it.PeekNextMap() });
+    }
+
+    [Fact]
+    public void A_set_nextlevel_does_not_advance_the_cycle()
+    {
+        var (it, _, _, convars) = Rig("dm_a\ndm_b\n");
+        Set(convars, "nextlevel", "dm_voted");
+        Assert.Equal("dm_voted", it.NextMap());
+        Set(convars, "nextlevel", "");
+        Assert.Equal("dm_a", it.NextMap());
+    }
+
+    [Fact]
+    public void A_new_level_clears_nextlevel()
+    {
+        // An engine that holds the value, as the game's does: a write reaches it and reads back.
+        var held = new ConVarRegistry(new NamedConVars(new Dictionary<string, string>())).Declare<NextLevelConVar>();
+        var (it, _, _, _) = Rig("dm_a\ndm_b\n", null, [], held);
+        held.SetValue("dm_voted");
+        Assert.Equal("dm_voted", it.PeekNextMap());
+
+        it.LevelInit("dm_voted", 0f);
+
+        Assert.Equal("", held.Value);
+        Assert.Equal("dm_a", it.PeekNextMap());
+    }
+
+    [Fact]
+    public void The_hook_hears_the_intermission_with_the_map_playing_and_the_next()
+    {
+        var hook = new Holder();
+        var (it, _, _, _) = Rig("dm_a\ndm_b\n", hook, []);
+
+        it.Begin(5f);
+        it.Begin(6f);
+
+        Assert.Equal(new[] { ("dm_lockdown", "dm_a", 5f) }, hook.Heard);
+    }
+
+    [Fact]
+    public void A_hook_holds_the_level_change_until_it_lets_go()
+    {
+        var hook = new Holder { Holding = true };
+        var (it, _, console, convars) = Rig("dm_a\n", hook, []);
+        Set(convars, "mp_chattime", "10");
+
+        it.Begin(0f);
+        it.Think(11f);
+        it.Think(30f);
+        Assert.Empty(console.Executed);
+        hook.Holding = false;
+        it.Think(31f);
+
+        Assert.Equal(new[] { "changelevel dm_a" }, console.Executed);
+    }
+
+    [Fact]
+    public void A_hook_holds_the_level_a_minute_past_the_intermission_at_most()
+    {
+        var hook = new Holder { Holding = true };
+        var (it, _, console, convars) = Rig("dm_a\n", hook, []);
+        Set(convars, "mp_chattime", "10");
+
+        it.Begin(0f);
+        it.Think(10f + Intermission.MostHeldSeconds - 0.5f);
+        Assert.Empty(console.Executed);
+        it.Think(10f + Intermission.MostHeldSeconds + 0.5f);
+
+        Assert.Equal(new[] { "changelevel dm_a" }, console.Executed);
+    }
+
+    private sealed class Issuer(int slot) : IPlayerNotices
+    {
+        public int CommandIssuer() => slot;
+        public void Refused(int slot, string line) { }
+    }
+
+    [Fact]
+    public void Nextmap_tells_the_asking_player_in_chat_and_the_log_without_advancing_the_cycle()
+    {
+        var (it, engine, _, _) = Rig("dm_a\ndm_b\n");
+        var log = new RecordingLog();
+
+        new NextMapCommand(log, it, new Issuer(3), engine).Execute();
+
+        var sent = Assert.Single(engine.AllOf("UserMessages.Send"));
+        Assert.Equal(("TextMsg", 3), ((string)sent.Args[0]!, (int)sent.Args[2]!));
+        var reader = new UserMessageReader((byte[])sent.Args[4]!);
+        var msg = TextMsg.Read(ref reader);
+        Assert.Equal((PlayerNotices.PrintTalk, NextMapCommand.Token, "dm_a"), (msg.Destination, msg.Text, Assert.Single(msg.Params)));
+        Assert.Contains(log.Lines, l => l.Text == "[SourceSharp/Rules] nextmap: dm_a\n");
+        Assert.Equal("dm_a", it.NextMap());
+    }
+
+    [Fact]
+    public void Nextmap_at_the_server_console_tells_no_player()
+    {
+        var (it, engine, _, convars) = Rig("dm_a\ndm_b\n");
+        Set(convars, "nextlevel", "dm_voted");
+        var log = new RecordingLog();
+
+        new NextMapCommand(log, it, new Issuer(0), engine).Execute();
+
+        Assert.Empty(engine.AllOf("UserMessages.Send"));
+        Assert.Contains(log.Lines, l => l.Text == "[SourceSharp/Rules] nextmap: dm_voted\n");
     }
 
     [Fact]

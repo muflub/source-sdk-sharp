@@ -859,6 +859,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<IHooks<IClientLevelHook>>(locator => new Hooks<IClientLevelHook>(locator, log));
         // Before the first handler pass, which builds VoteStateMessage over this chain.
         _services.AddFactory<IHooks<IVoteStateHook>>(locator => new Hooks<IVoteStateHook>(locator, log));
+        _services.AddFactory<IHooks<IModeCatalogHook>>(locator => new Hooks<IModeCatalogHook>(locator, log));
         _services.AddFactory<IHooks<IPlayerMarkerHook>>(locator => new Hooks<IPlayerMarkerHook>(locator, log));
         _services.AddFactory<IHooks<IAdminHook>>(locator => new Hooks<IAdminHook>(locator, log));
         // The mods' per-player carry limits, the server's twin (IAmmoCarryRule).
@@ -1423,6 +1424,12 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.Add(typeof(Vgui.ClientVotes), typeof(Vgui.ClientVotes));
         _services.AddFactory<Ui.IVoteSource>(locator => locator.Require<Vgui.ClientVotes>());
         _services.AddFactory<IVoteStateHook>(locator => locator.Require<Vgui.ClientVotes>());
+
+        // The game-mode catalog's client copy, and the playing mode's id (plan_bots_teams_tf2 D.2).
+        _services.Add(typeof(Vgui.ClientModeCatalog), typeof(Vgui.ClientModeCatalog));
+        _services.AddFactory<Ui.ICatalogSource>(locator => locator.Require<Vgui.ClientModeCatalog>());
+        _services.AddFactory<Vgui.IActiveMode>(locator => locator.Require<Vgui.ClientModeCatalog>());
+        _services.AddFactory<IModeCatalogHook>(locator => locator.Require<Vgui.ClientModeCatalog>());
 
         // The admin menu.
         _services.AddFactory(locator =>

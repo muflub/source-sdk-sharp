@@ -50,7 +50,7 @@ public class TeamVotesAdminTests
         var options = GameVoteOptions.Of([], [], null, false, false, false, TeamDeathmatchRows, Current);
 
         Assert.Equal("ss_setting mp_tdm_teams 4", VoteOptionWords.Find(options, ["setting", "mp_tdm_teams=4"])!.Command);
-        Assert.Equal("ss_setting cs_sv_teams_unbalance_limit 1", VoteOptionWords.Find(options, ["setting", "cs_sv_teams_unbalance_limit=1"])!.Command);
+        Assert.Equal("ss_setting mp_teams_unbalance_limit 1", VoteOptionWords.Find(options, ["setting", "mp_teams_unbalance_limit=1"])!.Command);
         Assert.Null(VoteOptionWords.Find(options, ["setting", "mp_tdm_teams=2"]));
     }
 

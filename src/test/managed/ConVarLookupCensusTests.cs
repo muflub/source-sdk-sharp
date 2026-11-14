@@ -53,7 +53,7 @@ public class ConVarLookupCensusTests
             m => m.DeclaringType?.FullName == "SourceSharp.Abi.ConVarRegistry" && m.Name == "get_All",
             typeof(ServerModule).Assembly, typeof(client::SourceSharp.Client.ClientModule).Assembly,
             typeof(ServerGameDll).Assembly, typeof(SourceSharp.Ai.Server.Senses.ServerAiSession).Assembly,
-            typeof(SourceSharp.Ai.Hl2mp.Hl2mpAiService).Assembly, typeof(SourceSharp.Ai.TF2.TFBotGame).Assembly);
+            typeof(SourceSharp.Ai.Hl2mp.Hl2mpAiService).Assembly);
 
         Assert.Equal(Roots.Concat(Waived).Order(StringComparer.Ordinal), callers);
     }

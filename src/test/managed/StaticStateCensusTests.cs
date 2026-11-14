@@ -84,8 +84,6 @@ public class StaticStateCensusTests
         Assembly.Load("SourceSharp.Ai.Hl2mp.Client"),
         Assembly.Load("SourceSharp.Ai.Hl2mp.Client.Interface"),
         Assembly.Load("SourceSharp.Ai.Hl2mp.Ui"),
-        // plan_bots_teams_tf2 P6: TF2's binding over the generic one.
-        Assembly.Load("SourceSharp.Ai.TF2"),
     };
 
     private static bool IsConstantType(Type t)

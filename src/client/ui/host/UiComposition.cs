@@ -183,7 +183,8 @@ public static class ClientUi
             mod.EncryptionKey);
         var names = new WeaponNames(c => scripts.ReadScript(c)?.PrintName, localiser.Find);
         var standalones = services.Require<IClientStandalones>();
-        var player = new LocalPlayerUi(screen, arsenal, hud, standalones, names, services.Resolve<ViewReadout>(), services.Resolve<TeamNames>());
+        var player = new LocalPlayerUi(screen, arsenal, hud, standalones, names, services.Resolve<ViewReadout>(), services.Resolve<TeamNames>(),
+                                       services.Resolve<IActiveMode>());
 
         // THE SCOREBOARD'S DATA, before the mod screens: a mod screen that
         // replaces the core's takes it over by constructor, and the mod's UI
@@ -291,7 +292,7 @@ public static class ClientUi
         var createServer = new CreateServer(windows,
             new EngineMapList(services.Require<IFwdFileFinder>(), File.Exists(gameInfoPath) ? File.ReadAllText(gameInfoPath) : null),
             new ServerSettingsSource(optionsFiles, convarStore, commandLine), new CreateServerActions(commandLine),
-            UiModScreens.Pages(services, modAssemblies, windows));
+            UiModScreens.Pages(services, modAssemblies, windows), services.Require<ICatalogSource>());
         // THE SERVER BROWSER (plan_gameui_managed.md G3): A2S over the client's
         // datagram transport for LAN, favourites, history and players; Steam's
         // internet list; the remembered servers in Steam, or a file without it.

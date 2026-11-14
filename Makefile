@@ -677,8 +677,9 @@ ai-nav:
 # built from the map in the tf2 mod's content (bin/<config>/content/tf/maps)
 # into the mod's own bin/<config>/mods/tf2/maps, where its AI loader reads
 # maps/MAP.nav3d, with ssmap mounting the mod as the game does. A TF map needs
-# map-tools' compressed-lump reader and skybox clip (claude/nav-tf-maps):
-# until maptools.lock carries them, MAPTOOLS_DIR=/path/to/that tree.
+# map-tools' compressed-map reader (main 3cec3d7) and, for maps whose skybox
+# makes them too tall (pl_badwater, koth_viaduct), its play-space clip
+# (claude/nav-tf-maps): until maptools.lock carries them, MAPTOOLS_DIR=/path/to/that tree.
 TF_NAV_MAPS := ctf_2fort
 
 ai-nav-tf:

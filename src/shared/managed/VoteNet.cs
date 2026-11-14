@@ -22,6 +22,12 @@ public enum VoteKind : byte
 
     /// <summary>Reshuffle the players across the teams in play and restart the round (team deathmatch).</summary>
     Scramble,
+
+    /// <summary>The map after this one (stock's <c>CNextLevelIssue</c>): sets <c>nextlevel</c>; with no map named, a choice among the candidates.</summary>
+    NextMap,
+
+    /// <summary>More time on this map (stock's <c>CExtendLevelIssue</c>).</summary>
+    Extend,
 }
 
 /// <summary>Why a call was refused; <see cref="None"/> is a call accepted.</summary>
@@ -43,6 +49,15 @@ public enum VoteRefusal : byte
 
     /// <summary>Voting is off on this server.</summary>
     Disabled,
+
+    /// <summary>The issue cannot be called now; <see cref="VoteCooldown.Reason"/> says why (a mode this map cannot play).</summary>
+    NotNow,
+
+    /// <summary>A vote of this kind failed lately (<c>sv_vote_failure_timer</c>): <see cref="VoteCooldown.Seconds"/> until it may be called again.</summary>
+    FailedLately,
+
+    /// <summary>Fewer can vote than the server's <c>sv_vote_min_voters</c>; <see cref="VoteCooldown.Reason"/> gives the numbers.</summary>
+    TooFewVoters,
 }
 
 /// <summary>The ballot as it stands, sent whenever it changes: who called it, whom it would kick, the count so far.</summary>
@@ -70,6 +85,21 @@ public partial struct VoteState
     /// <summary>The map or mode it would change to; empty for a kick, whose target is a slot, and a restart.</summary>
     [UserMessageString(MaxLength = 64)]
     public partial string Detail { get; set; }
+
+    /// <summary>A multiple-choice ballot's choices, one a line (at most <see cref="VoteWire.MaxOptions"/>); empty for Yes/No.</summary>
+    [UserMessageString(MaxLength = 150)]
+    public partial string Options { get; set; }
+
+    /// <summary>The count for each choice, in order (<see cref="Yes"/> and <see cref="No"/> are the first two).</summary>
+    [UserMessageArray(MaxCount = VoteWire.MaxOptions)]
+    public partial byte[] Counts { get; set; }
+}
+
+/// <summary>The wire's limits for a ballot.</summary>
+public static class VoteWire
+{
+    /// <summary>Stock's MAX_VOTE_OPTIONS.</summary>
+    public const int MaxOptions = 5;
 }
 
 /// <summary>
@@ -136,6 +166,10 @@ public partial struct VoteCooldown
     public partial byte Refusal { get; set; }
 
     public partial float Seconds { get; set; }
+
+    /// <summary>Why, in words, where the refusal has more to say than its kind ("dm_lockdown has no item_teamflag").</summary>
+    [UserMessageString(MaxLength = 120)]
+    public partial string Reason { get; set; }
 }
 
 [UserMessage("VoteCooldown")]
@@ -157,9 +191,9 @@ public sealed class VoteCooldownMessage : IUserMessage<VoteCooldown>
 /// <summary>The client's words for a vote, and the server's verbs for them.</summary>
 public static class VoteVerbs
 {
-    /// <summary><c>ss_callvote kick &lt;slot&gt;</c>, <c>map &lt;name&gt;</c>, <c>mode &lt;id&gt;</c>, <c>setting &lt;convar=value&gt;</c> or <c>restart</c>.</summary>
+    /// <summary><c>ss_callvote kick &lt;slot&gt;</c>, or an issue's word and the id of its choice (<c>map dm_x</c>, <c>mode tdm</c>, <c>setting mp_fraglimit=20</c>), or the word alone (<c>restart</c>, <c>nextmap</c>).</summary>
     public const string Call = "ss_callvote";
 
-    /// <summary><c>ss_vote 1</c> for yes, <c>ss_vote 2</c> for no.</summary>
+    /// <summary><c>ss_vote 1</c> for yes, <c>ss_vote 2</c> for no; on a multiple-choice ballot the choice's number, 1 to 5.</summary>
     public const string Cast = "ss_vote";
 }

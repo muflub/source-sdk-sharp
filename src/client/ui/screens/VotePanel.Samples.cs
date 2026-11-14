@@ -19,6 +19,10 @@ public sealed class FakeVote : IVoteSource
     public bool Voted { get; set; }
     public string Key { get; set; } = "O";
     public string? Refusal { get; set; }
+    public string RefusalReason { get; set; } = "";
+    public IReadOnlyList<string> Options { get; set; } = [];
+    public int[] Counts { get; set; } = [];
+    public int CountOf(int option) => option >= 1 && option <= Counts.Length ? Counts[option - 1] : 0;
 }
 
 internal static class VotePanelSamples
@@ -39,4 +43,24 @@ internal static class VotePanelSamples
 
     [UiSample("refused")]
     private static UiScreen Refused(UiSampleServices s) => Build(s, new FakeVote { Showing = false, Refusal = "#SS_UI_Vote_Refused_Immune" });
+
+    [UiSample("refused, with the server's reason")]
+    private static UiScreen RefusedWhy(UiSampleServices s)
+        => Build(s, new FakeVote { Showing = false, Refusal = "#SS_UI_Vote_Refused_NotNow", RefusalReason = "dm_lockdown has no item_teamflag" });
+
+    [UiSample("next map, a choice of four")]
+    private static UiScreen NextMap(UiSampleServices s)
+        => Build(s, new FakeVote
+        {
+            Title = "#SS_UI_Vote_NextMapTitle", Target = "", Caller = "", Voters = 6, Yes = 2, No = 1,
+            Options = ["dm_lockdown", "ss_ai_tdm", "dm_overwatch", "dm_resistance"], Counts = [2, 1, 0, 2],
+        });
+
+    [UiSample("next map, decided")]
+    private static UiScreen NextMapDecided(UiSampleServices s)
+        => Build(s, new FakeVote
+        {
+            Title = "#SS_UI_Vote_NextMapTitle", Target = "", Caller = "", Voters = 6, Decided = true, Passed = true, Yes = 3, No = 1,
+            Options = ["dm_lockdown", "ss_ai_tdm", "dm_overwatch"], Counts = [3, 1, 1], Voted = true,
+        });
 }

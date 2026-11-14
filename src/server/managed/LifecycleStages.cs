@@ -372,6 +372,9 @@ public enum LifecycleStage
     /// <summary>A player in the game hears what can be voted on.</summary>
     Votes = 2520,
 
+    /// <summary>A player in the game hears the game-mode catalog (ModeCatalogPublisher).</summary>
+    ModeCatalog = 2525,
+
     /// <summary>
     /// A leaving human's score is kept and a rejoining one's written back
     /// (RejoinScores). Before every mod's client order, so a mod's own totals
@@ -473,6 +476,13 @@ public enum FrameStage
     /// mode proxy, so the answer is the mode this frame settled on.
     /// </summary>
     TeammateCollision = 260,
+
+    /// <summary>
+    /// The playing mode's id published to the clients (ModeCatalogPublisher,
+    /// <c>sv_mode_active</c>): after the mode proxy, so it is the mode this
+    /// frame settled on.
+    /// </summary>
+    ModeCatalog = 265,
 
     /// <summary>The death cycle. It has to see a player the tick they die.</summary>
     Players = 400,

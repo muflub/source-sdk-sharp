@@ -253,6 +253,18 @@ public interface IModeTeardown
 }
 
 /// <summary>
+/// Told of a mode switch once the next mode's round is set up (plan_bots_teams_tf2
+/// D.2): a chain, so votes resend what can be voted on, the client's copy of
+/// the catalog moves, and a binding that plays (the AI) re-adds its players
+/// under the new mode. Never at a level change, whose pick is a fresh start.
+/// </summary>
+public interface IModeSwitchHook
+{
+    /// <summary>The round left <paramref name="previous"/> (null before any pick) for <paramref name="next"/>.</summary>
+    void OnModeSwitched(IGameMode? previous, IGameMode next);
+}
+
+/// <summary>
 /// Who is playing: the mode-selector chain, asked at level init.
 ///
 /// <para>

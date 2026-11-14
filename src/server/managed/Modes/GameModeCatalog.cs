@@ -24,12 +24,26 @@ public interface IMapEntityClasses
     IReadOnlySet<string>? Of(string map);
 }
 
+/// <summary>The class names of the level loaded now, as its spawn made them.</summary>
+public interface ILoadedMapClasses
+{
+    /// <summary>The loaded level's class names; empty before its spawn.</summary>
+    IEnumerable<string> ClassNames { get; }
+}
+
+/// <summary>The spawn's entities and the classes it could not place (the same read TF2's mode pick makes).</summary>
+public sealed class SpawnedMapClasses(MapSpawner spawner) : ILoadedMapClasses
+{
+    public IEnumerable<string> ClassNames => spawner.Entities.Select(e => e.ClassName).Concat(spawner.LastResidueClasses);
+}
+
 /// <summary>
-/// Reads the entity lump (lump 0) of a bsp on the GAME paths for its class
-/// names, once per map: a map's entities do not change while the server runs,
-/// and the read is the whole file.
+/// A map's entity classes: the level loaded now from its spawn (the engine has
+/// already opened its lump, compressed or not), any other from the entity lump
+/// (lump 0) of its bsp on the GAME paths, once per map: a map's entities do not
+/// change while the server runs, and the read is the whole file.
 /// </summary>
-public sealed class BspEntityClasses(IEngineFiles files) : IMapEntityClasses
+public sealed class BspEntityClasses(IEngineFiles files, ILevelInfo? level = null, ILoadedMapClasses? loaded = null) : IMapEntityClasses
 {
     private const int Ident = 'V' | ('B' << 8) | ('S' << 16) | ('P' << 24);
     private const int HeaderBytes = 8 + 64 * 16;
@@ -40,6 +54,10 @@ public sealed class BspEntityClasses(IEngineFiles files) : IMapEntityClasses
     {
         if (map.Length == 0 || map.Contains("..", StringComparison.Ordinal) || map.Contains('/', StringComparison.Ordinal))
             return null;
+        // The level playing now: its spawn's classes, so a compressed lump (TF2's maps) is no unknown.
+        if (loaded is not null && string.Equals(map, level?.Map, StringComparison.OrdinalIgnoreCase)
+            && new HashSet<string>(loaded.ClassNames, StringComparer.OrdinalIgnoreCase) is { Count: > 0 } spawned)
+            return spawned;
         if (_byMap.TryGetValue(map, out var known))
             return known;
         var read = files.ReadGameFileBytes($"maps/{map}.bsp") is { } bytes ? Read(bytes) : null;
@@ -135,6 +153,22 @@ public sealed class GameModeCatalog(GameModes modes, IMapEntityClasses maps, ILe
     public MapSupport Supports(string map, string modeId)
         => Find(modeId) is { } mode ? Judge(map, mode, mode.RequiresAnyOf.Count == 0 ? null : maps.Of(map))
                                     : new MapSupport(false, $"no mode is called '{modeId}'");
+
+    /// <summary>
+    /// The modes that need a map's entities (a flag, a control point) which
+    /// <paramref name="map"/> can play, by id; null when one needs them and
+    /// the map's entities cannot be read (a compressed lump), so its modes are
+    /// unknown. The modes that play anywhere are not named.
+    /// </summary>
+    public IReadOnlyList<string>? EntityModesOn(string map)
+    {
+        var needing = Modes().Where(m => m.RequiresAnyOf.Count > 0).ToList();
+        if (needing.Count == 0)
+            return [];
+        if (maps.Of(map) is not { } classes)
+            return null;
+        return [.. needing.Where(m => Judge(map, m, classes).Supported).Select(m => m.Id)];
+    }
 
     /// <summary>
     /// The rule: a mode that requires nothing plays anywhere; one that does

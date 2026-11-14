@@ -19,16 +19,27 @@ namespace SourceSharp.Client.Ui.Screens;
 /// and its console lines run after the server's size and before the map.
 /// </summary>
 public sealed class CreateServer(UiWindows windows, IMapListSource maps, IServerSettingsSource settings, ICreateServerActions actions,
-                                 IReadOnlyList<CreateServerPage> pages)
+                                 IReadOnlyList<CreateServerPage> pages, ICatalogSource catalog)
     : UiScreen, IUiWindowed
 {
     private const float LabelColumnDu = UiForm<MouseOptions.Model>.LabelColumnDu;
     private const string HostNameVar = "hostname", MaxPlayersVar = "maxplayers", PasswordVar = "sv_password";
 
+    /// <summary>The convar the chosen mode starts the server in (the server's <c>sv_mode_next</c>); empty: the map's own.</summary>
+    public const string ModeVar = "sv_mode_next";
+
+    /// <summary>Stock's team-play knob: the mode row replaces it.</summary>
+    private const string TeamplayVar = "mp_teamplay";
+
     // Stock's GetValue defaults, for a mod whose script names none.
     private const int DefaultMaxPlayers = 32, MaxPlayersCeiling = 32;
 
     private readonly ScriptRows _game = new(HostNameVar, MaxPlayersVar, PasswordVar);
+    private readonly ScriptRows _modeRows = new();
+    private readonly List<string> _modeNames = [];
+    private readonly List<string> _modeIds = [];
+    private IReadOnlyList<UiScriptEntry> _script = [];
+    private int _modeShown = -1;
     private readonly string[] _tabs = CreateServerWindow.Tabs(pages);
     private readonly List<string> _mapNames = [];
     private readonly List<string> _beforeMap = [];
@@ -57,6 +68,15 @@ public sealed class CreateServer(UiWindows windows, IMapListSource maps, IServer
     public IReadOnlyList<string> Maps { get; private set; } = [];
 
     public ScriptRows Game => _game;
+
+    /// <summary>The chosen mode, an index into the catalog's modes after the first choice, "the map's own" (0).</summary>
+    public int Mode { get; set; }
+
+    /// <summary>The chosen mode's id; empty for the map's own.</summary>
+    public string ModeId => Mode > 0 && Mode < _modeIds.Count ? _modeIds[Mode] : "";
+
+    /// <summary>The chosen mode's settings, as rows.</summary>
+    public ScriptRows ModeSettings => _modeRows;
 
     /// <summary>The window's size: the core's, grown to what the mod's pages need.</summary>
     public UiWindowSpec Spec(float screenW, float screenH) => CreateServerWindow.Spec(screenW, screenH, _minimum);
@@ -87,13 +107,86 @@ public sealed class CreateServer(UiWindows windows, IMapListSource maps, IServer
         _mapNames.Add("#SS_UI_Create_RandomMap");
         _mapNames.AddRange(Maps);
         Map = Maps.Count > 0 ? Math.Min(Math.Max(Map, 0), Maps.Count) : 0;
-        _game.Load(settings.Load());
+        _script = settings.Load();
+        LoadModes();
+        _game.Load([.. _script.Where(e => !Covered(e.Name))]);
         HostName = _game.Value(HostNameVar) is { Length: > 0 } name ? name : maps.GameName;
         MaxPlayers = _game.Value(MaxPlayersVar) is { } max ? ScriptRows.Number(max) : DefaultMaxPlayers;
         Password = _game.Value(PasswordVar) ?? "";
     }
 
     /// <summary>The map Start starts: the chosen one, or one of the maps at random.</summary>
+    // The catalog's modes: "the map's own" first, then each mode by its title; the script's sv_mode_next chosen.
+    private void LoadModes()
+    {
+        _modeNames.Clear();
+        _modeIds.Clear();
+        _modeNames.Add("#SS_UI_Create_ModeFromMap");
+        _modeIds.Add("");
+        foreach (var mode in catalog.Modes)
+        {
+            _modeNames.Add(mode.Spec.Title);
+            _modeIds.Add(mode.Spec.Id);
+        }
+        string saved = ScriptValue(ModeVar) ?? "";
+        Mode = Math.Max(0, _modeIds.FindIndex(id => string.Equals(id, saved, StringComparison.OrdinalIgnoreCase)));
+        _modeShown = -1;
+        ShowMode();
+    }
+
+    /// <summary>
+    /// The chosen mode's settings as rows, each holding the value it held, else the
+    /// script's, else the mode's default: a mode's rows are its own (deathmatch has
+    /// no team count), and a value carries over when two modes share a setting.
+    /// </summary>
+    public void ShowMode()
+    {
+        if (_modeShown == Mode)
+            return;
+        _modeShown = Mode;
+        var spec = Mode > 0 && Mode - 1 < catalog.Modes.Count ? catalog.Modes[Mode - 1].Spec : null;
+        var rows = new List<UiScriptEntry>();
+        foreach (var setting in spec?.Settings ?? [])
+        {
+            if (setting.AdminOnly)
+                continue;
+            string value = _modeRows.Value(setting.Key) ?? ScriptValue(setting.Key) ?? setting.Default;
+            rows.Add(Row(setting, value));
+        }
+        _modeRows.Load(rows);
+    }
+
+    private static UiScriptEntry Row(SourceSharp.Abi.SettingSpec setting, string value)
+    {
+        string prompt = "#SS_UI_Vote_Setting_" + setting.Key;
+        if (setting.Choices.Count == 0)
+            return new UiScriptEntry(setting.Key, prompt, null, UiScriptKind.Number, setting.Min, setting.Max, [], value, false);
+        if (setting.Kind == SourceSharp.Abi.SettingKind.Bool)
+            return new UiScriptEntry(setting.Key, prompt, null, UiScriptKind.Bool, 0, 1, [], value, false);
+        return new UiScriptEntry(setting.Key, prompt, null, UiScriptKind.List, 0, 0,
+                                 [.. setting.Choices.Select(c => new UiScriptItem(c.Label, c.Value))], value, false);
+    }
+
+    private string? ScriptValue(string name)
+    {
+        foreach (var e in _script)
+            if (e.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+                return e.Value;
+        return null;
+    }
+
+    // A script row the mode row or a mode's settings draw: the knob the mode replaces, and every catalog setting.
+    private bool Covered(string name)
+    {
+        if (name.Equals(ModeVar, StringComparison.OrdinalIgnoreCase) || name.Equals(TeamplayVar, StringComparison.OrdinalIgnoreCase))
+            return true;
+        foreach (var mode in catalog.Modes)
+            foreach (var setting in mode.Spec.Settings)
+                if (setting.Key.Equals(name, StringComparison.OrdinalIgnoreCase))
+                    return true;
+        return false;
+    }
+
     public string? ChosenMap(Random random)
         => Maps.Count == 0 ? null : Map <= 0 ? Maps[random.Next(Maps.Count)] : Maps[Math.Min(Map, Maps.Count) - 1];
 
@@ -109,9 +202,17 @@ public sealed class CreateServer(UiWindows windows, IMapListSource maps, IServer
         _game.Set(HostNameVar, HostName);
         _game.Set(MaxPlayersVar, max.ToString(CultureInfo.InvariantCulture));
         _game.Set(PasswordVar, Password);
-        if (_game.Entries.Count > 0)
-            settings.Save(_game.Entries, _game.Values);
+        // The script keeps the server's fields, the mode and its settings; saving sets each convar before the map.
+        ShowMode();
+        var entries = new List<UiScriptEntry>(_game.Entries);
+        var values = new List<string>(_game.Values);
+        entries.Add(new UiScriptEntry(ModeVar, "#SS_UI_Create_Mode", null, UiScriptKind.String, 0, 0, [], "", false));
+        values.Add(ModeId);
+        entries.AddRange(_modeRows.Entries);
+        values.AddRange(_modeRows.Values);
+        settings.Save(entries, values);
         _game.TakeSaved();
+        _modeRows.TakeSaved();
         actions.Start(map, max, HostName, Password, _beforeMap);
         windows.RequestClose(WindowId);
     }
@@ -136,11 +237,18 @@ public sealed class CreateServer(UiWindows windows, IMapListSource maps, IServer
                 using (ui.FormGrid(LabelColumnDu).Width(Size.Fill))
                 {
                     if (Tab == 0)
+                    {
                         ServerPage(ref ui);
-                    else if (_game.Describe(ref ui, GameKeyBase) is var pressed and >= 0)
-                        settings.Press(_game.Entries[pressed]);
+                    }
+                    else
+                    {
+                        GameModeRow(ref ui);
+                        _modeRows.Describe(ref ui, ModeKeyBase);
+                        if (_game.Describe(ref ui, GameKeyBase) is var pressed and >= 0)
+                            settings.Press(_game.Entries[pressed]);
+                    }
                 }
-                if (Tab == 1 && !_game.AnyShown)
+                if (Tab == 1 && !_game.AnyShown && _modeNames.Count <= 1)
                     ui.EmptyState(UiShape.Dot, "#SS_UI_Create_NoSettings", "#SS_UI_Create_NoSettingsBody").Size(Size.Fill, Size.Fill);
             }
 
@@ -149,8 +257,19 @@ public sealed class CreateServer(UiWindows windows, IMapListSource maps, IServer
         }
     }
 
-    // Grid keys: the server page's rows, and the game page's from GameKeyBase.
-    private const int ControlKey = 1000, GameKeyBase = 100;
+    // Grid keys: the server page's rows, the mode's settings from ModeKeyBase and the script's from GameKeyBase.
+    private const int ControlKey = 1000, GameKeyBase = 100, ModeKeyBase = 400, ModeRow = 10;
+
+    // The mode row heads the game page; a change shows the chosen mode's settings.
+    private void GameModeRow(ref UiFrame ui)
+    {
+        if (_modeNames.Count <= 1)
+            return;
+        Label(ref ui, ModeRow, "#SS_UI_Create_Mode");
+        using (Control(ref ui, ModeRow))
+            Mode = ui.Choice("mode", Mode, _modeNames.Count, new UiChoiceList(_modeNames), tokens: true);
+        ShowMode();
+    }
 
     private void ServerPage(ref UiFrame ui)
     {

@@ -878,6 +878,18 @@ public interface IAdminKeySource
     void Set(string pathOrKey);
 }
 
+/// <summary>
+/// The game-mode catalog (plan_bots_teams_tf2 D.2): the server's while this
+/// client is in a game, with whether its map can play each mode; before any
+/// server exists, the one this client's own assemblies build (the create-server
+/// page reads that one).
+/// </summary>
+public interface ICatalogSource
+{
+    /// <summary>Every mode, in the server's order.</summary>
+    IReadOnlyList<SourceSharp.Abi.CatalogMode> Modes { get; }
+}
+
 /// <summary>The vote on now, as the panel shows it: live from the server.</summary>
 public interface IVoteSource
 {
@@ -917,6 +929,15 @@ public interface IVoteSource
 
     /// <summary>Why this player's last call was refused, a #Token; null for none now.</summary>
     string? Refusal { get; }
+
+    /// <summary>The refusal in the server's words, where it has more to say ("dm_lockdown has no item_teamflag"); empty when not.</summary>
+    string RefusalReason { get; }
+
+    /// <summary>A multiple-choice ballot's choices, in order (a map name, or a token); empty for Yes/No.</summary>
+    IReadOnlyList<string> Options { get; }
+
+    /// <summary>How many chose <paramref name="option"/> (1 to 5) on a multiple-choice ballot.</summary>
+    int CountOf(int option);
 }
 
 /// <summary>One choice of a radial menu: what it says (a #Token or data), a second line, and whether it can be taken.</summary>

@@ -122,9 +122,9 @@ public class GameModeCatalogTests
 
         var tdm = Catalog(rig, files).Find("tdm")!;
 
-        Assert.Equal("mp_friendlyfire,mp_timelimit,mp_fraglimit,mp_tdm_teams,mp_teammates_collide,cs_sv_teams_unbalance_limit", Keys(tdm));
-        Assert.Equal(SettingApplies.NextRound, tdm.Settings.Single(s => s.Key == "cs_sv_teams_unbalance_limit").Applies);
-        Assert.All(tdm.Settings.Where(s => s.Key != "cs_sv_teams_unbalance_limit"), s => Assert.Equal(SettingApplies.Now, s.Applies));
+        Assert.Equal("mp_friendlyfire,mp_timelimit,mp_fraglimit,mp_tdm_teams,mp_teammates_collide,mp_teams_unbalance_limit", Keys(tdm));
+        Assert.Equal(SettingApplies.NextRound, tdm.Settings.Single(s => s.Key == "mp_teams_unbalance_limit").Applies);
+        Assert.All(tdm.Settings.Where(s => s.Key != "mp_teams_unbalance_limit"), s => Assert.Equal(SettingApplies.Now, s.Applies));
     }
 
     [Fact]
@@ -204,6 +204,35 @@ public class GameModeCatalogTests
         Assert.Contains("worldspawn", classes.Of("CTF_2FORT")!);
 
         Assert.Equal(["maps/ctf_2fort.bsp"], files.Reads);
+    }
+
+    private sealed class Spawned(params string[] classes) : ILoadedMapClasses
+    {
+        public IEnumerable<string> ClassNames => classes;
+    }
+
+    /// <summary>TF2's maps compress their entity lump: the level playing is read from its spawn instead.</summary>
+    [Fact]
+    public void TheLevelPlayingIsReadFromItsSpawnNotItsBsp()
+    {
+        var files = new Bsps();
+        byte[] compressed = Bsp("info_player_teamspawn");
+        BinaryPrimitives.WriteInt32LittleEndian(compressed.AsSpan(20), 4096);
+        files.Files["maps/ctf_2fort.bsp"] = compressed;
+        var classes = new BspEntityClasses(files, new Level("ctf_2fort"), new Spawned("worldspawn", "item_teamflag"));
+
+        Assert.Contains("item_teamflag", classes.Of("CTF_2fort")!);
+        Assert.Empty(files.Reads);
+        Assert.Null(classes.Of("cp_dustbowl"));
+    }
+
+    [Fact]
+    public void BeforeItsSpawnTheLevelPlayingIsReadFromItsBsp()
+    {
+        var files = new Bsps();
+        files.Files["maps/ctf_2fort.bsp"] = Bsp("item_teamflag");
+
+        Assert.Contains("item_teamflag", new BspEntityClasses(files, new Level("ctf_2fort"), new Spawned()).Of("ctf_2fort")!);
     }
 
     [Fact]

@@ -215,6 +215,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             locator => new Hooks<IClientCommandHook>(locator, locator.Require<ILog>()));
         _services.AddFactory<IHooks<IVoteStateHook>>(
             locator => new Hooks<IVoteStateHook>(locator, locator.Require<ILog>()));
+        _services.AddFactory<IHooks<IModeCatalogHook>>(
+            locator => new Hooks<IModeCatalogHook>(locator, locator.Require<ILog>()));
         _services.AddFactory<IHooks<IPlayerMarkerHook>>(
             locator => new Hooks<IPlayerMarkerHook>(locator, locator.Require<ILog>()));
         _services.AddFactory<IHooks<IAdminHook>>(
@@ -773,6 +775,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddFactory<IHooks<INameChangeGate>>(locator => new Hooks<INameChangeGate>(locator, log));
         _services.AddFactory<IHooks<IRespawnGate>>(locator => new Hooks<IRespawnGate>(locator, log));
         _services.AddFactory<IHooks<IRoundEndGate>>(locator => new Hooks<IRoundEndGate>(locator, log));
+        _services.AddFactory<IHooks<IIntermissionHook>>(locator => new Hooks<IIntermissionHook>(locator, log));
         // A mod's WantsLagCompensationOnEntity (TF2's CTFPlayer override).
         _services.AddFactory<IHooks<ILagCompensationTargets>>(locator => new Hooks<ILagCompensationTargets>(locator, log));
         // THE MOVEMENT RULES (phase 0.3) are a SINGLE-OWNER hook: a mod marks
@@ -822,6 +825,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // not as a registered selector). Lazy, so a selector may take the
         // services its own mode needs.
         _services.AddFactory<IHooks<IGameModeSelector>>(locator => new Hooks<IGameModeSelector>(locator, log));
+        // Who hears a mode switch (plan_bots_teams_tf2 D.2): votes, the catalog's
+        // publisher, a binding that plays.
+        _services.AddFactory<IHooks<IModeSwitchHook>>(locator => new Hooks<IModeSwitchHook>(locator, log));
         // The per-player composite's sources (tf2 stage 0.7 part B): every
         // mod's IPlayerComponentSource, TF2's and Descent's alike, asked once
         // per player and merged. A chain because that is the ruling — two
@@ -2040,14 +2046,32 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // specs and the rows every mode gets, and which modes a map's lump
         // can play. Votes, the admin menu and the client's copy read it.
         _services.AddFactory<IHooks<IModeSettingsProvider>>(locator => new Hooks<IModeSettingsProvider>(locator, locator.Require<ILog>()));
+        _services.Add<ILoadedMapClasses, SpawnedMapClasses>();
         _services.Add<IMapEntityClasses, BspEntityClasses>();
         _services.Add<GameModeCatalog>();
         // The one validated path a setting is changed by (votes, the admin menu, ss_setting).
         _services.Add<ModeSettingWrites>();
+        // The mode asked for by name (sv_mode_next), first on the selector chain.
+        _services.Add<RequestedModeSelector>();
+        // The catalog's way to the clients: sv_mode_active and the catalog's pieces.
+        _services.Add(typeof(ModeCatalogPublisher), typeof(ModeCatalogPublisher));
 
         // Voting and its console verbs: a core service, the mods' words before it.
-        _services.Add<IVoteOptions, GameVoteOptions>();
+        // The issues players may call, each its own class (plan_bots_teams_tf2 D.3), and their list.
+        _services.AddFactory<IHooks<IVoteIssue>>(locator => new Hooks<IVoteIssue>(locator, locator.Require<ILog>()));
+        // The maps a vote or the admin menu may change to: installed, of the cycle, with their modes and nav.
+        _services.Add<MapCandidates>();
+        _services.Add<ChangeLevelVoteIssue>();
+        _services.Add<NextLevelVoteIssue>();
+        _services.Add<ModeVoteIssue>();
+        _services.Add<SettingVoteIssue>();
+        _services.Add<ExtendVoteIssue>();
+        _services.Add<RestartVoteIssue>();
+        _services.Add<ScrambleVoteIssue>();
+        _services.Add<IVoteOptions, VoteIssueList>();
         _services.Add(typeof(ServerVotes), typeof(ServerVotes));
+        // The server's own choice of the next map when a level's round ends.
+        _services.Add<EndOfMapVote>();
         // The admin menu's Teams folder, under team deathmatch.
         _services.Add(typeof(TeamAdminMenu), typeof(TeamAdminMenu));
 

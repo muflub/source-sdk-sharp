@@ -357,6 +357,7 @@ public sealed class GameModes : IGameLifecycle, IFrameLifecycle
 
         _log.Msg($"[SourceSharp/Modes] switched to '{next.Id}'\n");
         Setup(next);
+        _services.Resolve<IHooks<IModeSwitchHook>>()?.Each(nameof(IModeSwitchHook.OnModeSwitched), hook => hook.OnModeSwitched(previous, next));
 
         float warmup = WarmupSeconds();
         _warmupEndsAt = warmup > 0f ? now + warmup : null;

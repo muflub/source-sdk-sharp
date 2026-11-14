@@ -11526,6 +11526,14 @@ EXTRA_STEPS = [
     ("ss-ai-nav", "a bot walks ss_ai_nav to the .357 (not in §5; plan_hl2mp_ai §6.6)", step_ss_ai_nav),
     ("ss-ai-sight", "a bot sees another on ss_ai_sight (not in §5; plan_hl2mp_ai §6.6)", step_ss_ai_sight),
     ("ss-ai-hearing", "a bot hears another on ss_ai_hearing (not in §5; plan_hl2mp_ai §6.6)", step_ss_ai_hearing),
+]
+
+# The nav build's steps (plan_bots_teams_tf2 E.7), written but not yet run:
+# a stage joins EXTRA_STEPS and RUN_ORDER (after ss-ai-hearing) together with
+# its crossing-budget row, which tools/gate-budget requires and only a run
+# records (`tools/live-gate --steps nav-build,nav-cache,nav-corrupt,nav-fail
+# --passes 3 --record --budget <scratch copy>`, then carry the four rows).
+NAV_BUILD_STEPS = [
     ("nav-build", "with its .nav3d aside, ss_ai_routes has one built by the server; a bot added meanwhile "
                   "joins and walks (not in §5; plan_bots_teams_tf2 E.7)", step_nav_build),
     ("nav-cache", "a second load of ss_ai_routes reads the server's build from the cache "
@@ -11549,7 +11557,6 @@ RUN_ORDER = ["join", "render", "rope-settle", "beam-ring", "proxy-animated", "vi
              "skinned-model", "viewmodel-merge", "gib-ragdoll",
              "engine-vectors", "second-client", "frag-credit", "chat", "spectate", "round-end", "save-load", "hot-reload", "map-reload",
              "phys-convert", "render-plan-sandbox", "ai-nav", "ai-reload", "bots", "ai-jank", "ss-ai-nav", "ss-ai-sight", "ss-ai-hearing",
-             "nav-build", "nav-cache", "nav-corrupt", "nav-fail",
              "map-change", "sigterm-shutdown", "shutdown"]
 
 # The team deathmatch steps (plan_bots_teams_tf2 A.5, A.6, B.8, B.9), written
