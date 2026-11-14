@@ -332,6 +332,23 @@ public enum TFLoadoutSlot
     Count = 19,
 }
 
+/// <summary>
+/// The two per-team contents bits, <c>CONTENTS_REDTEAM</c> /
+/// <c>CONTENTS_BLUETEAM</c> (tf_shareddefs.h:61-62): bspflags.h:46-47's
+/// <c>CONTENTS_TEAM1</c> 0x800 and <c>CONTENTS_TEAM2</c> 0x1000, "used to
+/// differentiate collisions between players and objects on different teams".
+/// The candidate's own team's bit is what <c>CTFPlayer::ShouldCollide</c>
+/// demands of a movement mask (tf_player.cpp:10167-10173); the other team's is
+/// what <c>CTFGameMovement::PlayerSolidMask</c> adds to the mover's
+/// (tf_gamemovement.cpp:271-281) — together, teammates pass through enemies
+/// do not.
+/// </summary>
+public static class TFContents
+{
+    public const int RedTeam = 0x800;
+    public const int BlueTeam = 0x1000;
+}
+
 /// <summary>The ten <c>TF_DAMAGE_*</c> defines of tf_shareddefs.h.</summary>
 public static class TFDamage
 {

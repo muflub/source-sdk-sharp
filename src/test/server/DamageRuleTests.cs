@@ -66,7 +66,7 @@ public class DamageRuleTests
                    new Scoreboard(_host, new PlayerDisconnectEvent(), new RecordingLog()),
                    new PlayerDeathEvent(), damageRules: chain);
 
-        public void FriendlyFire(string value) => ConVars.Declared<FriendlyFireConVar>().Bind(-1, "sv_friendlyfire", value);
+        public void FriendlyFire(string value) => ConVars.Declared<MpFriendlyFireConVar>().Bind(-1, "mp_friendlyfire", value);
         public void SpawnProtect(string value) => ConVars.Declared<SpawnProtectConVar>().Bind(-1, "cs_sv_spawn_protect", value);
         public GameRules Bare() => Rules(null);   // the no-owner arm: no chain at all
     }

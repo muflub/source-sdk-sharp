@@ -272,6 +272,21 @@ public class TFMeleeBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
     }
 
     /// <summary>
+    /// <c>CTFWeaponBaseMelee::Holster</c> (<c>tf_weaponbase_melee.cpp:140-161</c>):
+    /// holstering the melee spends the charge's grant with it — the granted
+    /// crit was made for THIS hand's swings, and it goes when another weapon
+    /// takes the hands (:151's <c>SetNextMeleeCrit(MELEE_NOCRIT)</c>). The
+    /// clear asks the owner the deploy dressed, as every Holster arm here does.
+    /// </summary>
+    public override void Holster(in WeaponAttackContext attack)
+    {
+        if (Parts.PlayerData.Predicted(attack.Weapon.OwnerIndex) is { } spent)
+            spent.NextMeleeCrit = (int)TFMeleeCrit.NoCrit;
+
+        base.Holster(in attack);
+    }
+
+    /// <summary>
     /// <c>ItemPreFrame</c> (<c>tf_weaponbase_melee.cpp:354-368</c>): the held
     /// fists' <c>self_mark_for_death</c> seconds ride onto the owner every
     /// command — stock's <c>AddCond(TF_COND_MARKEDFORDEATH_SILENT, iSelfMark)</c>

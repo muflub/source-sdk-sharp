@@ -532,4 +532,44 @@ public sealed class TFMeleeBehaviourTests
         Assert.Empty(world.Effects.Projectiles);
         Assert.Equal(1f, w.ItemMeter, 4);
     }
+
+    // ---- the holster's clear of the granted crit (Holster, :140-161) -------
+
+    /// <summary>A world whose owner carries the charge's grant, and no
+    /// second one to hide behind: what the holster's clear must spend.</summary>
+    private static (TFWeaponWorld World, TFPlayerNetState Carrier) GrantWorld()
+    {
+        var carrier = new TFPlayerNetState();
+        carrier.BindLocal();
+        carrier.NextMeleeCrit = (int)TFMeleeCrit.Crit;
+        var world = new TFWeaponWorld(new FakePredictedData { Carrier = carrier });
+        return (world, carrier);
+    }
+
+    [Fact]
+    public void Holstering_the_melee_throws_the_granted_crit_away()
+    {
+        var (world, carrier) = GrantWorld();
+        var (w, vm) = world.Armed(Bat, clip: -1, reserve: 0);
+
+        // The switch away from the melee runs its Holster on the server
+        // (Arsenal's Holster of the outgoing weapon); the grant the charge
+        // made does not ride into the next weapon's hands (:151).
+        world.Behaviour(Bat).Holster(world.Attack(w, vm, now: 10f));
+
+        Assert.Equal((int)TFMeleeCrit.NoCrit, carrier.NextMeleeCrit);
+    }
+
+    [Fact]
+    public void Holstering_a_plain_gun_leaves_the_grant_alone()
+    {
+        var (world, carrier) = GrantWorld();
+        var (w, vm) = world.Armed("tf_weapon_pistol", clip: -1, reserve: 0);
+
+        // The clear is the melee's own Holster: a switch between two non-melee
+        // rows spends nothing of the grant waiting for the next swing.
+        world.Behaviour("tf_weapon_pistol").Holster(world.Attack(w, vm, now: 10f));
+
+        Assert.Equal((int)TFMeleeCrit.Crit, carrier.NextMeleeCrit);
+    }
 }

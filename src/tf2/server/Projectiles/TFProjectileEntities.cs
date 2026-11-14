@@ -84,10 +84,12 @@ public sealed class TFRocket : FlyingProjectile
     private readonly TFPlayerCarriers Carriers;
     private readonly ITempEnts Temps;
     private readonly IEnginePrecache Precache;
+    private readonly ITFPlayerConditions Conditions;
 
     public TFRocket(IEngineEntityPhysics physics, EntityMotion motion, TFBlastApplier blastApplier,
                     ITFWeaponOwners owners, IEnginePlayers players, AttributeHooks attributes,
-                    TFPlayerCarriers carriers, ITempEnts temps, IEnginePrecache precache)
+                    TFPlayerCarriers carriers, ITempEnts temps, IEnginePrecache precache,
+                    ITFPlayerConditions conditions)
         : base(physics, motion)
     {
         Blast = blastApplier;
@@ -97,6 +99,7 @@ public sealed class TFRocket : FlyingProjectile
         Carriers = carriers;
         Temps = temps;
         Precache = precache;
+        Conditions = conditions;
     }
 
     protected override float GravityScale => 0f;
@@ -125,6 +128,9 @@ public sealed class TFRocket : FlyingProjectile
     /// here asks truthiness, so the flag is the count's answer.
     /// </summary>
     public bool Deflected { get; private set; }
+
+    /// <summary>The Air Strike's blast-radius penalty while its holder rocket jumps (:611).</summary>
+    private const float AirStrikeJumpRadiusScale = 0.80f;
 
     /// <summary>What the client's trail mirror reads.</summary>
     [NetState] public TFRocketNetState State = new();
@@ -244,7 +250,9 @@ public sealed class TFRocket : FlyingProjectile
     /// mult_explosion_radius off the launcher item and rocket_specialist off
     /// the owner player, whose attribute manager reaches the item — the port
     /// asks the owner's item under this weapon's name for both. The
-    /// airstrike arm (:602-614) waits on the blast-jump condition.
+    /// airstrike arm (:602-613): an owner in the blast-jump condition whose
+    /// item keys the Air Strike (rocketjump_attackrate_bonus answering
+    /// anything but one) takes 0.80 of the radius.
     /// </summary>
     private float Radius(EntityHandle directVictim)
     {
@@ -254,6 +262,11 @@ public sealed class TFRocket : FlyingProjectile
         int specialist = Attributes.Int(0, "rocket_specialist", item);
         if (specialist != 0 && IsDirectHitOnAnEnemy(directVictim))
             radius *= RemapValClamped(specialist, 1f, 4f, 1.15f, 1.6f);
+
+        // :602-613, the Air Strike's own blast while rocket jumping.
+        if (Conditions.InCond(Players.GetHandle(_ownerIndex), TFCond.Blastjumping)
+            && Attributes.Float(1f, "rocketjump_attackrate_bonus", item) != 1f)
+            radius *= AirStrikeJumpRadiusScale;
 
         return radius;
     }

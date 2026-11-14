@@ -232,12 +232,13 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
             // submachine gun's and the revolver's add DMG_USE_HITLOCATIONS
             // when set_weapon_mode is 1; CTFPistol_ScoutSecondary's
             // (tf_weapon_pistol.cpp:250-259) when back_headshot is set. The
-            // revolver's stock gate on its last accuracy check more than a
-            // second ago (m_flLastAccuracyCheck, :85) has no clock here
-            // (docs/divergences.md).
+            // revolver's own gate (:85) holds the bit until a second has
+            // passed since the shot stamped the accuracy clock
+            // (m_flLastAccuracyCheck, the behaviour's kept time).
             else if (weapon is TFWeaponId.Smg or TFWeaponId.ChargedSmg or TFWeaponId.Revolver)
             {
-                if (attributes.Int(0, "set_weapon_mode", owners.ItemOf(hit.Attacker.EntryIndex, weaponName)) == 1)
+                if (attributes.Int(0, "set_weapon_mode", owners.ItemOf(hit.Attacker.EntryIndex, weaponName)) == 1
+                    && (weapon != TFWeaponId.Revolver || AccuracyFresh(hit.Attacker)))
                     bits |= TFDamageBits.UseHitLocations;
             }
             else if (weapon == TFWeaponId.HandgunScoutSecondary
@@ -1167,6 +1168,17 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
     private bool FullyCharged(EntityHandle attacker) =>
         directory.Get(enginePlayers.GetActiveWeaponEntity(attacker)) is SsWeapon { State: { } state }
         && TFSniperRifleBehaviour.Charge(state, clock.Now) >= TFSniperRifleBehaviour.DamageMax;
+
+    /// <summary>
+    /// <c>CTFRevolver::GetDamageType</c>'s freshness gate
+    /// (<c>tf_weapon_revolver.cpp:85</c>): a second past the shot's accuracy
+    /// stamp (<c>m_flLastAccuracyCheck</c>, the behaviour's kept time on the
+    /// held weapon). An unreadable weapon is not fresh; a never-fired gun's
+    /// zeroed member is — stock's curtime over it.
+    /// </summary>
+    private bool AccuracyFresh(EntityHandle attacker) =>
+        directory.Get(enginePlayers.GetActiveWeaponEntity(attacker)) is SsWeapon { State: { } state }
+        && clock.Now - state.BehaviourKeptTime > 1f;
 
     /// <summary>The flinch's punch, in degrees of pitch (tf_player.cpp:9617's literal 2).</summary>
     public const float FlinchPunch = 2f;

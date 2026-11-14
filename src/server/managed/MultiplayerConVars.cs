@@ -33,8 +33,7 @@ namespace SourceSharp.Server;
 /// that file is its own. So this class does not make them work; it stops them
 /// vanishing, and it puts them somewhere a managed rule can now read them.
 /// <see cref="GameRules"/> already has its own <c>cs_sv_fraglimit</c>, which is
-/// the one this mod's rules consult — the same split as
-/// <see cref="MpFriendlyFireConVar"/> against <c>cs_sv_friendly_fire</c>.
+/// the one this mod's rules consult before stock's <c>mp_fraglimit</c>.
 /// </para>
 ///
 /// <para>

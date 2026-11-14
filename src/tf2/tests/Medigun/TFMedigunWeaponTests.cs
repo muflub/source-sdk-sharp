@@ -1594,6 +1594,8 @@ public sealed class TFMedigunWeaponTests
     private sealed class RoundAt(TF2.Shared.Rules.RoundState state) : TF2.Shared.Rules.ITFRoundStateView
     {
         public TF2.Shared.Rules.RoundState State { get; set; } = state;
+
+        public TFTeam Winner => TFTeam.Unassigned;
     }
 
     /// <summary>The ubercharge_preserved_on_spawn_max cap on the medic's own manager, as the wearer's walk reads it.</summary>

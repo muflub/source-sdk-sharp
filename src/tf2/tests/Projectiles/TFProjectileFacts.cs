@@ -202,10 +202,28 @@ internal sealed class ProjectileRig
     /// <summary>A rocket with its areas bound, launchable and touchable.</summary>
     public TFRocket Rocket()
     {
-        var rocket = new TFRocket(Engine, Motion, Blast, Owners, Engine, Hooks, Carriers, Temps, Engine);
+        var rocket = new TFRocket(Engine, Motion, Blast, Owners, Engine, Hooks, Carriers, Temps, Engine,
+                                  RocketConds);
         rocket.BindAreas(TestServices.Areas(Engine));
         return BindStates(rocket);
     }
+
+    /// <summary>The condition seam the rocket's radius asks, at its smallest:
+    /// the holder is in the blast jump or is not, as <see cref="BlastJumping"/> sets.</summary>
+    public sealed class RocketConditions : ITFPlayerConditions
+    {
+        public bool BlastJumping { get; set; }
+
+        public TFConditions? Of(int playerIndex) => null;
+        public TFCondAdd Add(EntityHandle player, TFCond cond, float duration = TFConditions.Permanent, EntityHandle provider = default)
+            => TFCondAdd.Refused;
+        public bool Remove(EntityHandle player, TFCond cond, bool ignoreDuration = false) => false;
+        public TFCondMask RemoveAll(EntityHandle player) => default;
+        public bool InCond(EntityHandle player, TFCond cond) => BlastJumping && cond == TFCond.Blastjumping;
+    }
+
+    /// <summary>The condition answers the rocket's radius arm reads.</summary>
+    public RocketConditions RocketConds { get; } = new();
 
     /// <summary>A pipebomb with its areas bound.</summary>
     public TFPipebomb Pipebomb()

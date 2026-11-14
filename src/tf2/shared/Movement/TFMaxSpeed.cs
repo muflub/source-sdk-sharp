@@ -5,6 +5,8 @@
 //
 //=============================================================================//
 
+using SourceSharp.Abi;
+
 using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
 using TF2.Shared.Player;
@@ -56,7 +58,19 @@ public readonly record struct TFMoveInputs(
     /// the meter remapped 0..100 onto 1..1.45 for a Baby Face's Blaster owner
     /// — the scale the movement rules compute (<see cref="TFHype.SpeedScale"/>),
     /// 1 without the item, the walk's no-op.</summary>
-    float HypeSpeedScale = 1f)
+    float HypeSpeedScale = 1f,
+
+    /// <summary>The player's observer mode, the engine's <c>m_iObserverMode</c>
+    /// — the walk's head arm (tf_player_shared.cpp:10844-10851): the roaming
+    /// classic observer runs at the scout's speed, any other observer stands.
+    /// <see cref="ObserverMode.None"/> in play.</summary>
+    ObserverMode Observer = ObserverMode.None,
+
+    /// <summary>The team-win bonus's scale (tf_player_shared.cpp:10938-10954):
+    /// 1.1 a winner and 0.9 a loser while the round is
+    /// <c>GR_STATE_TEAM_WIN</c> and a winner stands — the scale
+    /// <see cref="TFMaxSpeed.TeamWinScale"/> decides, 1 outside the win.</summary>
+    float TeamWinScale = 1f)
 {
     /// <summary>The inputs a carrier's state holds. The weapon inputs wait for the weapons lane (1.9).</summary>
     public static TFMoveInputs Of(TFPlayerNetState state)
@@ -100,9 +114,8 @@ public sealed record TFPeerInput(int Index, TFMoveInputs Inputs, AttributeHooks 
 /// <item>times the active weapon's speed mod (:10956-10960).</item>
 /// </list>
 /// Not ported (docs/plans/tf2/deferred.tsv): the observer arm, the MvM
-/// mini-boss exception, the team-win bonus, the Quick-Fix's
-/// charge arm, the
-/// bonesaw heads, heavy's <c>TF_COND_ENERGY_BUFF</c>, the hype meter and the
+/// mini-boss exception, the team-win bonus, the
+/// bonesaw heads, the hype meter and the
 /// runes.
 /// </summary>
 public static class TFMaxSpeed
@@ -135,6 +148,14 @@ public static class TFMaxSpeed
     /// <summary><c>mult_player_movespeed_shieldrequired</c>, the shield wearer's hook (:11007).</summary>
     public const string ShieldRequiredSpeedAttrib = "mult_player_movespeed_shieldrequired";
 
+    /// <summary><c>set_weapon_mode</c>, the medigun type's hook — the
+    /// Quick-Fix arm's <c>GetMedigunType</c> (tf_weapon_medigun.cpp:781-785),
+    /// read off the owner's manager as the medigun's own arms do.</summary>
+    public const string MedigunModeAttrib = "set_weapon_mode";
+
+    /// <summary><c>MEDIGUN_QUICKFIX</c> (tf_weapon_medigun.h:23-29).</summary>
+    public const int QuickFixMedigunMode = 2;
+
     /// <summary><c>tf_max_charge_speed</c>'s default, the shield charge's speed (tf_gamemovement.cpp:52, read at tf_player_shared.cpp:10972).</summary>
     public const float MaxChargeSpeed = 750f;
 
@@ -166,6 +187,15 @@ public static class TFMaxSpeed
                               IAttributeProvider? activeItem)
     {
         TFClass playerClass = inputs.Class;
+
+        // The observer's head arm (tf_player_shared.cpp:10844-10851), stock's
+        // early returns before the class check: the roaming classic observer
+        // moves at the scout's speed, and any other observer stands.
+        if (inputs.Observer != ObserverMode.None)
+            return inputs.Observer == ObserverMode.Roaming
+                ? classes[TFClass.Scout].MaxSpeed
+                : 0f;
+
         if (playerClass == TFClass.Undefined)
             return 1.0f;
 
@@ -215,6 +245,12 @@ public static class TFMaxSpeed
         if (inputs.Conditions.Has(TFCond.Stealthed) && maxfbspeed > spyMaxCloakedSpeed)
             maxfbspeed = spyMaxCloakedSpeed;
 
+        // The bonus time (tf_player_shared.cpp:10938-10954): while the round
+        // is GR_STATE_TEAM_WIN the winners run 110 and the losers 90 — the
+        // scale the rules decided, 1 outside the win, before the weapon's own
+        // mod as stock's order runs.
+        maxfbspeed *= inputs.TeamWinScale;
+
         if (inputs.ActiveWeapon != TFWeaponId.None)
             maxfbspeed *= inputs.WeaponSpeedMod;
 
@@ -262,15 +298,23 @@ public static class TFMaxSpeed
         // The medic matches a faster patient (tf_player_shared.cpp:11029-11045,
         // after the hook as stock's order runs): the patient runs the same
         // walk, arms and all. Only the medigun publishes a target, so the
-        // index stands for stock's active-medigun cast; the Quick-Fix's
-        // charge arm is the convar row's.
+        // index stands for stock's active-medigun cast.
         if (playerClass == TFClass.Medic && inputs.HealTargetIndex >= 0)
         {
             if (peers(inputs.HealTargetIndex) is { } target)
             {
-                maxfbspeed = MathF.Max(maxfbspeed, Walk(classes, target.Inputs, spyMaxCloakedSpeed,
-                                                        target.Attribs, target.Manager, peers,
-                                                        target.Index, inFlight, target.ActiveItem));
+                // The Quick-Fix attaches to charging demos (:11021-11024): a
+                // healing Quick-Fix (set_weapon_mode MEDIGUN_QUICKFIX, the
+                // same owner-manager walk the medigun's own arms take) on a
+                // patient in TF_COND_SHIELD_CHARGE answers
+                // tf_max_charge_speed outright, the patient's walk unmatched.
+                bool quickFix = attribs.Int(0, MedigunModeAttrib, playerAttributes) == QuickFixMedigunMode;
+                float healTargetSpeed =
+                    quickFix && target.Inputs.Conditions.Has(TFCond.ShieldCharge)
+                        ? MaxChargeSpeed
+                        : Walk(classes, target.Inputs, spyMaxCloakedSpeed, target.Attribs, target.Manager,
+                               peers, target.Index, inFlight, target.ActiveItem);
+                maxfbspeed = MathF.Max(maxfbspeed, healTargetSpeed);
             }
         }
 
@@ -297,6 +341,20 @@ public static class TFMaxSpeed
                 maxfbspeed *= itemSpeedMod;
         }
 
+        // The heavy's berzerker (tf_player_shared.cpp:11065-11078): the
+        // Steak Sandvich's TF_COND_ENERGY_BUFF scales 1.3, held at 1.35 times
+        // the class default so another modifier (the G.R.U.'s) cannot pass it.
+        if (playerClass == TFClass.HeavyWeapons)
+        {
+            float heavyMaxSpeed = defaultSpeed * 1.35f;
+            if (conditions.Has(TFCond.EnergyBuff))
+            {
+                maxfbspeed *= 1.3f;
+                if (maxfbspeed > heavyMaxSpeed)
+                    maxfbspeed = heavyMaxSpeed;
+            }
+        }
+
         // The scout's hype speed (tf_player_shared.cpp:11080-11086): a Baby
         // Face's Blaster owner runs at the meter's scale — stock's
         // Weapon_OwnsThisID(TF_WEAPON_PEP_BRAWLER_BLASTER) gate is the
@@ -306,6 +364,16 @@ public static class TFMaxSpeed
 
         return maxfbspeed;
     }
+
+    /// <summary>The bonus arm's scale (tf_player_shared.cpp:10938-10954):
+    /// 1.1 the winner's team and 0.9 the rest while the round is
+    /// <c>GR_STATE_TEAM_WIN</c> and a winner stands; an unassigned winner is
+    /// stock's TEAM_UNASSIGNED arm, no scale. The walk's
+    /// <see cref="TFMoveInputs.TeamWinScale"/> input.</summary>
+    public static float TeamWinScale(Rules.RoundState state, TFTeam winner, int playerTeam)
+        => state == Rules.RoundState.TeamWin && winner is TFTeam.Red or TFTeam.Blue
+            ? (playerTeam == (int)winner ? 1.1f : 0.9f)
+            : 1f;
 
     /// <summary><c>CTFPlayerShared::IsStealthed</c> (tf_player_shared.cpp:8112).</summary>
     public static bool IsStealthed(in TFCondMask conditions)

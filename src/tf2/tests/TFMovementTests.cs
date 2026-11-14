@@ -22,6 +22,17 @@ namespace TF2.Tests;
 /// <summary>The class table both sides read, from the sealed class script fixtures.</summary>
 internal static class TFMovementFixtures
 {
+    /// <summary>The engine read the rules' inputs arm makes, silent: the
+    /// handle, observer and team words default so a fact of the walk itself
+    /// is not asked to stub the engine. A fact of those arms hands its own
+    /// engine with the answers stubbed.</summary>
+    public static RecordingEngine LaxEngine()
+    {
+        var engine = new RecordingEngine();
+        engine.Ignores("Players.GetHandle", "Players.GetObserverMode", "Players.GetTeam");
+        return engine;
+    }
+
     public static TFClassTable Server() => new(new RecordingLog(), TFClassTableTests.Files.Shipped());
 
     public static client::TF2.Shared.TFClassTable Client()
@@ -95,9 +106,12 @@ internal static class TFMovementFixtures
     }
 
     /// <summary>A round state the rules read, fixed at construction.</summary>
-    public sealed class RoundAt(TF2.Shared.Rules.RoundState state) : TF2.Shared.Rules.ITFRoundStateView
+    public sealed class RoundAt(TF2.Shared.Rules.RoundState state,
+                                TFTeam winner = TFTeam.Unassigned) : TF2.Shared.Rules.ITFRoundStateView
     {
         public TF2.Shared.Rules.RoundState State { get; set; } = state;
+
+        public TFTeam Winner { get; set; } = winner;
     }
 
     /// <summary>The client compilation's round state, for its container.</summary>
@@ -105,6 +119,33 @@ internal static class TFMovementFixtures
     {
         public client::TF2.Shared.Rules.RoundState State { get; }
             = client::TF2.Shared.Rules.RoundState.RoundRunning;
+
+        public client::TF2.Shared.TFTeam Winner => client::TF2.Shared.TFTeam.Unassigned;
+    }
+
+    /// <summary>Nobody on a team: the mask arm's inert answer, the base mask through.</summary>
+    public sealed class Teamless : TF2.Shared.Rules.ITFPlayerTeam
+    {
+        public TF2.Shared.TFTeam Of(int playerIndex) => TF2.Shared.TFTeam.Unassigned;
+    }
+
+    /// <summary>One team for every player, the mask arm's facts' rig.</summary>
+    public sealed class AllRed(TF2.Shared.TFTeam team = TF2.Shared.TFTeam.Red) : TF2.Shared.Rules.ITFPlayerTeam
+    {
+        public TF2.Shared.TFTeam Of(int playerIndex) => team;
+    }
+
+    /// <summary>The same, client side.</summary>
+    private sealed class ClientTeamless : client::TF2.Shared.Rules.ITFPlayerTeam
+    {
+        public client::TF2.Shared.TFTeam Of(int playerIndex) => client::TF2.Shared.TFTeam.Unassigned;
+    }
+
+    /// <summary>One team for every player, the client compilation's copy.</summary>
+    public sealed class ClientAllRed(client::TF2.Shared.TFTeam team = client::TF2.Shared.TFTeam.Red)
+        : client::TF2.Shared.Rules.ITFPlayerTeam
+    {
+        public client::TF2.Shared.TFTeam Of(int playerIndex) => team;
     }
 
     /// <summary>No weapon in hand: the anim seam's empty read, as the interface's summary allows.</summary>
@@ -132,31 +173,39 @@ internal static class TFMovementFixtures
         var vars = convars ?? ConVars();
         var services = new ServiceContainer();
         vars.PublishTo(services);
+        var engine = LaxEngine();
         return services
             .AddInstance(Server())
             .AddInstance<ITFPlayerData>(players)
             .AddInstance<TF2.Shared.ITFWeaponOwners>(new TF2.Shared.NoTFWeaponOwners())
             .AddInstance(new TF2.Shared.Econ.AttributeHooks())
             .AddInstance<TF2.Shared.Rules.ITFRoundStateView>(new RoundAt(TF2.Shared.Rules.RoundState.RoundRunning))
+            .AddInstance<TF2.Shared.Rules.ITFPlayerTeam>(new Teamless())
             .AddInstance<TF2.Shared.Anim.ITFAnimWeapons>(new HoldsNothing())
-            .AddInstance<IEngineEntities>(new RecordingEngine());
+            .AddInstance<IEngineEntities>(engine)
+            .AddInstance<IEnginePlayers>(engine);
     }
 
     /// <summary>The client composition's mirror: the client compilation's own types, the same shape.</summary>
     public static client::SourceSharp.Abi.ServiceContainer ClientServices(ClientData players,
-        client::SourceSharp.Abi.ConVarRegistry? convars = null)
+        client::SourceSharp.Abi.ConVarRegistry? convars = null,
+        client::TF2.Shared.Rules.ITFPlayerTeam? teams = null)
     {
         var vars = convars ?? ClientConVars();
         var services = new client::SourceSharp.Abi.ServiceContainer();
         vars.PublishTo(services);
+        var engine = new client::SourceSharp.Abi.RecordingEngine();
+        engine.Ignores("Players.GetHandle", "Players.GetObserverMode", "Players.GetTeam");
         return services
             .AddInstance(Client())
             .AddInstance<ClientData>(players)
             .AddInstance<client::TF2.Shared.ITFWeaponOwners>(new client::TF2.Shared.NoTFWeaponOwners())
             .AddInstance(new client::TF2.Shared.Econ.AttributeHooks())
             .AddInstance<client::TF2.Shared.Rules.ITFRoundStateView>(new ClientRoundAt())
+            .AddInstance(teams ?? new ClientTeamless())
             .AddInstance<client::TF2.Shared.Anim.ITFAnimWeapons>(new ClientHoldsNothing())
-            .AddInstance<client::SourceSharp.Abi.IEngineEntities>(new client::SourceSharp.Abi.RecordingEngine());
+            .AddInstance<client::SourceSharp.Abi.IEngineEntities>(engine)
+            .AddInstance<client::SourceSharp.Abi.IEnginePlayers>(engine);
     }
 
     /// <summary>
@@ -170,8 +219,10 @@ internal static class TFMovementFixtures
                                         TF2.Shared.ITFWeaponOwners? owners = null,
                                         TF2.Shared.Econ.AttributeHooks? hooks = null,
                                         TF2.Shared.Rules.ITFRoundStateView? rounds = null,
+                                        IEnginePlayers? engines = null,
                                         TF2.Shared.Anim.ITFAnimWeapons? weapons = null,
-                                        IEngineEntities? entities = null)
+                                        IEngineEntities? entities = null,
+                                        TF2.Shared.Rules.ITFPlayerTeam? teams = null)
     {
         var vars = convars ?? ConVars();
         return new(Server(), players,
@@ -182,6 +233,7 @@ internal static class TFMovementFixtures
                    vars.Declared<TFClampBackSpeedConVar>(),
                    vars.Declared<TFClampBackSpeedMinConVar>(),
                    rounds ?? new RoundAt(TF2.Shared.Rules.RoundState.RoundRunning),
+                   engines ?? LaxEngine(),
                    vars.Declared<TFPlayerMovementRestartFreezeConVar>(),
                    vars.Declared<TFMovementAircurrentFrictionMultConVar>(),
                    vars.Declared<TFMovementLostFootingRestickConVar>(),
@@ -191,7 +243,8 @@ internal static class TFMovementFixtures
                    entities ?? new RecordingEngine(),
                    vars.Declared<TFParachuteMaxSpeedXYConVar>(),
                    vars.Declared<TFParachuteMaxSpeedZConVar>(),
-                   vars.Declared<TFParachuteMaxSpeedOnfireZConVar>());
+                   vars.Declared<TFParachuteMaxSpeedOnfireZConVar>(),
+                   teams ?? new Teamless());
     }
 
     private sealed class ClientFiles(TFClassTableTests.Files files) : ClientEngineFiles
@@ -253,9 +306,12 @@ public sealed class TFMaxSpeedTests
                                AttributeHooks? attribs = null, IAttributeProvider? manager = null,
                                TFStunFlags stunFlags = TFStunFlags.None, bool carrying = false,
                                int healTarget = -1, Func<int, TFPeerInput?>? peers = null, int self = -1,
-                               float hypeScale = 1f)
+                               float hypeScale = 1f, ObserverMode observer = ObserverMode.None,
+                               float teamWinScale = 1f)
         => TFMaxSpeed.Calculate(Classes, new TFMoveInputs(c, conditions, disguise, weapon, speedMod, stunFlags,
-                                                          carrying, healTarget, HypeSpeedScale: hypeScale),
+                                                          carrying, healTarget,
+                                                          HypeSpeedScale: hypeScale, Observer: observer,
+                                                          TeamWinScale: teamWinScale),
                                 cloakedCap, attribs ?? Hooks, manager, peers ?? (_ => null), self, null);
 
     /// <summary>A peer table over bare classes, the patient's side of the match,
@@ -645,6 +701,136 @@ public sealed class TFMaxSpeedTests
 
         Assert.Equal(400f, Speed(TFClass.Medic, healTarget: 4, attribs: Hooks, manager: manager,
                                  peers: Peers((4, TFClass.Scout)), self: 3));
+    }
+
+    // ---- the heavy's berzerker (tf_player_shared.cpp:11065-11078) ----------
+
+    [Fact]
+    public void An_energy_buffed_heavy_runs_at_1_3_times()
+        => Assert.Equal(299f, Speed(TFClass.HeavyWeapons, TFCondMask.Of(TFCond.EnergyBuff)));
+
+    [Fact]
+    public void The_berzerker_cap_holds_the_gru_below_1_35_times_the_class()
+    {
+        // The cap (:11068, :11072-11076): another modifier — the G.R.U.'s
+        // mult_player_movespeed 1.5, hooked before the buff as stock's order
+        // runs — lands on 230 x 1.5 x 1.3 = 448.5, held at 230 x 1.35 = 310.5.
+        var manager = ManagerWith(TFMaxSpeed.MoveSpeedAttrib, 1.5f);
+
+        Assert.Equal(310.5f, Speed(TFClass.HeavyWeapons, TFCondMask.Of(TFCond.EnergyBuff),
+                                   attribs: Hooks, manager: manager));
+    }
+
+    [Fact]
+    public void The_berzerker_cap_never_lifts_a_slow_heavy()
+    {
+        // The cap is a ceiling, not a raise (:11072): a slowed heavy's buffed
+        // 0.5 x 1.3 stays under it.
+        var manager = ManagerWith(TFMaxSpeed.MoveSpeedAttrib, 0.5f);
+
+        Assert.Equal(149.5f, Speed(TFClass.HeavyWeapons, TFCondMask.Of(TFCond.EnergyBuff),
+                                   attribs: Hooks, manager: manager));
+    }
+
+    // ---- the observer's head arm (tf_player_shared.cpp:10844-10851) --------
+
+    [Fact]
+    public void A_roaming_observer_runs_at_the_scouts_speed()
+        => Assert.Equal(400f, Speed(TFClass.HeavyWeapons, observer: ObserverMode.Roaming));
+
+    [Fact]
+    public void Any_other_observer_stands_and_skips_the_class_arms()
+    {
+        // The fixed spectator's 0, ahead of the class check: an undefined
+        // class is stock's other early return, not this one.
+        Assert.Equal(0f, Speed(TFClass.HeavyWeapons, observer: ObserverMode.Fixed));
+        Assert.Equal(0f, Speed(TFClass.Undefined, observer: ObserverMode.DeathCam));
+    }
+
+    // ---- the team-win bonus (tf_player_shared.cpp:10938-10954) --------------
+
+    [Fact]
+    public void The_winner_runs_110_and_the_loser_90_in_the_bonus_time()
+    {
+        Assert.Equal(440f, Speed(TFClass.Scout, teamWinScale: 1.1f));
+        Assert.Equal(360f, Speed(TFClass.Scout, teamWinScale: 0.9f));
+    }
+
+    [Fact]
+    public void The_bonus_lands_after_the_cloak_cap()
+    {
+        // Stock's order: the stealth cap (:10930-10936) before the bonus
+        // (:10947) — the capped 300 scales to 330, not capped again.
+        Assert.Equal(330f, Speed(TFClass.Scout, TFCondMask.Of(TFCond.Stealthed),
+                                 teamWinScale: 1.1f, cloakedCap: 300f));
+    }
+
+    [Fact]
+    public void The_bonus_scale_is_the_rounds_word()
+    {
+        // The decision the rules feed the walk: TeamWin pays the winner 1.1
+        // and the rest 0.9; any other state, or an unassigned winner, is
+        // stock's no-scale arm.
+        Assert.Equal(1.1f, TFMaxSpeed.TeamWinScale(TF2.Shared.Rules.RoundState.TeamWin, TFTeam.Red, (int)TFTeam.Red));
+        Assert.Equal(0.9f, TFMaxSpeed.TeamWinScale(TF2.Shared.Rules.RoundState.TeamWin, TFTeam.Red, (int)TFTeam.Blue));
+        Assert.Equal(1f, TFMaxSpeed.TeamWinScale(TF2.Shared.Rules.RoundState.RoundRunning, TFTeam.Red, (int)TFTeam.Red));
+        Assert.Equal(1f, TFMaxSpeed.TeamWinScale(TF2.Shared.Rules.RoundState.TeamWin, TFTeam.Unassigned, (int)TFTeam.Red));
+    }
+
+    // ---- the Quick-Fix's charge arm (tf_player_shared.cpp:11021-11025) -----
+
+    /// <summary>A medigun mode on the player's manager, the item's
+    /// <c>set_weapon_mode</c> as the medigun's own arms read it.</summary>
+    private static AttributeContainer MedigunMode(int mode)
+    {
+        var def = new AttributeDefinition(30047, "weapon mode", TFMaxSpeed.MedigunModeAttrib,
+            AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+            false, false, AttributeValueType.Default, MergedKeys.Block("mode"));
+        var manager = new AttributeContainer(null, AttributeProviderType.Generic);
+        manager.Set(AttributeValue.OfFloat(def, mode));
+        return manager;
+    }
+
+    [Fact]
+    public void A_quick_fix_medic_on_a_charging_patient_runs_at_the_charge_speed()
+    {
+        // The Quick-Fix attach (:11021-11024): the healing gun is a Quick-Fix
+        // and the patient charges — tf_max_charge_speed outright, the
+        // patient's own walk (a soldier's, 240) unmatched. Stock names demos;
+        // its check is the cond alone, no class.
+        var charging = TFCondMask.Of(TFCond.ShieldCharge);
+
+        Assert.Equal(TFMaxSpeed.MaxChargeSpeed,
+                     Speed(TFClass.Medic, attribs: Hooks, manager: MedigunMode(TFMaxSpeed.QuickFixMedigunMode),
+                           healTarget: 4, self: 3,
+                           peers: i => i == 4
+                               ? new TFPeerInput(4, new TFMoveInputs(TFClass.Soldier, charging), Hooks, null, null)
+                               : null));
+    }
+
+    [Fact]
+    public void A_stock_medigun_on_the_same_demo_matches_the_demos_own_speed()
+    {
+        // The plain gun's row of the same conditional (:11024): no mode 2, no
+        // attach — the patient's own walk, here a charging scout's 400 over
+        // the medic's 320, the attach's 750 not taken.
+        var charging = TFCondMask.Of(TFCond.ShieldCharge);
+        Func<int, TFPeerInput?> peers = i => i == 4
+            ? new TFPeerInput(4, new TFMoveInputs(TFClass.Scout, charging), Hooks, null, null)
+            : null;
+
+        Assert.Equal(400f, Speed(TFClass.Medic, healTarget: 4, self: 3, peers: peers));
+    }
+
+    [Fact]
+    public void The_quick_fix_attach_waits_for_the_patients_charge()
+    {
+        // The cond half of the same conditional (:11022): the Quick-Fix
+        // without TF_COND_SHIELD_CHARGE on the patient falls back to the
+        // walk, the scout's 400.
+        Assert.Equal(400f, Speed(TFClass.Medic, attribs: Hooks,
+                                 manager: MedigunMode(TFMaxSpeed.QuickFixMedigunMode),
+                                 healTarget: 4, self: 3, peers: Peers((4, TFClass.Scout))));
     }
 }
 

@@ -71,6 +71,7 @@ public sealed class TFMovementRules : IMovementRules
     private readonly TFClampBackSpeedConVar _backSpeed;
     private readonly TFClampBackSpeedMinConVar _backSpeedMin;
     private readonly Rules.ITFRoundStateView _rounds;
+    private readonly IEnginePlayers _engines;
     private readonly TFPlayerMovementRestartFreezeConVar _restartFreeze;
     private readonly TFMovementAircurrentFrictionMultConVar _airCurrentFriction;
     private readonly TFMovementLostFootingRestickConVar _lostFootingRestick;
@@ -81,6 +82,7 @@ public sealed class TFMovementRules : IMovementRules
     private readonly TFParachuteMaxSpeedXYConVar _parachuteXY;
     private readonly TFParachuteMaxSpeedZConVar _parachuteZ;
     private readonly TFParachuteMaxSpeedOnfireZConVar _parachuteOnfireZ;
+    private readonly Rules.ITFPlayerTeam _teams;
 
     /// <summary>
     /// Every dependency is injected: both sides' registrations hold each one
@@ -95,6 +97,7 @@ public sealed class TFMovementRules : IMovementRules
                            TFClampBackSpeedConVar backSpeed,
                            TFClampBackSpeedMinConVar backSpeedMin,
                            Rules.ITFRoundStateView rounds,
+                           IEnginePlayers enginePlayers,
                            TFPlayerMovementRestartFreezeConVar restartFreeze,
                            TFMovementAircurrentFrictionMultConVar airCurrentFriction,
                            TFMovementLostFootingRestickConVar lostFootingRestick,
@@ -104,7 +107,8 @@ public sealed class TFMovementRules : IMovementRules
                            IEngineEntities entities,
                            TFParachuteMaxSpeedXYConVar parachuteXY,
                            TFParachuteMaxSpeedZConVar parachuteZ,
-                           TFParachuteMaxSpeedOnfireZConVar parachuteOnfireZ)
+                           TFParachuteMaxSpeedOnfireZConVar parachuteOnfireZ,
+                           Rules.ITFPlayerTeam teams)
     {
         _classes = classes;
         _players = players;
@@ -115,6 +119,7 @@ public sealed class TFMovementRules : IMovementRules
         _backSpeed = backSpeed;
         _backSpeedMin = backSpeedMin;
         _rounds = rounds;
+        _engines = enginePlayers;
         _restartFreeze = restartFreeze;
         _airCurrentFriction = airCurrentFriction;
         _lostFootingRestick = lostFootingRestick;
@@ -125,6 +130,7 @@ public sealed class TFMovementRules : IMovementRules
         _parachuteXY = parachuteXY;
         _parachuteZ = parachuteZ;
         _parachuteOnfireZ = parachuteOnfireZ;
+        _teams = teams;
     }
 
     /// <summary><c>tf_max_charge_speed</c> (tf_gamemovement.cpp:52; the declaration carries the default).</summary>
@@ -226,6 +232,18 @@ public sealed class TFMovementRules : IMovementRules
     private TFMoveInputs Inputs(int playerIndex, TFPlayerNetState state)
     {
         var inputs = TFMoveInputs.Of(state);
+
+        // THE OBSERVER'S HEAD ARM and THE TEAM-WIN BONUS, both the engine's
+        // own words (tf_player_shared.cpp:10844-10851, :10938-10954): the
+        // observer mode the walk early-returns on, and the win arm's scale —
+        // the round's state and winner against this player's team.
+        var handle = _engines.GetHandle(playerIndex);
+        inputs = inputs with
+        {
+            Observer = _engines.GetObserverMode(handle),
+            TeamWinScale = TFMaxSpeed.TeamWinScale(_rounds.State, _rounds.Winner,
+                                                   _engines.GetTeam(handle)),
+        };
 
         // The worn shield (tf_player_shared.cpp:11005): the shared's
         // IsShieldEquipped, the speed walk's shield-toll gate.
@@ -405,6 +423,32 @@ public sealed class TFMovementRules : IMovementRules
 
         // Valve's Clamp(value, -bound, bound) at :2637-2638.
         static float ClampAxis(float value, float bound) => MathF.Min(MathF.Max(value, -bound), bound);
+    }
+
+    /// <summary>
+    /// <c>CTFGameMovement::PlayerSolidMask</c> (tf_gamemovement.cpp:259-284):
+    /// the ghost's arm first — nothing but the world, whatever shape was asked
+    /// (:264-267) — then the other team's contents bit over the mask the loop
+    /// was about to trace with (:269-283). The bit is the mate of
+    /// <c>CTFPlayer::ShouldCollide</c>'s own-team demand
+    /// (the server's collide rule).. together the two are stock's
+    /// teammates-pass: the mover's mask carries the enemy bit the enemy
+    /// candidate demands, and lacks the own bit the teammate's does. No team,
+    /// no bit — stock's switch default (:271-281) — and the mask is the base's
+    /// own, which is also every teamless player's answer before the first
+    /// resource reaches the client.
+    /// </summary>
+    public uint PlayerSolidMask(int playerIndex, uint mask, bool brushOnly)
+    {
+        if (_players.Predicted(playerIndex) is { } state && state.InCond(TFCond.HalloweenGhostMode))
+            return GameMovement.MaskPlayerSolidBrushOnly;
+
+        return _teams.Of(playerIndex) switch
+        {
+            TFTeam.Red => mask | TFContents.BlueTeam,
+            TFTeam.Blue => mask | TFContents.RedTeam,
+            _ => mask,
+        };
     }
 
     public float EyeHeight(int playerIndex, float standing)

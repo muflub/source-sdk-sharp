@@ -113,10 +113,11 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     void IFrameLifecycle.OnThink(float frameTime) => Think();
 
     private readonly RespawnDelayConVar _respawnDelay;
-    // Declared in ServerModule alongside the relationship rule, and reused here:
-    // "are they teammates" and "may teammates hurt each other" are two halves of
-    // one setting, so they must not drift apart into two ConVars.
-    private readonly FriendlyFireConVar _friendlyFire;
+    // Stock's mp_friendlyfire (gamevars_shared.cpp, default 0), the knob
+    // CTeamplayRules::FPlayerCanTakeDamage reads beside the relationship rule:
+    // "are they teammates" and "may teammates hurt each other" are two halves
+    // of one setting.
+    private readonly MpFriendlyFireConVar _friendlyFire;
     private readonly SpawnProtectConVar _spawnProtect;
     private readonly FragLimitConVar _fragLimit;
 
@@ -1040,13 +1041,13 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
 }
 
 /// <summary>The convars the rules read, built by the container.</summary>
-public sealed class GameRulesConVars(RespawnDelayConVar respawnDelay, FriendlyFireConVar friendlyFire,
+public sealed class GameRulesConVars(RespawnDelayConVar respawnDelay, MpFriendlyFireConVar friendlyFire,
                                      SpawnProtectConVar spawnProtect, FragLimitConVar fragLimit,
                                      MpFragLimitConVar mpFragLimit, MpTimeLimitConVar mpTimeLimit,
                                      MpRestartGameConVar mpRestartGame)
 {
     public readonly RespawnDelayConVar RespawnDelay = respawnDelay;
-    public readonly FriendlyFireConVar FriendlyFire = friendlyFire;
+    public readonly MpFriendlyFireConVar FriendlyFire = friendlyFire;
     public readonly SpawnProtectConVar SpawnProtect = spawnProtect;
     public readonly FragLimitConVar FragLimit = fragLimit;
     public readonly MpFragLimitConVar MpFragLimit = mpFragLimit;

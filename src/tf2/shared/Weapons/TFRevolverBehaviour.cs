@@ -32,9 +32,9 @@ namespace TF2.Shared;
 /// crosshair blooms and settles with the aim (<c>CHudTFCrosshair::Paint</c>
 /// takes it as <c>flWeaponScale</c>, <c>tf_hud_crosshair.cpp:189-216</c>).
 /// Without the mode the base answers 1.0 (:221). The clock's two other
-/// consumers, the headshot spread (:187-201) and the freshness gate of the
-/// hit-location damage type (:83-92), wait on the attribute-weapon work
-/// (deferred.tsv).
+/// consumers are the headshot spread (<see cref="BulletSpread"/>, :187-201)
+/// and the freshness gate of the hit-location damage type (:83-92, the
+/// damage layer's).
 /// </para>
 /// </summary>
 public class TFRevolverBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
@@ -44,6 +44,9 @@ public class TFRevolverBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
 
     /// <summary>And this close that it sits at its full bloom (the remap's second pair).</summary>
     private const float BloomAge = 0.5f;
+
+    /// <summary>Stock's <c>CanHeadshot</c> (<c>set_weapon_mode</c> 1, <c>tf_weapon_revolver.h:49</c>): the item's mode.</summary>
+    private const string HeadshotMode = "set_weapon_mode";
 
     public override void PrimaryAttack(in WeaponAttackContext attack)
     {
@@ -75,4 +78,23 @@ public class TFRevolverBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
         canHeadshot
             ? CritBucket.RemapValClamped(now - weapon.BehaviourKeptTime, CheckAge, BloomAge, 0.75f, 2.5f)
             : 1f;
+
+    /// <summary>
+    /// <c>GetWeaponSpread</c>'s headshot arm (<c>tf_weapon_revolver.cpp:187-201</c>):
+    /// the base cone remapped by the age of the accuracy clock — perfectly
+    /// accurate once a second has passed since the shot (<c>:194-195</c>'
+    /// RemapValClamped over <c>m_flLastAccuracyCheck</c>), the full cone the
+    /// first half second. A revolver whose item carries no headshot mode
+    /// keeps the base cone. The linear remap lands the same number on the
+    /// cone's sine and on the row's degrees, so it rides the converted value.
+    /// </summary>
+    public override float? BulletSpread(in WeaponAttackContext attack)
+    {
+        float? spread = base.BulletSpread(in attack);
+        if (spread is not { } degrees
+            || _attributes.Int(0, HeadshotMode, Parts.Owners.ItemOf(attack.Command.OwnerIndex, attack.Type.Name)) != 1)
+            return spread;
+
+        return CritBucket.RemapValClamped(attack.Now - attack.Weapon.BehaviourKeptTime, CheckAge, BloomAge, 0f, degrees);
+    }
 }

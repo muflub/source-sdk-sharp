@@ -656,6 +656,10 @@ public static class Sandbox
     {
         site.Ent(EntityNames.InfoPlayerStart, "start", new(-160f, 0f, 16f), "angles", "0 90 0");
         site.Ent(EntityNames.InfoPlayerDeathmatch, "dm1", new(-96f, 0f, 16f), "angles", "0 90 0");
+        // Team deathmatch's two team spawns, a row behind: walked only under
+        // tdm (TeamSpawnSelector), never by deathmatch's own walk.
+        site.Ent(EntityNames.InfoPlayerCombine, "combine1", new(-160f, 48f, 16f), "angles", "0 90 0");
+        site.Ent(EntityNames.InfoPlayerRebel, "rebel1", new(-96f, 48f, 16f), "angles", "0 90 0");
         site.Ent(EntityNames.InfoTarget, "target", new(-32f, 0f, 32f));
         site.Ent(EntityNames.InfoTeleportDestination, "dest", new(0f, 0f, 16f), "angles", "0 90 0");
         site.Ent(EntityNames.InfoLandmark, "landmark", new(32f, 0f, 16f));

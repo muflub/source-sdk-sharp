@@ -205,6 +205,48 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
     }
 
     /// <summary>
+    /// <c>CTFCrossbow::Holster</c> (<c>tf_weapon_rocketlauncher.cpp:673-697</c>):
+    /// the empty crossbow reloads silently on the switch — the idle and
+    /// next-fire clocks pushed to last-fire-plus-fire-delay-plus-reload when
+    /// earlier (:686-691), then one bolt loaded (:693), so the hands come back
+    /// to an armed gun. Stock's comment says like the flaregun, but neither
+    /// stock's flare gun nor ours reloads there — this arm is the crossbow's
+    /// own, gated as stock gates it (:676). The machine's launch already wrote
+    /// last-fire-plus-fire-delay onto <see cref="WeaponNetState.NextPrimaryAttack"/>
+    /// (:396), so the sum is that word plus the reload's seconds through the
+    /// chain; the bolt rides the reload's own IncrementAmmo shape (:1096-1102).
+    /// </summary>
+    public override void Holster(in WeaponAttackContext attack)
+    {
+        if (ScriptOf(attack.Type) is { Id: TFWeaponId.Crossbow } script && attack.Weapon.Clip == 0)
+        {
+            var weapon = attack.Weapon;
+
+            // :679-684: the mode's reload time through mult_reload_time, its
+            // hidden twin and fast_reload (the chain's ModifyReloadTime).
+            float reloadTime = ModifyReloadTime(attack.Type, script.Primary.TimeReload, weapon.OwnerIndex);
+
+            // :686-690, the comparison of :687 standing before the writes.
+            float idleTime = weapon.NextPrimaryAttack + reloadTime;
+            if (weapon.TimeWeaponIdle < idleTime)
+            {
+                weapon.TimeWeaponIdle = idleTime;
+                weapon.NextPrimaryAttack = idleTime;
+            }
+
+            // :693 IncrementAmmo, one round from the reserve.
+            int clipSize = ModifyClipSize(attack.Type, attack.Type.ClipSize, weapon.OwnerIndex);
+            if (weapon.Reserve > 0 && weapon.Clip < clipSize)
+            {
+                weapon.Clip++;
+                weapon.Reserve--;
+            }
+        }
+
+        base.Holster(in attack);
+    }
+
+    /// <summary>
     /// The jar's count, restocked before the machine's own empty check reads
     /// it: stock grants the round when the regen's time is past
     /// (<c>CTFWeaponBase::CheckEffectBarRegen</c>,

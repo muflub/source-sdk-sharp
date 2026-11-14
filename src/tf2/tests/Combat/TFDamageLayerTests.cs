@@ -626,9 +626,55 @@ public sealed class TFDamageLayerTests
 
         var revolver = new CombatRig { AttackerWeapon = "tf_weapon_revolver" };
         revolver.AttackerItem("set_weapon_mode", AttributeDescriptionFormat.Additive, 1f);
+        FiredRevolver(revolver);                       // the gate's clock: a shot ages ago
         revolver.Hit(20f, DamageType.Bullet, HitGroup.Chest);
         Assert.Equal(TFWeaponDamageTypes.Of(TFWeaponId.Revolver) | TFDamageBits.UseHitLocations,
                      revolver.Records.LastHit(CombatRig.Victim.EntryIndex)!.Value.Bits & ~TFDamageBits.Critical);
+    }
+
+    /// <summary>
+    /// The attacker's held revolver, stamped long ago: the accuracy clock
+    /// (<c>m_flLastAccuracyCheck</c>, the behaviour's kept time) the
+    /// freshness gate reads, zeroed as a gun never fired and the clock at
+    /// its default 100 — the stale side of :85's one second.
+    /// </summary>
+    private static void FiredRevolver(CombatRig rig)
+    {
+        var gun = new SsWeapon { Handle = RigEntities.Weapon };
+        gun.State.BindLocal();
+        rig.Entities.WeaponEntity = gun;
+    }
+
+    [Fact]
+    public void The_revolvers_hit_location_bit_waits_for_the_second()
+    {
+        // CTFRevolver::GetDamageType's gate (tf_weapon_revolver.cpp:85): the
+        // bit only once a second has passed since the shot stamped the
+        // accuracy clock — a hit 0.4 s on carries the bare row.
+        var fresh = new CombatRig { AttackerWeapon = "tf_weapon_revolver" };
+        fresh.AttackerItem("set_weapon_mode", AttributeDescriptionFormat.Additive, 1f);
+        FiredRevolver(fresh);
+        fresh.Entities.WeaponEntity!.State.BehaviourKeptTime = 99.6f;  // 0.4 s ago
+        fresh.Hit(20f, DamageType.Bullet, HitGroup.Chest);
+        Assert.Equal(TFWeaponDamageTypes.Of(TFWeaponId.Revolver),
+                     fresh.Records.LastHit(CombatRig.Victim.EntryIndex)!.Value.Bits & ~TFDamageBits.Critical);
+
+        fresh.Entities.WeaponEntity!.State.BehaviourKeptTime = 98.9f;  // 1.1 s: the gate opens
+        fresh.Hit(20f, DamageType.Bullet, HitGroup.Chest);
+        Assert.Equal(TFWeaponDamageTypes.Of(TFWeaponId.Revolver) | TFDamageBits.UseHitLocations,
+                     fresh.Records.LastHit(CombatRig.Victim.EntryIndex)!.Value.Bits & ~TFDamageBits.Critical);
+    }
+
+    [Fact]
+    public void The_revolver_without_the_headshot_mode_never_carries_hit_locations()
+    {
+        // CanHeadshot's mode arm (tf_weapon_revolver.h:49): no set_weapon_mode
+        // 1, no bit, however old the clock — the stock spy revolver.
+        var plain = new CombatRig { AttackerWeapon = "tf_weapon_revolver" };
+        FiredRevolver(plain);
+        plain.Hit(20f, DamageType.Bullet, HitGroup.Chest);
+        Assert.Equal(TFWeaponDamageTypes.Of(TFWeaponId.Revolver),
+                     plain.Records.LastHit(CombatRig.Victim.EntryIndex)!.Value.Bits & ~TFDamageBits.Critical);
     }
 
     [Fact]

@@ -108,6 +108,8 @@ internal sealed class MedigunRig
     private sealed class IdleRounds : TF2.Shared.Rules.ITFRoundStateView
     {
         public TF2.Shared.Rules.RoundState State => TF2.Shared.Rules.RoundState.Init;
+
+        public TFTeam Winner => TFTeam.Unassigned;
     }
 
     public void QueueHit(EntityHandle hit) => TraceQueue.Add(new TraceResult(true, 1f, default, default, hit));

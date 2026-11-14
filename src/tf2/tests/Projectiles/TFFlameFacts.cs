@@ -148,7 +148,8 @@ internal sealed class FlameRig
                                        new ProjectileRig.Resupply(), Engine, Engine, new ProjectileRig.DirectoryView(),
                                        Carriers, DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>());
         Rocket = new TFRocket(Engine, Motion, blast, Owners, Engine, new TF2.Shared.Econ.AttributeHooks(),
-                              new TFPlayerCarriers(), new RecordingEffectDispatch(), Engine);
+                              new TFPlayerCarriers(), new RecordingEffectDispatch(), Engine,
+                              new ProjectileRig.RocketConditions());
         Rocket.BindAreas(TestServices.Areas(Engine));
         Rocket.Handle = RocketHandle;
         // The trail writes need bound storage, as the registry gives.

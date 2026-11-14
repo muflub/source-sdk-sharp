@@ -804,6 +804,68 @@ public sealed class TFProjectileEntityFacts
         Assert.Equal(66.29f, DamageTo(rig, SecondVictim), 0.1f);
     }
 
+    [Fact]
+    public void A_blast_jumping_air_strikes_rocket_blasts_at_0_80_of_the_radius()
+    {
+        // GetRadius's airstrike arm (tf_weaponbase_rocket.cpp:602-613): an
+        // owner in TF_COND_BLASTJUMPING whose item keys the Air Strike
+        // (rocketjump_attackrate_bonus answering anything but one) takes
+        // 0.80 of the radius — 116.8, so the 100-out victim keeps
+        // 90 - 45 * 100/116.8 = 51.5 of the grounded 59.2.
+        var rig = VictimAtHundred();
+        rig.Engine.Returns("Entities.GetBounds", (new Vector(-24f, -24f, 0f), new Vector(24f, 24f, 82f)));
+        Place(rig, ProjectileRig.Victim, new Vector(100f, 0f, 1f),
+              ProjectileRig.Victim, new Vector(100f, 0f, 1f));
+        rig.Owners.Item = rig.AttributeItem("rocketjump_attackrate_bonus",
+                                            AttributeDescriptionFormat.Percentage, 2f);
+        rig.RocketConds.BlastJumping = true;
+        var rocket = rig.Rocket();
+        rocket.OnSpawn();
+        rocket.ArmedBy(90f, TFWeaponId.Rocketlauncher, "tf_weapon_rocketlauncher_airstrike",
+                       critical: false, ownerIndex: 3);
+        rocket.FiredBy(ProjectileRig.Player, new Vector(1100f, 0f, 0f));
+
+        rocket.OnTouch(EntityHandle.None);
+
+        Assert.Equal(51.47f, DamageTo(rig, ProjectileRig.Victim), 0.1f);
+    }
+
+    [Fact]
+    public void The_blast_radius_stands_without_the_jump_and_the_attribute_together()
+    {
+        // The same arm's negatives (:604, :609): the condition and the
+        // keying attribute must both hold. The grounded Air Strike and the
+        // stock launcher fired mid-jump keep the stock 146 — the 100-out
+        // victim keeps 59.2 either way.
+        var grounded = VictimAtHundred();
+        grounded.Engine.Returns("Entities.GetBounds", (new Vector(-24f, -24f, 0f), new Vector(24f, 24f, 82f)));
+        Place(grounded, ProjectileRig.Victim, new Vector(100f, 0f, 1f),
+              ProjectileRig.Victim, new Vector(100f, 0f, 1f));
+        grounded.Owners.Item = grounded.AttributeItem("rocketjump_attackrate_bonus",
+                                                      AttributeDescriptionFormat.Percentage, 2f);
+        var groundedRocket = grounded.Rocket();
+        groundedRocket.OnSpawn();
+        groundedRocket.ArmedBy(90f, TFWeaponId.Rocketlauncher, "tf_weapon_rocketlauncher_airstrike",
+                               critical: false, ownerIndex: 3);
+        groundedRocket.FiredBy(ProjectileRig.Player, new Vector(1100f, 0f, 0f));
+        groundedRocket.OnTouch(EntityHandle.None);
+
+        var plainJumping = VictimAtHundred();
+        plainJumping.Engine.Returns("Entities.GetBounds", (new Vector(-24f, -24f, 0f), new Vector(24f, 24f, 82f)));
+        Place(plainJumping, ProjectileRig.Victim, new Vector(100f, 0f, 1f),
+              ProjectileRig.Victim, new Vector(100f, 0f, 1f));
+        plainJumping.RocketConds.BlastJumping = true;
+        var plainRocket = plainJumping.Rocket();
+        plainRocket.OnSpawn();
+        plainRocket.ArmedBy(90f, TFWeaponId.Rocketlauncher, "tf_weapon_rocketlauncher",
+                            critical: false, ownerIndex: 3);
+        plainRocket.FiredBy(ProjectileRig.Player, new Vector(1100f, 0f, 0f));
+        plainRocket.OnTouch(EntityHandle.None);
+
+        Assert.Equal(59.17f, DamageTo(grounded, ProjectileRig.Victim), 0.1f);
+        Assert.Equal(59.17f, DamageTo(plainJumping, ProjectileRig.Victim), 0.1f);
+    }
+
     /// <summary>
     /// A sticky in flight at 2400 u/s along +x from 448, the victim scored
     /// red and the thrower blue, and the thrower's own angular velocity to

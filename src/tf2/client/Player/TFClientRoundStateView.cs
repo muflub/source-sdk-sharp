@@ -7,6 +7,7 @@
 
 using SourceSharp.Abi;
 
+using TF2.Shared;
 using TF2.Shared.Rules;
 
 namespace TF2.Client.Player;
@@ -23,4 +24,10 @@ public sealed class TFClientRoundStateView(TFClientPlayerResources? resources) :
 {
     public RoundState State
         => resources?.Live is { } live ? (RoundState)live.State.RoundState : RoundState.Init;
+
+    /// <summary>The resource's winner word, <see cref="ITFRoundStateView.Winner"/>:
+    /// riding beside the state the same row writes it — Unassigned before the
+    /// first resource arrives.</summary>
+    public TFTeam Winner
+        => resources?.Live is { } live ? (TFTeam)live.State.WinningTeam : TFTeam.Unassigned;
 }

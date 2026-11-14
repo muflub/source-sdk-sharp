@@ -74,11 +74,6 @@ public sealed class BannedNamesConVar : StringConVar
 {
 }
 
-[ConVar("cs_sv_friendly_fire", "1", Help = "Allow friendly fire (1/0)")]
-public sealed class FriendlyFireConVar : BoolConVar
-{
-}
-
 //=============================================================================
 // THE SHIM'S POLICY KNOBS, MOVED OUT OF C++.
 //
