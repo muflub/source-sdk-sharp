@@ -5158,12 +5158,146 @@ def step_teardown(run, state):
     return ("PASS" if ok else "FAIL"), numbers
 
 
+
+# ---------------------------------------------------------------------------
+# The bots (plan_bots_teams_tf2 C.8, P6 step 10): steps run BY NAME only, as
+# live-gate's TDM_STEPS are, outside STEP_ORDER and so outside `make tf2-gate`'s
+# default run until a run records their cost (`--steps join,bots-ctf`).
+# ---------------------------------------------------------------------------
+BOT_STEPS = ("bots-ctf", "bots-payload")
+
+# Six a side, as C.8 asks; three minutes of play.
+BOTS_CTF_BOTS = 12
+BOTS_CTF_SECONDS = 180.0
+# The process's threads after the second load may differ from before the bots
+# by the engine's own comings and goings, never by the AI's pool (4 workers).
+BOTS_THREAD_SLACK = 2
+# The game's own capture line (ItemTeamFlag.Capture's log).
+CTF_CAPTURE_RE = re.compile(r"\[TF2/Ctf\] \S+ \((\w+)\) captured by player (\d+) \((\w+)\)")
+# The tree's per-tree TF2 navigation (`make ai-nav-tf MAP=ctf_2fort` builds it).
+TF_NAV = os.path.join(GAME_DIR, "mods", MOD, "maps", "%s.nav3d")
+# A managed exception or a refused acquisition anywhere in the step's lines
+# (live-gate's FAULTS): every kill threw one before CombatTap had its own hook
+# order, and a step that looked only for its capture would have passed.
+BOT_FAULTS = (re.compile(r"EXCEPTION IN "), re.compile(r'could not acquire "'))
+
+
+def ctf_captures(text):
+    """[(capturing team, player index)] for every capture line in the console's
+    text, in order. PURE: the self-test holds it."""
+    return [(m.group(3), int(m.group(2))) for m in CTF_CAPTURE_RE.finditer(text or "")]
+
+
+def bot_faults(text):
+    """The fault lines in the text (BOT_FAULTS). PURE."""
+    return [line for line in (text or "").splitlines() if any(rx.search(line) for rx in BOT_FAULTS)]
+
+
+def bots_ctf_verdict(captures, faults, threads_before, threads_after, slack=BOTS_THREAD_SLACK):
+    """(ok, why) for the bots-ctf step's numbers. A thread count it could not
+    read is a failure, never a pass. PURE."""
+    if faults:
+        return False, "%d fault line(s), the first: %s" % (len(faults), faults[0][:200])
+    if not captures:
+        return False, "no capture in %d s of bots on %s" % (BOTS_CTF_SECONDS, MAP)
+    if threads_before is None or threads_after is None:
+        return False, "the server's thread count could not be read (%r, %r)" % (threads_before, threads_after)
+    if abs(threads_after - threads_before) > slack:
+        return False, "the server's threads went from %d to %d through the second load" % (threads_before, threads_after)
+    return True, ""
+
+
+def step_bots_ctf(run, state):
+    """P6 step 10, bots-ctf: twelve bots (six a side, Soldiers by their own
+    joinclass) on ctf_2fort for three minutes, with at least one capture by
+    bots alone; the AI's main-thread cost read from /ai/counters (ai.sense.us,
+    ai.publish.us); then a changelevel to pl_badwater, THE SECOND MAP LOAD,
+    after which the server's thread count is back at its count before the
+    bots. Any managed exception or refused acquisition in the step's lines
+    fails it. pl_badwater has no TF2 nav at map-tools' lock (55bc945; its
+    play-space clip is eccb2c7), so the bots wait benched there: the load,
+    not their play, is what the second half measures."""
+    numbers = {}
+    nav = TF_NAV % MAP
+    numbers["nav"] = os.path.exists(nav)
+    if not numbers["nav"]:
+        numbers["detail"] = "no %s: `make ai-nav-tf MAP=%s` builds it" % (nav, MAP)
+        return "FAIL", numbers
+
+    on = current_server_map(run.read_console_since_launch())
+    if on != MAP:
+        run.srv.cmd("changelevel %s" % MAP)
+        back = wait_pump(run, "bots-ctf: back on %s" % MAP,
+                         lambda: current_server_map(run.read_console_since_launch()) == MAP or None, 180.0)
+        if not back:
+            numbers["detail"] = "the server never came back to %s (on %s)" % (MAP, on)
+            return "FAIL", numbers
+
+    threads_before = thread_count(run.server.pid)
+    numbers["threads_before"] = threads_before
+    run.mark()
+    players_before = len(run.srv.ents(PLAYER_CLASS))
+    for _ in range(BOTS_CTF_BOTS):
+        run.srv.cmd("ai_bot_add")
+    joined = wait_pump(run, "bots-ctf: %d bots in the game" % BOTS_CTF_BOTS,
+                       lambda: len(run.srv.ents(PLAYER_CLASS)) >= players_before + BOTS_CTF_BOTS or None, 120.0)
+    numbers["players"] = len(run.srv.ents(PLAYER_CLASS))
+    if not joined:
+        numbers["detail"] = "the bots never all joined (%d players)" % numbers["players"]
+        return "FAIL", numbers
+
+    started = time.time()
+    while time.time() - started < BOTS_CTF_SECONDS:
+        time.sleep(15.0)
+        if not run.srv.alive():
+            numbers["detail"] = "the server exited during the bots' play"
+            return "FAIL", numbers
+    counters = run.srv.get("route", "/ai/counters")
+    for key in ("ai.sense.us", "ai.publish.us", "ai.main.us", "ai.apply.ability.sequences", "ai.apply.fire.feet", "bots"):
+        numbers[key] = counters.get(key)
+    played = run.read_console_since_mark()
+    captures = ctf_captures(played)
+    numbers["captures"] = len(captures)
+    numbers["captures_by"] = ",".join(sorted(set(team for team, _ in captures)))
+
+    paints_before = run.read_console_since_launch().count(PAINT_NEEDLE)
+    run.srv.cmd("changelevel %s" % BADWATER)
+    repainted = wait_pump(run, "bots-ctf: the second load, %s" % BADWATER,
+                          lambda: run.read_console_since_launch().count(PAINT_NEEDLE) > paints_before or None, 180.0)
+    numbers["second_load"] = bool(repainted)
+    if not repainted:
+        numbers["detail"] = "the server never painted again after changelevel %s" % BADWATER
+        return "FAIL", numbers
+    time.sleep(10.0)
+    threads_after = thread_count(run.server.pid)
+    numbers["threads_after"] = threads_after
+    faults = bot_faults(run.read_console_since_mark())
+    numbers["faults"] = len(faults)
+    run.srv.cmd("ai_bot_kick all")
+    ok, why = bots_ctf_verdict(captures, faults, threads_before, threads_after)
+    if not ok:
+        numbers["detail"] = why
+        return "FAIL", numbers
+    return "PASS", numbers
+
+
+def step_bots_payload(run, state):
+    """P6 step 10, bots-payload: WAITS FOR P8, and fails saying so. A payload
+    bot needs the Payload subtree (push, block, guard: plan C.6, P8) and a nav
+    of pl_badwater, which map-tools' lock (55bc945) refuses ("16800 units tall");
+    the play-space clip that builds it is map-tools eccb2c7, not in the lock. A
+    step that measured anything now would measure Soldiers fetching a flag that
+    is not there. Written as a failure, never a skip: running it says what is
+    missing."""
+    return "FAIL", {"detail": "waits for P8 (the Payload subtree) and a pl_badwater nav (map-tools eccb2c7 in maptools.lock)"}
+
 LIVE_STEPS = {"join": step_join, "teams": step_teams, "classes": step_classes,
               "weapon": step_weapon,
               "combat": step_combat, "heal": step_heal, "respawn": step_respawn, "ctf": step_ctf,
               "changelevel": step_changelevel, "payload": step_payload,
               "mode": step_mode, "koth": step_koth, "cp5": step_cp5,
-              "rejoin": step_rejoin, "teardown": step_teardown}
+              "rejoin": step_rejoin, "teardown": step_teardown,
+              "bots-ctf": step_bots_ctf, "bots-payload": step_bots_payload}
 
 
 def joiner_died_during_heal(step, alive_before, alive_after):
@@ -5186,7 +5320,8 @@ def run_gate(selected):
           % (tip, len(selected), run.scratch), flush=True)
     print("== report: %s" % report.path, flush=True)
 
-    selected = [s for s in STEP_ORDER if s in selected]
+    # The bots' steps run after the ordered ones, and only when named.
+    selected = [s for s in STEP_ORDER if s in selected] + [s for s in BOT_STEPS if s in selected]
     state = {}
 
     if not run.launch():
@@ -5254,10 +5389,10 @@ def select_steps(spec):
     for token in spec.replace(" ", "").split(","):
         if not token:
             continue
-        if token in STEP_ORDER:
+        if token in STEP_ORDER or token in BOT_STEPS:
             wanted.append(token)
         else:
-            print("== unknown step %r (known: %s)" % (token, ",".join(STEP_ORDER)))
+            print("== unknown step %r (known: %s)" % (token, ",".join(STEP_ORDER + BOT_STEPS)))
             return None
     return wanted
 
@@ -5705,6 +5840,25 @@ def self_test():
                                  rest_seconds=0.6)
     check(not sunk and "rest" in why,
           "a player who never rests fails the settle, naming the rest")
+
+    # The bots' steps (P6 step 10): the capture lines, the faults, the verdict.
+    live = ("[TF2/Ctf] flag_red (Red) picked up by player 4 (Blue), was Home\n"
+            "[TF2/Ctf] flag_red (Red) captured by player 4 (Blue) at point 0: 1 capture(s)\n")
+    check(ctf_captures(live) == [("Blue", 4)], "a capture line is a capture by its team (%r)" % (ctf_captures(live),))
+    check(ctf_captures("[TF2/Ctf] flag_red (Red) picked up by player 4 (Blue), was Home") == [],
+          "a pickup is no capture")
+    exc = "[SourceSharp] ===== EXCEPTION IN IManagedClients.OnPlayerKilled (managed vtable) ====="
+    check(bot_faults("ok\n" + exc) == [exc], "an EXCEPTION IN line is a bot step's fault")
+    check(bots_ctf_verdict([("Blue", 4)], [], 77, 77)[0], "a capture, no fault, the threads back: a pass")
+    check(not bots_ctf_verdict([], [], 77, 77)[0], "no capture is a failure")
+    check(not bots_ctf_verdict([("Blue", 4)], [exc], 77, 77)[0], "a fault fails it whatever else holds")
+    check(not bots_ctf_verdict([("Blue", 4)], [], 77, 81)[0], "threads not back fail it")
+    check(not bots_ctf_verdict([("Blue", 4)], [], None, 77)[0], "an unread thread count never passes")
+    check(select_steps("join,bots-ctf") == ["join", "bots-ctf"], "a bots step runs when named")
+    check("bots-ctf" not in DEFAULT_STEPS and "bots-payload" not in DEFAULT_STEPS,
+          "the bots' steps are not in the default run until their cost is recorded")
+    status, why = step_bots_payload(None, {})
+    check(status == "FAIL" and "P8" in why["detail"], "bots-payload says it waits for P8")
 
     checked = sum(1 for ok, _ in checks)
     failed = [why for ok, why in checks if not ok]

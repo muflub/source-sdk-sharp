@@ -41,6 +41,8 @@ static void BuildStandaloneProps(SendProp* pOut, int& nOut)
 		(int)offsetof(EngineBlockClientTail_t, Skin);
 	nOffsets[STANDALONE_NET_FIELD_BODY] = CStandaloneEntity::BlockBase() + (int)offsetof(EngineBlock_t, Client) +
 		(int)offsetof(EngineBlockClientTail_t, Body);
+	nOffsets[STANDALONE_NET_FIELD_MINS] = CStandaloneEntity::BlockBase() + SS_BLOCK_HEAD_OFFSET(Mins);
+	nOffsets[STANDALONE_NET_FIELD_MAXS] = CStandaloneEntity::BlockBase() + SS_BLOCK_HEAD_OFFSET(Maxs);
 
 	int nCount = 0;
 	const StandaloneNetField_t* pFields = StandaloneNetFields(&nCount);

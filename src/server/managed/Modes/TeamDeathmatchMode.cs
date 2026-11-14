@@ -103,6 +103,9 @@ public sealed class TeamDeathmatchMode : IGameMode, IModeSetup, IModeTeardown, I
     }
 
     /// <summary>How many teams play: <see cref="TdmTeamsConVar"/>, clamped to 2..4.</summary>
+    /// <summary>Team deathmatch's settings, on any map: a map without team spawns plays on its deathmatch spawns.</summary>
+    public IModeSettings Settings => ModeSettings.Of(CoreModeSpecs.TeamDeathmatch());
+
     public int TeamCount => Math.Clamp(_teamCount.Value, 2, LastPossibleTeam - TeamCombine + 1);
 
     /// <summary>The highest team in play now.</summary>

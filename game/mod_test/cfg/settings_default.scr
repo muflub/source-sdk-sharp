@@ -1,44 +1,11 @@
-// The create-server Game page's defaults for the test mod (stock's
-// cfg/settings_default.scr format, read before cfg/settings.scr). A stopgap
-// for team deathmatch until the game-mode config model replaces it
-// (docs/plans/plan_bots_teams_tf2.md A.3 item 10, Part D).
+// The create-server Game page's script for the test mod (stock's
+// cfg/settings_default.scr format, read before cfg/settings.scr). The game
+// mode and its settings come from the game-mode catalog
+// (docs/plans/plan_bots_teams_tf2.md D.2); this script holds only rows the
+// catalog does not.
 
 VERSION 1.0
 
 DESCRIPTION SERVER_OPTIONS
 {
-	"mp_teamplay"
-	{
-		"#Valve_Teamplay"
-		{ BOOL }
-		{ "0" }
-	}
-
-	"mp_tdm_teams"
-	{
-		"Teams (team deathmatch)"
-		{ LIST "2" "2" "3" "3" "4" "4" }
-		{ "2" }
-	}
-
-	"mp_friendlyfire"
-	{
-		"#Valve_Friendly_Fire"
-		{ BOOL }
-		{ "0" }
-	}
-
-	"mp_timelimit"
-	{
-		"#Valve_Time_Limit"
-		{ NUMBER 0 -1 }
-		{ "0" }
-	}
-
-	"mp_fraglimit"
-	{
-		"#Valve_Frag_Limit"
-		{ NUMBER 0 -1 }
-		{ "0" }
-	}
 }

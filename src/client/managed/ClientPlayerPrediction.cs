@@ -938,6 +938,40 @@ public sealed class ClientPlayerPrediction
             return;
         }
 
+        // A deploy that ran between the command and its acknowledgement is
+        // adopted the same way, through the weapon ring's stamp: the console's
+        // `use` press and the kit's give deploy write their words with no
+        // weaponselect riding the command to mirror, so the hand-out alone
+        // moves the held and carried words while the saved slot holds the old
+        // pair (ClientArsenal.DeployedOutOfBand). Stock hands the fresh words
+        // to a recreated entity straight from the arrival
+        // (c_baseentity.cpp:4578-4583); the stamp says which arrival is that
+        // hand-out. Judged from there on. The stamp answers the deploy that
+        // lands between the save and the compare; the deploy that ran earlier
+        // — its bump already spent by an ack behind the judged one — leaves
+        // equal stamps and the slot still behind the deploy's whole carried
+        // quartet, so the held move itself carries the arm when no select rode
+        // the command to mirror it (HeldMovedWithoutASelect).
+        if ((_arsenal is { } arsenal && arsenal.DeployedOutOfBand(acknowledged))
+            || HeldMovedWithoutASelect(acknowledged, ringed, player.State))
+        {
+            _rebuilt++;
+            return;
+        }
+
+        // The give-all impulse answers inside the server's run of the command
+        // that carries it (ImpulseCheats.GiveAll, dispatched at the command's
+        // phase-1 tail): the give writes every carried row and the selection
+        // sweep's republished pair rides the arrival with no weaponselect to
+        // mirror. The acked slot was predicted before that write, and the
+        // impulse itself names the command — adopted the way the deploy's
+        // moment is, from the next decode's basis on judged again.
+        if (_engine.TryGetUserCmd(acknowledged, out UserCmd ackedCmd) && ackedCmd.Impulse != 0)
+        {
+            _rebuilt++;
+            return;
+        }
+
         ClearWitnessedPoke(acknowledged);
 
         uint typeId = NetSchema.TypeIdOf(EntityNames.Player);
@@ -1066,6 +1100,33 @@ public sealed class ClientPlayerPrediction
         saved.Decode(slot);
 
         return saved.TickBase != arrived.TickBase;
+    }
+
+    /// <summary>
+    /// Whether the acked slot's held and carried words stand behind the
+    /// arrival's while no weaponselect rode the command to mirror them: the
+    /// signature of a deploy that ran outside the command stream — the
+    /// console's <c>use</c> press, the kit's give — whose stamp was already
+    /// spent on an earlier ack, so the stamped arm sees equal stamps a
+    /// command later while the saved slot still misses the deploy's whole
+    /// carried quartet (the boot's <c>EmptyWeaponsHigh=6368|14560</c> pair
+    /// rode exactly this lag on the shot's ack, held equal by then and the
+    /// empty word a command behind). Any word of the quartet names the
+    /// hand-out; the stamp only says who wrote it. The select gate keeps the
+    /// mirrored switches judged. A command whose record cannot be read is
+    /// judged, as with the impulse arm.
+    /// </summary>
+    private bool HeldMovedWithoutASelect(int acknowledged, ReadOnlySpan<byte> slot, PlayerNetState arrived)
+    {
+        if (!_engine.TryGetUserCmd(acknowledged, out UserCmd ackedCmd) || ackedCmd.WeaponSelect != 0)
+            return false;
+
+        PlayerNetState saved = _slotView;
+        saved.Decode(slot);
+
+        return saved.HeldWeapon != arrived.HeldWeapon
+            || saved.CarriedMask != arrived.CarriedMask
+            || saved.EmptyMask != arrived.EmptyMask;
     }
 
     private void ClearWitnessedPoke(int acknowledged)

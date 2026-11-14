@@ -2036,6 +2036,13 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _netTraffic = _services.Create<NetTrafficProfiler>();
         _services.AddInstance<INetTrafficProfiler>(_netTraffic);
 
+        // The game-mode catalog (plan_bots_teams_tf2 D.2): the registered modes'
+        // specs and the rows every mode gets, and which modes a map's lump
+        // can play. Votes, the admin menu and the client's copy read it.
+        _services.AddFactory<IHooks<IModeSettingsProvider>>(locator => new Hooks<IModeSettingsProvider>(locator, locator.Require<ILog>()));
+        _services.Add<IMapEntityClasses, BspEntityClasses>();
+        _services.Add<GameModeCatalog>();
+
         // Voting and its console verbs: a core service, the mods' words before it.
         _services.Add<IVoteOptions, GameVoteOptions>();
         _services.Add(typeof(ServerVotes), typeof(ServerVotes));

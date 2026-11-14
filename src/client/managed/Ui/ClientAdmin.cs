@@ -169,6 +169,18 @@ public sealed class ClientAdmin(RadialMenus radial, Action<byte[]> send, AdminKe
         send(AdminWire.WriteOpen());
     }
 
+    /// <summary>
+    /// Asks the server to take the menu item <paramref name="id"/>, as choosing it
+    /// on the radial does: <c>ss_admin_run</c>, for a test or a script. The server
+    /// judges it against the menu it builds for this player, so a player who is no
+    /// admin, or an id not on that menu, is refused there and told why.
+    /// </summary>
+    public void Run(string id)
+    {
+        if (engine.IsInGame() && id.Length > 0)
+            send(AdminWire.WriteRun(id));
+    }
+
     public void OnAdminChallenge(AdminChallenge challenge)
     {
         if (!Asked || _proved)
@@ -255,6 +267,12 @@ public sealed class ClientAdmin(RadialMenus radial, Action<byte[]> send, AdminKe
 public sealed class AdminMenuCommand(ClientAdmin admin)
 {
     public void Execute() => admin.Open();
+}
+
+[ConCommand("ss_admin_run", Help = "ss_admin_run <id>: asks the server to take an admin menu item by its id, as the radial does (the server refuses one who is no admin)")]
+public sealed class AdminRunCommand(ClientAdmin admin)
+{
+    public void Execute(string id = "") => admin.Run(id);
 }
 
 [ConCommand("ss_admin_keygen", Help = "Makes your admin key if you have none, and prints the line for a server's cfg/admins.yaml")]

@@ -844,7 +844,7 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     /// signature of a (re)deploy that ran between the two client commands,
     /// which no weaponselect could have been mirrored against.
     /// </summary>
-    private bool DeployedOutOfBand(int acknowledged)
+    public bool DeployedOutOfBand(int acknowledged)
     {
         ReadOnlySpan<byte> slot = _weaponRing.CommandBytes(acknowledged);
 

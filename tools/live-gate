@@ -9881,10 +9881,11 @@ def step_ss_ai_hearing(g):
 #=============================================================================
 # TEAM DEATHMATCH (plan_bots_teams_tf2 A.5, A.6, A.7, A.8, B.8, B.9).
 #
-# Four steps: tdm-round (the mode's scoring and frag limit), tdm-chat
+# Five steps: tdm-round (the mode's scoring and frag limit), tdm-chat
 # (say_team reaches the speaker's side alone), tdm-bots (the bots play as
-# teams, and the swap, walk-through and re-team arms) and rejoin-score (a
-# departed player's score comes back). They are TDM_STEPS, outside the
+# teams, and the swap, walk-through and re-team arms), rejoin-score (a
+# departed player's score comes back) and ui-teammenu-tdm (the team menu's
+# teamplay arm: a card a team, a click joins, the unbalance limit refuses). They are TDM_STEPS, outside the
 # registry, until a run records their budget rows (see TDM_STEPS).
 #
 # The gate's server is -maxplayers 4, so "two teams of two" is the gate's
@@ -10714,6 +10715,456 @@ def step_rejoin_score(g):
         server.wait_for(lambda: len(server.ents(scen["playerClass"])) == 1, 30.0)
 
 
+# The team menu's teamplay arm (plan_bots_teams_tf2 A.5): ui-teammenu above
+# is deathmatch's menu; this is team deathmatch's, with 2, 3 and 4 teams.
+TDM_ALL_TEAM_NAMES = {2: "Combine", 3: "Rebels", 4: "Metro Police", 5: "Resistance"}
+TDM_REFUSED = "refused team %d: That team has too many players."
+
+
+def teammenu_cards(texts, names):
+    """Which of `names` ({team: name}) the team menu's draws show as a card's
+    name, matched whole and case-blind (the card's Title style may case
+    it). PURE."""
+    drawn = {t.strip().lower() for t in texts}
+    return sorted(team for team, name in names.items() if name.lower() in drawn)
+
+
+def step_ui_teammenu_tdm(g):
+    """
+    THE TEAM MENU UNDER TEAM DEATHMATCH: ONE CARD A TEAM, A CLICK JOINS IT,
+    AND A JOIN THAT UNBALANCES THE TEAMS IS REFUSED WITH THE REASON
+    (plan_bots_teams_tf2 A.5, ui-teammenu's teamplay arm).
+
+    sv_mode tdm, the gate's player alone. For mp_tdm_teams 2, 3 and 4: the
+    server's VGUIMenu team opens the UI's team menu, which draws a card for
+    each team in play and none for a team out of play; a click on the last
+    team's card sends jointeam and the server moves the player there, and the
+    menu closes. Then mp_tdm_teams 3, mp_teams_unbalance_limit 1 and one bot
+    on the Combine: a click on the Combine card would make it two against
+    none, so the server refuses it with the reason, the player's chat draws
+    the reason and the player stays where they were; the control, a click on
+    the Rebels' card, is one against one and joins.
+    """
+    slot = ui_slot(g)
+    if slot is None:
+        return
+    g.cheats()
+    for line in ("mp_teamplay 1", "ai_bot_reserve_slots 0", "mp_teams_unbalance_limit 0",
+                 "mp_tdm_teams 2", "sv_mode tdm"):
+        g.api.cmd(line)
+
+    def team_of(who):
+        board = team_board(g)
+        return (board or ({}, {}))[1].get(who, (0, 0, 0))[2]
+
+    def open_menu(what):
+        g.api.cmd("cs_sv_showpanel %d team" % slot)
+        menu = g.api.wait_for(lambda: (lambda m: m if "teammenu" in m.get("open", []) else None)(ui_menu(g, slot)), 10.0)
+        g.check(bool(menu), "%s: the server's VGUIMenu team opened the UI's team menu" % what)
+        if menu:
+            time.sleep(0.5)   # a frame or two, so the cards are laid out
+            menu = ui_menu(g, slot)
+        return menu
+
+    def card(menu, team):
+        name = TDM_ALL_TEAM_NAMES[team].lower()
+        hits = [d for d in menu.get("draws", []) if d.get("kind") == "Text" and d.get("text", "").strip().lower() == name]
+        return hits[-1] if hits else None
+
+    def click(draw):
+        x, y = draw["x0"] + 12, draw["y0"] + 8
+        for kind, code in ((0, 0), (1, 107), (2, 107)):
+            g.api.get("client", str(slot), "ui/event?e=%d,%d,%d,%d" % (kind, x, y, code))
+
+    def closed():
+        return g.api.wait_for(lambda: (lambda m: m if "teammenu" not in m.get("open", []) and not m.get("menuInput") else None)(ui_menu(g, slot)), 10.0)
+
+    try:
+        for teams in (2, 3, 4):
+            g.api.cmd("mp_tdm_teams %d" % teams)
+            time.sleep(1.0)   # the replicated count reaches the client
+            menu = open_menu("%d teams" % teams)
+            if not menu:
+                return
+            playing = {t: TDM_ALL_TEAM_NAMES[t] for t in range(2, 2 + teams)}
+            shown = teammenu_cards(ui_texts(menu), TDM_ALL_TEAM_NAMES)
+            g.check(shown == sorted(playing),
+                    "%d teams: the menu draws a card for each team in play and no other (%s, want %s)"
+                    % (teams, [TDM_ALL_TEAM_NAMES[t] for t in shown], list(playing.values())))
+            target = 1 + teams
+            draw = card(menu, target)
+            if draw is None:
+                g.check(False, "%d teams: the %s card is drawn to click" % (teams, playing[target]))
+                return
+            click(draw)
+            moved = g.api.wait_for(lambda: team_of(slot) == target or None, 10.0)
+            g.check(bool(moved), "%d teams: a click on the %s card moved the player there (team %s)"
+                    % (teams, playing[target], team_of(slot)))
+            g.check(bool(closed()), "%d teams: the menu closed and gave the mouse back" % teams)
+
+        # The limit: one bot on the Combine, the player on the Rebels' side
+        # of three teams; joining the Combine would be two against none.
+        g.api.cmd("mp_tdm_teams 3")
+        g.api.cmd("mp_teams_unbalance_limit 1")
+        g.api.cmd("jointeam %d" % TDM_REBELS)
+        g.api.cmd("ai_bot_add Held normal team=%d" % TDM_COMBINE)
+        bot = g.api.wait_for(lambda: next((b["slot"] for b in ai_bots(g) if b.get("name") == "Held"
+                                           and team_of(b["slot"]) == TDM_COMBINE), None), 30.0, 0.5)
+        settled = bot and g.api.wait_for(lambda: team_of(slot) == TDM_REBELS or None, 10.0)
+        g.check(bool(bot) and bool(settled), "the limit's stage: a bot on the Combine, the player on the Rebels (bot %s, player on %s)"
+                % (bot, team_of(slot)))
+        if not (bot and settled):
+            return
+        menu = open_menu("unbalanced")
+        if not menu:
+            return
+        draw = card(menu, TDM_COMBINE)
+        if draw is None:
+            g.check(False, "unbalanced: the Combine card is drawn to click")
+            return
+        refused_before = g.count_console(TDM_REFUSED % TDM_COMBINE)
+        click(draw)
+        refused = g.api.wait_for(lambda: g.count_console(TDM_REFUSED % TDM_COMBINE) > refused_before or None, 10.0)
+        g.check(bool(refused), "unbalanced: the server refused the Combine with the reason (%s)"
+                % (g.last_console_line("refused team") if refused else "no refusal line"))
+        told = g.api.wait_for(lambda: any("That team has too many players." in t for t in ui_texts(ui_frame(g, slot))) or None, 10.0)
+        g.check(bool(told), "unbalanced: the player's chat draws the reason")
+        time.sleep(1.0)
+        g.check(team_of(slot) == TDM_REBELS, "unbalanced: the player stayed on the Rebels (team %s)" % team_of(slot))
+        closed()
+
+        # The control: the Metro Police are one against one, and the join goes through.
+        menu = open_menu("balanced")
+        if not menu:
+            return
+        draw = card(menu, 4)
+        if draw is None:
+            g.check(False, "balanced: the Metro Police card is drawn to click")
+            return
+        click(draw)
+        joined = g.api.wait_for(lambda: team_of(slot) == 4 or None, 10.0)
+        g.check(bool(joined), "balanced: the same limit lets the player join the Metro Police (team %s)" % team_of(slot))
+        closed()
+    finally:
+        for line in ("ai_bot_kick all", "mp_teams_unbalance_limit 0", "mp_tdm_teams 2"):
+            g.api.cmd(line)
+        tdm_home(g)
+
+
+#=============================================================================
+# VOTES AND THE ADMIN MENU (plan_bots_teams_tf2 D.5).
+#
+# Four steps: vote-mode (a human's mode vote passes on its own yes, the bots
+# re-team and the scoreboard shows the teams), vote-fail (sv_vote_min_voters
+# refuses the same call, the reason on the caller's panel), admin-refused (a
+# second client, no admin, asks for an admin item and the log names its slot)
+# and vote-map (a next-map vote passes and the intermission changes to it: the
+# second map load, bots playing there). They are VOTE_STEPS, outside the
+# registry, until a run records their budget rows (see VOTE_STEPS).
+#=============================================================================
+
+VOTE_MODE_SWITCHED = "[SourceSharp/Modes] switched to 'tdm'"
+VOTE_MODE_CALL = "ss_callvote mode tdm"
+VOTE_AI_RETEAM = "[SourceSharp/Ai] mode 'null' -> 'tdm'"
+VOTE_MAP_CYCLE = "ss_gate_mapcycle.txt"
+VOTE_ADMIN_REFUSED = re.compile(r"\[SourceSharp/Admin\] (.*) \(slot (\d+), user id (-?\d+)\) is no admin and asked for (\S+): refused")
+
+
+def match(g):
+    """The server's /match (the web UI's Match card), or None when the game answers none."""
+    try:
+        got = g.api.get("route", "/match")
+    except ApiError:
+        return None
+    return got if isinstance(got, dict) and "map" in got else None
+
+
+def vote_idle(g, seconds=15.0):
+    """Waits until /match shows no ballot: a result is shown five seconds, and a
+    call while it shows is refused as a vote in progress."""
+    return g.api.wait_for(lambda: (lambda m: m is not None and m.get("vote") is None or None)(match(g)), seconds, 0.5)
+
+
+def vote_setup(g):
+    """Votes on and nothing in the way of a call: no creation cooldown (each
+    step calls once, and the gate's player is one caller), no failure wait, the
+    stock minimum of one voter, and no ballot still shown."""
+    g.cheats()
+    for line in ("sv_allow_votes 1", "sv_vote_creation_timer 0", "sv_vote_failure_timer 0", "sv_vote_min_voters 1",
+                 "sv_vote_issue_mode_allowed 1", "sv_vote_issue_nextlevel_allowed 1"):
+        g.api.cmd(line)
+    vote_idle(g)
+
+
+def vote_home(g):
+    """The knobs as the gate keeps them, deathmatch again and no mode kept for
+    the levels after (a passed mode vote sets sv_mode_next)."""
+    for line in ("ai_bot_kick all", "ai_bot_reserve_slots 1", 'sv_mode_next ""', "mp_teamplay 0", "sv_mode null",
+                 "sv_vote_creation_timer 150", "sv_vote_failure_timer 300", "sv_vote_min_voters 1", 'nextlevel ""'):
+        g.api.cmd(line)
+
+
+def game_dir(api):
+    """The game's own mod directory: its command line's -game (a launched
+    instance's private one under -instance, never bin/<config>/mods/test)."""
+    with open("/proc/%s/cmdline" % api.pid, "rb") as f:
+        args = f.read().split(b"\0")
+    return args[args.index(b"-game") + 1].decode()
+
+
+def team_heads(board):
+    """{team: players} of parse_team_board's rows. PURE."""
+    return dict(collections.Counter(row[2] for row in board[1].values())) if board else {}
+
+
+def step_vote_mode(g):
+    """A human's vote for team deathmatch passes on its own yes with three bots
+    in the game (plan_bots_teams_tf2 D.3, D.5; ruled "bots dont vote").
+
+    The gate's player calls `ss_callvote mode tdm` with three bots playing.
+    Asserted, through /match (the web UI's Match card) and the log:
+      * the call reached the server (its vote log line);
+      * the ballot is the mode vote for tdm, and its electorate is ONE: the
+        bots are no voters, so the caller's own yes is the quorum;
+      * it passes: the server switches to team deathmatch;
+      * the AI hears the switch and the bots re-team: two a team, the gate's
+        player counted;
+      * the scoreboard draws the two teams.
+    """
+    if match(g) is None:
+        g.check(False, "the game answers no /match: the Match card's route is not served")
+        return
+    if ai_counters(g) is None:
+        g.skip("the game answers no /ai/counters: the AI binding is not loaded")
+        return
+    try:
+        vote_setup(g)
+        human = g.api.player(g.scen["playerClass"])["index"]
+        g.api.cmd("ai_bot_reserve_slots 0")
+        for name in ("Voter1", "Voter2", "Voter3"):
+            g.api.cmd("ai_bot_add %s normal" % name)
+        three = g.api.wait_for(lambda: len(ai_bots(g)) == 3 or None, 30.0, 0.5)
+        g.check(bool(three), "three bots in the game beside the gate's player (%s)" % [b.get("name") for b in ai_bots(g)])
+        if not three:
+            return
+        switched, reteamed, called = (g.count_console(VOTE_MODE_SWITCHED), g.count_console(VOTE_AI_RETEAM),
+                                      g.count_console(VOTE_MODE_CALL))
+        g.api.cmd(VOTE_MODE_CALL)
+        reached = g.api.wait_for(lambda: g.count_console(VOTE_MODE_CALL) > called or None, 5.0)
+        g.check(bool(reached), "the call reached the server: %s" % g.last_console_line(VOTE_MODE_CALL))
+        ballot = g.api.wait_for(lambda: (lambda m: m and m.get("vote") or None)(match(g)), 5.0, 0.1)
+        g.check(bool(ballot) and ballot.get("kind") == "Mode" and ballot.get("detail") == "tdm" and ballot.get("voters") == 1,
+                "the ballot is the mode vote for tdm with one voter, the bots not counted (%s)" % ballot)
+        passed = g.api.wait_for(lambda: g.count_console(VOTE_MODE_SWITCHED) > switched or None, 15.0)
+        g.check(bool(passed), "it passed on the caller's own yes: %s" % (g.last_console_line(VOTE_MODE_SWITCHED) or "no switch"))
+        if not passed:
+            return
+        ai = g.api.wait_for(lambda: g.count_console(VOTE_AI_RETEAM) > reteamed or None, 5.0)
+        g.check(bool(ai), "the AI heard the switch: %s" % (g.last_console_line(VOTE_AI_RETEAM) or "nothing said"))
+        even = g.api.wait_for(lambda: team_heads(team_board(g)) == {TDM_COMBINE: 2, TDM_REBELS: 2} or None, 20.0, 0.5)
+        g.check(bool(even), "the bots re-teamed: two a team with the gate's player (%s)" % team_heads(team_board(g)))
+        g.api.cmd("+showscores")
+        try:
+            want = sorted(TDM_TEAM_NAMES.values())
+            drawn = g.api.wait_for(lambda: (lambda m: sorted(scoreboard_teams(ui_texts(m))) == want and m or None)(ui_menu(g, human)), 10.0, 0.25)
+            g.check(bool(drawn), "the scoreboard draws two teams: %s" % sorted(scoreboard_teams(ui_texts(ui_menu(g, human)))))
+        finally:
+            g.api.cmd("-showscores")
+        mode = (match(g) or {}).get("mode") or {}
+        g.check(mode.get("id") == "tdm" and mode.get("teamplay") is True, "/match names the mode playing: %s" % mode)
+    finally:
+        vote_home(g)
+
+
+def step_vote_fail(g):
+    """sv_vote_min_voters refuses a call too few can vote on, and the caller's
+    panel says why (plan_bots_teams_tf2 D.3, §8.2 Q2).
+
+    With sv_vote_min_voters 2 and the gate's player alone, the same mode call.
+    Asserted: the call reached the server; it is refused as too few voters with
+    the count in the reason; no ballot opens and the mode does not change; the
+    caller's vote panel draws the refusal and its reason. The control, first:
+    with the stock minimum the server's own count says one can vote.
+    """
+    if match(g) is None:
+        g.check(False, "the game answers no /match: the Match card's route is not served")
+        return
+    try:
+        vote_setup(g)
+        human = g.api.player(g.scen["playerClass"])["index"]
+        g.api.cmd("sv_vote_min_voters 2")
+        refused, switched, called = (g.count_console("call refused: TooFewVoters"), g.count_console(VOTE_MODE_SWITCHED),
+                                     g.count_console(VOTE_MODE_CALL))
+        g.api.cmd(VOTE_MODE_CALL)
+        reached = g.api.wait_for(lambda: g.count_console(VOTE_MODE_CALL) > called or None, 5.0)
+        g.check(bool(reached), "the call reached the server: %s" % g.last_console_line(VOTE_MODE_CALL))
+        said = g.api.wait_for(lambda: g.count_console("call refused: TooFewVoters") > refused or None, 5.0)
+        line = g.last_console_line("call refused: TooFewVoters") or ""
+        g.check(bool(said) and "1 can vote here; this server needs 2" in line and ("player %d's" % human) in line,
+                "the call was refused for too few voters, with the count: %s" % line.strip())
+        reason = "1 can vote here; this server needs 2"
+
+        def shown():
+            # The vote panel draws on the menu layer (/client/{slot}/ui/menu), the refusal's title and its reason.
+            texts = ui_texts(ui_menu(g, human))
+            return [t for t in texts if t == reason or "too few" in t.lower()] if reason in texts and any("too few" in t.lower() for t in texts) else None
+        panel = g.api.wait_for(shown, 5.0, 0.2)
+        g.check(bool(panel), "the caller's vote panel draws the refusal and its reason (%s)" % (panel or "not drawn"))
+        g.api.wait_ticks(132)
+        g.check((match(g) or {}).get("vote") is None and g.count_console(VOTE_MODE_SWITCHED) == switched,
+                "no ballot opened and the mode did not change (%s)" % ((match(g) or {}).get("mode")))
+    finally:
+        vote_home(g)
+
+
+def step_admin_refused(g):
+    """A player who is no admin asks for an admin item and is refused, and the
+    log names them by name, slot and user id (plan_bots_teams_tf2 D.4).
+
+    A second client joins the listen server (slot 2: the host, slot 1, is the
+    admin) and runs `ss_admin_run restart`, the radial's choice by id. Asserted:
+    the server's refusal line names the second client's slot and user id and
+    the item; the round did not restart. The control: the host's own
+    `ss_admin_run restart` runs.
+    """
+    if g.no_second_client:
+        g.skip("--no-second-client was given")
+    scen, server = g.scen, g.api
+    port = getattr(g, "server_port", None)
+    if not port:
+        g.check(False, "the gate could not tell which UDP port its own server bound")
+        return
+    first = server.player(scen["playerClass"])["index"]
+    tmpdir = os.path.join(g.scratch, "client2")
+    log = os.path.join(g.scratch, "live-gate-client2.log")
+    client, _ = launch_with_free_port(client_launch, log, tmpdir)
+    if client is None:
+        g.note(keep_log(log, SECONDCLIENT_KEPT_LOG))
+        g.check(False, "a second instance never opened a dev API socket")
+        return
+    failures_before = len(g.failures)
+    try:
+        for api in (server, client.api):
+            api.convar("net_usesocketsforloopback", 1)
+        time.sleep(1.0)
+        client.api.cmd("connect 127.0.0.1:%d" % port)
+        if not server.wait_for(lambda: len(server.ents(scen["playerClass"])) >= 2, 90.0, 1.0):
+            g.check(False, "the second client never joined -- %s" % join_state(
+                server, client.api, len(server.ents(scen["playerClass"])), log, port))
+            return
+        second = next(p["index"] for p in server.ents(scen["playerClass"]) if p["index"] != first)
+        server.wait_for(lambda: alive(g, second) or None, 60.0)
+        managers = server.ents("player_manager")
+        user_id = int(server.fields(managers[0]["index"]).get("UserId.%d" % second, -1) or -1) if managers else -1
+
+        ran = g.count_console("ran restart")
+        client.api.cmd("ss_admin_run restart")
+        line = g.api.wait_for(lambda: next((l for l in reversed(g.console_lines("is no admin and asked for restart"))), None), 10.0, 0.25)
+        m = VOTE_ADMIN_REFUSED.search(line or "")
+        g.check(bool(m) and int(m.group(2)) == second and m.group(4) == "restart",
+                "the second client's ask is refused and the log names its slot %d: %s" % (second, (line or "no refusal line").strip()))
+        if m and user_id >= 0:
+            g.check(int(m.group(3)) == user_id, "and its user id %d (%s)" % (user_id, m.group(3)))
+        g.api.wait_ticks(66)
+        g.check(g.count_console("ran restart") == ran, "nothing ran: no admin took restart")
+
+        server.cmd("ss_admin_run restart")
+        took = g.api.wait_for(lambda: g.count_console("ran restart") > ran or None, 10.0)
+        g.check(bool(took), "the control: the host, the listen server's admin, runs it (%s)" % g.last_console_line("ran restart"))
+    finally:
+        try:
+            client.api.cmd("disconnect")
+        except ApiError:
+            pass
+        if len(g.failures) > failures_before:
+            g.note(keep_log(log, SECONDCLIENT_KEPT_LOG))
+        client.kill()
+        server.wait_for(lambda: len(server.ents(scen["playerClass"])) == 1, 30.0)
+
+
+def step_vote_map(g):
+    """A next-map vote passes and the intermission changes to the map it chose
+    (plan_bots_teams_tf2 D.3, D.5): THE SECOND MAP LOAD, and bots play there.
+
+    A map cycle of the scenario's map and ss_ai_tdm (written to the instance's
+    cfg/; mapcyclefile names it), two bots, the gate's player calls
+    `ss_callvote nextmap ss_ai_tdm`. Asserted: /match offers ss_ai_tdm as a
+    candidate; the vote passes on the caller's yes and /match's next map is
+    ss_ai_tdm, chosen; `nextmap` says so; a frag limit of one ends the round on
+    a kill; mp_chattime later the level changes to ss_ai_tdm and the bots come
+    back and play (a kill or a death on the new level).
+    """
+    if match(g) is None:
+        g.check(False, "the game answers no /match: the Match card's route is not served")
+        return
+    if ai_counters(g) is None:
+        g.skip("the game answers no /ai/counters: the AI binding is not loaded")
+        return
+    cycle = os.path.join(game_dir(g.api), "cfg", VOTE_MAP_CYCLE)
+    try:
+        os.makedirs(os.path.dirname(cycle), exist_ok=True)
+        with open(cycle, "w", encoding="utf-8") as f:
+            f.write("%s\n%s\n" % (g.scen["map"], TDM_MAP))
+        vote_setup(g)
+        for line in ("mapcyclefile %s" % VOTE_MAP_CYCLE, "ai_bot_reserve_slots 0", "mp_chattime 3", 'nextlevel ""'):
+            g.api.cmd(line)
+        human = g.api.player(g.scen["playerClass"])["index"]
+        for name in ("Mapper1", "Mapper2"):
+            g.api.cmd("ai_bot_add %s normal" % name)
+        two = g.api.wait_for(lambda: len(ai_bots(g)) == 2 or None, 30.0, 0.5)
+        g.check(bool(two), "two bots in the game (%s)" % [b.get("name") for b in ai_bots(g)])
+        if not two:
+            return
+        offered = [c.get("map") for c in (match(g) or {}).get("candidates", [])]
+        g.check(TDM_MAP in offered, "/match offers %s as a candidate (%s)" % (TDM_MAP, offered))
+
+        call = "ss_callvote nextmap %s" % TDM_MAP
+        called = g.count_console(call)
+        g.api.cmd(call)
+        g.check(bool(g.api.wait_for(lambda: g.count_console(call) > called or None, 5.0)),
+                "the call reached the server: %s" % g.last_console_line(call))
+        chosen = g.api.wait_for(lambda: (lambda m: m and m.get("nextMap") == TDM_MAP and m.get("nextLevelSet") or None)(match(g)), 15.0, 0.25)
+        g.check(bool(chosen), "it passed: /match's next map is %s, chosen (%s)"
+                % (TDM_MAP, {k: (match(g) or {}).get(k) for k in ("nextMap", "nextLevelSet")}))
+        said = g.count_console("[SourceSharp/Rules] nextmap: %s" % TDM_MAP)
+        g.api.cmd("nextmap")
+        g.check(bool(g.api.wait_for(lambda: g.count_console("[SourceSharp/Rules] nextmap: %s" % TDM_MAP) > said or None, 5.0)),
+                "nextmap names it: %s" % g.last_console_line("[SourceSharp/Rules] nextmap:"))
+        if not chosen:
+            return
+
+        intermissions, changes = g.count_console("[SourceSharp/Rules] intermission:"), g.count_console("CHANGE LEVEL: %s" % TDM_MAP)
+        g.api.cmd("mp_fraglimit 1")
+        victim = next(b["slot"] for b in ai_bots(g))
+        g.api.wait_for(lambda: alive(g, victim) or None, 20.0)
+        g.api.get("hurt", "#%d" % victim, FRAG_KILL, "", "", "#%d" % human)
+        ended = g.api.wait_for(lambda: g.count_console("[SourceSharp/Rules] intermission:") > intermissions or None, 10.0)
+        g.check(bool(ended), "a frag limit of one ends the round on the gate's player's kill (%s)"
+                % g.last_console_line("[SourceSharp/Rules] intermission:"))
+        # Off again, or the new level's first kill ends its round too and the cycle takes it away.
+        g.api.cmd("mp_fraglimit 0")
+        changed = ended and g.api.wait_for(lambda: g.count_console("CHANGE LEVEL: %s" % TDM_MAP) > changes or None, 30.0)
+        loaded = changed and g.api.wait_for(lambda: g.api.status().get("map") == TDM_MAP and g.api.player(g.scen["playerClass"]) or None, 120.0, 1.0)
+        g.check(bool(loaded), "the intermission changed the level to %s (%s)" % (TDM_MAP, g.last_console_line("CHANGE LEVEL:")))
+        if not loaded:
+            return
+        g.check((match(g) or {}).get("nextLevelSet") is False, "the new level cleared nextlevel: the vote chose one level")
+        back = g.api.wait_for(lambda: len(ai_bots(g)) == 2 and all(alive(g, b["slot"]) for b in ai_bots(g)) or None, 60.0, 1.0)
+        g.check(bool(back), "the bots came back on %s, alive (%s)" % (TDM_MAP, ai_bots(g)))
+        killed = g.count_console(" killed by #")
+        play = back and g.api.wait_for(lambda: g.count_console(" killed by #") > killed or None, 90.0, 1.0)
+        g.check(bool(play), "and play there: a kill on %s (%s)" % (TDM_MAP, g.last_console_line(" killed by #")))
+    finally:
+        g.api.cmd("mapcyclefile mapcycle.txt")
+        try:
+            os.remove(cycle)
+        except OSError:
+            pass
+        vote_home(g)
+        if g.api.status().get("map") != g.scen["map"]:
+            tdm_home(g)
+
+
 STEPS = [
     ("join",          "join",                                        step_join),
     ("move",          "move",                                        step_move),
@@ -10882,18 +11333,39 @@ TDM_STEPS = [
                  "keeps the teams even (not in §5; plan_bots_teams_tf2 B.8, B.9, A.7, A.8)", step_tdm_bots),
     ("rejoin-score", "a second client leaves and rejoins with its score, and a new level forgets it "
                      "(not in §5; plan_bots_teams_tf2 A.6)", step_rejoin_score),
+    ("ui-teammenu-tdm", "under team deathmatch the team menu draws a card a team for 2, 3 and 4 teams, a click "
+                        "joins that team, and a join past mp_teams_unbalance_limit is refused with the reason "
+                        "(not in §5; plan_bots_teams_tf2 A.5)", step_ui_teammenu_tdm),
 ]
 TDM_ORDER = [step[0] for step in TDM_STEPS]
 
-BY_ID = {step[0]: step for step in ALL_STEPS + TDM_STEPS}
+# The votes and admin steps (plan_bots_teams_tf2 D.5), as TDM_STEPS are: each
+# hand-proved against a game of its own, outside the registry until a run
+# records its crossing-budget row (tools/gate-budget requires one); --steps runs
+# one when it is named, after the team steps.
+VOTE_STEPS = [
+    ("vote-mode", "a human's vote for team deathmatch passes on its own yes with three bots in the game (one "
+                  "voter), the bots re-team two a team and the scoreboard draws the teams (not in §5; "
+                  "plan_bots_teams_tf2 D.5)", step_vote_mode),
+    ("vote-fail", "with sv_vote_min_voters 2 the same call is refused with the count, the reason on the caller's "
+                  "panel, and nothing changes (not in §5; plan_bots_teams_tf2 D.5)", step_vote_fail),
+    ("admin-refused", "a second client, no admin, asks for an admin item: refused, and the log names its slot and "
+                      "user id; the host's own ask runs (not in §5; plan_bots_teams_tf2 D.5)", step_admin_refused),
+    ("vote-map", "a next-map vote for ss_ai_tdm passes, a frag limit ends the round and the intermission changes "
+                 "to it (the second map load), where the bots play (not in §5; plan_bots_teams_tf2 D.5)", step_vote_map),
+]
+VOTE_ORDER = [step[0] for step in VOTE_STEPS]
+
+BY_ID = {step[0]: step for step in ALL_STEPS + TDM_STEPS + VOTE_STEPS}
 
 
 def steps_order(wanted):
     """The run order `--steps` names, and the names that are no step: `join`
     first (every step needs it), the gate's own named steps in RUN_ORDER, then
-    the named TDM_STEPS in theirs. PURE."""
-    unknown = [s for s in wanted if s not in RUN_ORDER and s not in TDM_ORDER]
-    order = [s for s in RUN_ORDER if s == "join" or s in wanted] + [s for s in TDM_ORDER if s in wanted]
+    the named TDM_STEPS in theirs, then the named VOTE_STEPS in theirs. PURE."""
+    unknown = [s for s in wanted if s not in RUN_ORDER and s not in TDM_ORDER and s not in VOTE_ORDER]
+    order = ([s for s in RUN_ORDER if s == "join" or s in wanted] + [s for s in TDM_ORDER if s in wanted]
+             + [s for s in VOTE_ORDER if s in wanted])
     return order, unknown
 
 
@@ -11817,6 +12289,24 @@ def self_test():
                          "  3#2   bot    3 |  0.00 |  0.00 |  13% |  0.00 | 8, 25%\n"
                          "  bots  bot    - |  0.00 |  0.03 |  14% |  1.65 | 33, 9%\nworst places:") == {"2#1": 3.3, "3#2": 0.0},
        "the jank report's team block: each bot's callouts a minute, the human's and the bots' total left out")
+    ok(teammenu_cards(["TEAMS", "COMBINE", "2", "Rebels", "Metro Police ", "AUTO ASSIGN"], TDM_ALL_TEAM_NAMES) == [2, 3, 4],
+       "the team menu's cards: each team's name drawn whole, case-blind")
+    ok(teammenu_cards(["Metro", "Resistance fighters", "Join"], TDM_ALL_TEAM_NAMES) == [],
+       "and a part of a name, or a name inside another text, is no card")
+    ok("ui-teammenu-tdm" in TDM_ORDER and "ui-teammenu-tdm" not in RUN_ORDER,
+       "the team menu's teamplay arm is a team step, outside the registry")
+    #-- the vote and admin steps: outside the registry, run when named --------
+    ok(VOTE_ORDER == ["vote-mode", "vote-fail", "admin-refused", "vote-map"] and not set(VOTE_ORDER) & set(RUN_ORDER + TDM_ORDER),
+       "the four vote and admin steps are their own list, in neither the registry nor the team steps")
+    ok(all(BY_ID[s][0] == s for s in VOTE_ORDER), "and each is found by its id")
+    ok(steps_order(["vote-map", "tdm-chat", "vote-mode"]) == (["join", "tdm-chat", "vote-mode", "vote-map"], []),
+       "--steps runs the team steps, then the vote steps in their order")
+    m = VOTE_ADMIN_REFUSED.search("[SourceSharp/Admin] Bob (slot 2, user id 4) is no admin and asked for restart: refused")
+    ok(m is not None and m.groups() == ("Bob", "2", "4", "restart"), "the admin refusal line gives the name, slot, user id and item")
+    ok(VOTE_ADMIN_REFUSED.search("[SourceSharp/Admin] admin Gordon (slot 1, user id 2) ran restart") is None,
+       "and an admin's run is no refusal")
+    ok(team_heads(({}, {1: (0, 0, 2), 2: (0, 0, 2), 3: (0, 0, 3), 4: (0, 0, 3)})) == {2: 2, 3: 2} and team_heads(None) == {},
+       "a team's head count from the player resource's rows")
     m = TDM_CHAT_LINE.match('"Ally<3><BOT><Combine>" say_team "tdm1a"')
     ok(m is not None and m.groups() == ("Combine", "say_team"), "HostSay's chat log line gives its team and verb")
     ok(combine_model("models/Combine_Soldier.mdl") and combine_model("models/police.mdl")
@@ -13591,6 +14081,11 @@ def _run(args, order, state):
     named = [step for step in TDM_STEPS if step[0] in verdicts]
     if named:
         print("\nAND THE TEAM DEATHMATCH STEPS, run by name (TDM_STEPS: no budget row yet)")
+        for step_id, title, _func in named:
+            print("  %-14s %-46s %s" % (step_id, title, " ".join(v.upper() for v in verdicts[step_id])))
+    named = [step for step in VOTE_STEPS if step[0] in verdicts]
+    if named:
+        print("\nAND THE VOTE AND ADMIN STEPS, run by name (VOTE_STEPS: no budget row yet)")
         for step_id, title, _func in named:
             print("  %-14s %-46s %s" % (step_id, title, " ".join(v.upper() for v in verdicts[step_id])))
 

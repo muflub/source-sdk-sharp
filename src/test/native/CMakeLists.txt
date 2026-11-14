@@ -2562,6 +2562,14 @@ ss_cpptest(standalone_fb_texture_test
 ss_cpptest(standalone_shadow_hull_test
     SOURCES sourcesharp/test/standalone_shadow_hull_test.cpp)
 
+# The collideable's box on the wire (standalone_bounds_wire_test.cpp): the
+# m_vecMins/m_vecMaxs pair at the tail of StandaloneNetFields, the shape the
+# client's entity clip reads it in — the head's Mins/Maxs answer OBBMins/
+# OBBMaxs for SOLID_BBOX, and without the rows the client-side head stayed a
+# zero-sized box, so the target ID's centre ray passed through every teammate.
+ss_cpptest(standalone_bounds_wire_test
+    SOURCES sourcesharp/test/standalone_bounds_wire_test.cpp)
+
 # What this platform does not build (LINUX_ONLY, and must-not-compile under
 # MSVC), listed at configure time with each reason.
 ss_cpptest_report_linux_only()

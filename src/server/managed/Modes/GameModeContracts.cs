@@ -80,6 +80,14 @@ public interface IGameMode
     IModeSetup? Setup => null;
 
     /// <summary>
+    /// The mode as the menus see it (plan_bots_teams_tf2 D.2): its title, its
+    /// settings and the entity classes a map must hold to play it, which
+    /// <see cref="GameModeCatalog"/> publishes to votes, the admin menu and the
+    /// client. Null is a mode titled by its id with no settings, on any map.
+    /// </summary>
+    IModeSettings? Settings => null;
+
+    /// <summary>
     /// What this mode's round reset keeps across stock's <c>CleanUpMap</c>
     /// (<see cref="IMapCleanup"/>): its rules' preserve list. Null is the
     /// core's, <see cref="HL2MPMapCleanupFilter"/>.
@@ -187,6 +195,30 @@ public interface IScoring
 
     /// <summary>Per-round state: the mode's own score totals go back to zero.</summary>
     void ResetRound();
+}
+
+/// <summary>
+/// A mode's half of the game-mode catalog (plan_bots_teams_tf2 D.2): what the
+/// menus call it, the settings that mean something in it (each a convar, with
+/// when a change applies), and the entity classes a map must hold one of to
+/// play it. The id and team play are the mode's own (<see cref="IGameMode"/>).
+/// </summary>
+public interface IModeSettings
+{
+    /// <summary>The title token the menus show.</summary>
+    string Title { get; }
+
+    IReadOnlyList<SettingSpec> Settings { get; }
+
+    /// <summary>The entity classes a map must hold one of; empty is any map.</summary>
+    IReadOnlyList<string> RequiresAnyOf { get; }
+}
+
+/// <summary>A mode's catalog half as plain data.</summary>
+public sealed record ModeSettings(string Title, IReadOnlyList<SettingSpec> Settings, IReadOnlyList<string> RequiresAnyOf) : IModeSettings
+{
+    /// <summary>The settings half of a spec the core builds for both sides (<see cref="CoreModeSpecs"/>).</summary>
+    public static ModeSettings Of(ModeSpec spec) => new(spec.Title, spec.Settings, spec.RequiresAnyOf);
 }
 
 /// <summary>

@@ -1159,6 +1159,10 @@ static void BuildStandaloneRecvProps(RecvProp* pOut, int& nOut)
 		(int)offsetof(EngineBlockClientTail_t, Skin);
 	nOffsets[STANDALONE_NET_FIELD_BODY] = C_StandaloneEntity::BlockBase() + (int)offsetof(EngineBlock_t, Client) +
 		(int)offsetof(EngineBlockClientTail_t, Body);
+	// The collideable's box, so the client clip stops on the hull the server
+	// wrote with EntitySetBounds rather than on an empty head box.
+	nOffsets[STANDALONE_NET_FIELD_MINS] = C_StandaloneEntity::BlockBase() + SS_CLIENT_BLOCK_HEAD_OFFSET(Mins);
+	nOffsets[STANDALONE_NET_FIELD_MAXS] = C_StandaloneEntity::BlockBase() + SS_CLIENT_BLOCK_HEAD_OFFSET(Maxs);
 
 	int nCount = 0;
 	const StandaloneNetField_t* pFields = StandaloneNetFields(&nCount);

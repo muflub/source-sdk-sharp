@@ -22,6 +22,7 @@ abi-parity	routine	tools/abi-parity --self-test && tools/abi-parity --config $SO
 loadprof	routine	tools/loadprof/lp --self-test
 live-gate	full	tools/live-gate --self-test
 tf2-gate	full	tools/tf2-gate --self-test
+ai-tf-jump	full	tools/ai-tf-jump --self-test
 run-checks	full	tools/run-checks --self-test
 debug-api-proxy	full	tools/debug-api-proxy --self-test
 daily-gate	routine	tools/daily-gate --self-test

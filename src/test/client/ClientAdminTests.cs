@@ -199,6 +199,22 @@ public sealed class ClientAdminTests : IDisposable
     }
 
     [Fact]
+    public void Running_an_item_by_id_sends_the_id_as_the_radial_does()
+    {
+        _admin.Run("restart");
+        Assert.Equal(AdminWire.WriteRun("restart"), Assert.Single(_sent));
+    }
+
+    [Fact]
+    public void Running_out_of_a_game_or_with_no_id_sends_nothing()
+    {
+        _admin.Run("");
+        _engine.InGame = false;
+        _admin.Run("restart");
+        Assert.Empty(_sent);
+    }
+
+    [Fact]
     public void Out_of_a_game_the_key_asks_nothing()
     {
         _engine.InGame = false;
