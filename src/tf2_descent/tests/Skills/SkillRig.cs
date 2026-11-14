@@ -32,6 +32,9 @@ internal sealed class SkillRig
     public readonly SkillBuffs Buffs = new();
     public readonly SkillSlotStore Slots;
     public readonly SkillBinders Binders;
+
+    /// <summary>Every hero one party (the facts written before WO9), but for the slots named strangers.</summary>
+    public readonly RigParty Party = new();
     public readonly SkillAttributes Attributes;
     public readonly SkillRuntime Runtime;
     public readonly SkillContributions Contributions;
@@ -39,7 +42,7 @@ internal sealed class SkillRig
     public SkillRig()
     {
         Slots = new SkillSlotStore(Heroes.Heroes, Heroes.Sheets);
-        Binders = new SkillBinders(World, Heroes.Heroes, Buffs, Robots, Heroes.Log);
+        Binders = new SkillBinders(World, Heroes.Heroes, Buffs, Robots, Party, Heroes.Log);
         Attributes = new SkillAttributes(new ModeOn(), new NoBots(), new ItemSchema(new SchemaFiles(), Heroes.Log));
         Runtime = new SkillRuntime(Heroes.Rules, Heroes.Heroes, Casters, Slots, Buffs, Binders, Attributes, Told, Heroes.Log);
         Contributions = new SkillContributions(Heroes.Rules, Casters, Buffs);
@@ -106,6 +109,16 @@ internal sealed class SkillRig
     }
 
     //-------------------------------------------------------------------------
+
+    /// <summary>Every hero is one party, but for the slots in <see cref="Strangers"/>, each solo (WO9).</summary>
+    internal sealed class RigParty : TF2.Descent.Server.Party.IPartyRoster
+    {
+        public HashSet<int> Strangers { get; } = [];
+        public string? PartyOf(int slot) => Strangers.Contains(slot) ? null : "one";
+        public IReadOnlyList<int> MatesOf(int slot) => [slot];
+        public bool SameParty(int a, int b) => a == b || (!Strangers.Contains(a) && !Strangers.Contains(b));
+        public string MachineKey(int slot) => PartyOf(slot) ?? "solo " + slot;
+    }
 
     /// <summary>The engine as the binders see it: answers set by the fact, every call recorded.</summary>
     internal sealed class FakeWorld : ISkillWorld

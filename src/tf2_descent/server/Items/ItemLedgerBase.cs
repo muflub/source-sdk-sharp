@@ -1,6 +1,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Host.Contracts;
 using TF2.Descent.Rules;
+using TF2.Descent.Rules.Economy;
 using TF2.Descent.Rules.Hero;
 using TF2.Descent.Rules.Inventory;
 using TF2.Descent.Rules.Items;
@@ -22,6 +23,8 @@ public abstract class ItemLedgerBase : IItemLedger
     private readonly Dictionary<string, LedgerHero> _heroes = new(StringComparer.Ordinal);
     private readonly Dictionary<long, FloorItem> _floor = new();
     private readonly Dictionary<long, (string Vendor, VendorItem Item)> _offered = new();
+    private readonly Dictionary<(string Hero, string Vendor), (long Restock, List<VendorItem> Items)> _stock = new();
+    private readonly Dictionary<long, long> _soldFor = new();
     private readonly Dictionary<string, Task> _queues = new(StringComparer.Ordinal);
     private long _nextId;
 
@@ -50,6 +53,12 @@ public abstract class ItemLedgerBase : IItemLedger
             _heroes[hero] = h with { Sheet = sheet };
     }
 
+    public void SetPrices(string hero, BuyerPrices prices)
+    {
+        if (_heroes.TryGetValue(hero, out var h))
+            _heroes[hero] = h with { Prices = prices };
+    }
+
     public virtual void Forget(string hero) => _heroes.Remove(hero);
 
     /// <summary>A new level: the floor and the vendors' offers were the last level's.</summary>
@@ -57,6 +66,7 @@ public abstract class ItemLedgerBase : IItemLedger
     {
         _floor.Clear();
         _offered.Clear();
+        _stock.Clear();
     }
 
     /// <summary>Sets a hero's state as it stands (facts only: a test's Australium, a planted sheet).</summary>
@@ -85,8 +95,14 @@ public abstract class ItemLedgerBase : IItemLedger
     /// <summary>Carries out a transition the rules allowed: <paramref name="predicted"/> is the rules' result over <paramref name="before"/>.</summary>
     protected abstract Task<Confirmed> Confirm(Op op, LedgerHero before, LedgerHero predicted);
 
-    /// <summary>A vendor's stock for the hero, each item under a ledger id.</summary>
-    protected abstract Task<VendorAnswer> RollStock(LedgerHero hero, string vendor);
+    /// <summary>A vendor's stock for the hero in restock <paramref name="restock"/>, each item under a ledger id (its price is set by <see cref="Stock"/>).</summary>
+    protected abstract Task<VendorAnswer> RollStock(LedgerHero hero, string vendor, long restock);
+
+    /// <summary>Whether the hero's price stats move his prices: the in-memory ledger's own; hosted the host prices with none of his.</summary>
+    protected virtual bool BuyerPricing => true;
+
+    /// <summary>Whether one restock's stock is kept and shrinks as it is bought (the in-memory ledger); hosted the host's stock is asked each time.</summary>
+    protected virtual bool KeepsStock => true;
 
     public abstract Task<DropResult> KillDrop(KillDrop kill);
 
@@ -289,14 +305,55 @@ public abstract class ItemLedgerBase : IItemLedger
     // Vendors
     //-------------------------------------------------------------------------
 
-    public Task<VendorAnswer> Stock(string hero, string vendor) => Serial(hero, async () =>
+    /// <summary>A price as the hero meets it: moved by his price stats where they count (<see cref="BuyerPricing"/>).</summary>
+    protected long Charge(LedgerHero h, long price, PriceKind kind) =>
+        BuyerPricing ? Rules.Pricing.ForBuyer(price, kind, h.Prices) : price;
+
+    private long BuyPrice(LedgerHero h, ItemInstance item) => Charge(h, Rules.Pricing.Price(item, PriceKind.Buy), PriceKind.Buy);
+
+    private long SellPrice(LedgerHero h, ItemInstance item) => Charge(h, Rules.Price(Codec.ToRolled(item), PriceKind.Sell), PriceKind.Sell);
+
+    public long? Price(string hero, LedgerPrice what, ItemInstance item)
+    {
+        if (Find(hero) is not { } h)
+            return null;
+        switch (what)
+        {
+            case LedgerPrice.Buy:
+                return BuyPrice(h, item);
+            case LedgerPrice.Sell:
+                return SellPrice(h, item);
+            case LedgerPrice.Identify:
+                return item.Identified ? null : Charge(h, Rules.Pricing.IdentifyFee(item), PriceKind.Buy);
+            default:
+                return Rules.Repairs.Refusal(item) is null ? Charge(h, Rules.Repairs.Price(item), PriceKind.Buy) : null;
+        }
+    }
+
+    public long? BuyBackPrice(string hero, int index) =>
+        Find(hero) is { } h && index >= 0 && index < h.Inventory.BuyBack.Count ? SoldFor(h, h.Inventory.BuyBack[index]) : null;
+
+    /// <summary>What a sold item is bought back for: what it sold for here, else its sell price now.</summary>
+    private long SoldFor(LedgerHero h, Held sold) => _soldFor.TryGetValue(sold.Id, out long price) ? price : SellPrice(h, sold.Item);
+
+    public Task<VendorAnswer> Stock(string hero, string vendor, long restock = 0) => Serial(hero, async () =>
     {
         if (await Ensure(hero) is not { } h)
             return new VendorAnswer(false, LedgerRefusals.NoHero, []);
-        var answer = await RollStock(h, vendor);
-        foreach (var item in answer.Items)
-            _offered[item.Id] = (vendor, item);
-        return answer;
+        if (!KeepsStock || !_stock.TryGetValue((hero, vendor), out var kept) || kept.Restock != restock)
+        {
+            var answer = await RollStock(h, vendor, restock);
+            if (!answer.Ok)
+                return answer;
+            if (_stock.TryGetValue((hero, vendor), out var old))
+                foreach (var item in old.Items)
+                    _offered.Remove(item.Id);
+            kept = (restock, [.. answer.Items]);
+            _stock[(hero, vendor)] = kept;
+            foreach (var item in kept.Items)
+                _offered[item.Id] = (vendor, item);
+        }
+        return new VendorAnswer(true, null, [.. kept.Items.Select(i => i with { Price = BuyPrice(h, i.Item) })]);
     });
 
     public Task<LedgerResult> Buy(string hero, string vendor, long stockId) => Serial(hero, async () =>
@@ -305,21 +362,38 @@ public abstract class ItemLedgerBase : IItemLedger
             return LedgerResult.Refused(LedgerRefusals.NoHero);
         if (!_offered.TryGetValue(stockId, out var offer) || offer.Vendor != vendor)
             return LedgerResult.Refused(LedgerRefusals.NotInStock, h);
-        var result = Inv.Buy(h.Inventory, h.Stash, h.Sheet, new Held(stockId, offer.Item.Item), offer.Item.Price);
-        return await Settle(new Op("buy", Text: vendor, Id: stockId), h, result, () => _offered.Remove(stockId));
+        var result = Inv.Buy(h.Inventory, h.Stash, h.Sheet, new Held(stockId, offer.Item.Item), BuyPrice(h, offer.Item.Item));
+        return await Settle(new Op("buy", Text: vendor, Id: stockId), h, result, () =>
+        {
+            _offered.Remove(stockId);
+            if (_stock.TryGetValue((hero, vendor), out var kept))
+                kept.Items.RemoveAll(i => i.Id == stockId);
+        });
     });
 
-    private long SellPrice(ItemInstance item) => Rules.Price(Codec.ToRolled(item), PriceKind.Sell);
+    public Task<LedgerResult> Sell(string hero, string vendor, int slot)
+    {
+        long price = 0, id = 0;
+        return Rule(hero, new Op("sell", slot, Text: vendor), h =>
+        {
+            if (!h.Inventory.Backpack.TryGetValue(slot, out var held))
+                return new InventoryResult(h.Inventory, h.Stash, [], InventoryRefusals.NoItem);
+            (price, id) = (SellPrice(h, held.Item), held.Id);
+            return Inv.Sell(h.Inventory, h.Stash, slot, price);
+        }, () => _soldFor[id] = price);
+    }
 
-    public Task<LedgerResult> Sell(string hero, string vendor, int slot) =>
-        Rule(hero, new Op("sell", slot, Text: vendor), h => h.Inventory.Backpack.TryGetValue(slot, out var held)
-            ? Inv.Sell(h.Inventory, h.Stash, slot, SellPrice(held.Item))
-            : new InventoryResult(h.Inventory, h.Stash, [], InventoryRefusals.NoItem));
-
-    public Task<LedgerResult> BuyBack(string hero, string vendor, int index) =>
-        Rule(hero, new Op("buy_back", index, Text: vendor), h => index >= 0 && index < h.Inventory.BuyBack.Count
-            ? Inv.BuyBack(h.Inventory, h.Stash, h.Sheet, index, SellPrice(h.Inventory.BuyBack[index].Item))
-            : new InventoryResult(h.Inventory, h.Stash, [], InventoryRefusals.NoItem));
+    public Task<LedgerResult> BuyBack(string hero, string vendor, int index)
+    {
+        long id = 0;
+        return Rule(hero, new Op("buy_back", index, Text: vendor), h =>
+        {
+            if (index < 0 || index >= h.Inventory.BuyBack.Count)
+                return new InventoryResult(h.Inventory, h.Stash, [], InventoryRefusals.NoItem);
+            id = h.Inventory.BuyBack[index].Id;
+            return Inv.BuyBack(h.Inventory, h.Stash, h.Sheet, index, SoldFor(h, h.Inventory.BuyBack[index]));
+        }, () => _soldFor.Remove(id));
+    }
 
     //-------------------------------------------------------------------------
     // Identify, repair, craft, salvage, crates
@@ -345,10 +419,11 @@ public abstract class ItemLedgerBase : IItemLedger
         var change = operate(Codec.ToRolled(held.Item));
         if (!change.Ok)
             return LedgerResult.Refused(change.Refusal!, h);
-        if (h.Inventory.Australium < change.Cost)
+        long cost = Charge(h, change.Cost, PriceKind.Buy);
+        if (h.Inventory.Australium < cost)
             return LedgerResult.Refused(InventoryRefusals.NotEnoughAustralium, h);
         var result = Inv.Replace(h.Inventory, h.Stash, op.Slot, Codec.Instance(change.Produced[0]));
-        return await Settle(op with { Id = held.Id }, h, result, cost: change.Cost);
+        return await Settle(op with { Id = held.Id }, h, result, cost: cost);
     });
 
     public Task<LedgerResult> Identify(string hero, int slot) =>
@@ -381,7 +456,10 @@ public abstract class ItemLedgerBase : IItemLedger
         Transform(hero, new Op("salvage", slot), [slot], (h, inputs) => Rules.Salvage(inputs[0], TownContext(h, "salvage"), RollSeed("salvage")));
 
     public Task<LedgerResult> OpenCrate(string hero, int slot) =>
-        Transform(hero, new Op("crate", slot), [slot], (h, inputs) => Rules.OpenCrate(inputs[0], TownContext(h, "crate"), RollSeed("crate")));
+        Transform(hero, new Op("crate", slot), [slot], (h, inputs) => Rules.OpenCrate(inputs[0], TownContext(h, "crate"), CrateSeedOf(Codec.Instance(inputs[0]))));
+
+    /// <summary>The seed a crate opens with: an in-memory roll's (the hosted ledger's crates are the host's).</summary>
+    protected virtual ulong CrateSeedOf(ItemInstance crate) => RollSeed("crate");
 
     //-------------------------------------------------------------------------
     // HE8 and HE9: consumables, wear, repairs of what is worn
@@ -434,7 +512,7 @@ public abstract class ItemLedgerBase : IItemLedger
         {
             if (Rules.Repairs.Refusal(held.Item) is { } refusal)
                 return LedgerResult.Refused(refusal, h);
-            cost = how == WornRepair.Town ? Rules.Repairs.Price(held.Item) : 0;
+            cost = how == WornRepair.Town ? Charge(h, Rules.Repairs.Price(held.Item), PriceKind.Buy) : 0;
             if (h.Inventory.Australium < cost)
                 return LedgerResult.Refused(InventoryRefusals.NotEnoughAustralium, h);
             repaired = TF2.Descent.Rules.Economy.Repairs.Restore(held.Item);

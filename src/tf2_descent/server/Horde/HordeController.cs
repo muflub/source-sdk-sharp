@@ -34,7 +34,7 @@ namespace TF2.Descent.Server.Horde;
 public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, HordeParking parking, IHooks<IRobotHitSink> hits,
                                     IEngineEntityRender render, ISightWorld sightWorld, IHordeHeroes heroes, RobotMotion motion,
                                     IHordeActors actors, ILog log, Session.IHordeBrainHost brains,
-                                    Skills.ISkillHits skillHits, Doors.DoorShove shove) : ScriptedEntity
+                                    Skills.ISkillHits skillHits, Doors.DoorShove shove, IHooks<IRobotDamageGuard> guards) : ScriptedEntity
 {
     public const string EntityClass = "tf2_descent_horde";
 
@@ -142,7 +142,7 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
             weapons[b] = weapon;
         }
 
-        Bodies = new RobotBodies(bodies, Roster, level, r, parking, new RobotHitChain(hits), render, skillHits);
+        Bodies = new RobotBodies(bodies, Roster, level, r, parking, new RobotHitChain(hits), render, skillHits, new RobotGuardChain(guards));
         for (int b = 1; b <= Pool.LastBody; b++)
             bodies[b].Join(Bodies, b, weapons[b]);
         Bodies.ParkAll();

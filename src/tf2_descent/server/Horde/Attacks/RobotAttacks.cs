@@ -47,6 +47,12 @@ public enum AttackRefusal
 
     /// <summary>An action the horde has no verb for.</summary>
     Unknown,
+
+    /// <summary>A minigun still spinning up (HO12): its first round comes after the rules' spin.</summary>
+    SpinningUp,
+
+    /// <summary>A cloaked spy's swing (HO12): the ask uncloaks it, and the next swing lands.</summary>
+    Cloaked,
 }
 
 /// <summary>
@@ -77,6 +83,19 @@ public enum AttackRefusal
 /// <item><b>Heal</b> (<see cref="HordeAbilities.Heal"/>): a beam on the pack-mate the medic's
 /// look names, inside the beam's reach with a clear line, for the rules' hold after each ask;
 /// the patient's life rises by the rules' rate each tick and its health bar with it.</item>
+/// <item>HO12. <b>Spin-up</b>: an attack with a spin (the minigun) fires its first round the
+/// rules' spin after the first ask of a run, and stays spun while the asks keep coming.
+/// <b>Telegraphs</b>: a windup with the laser (the sniper's) draws a beam along the gun every
+/// other tick until the shot; one with the spin (the buster's) plays stock's spin sequence and
+/// sound, and the robot takes no damage till it blows. <b>Blast</b>: every hero in the rules'
+/// radius with a clear line takes the attack's damage as a blast, then the robot's own blast
+/// kills it (L12). <b>Backstab</b>: a knife swing on a hero from inside the rules' cone behind
+/// it deals the rules' multiple. <b>Afterburn</b>: a flame sets the hero alight for the rules'
+/// seconds (TF2's afterburn). <b>Cloak</b> (<see cref="HordeAbilities.Cloak"/>,
+/// <see cref="HordeAbilities.Decloak"/>): the body's cloak flag, its weapon hidden, TF2's cloak
+/// and uncloak sounds; a swing asked while cloaked uncloaks and is refused. The champions shape
+/// an attack (<see cref="Champions.IRobotAttackShaping"/>: more shots, a crit, a burn), and the
+/// tickers (<see cref="IHordeTicker"/>) get the tick.</item>
 /// </list>
 ///
 /// The damage a hero takes is the attack's, through TF's damage layer and the hero's own
@@ -84,14 +103,19 @@ public enum AttackRefusal
 /// </summary>
 [SideService(Side.Server, As = [typeof(IRobotActionSink)])]
 public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHordeHeroes heroes, IRobotMotionReports motion,
-                                 IHordeClock clock)
-    : IRobotActionSink, IPlayerHurtHook, IOrderedHook
+                                 IHordeClock clock, Champions.IRobotAttackShaping shaping, IHooks<IHordeTicker> tickers)
+    : IRobotActionSink, IPlayerHurtHook, IRobotDamageGuard, IOrderedHook
 {
+    /// <summary>The sounds and effects HO12's attacks play (TF2's and MvM's own).</summary>
+    public const string MinigunWindUp = "Weapon_Minigun.WindUp", BusterSpin = "MvM.SentryBusterSpin", BusterExplode = "MVM.SentryBusterExplode",
+                        CloakSound = "Player.Spy_Cloak", UncloakSound = "Player.Spy_UnCloak", BusterSpinSequence = "sentry_buster_preExplode",
+                        BlastTrail = "explosionTrail_seeds_mvm", BlastRing = "fluidSmokeExpl_ring_mvm";
+
     /// <summary>After the hero's own hurt members: it only counts.</summary>
     public const int Order = ModStages.First + 530;
 
     /// <summary>Families by <see cref="HordeWeapons"/> number, and a slot for none.</summary>
-    public const int Families = 10;
+    public const int Families = HordeWeapons.Count;
 
     private const int MaxHeroes = 33;
     private const int MaxBodies = 64;
@@ -108,6 +132,8 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
     private readonly long[] _ready = new long[MaxBodies], _reloadUntil = new long[MaxBodies], _windupAt = new long[MaxBodies], _beamUntil = new long[MaxBodies];
     private readonly int[] _windupSerial = new int[MaxBodies], _devAsks = new int[MaxBodies];
     private readonly long[] _gestureUntil = new long[MaxBodies];
+    private readonly long[] _spunAt = new long[MaxBodies], _lastAsk = new long[MaxBodies];
+    private readonly bool[] _laser = new bool[MaxBodies], _detonating = new bool[MaxBodies];
     private readonly Dictionary<(string Model, string Activity), (int Sequence, float Seconds)> _gestures = new();
     private EntityHandle[] _flying = [];
     private HordeController? _horde;
@@ -129,6 +155,30 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
 
     /// <summary>Attack gestures laid over a body's gait.</summary>
     public long Gestures { get; private set; }
+
+    /// <summary>HO12's counts: laser beams drawn, backstabs, heroes set alight, blasts and the heroes they hit, cloaks and uncloaks, hits a buster's spin turned aside, crits a champion's aura gave.</summary>
+    public long Lasers { get; private set; }
+
+    public long Backstabs { get; private set; }
+
+    public long Ignites { get; private set; }
+
+    public long Blasts { get; private set; }
+
+    public long BlastHeroHits { get; private set; }
+
+    public long Cloaks { get; private set; }
+
+    public long Uncloaks { get; private set; }
+
+    public long SpinGuarded { get; private set; }
+
+    public long AuraCrits { get; private set; }
+
+    /// <summary>The tick body <paramref name="body"/>'s windup lands (0 for none), and whether a sentry buster's spin is on it.</summary>
+    public long WindupAt(int body) => (uint)body < MaxBodies ? _windupAt[body] : 0;
+
+    public bool Detonating(int body) => (uint)body < MaxBodies && _detonating[body];
 
     /// <summary>Attacks asked, carried out, and refused by kind, for <paramref name="family"/> (a <see cref="HordeWeapons"/> number).</summary>
     public long Asked(int family) => _asked[Family(family)];
@@ -166,6 +216,8 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
         Array.Clear(_devAsks);
         Array.Clear(_beamUntil);
         Array.Clear(_windupAt);
+        Array.Clear(_detonating);
+        Array.Clear(_laser);
         _rng = horde.Level is { } level ? level.Seed * 0x9E3779B97F4A7C15UL + 1 : 1;
     }
 
@@ -179,6 +231,8 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
         Array.Clear(_devAsks);
         Array.Clear(_beamUntil);
         Array.Clear(_windupAt);
+        Array.Clear(_detonating);
+        Array.Clear(_laser);
     }
 
     /// <summary>A dev ask: <paramref name="times"/> attacks by <paramref name="body"/>, each asked through <see cref="Act"/> the first tick it is ready.</summary>
@@ -215,8 +269,13 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
             return;
 
         CountFlying();
+        var all = tickers.All;
+        for (int k = 0; k < all.Count; k++)
+            all[k].Tick(_horde, now);
         for (int b = 1; b <= bodies.LastBody && b < MaxBodies; b++)
         {
+            if (_windupAt[b] != 0 && _laser[b] && now < _windupAt[b] && (now & 1) == 0)
+                DrawLaser(b, bodies, roster);
             if (_windupAt[b] != 0 && now >= _windupAt[b])
                 Land(b, bodies, roster);
             if (_gestureUntil[b] != 0 && now >= _gestureUntil[b])
@@ -249,7 +308,7 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
 
         int i = b.Robot.Index;
         var template = rules.Rules.Robots.Template(roster.Template(i));
-        int family = HordeWeapons.Of(template.Family);
+        int family = HordeWeapons.Of(template.Attack);
         _asked[family]++;
         Adopt(body, b);
         if (roster.State(i) == RobotState.Dead || ((RobotFlags)b.State.Flags & RobotFlags.Dead) != 0)
@@ -270,17 +329,30 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
             return;
         }
 
+        if (action.Kind == ActionKind.Ability && action.WeaponSlot is HordeAbilities.Cloak or HordeAbilities.Decloak)
+        {
+            Cloak(b, action.WeaponSlot == HordeAbilities.Cloak);
+            return;
+        }
+
         if (action.Kind != ActionKind.Fire)
         {
             Refuse(family, AttackRefusal.Unknown);
             return;
         }
 
-        var attack = rules.Rules.Attacks.Of(template.Family);
+        var attack = rules.Rules.Attacks.Of(template);
         double tps = clock.TicksPerSecond;
-        if (_windupAt[body] != 0)
+        if (_windupAt[body] != 0 || _detonating[body])
         {
             Refuse(family, AttackRefusal.WindingUp);
+            return;
+        }
+
+        if (b.Has(RobotFlags.Cloaked))
+        {
+            Cloak(b, false);
+            Refuse(family, AttackRefusal.Cloaked);
             return;
         }
 
@@ -302,6 +374,24 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
             return;
         }
 
+        if (attack.SpinUpSeconds > 0)
+        {
+            // A run of asks keeps the gun spun; a gap longer than its spin-down starts the spin again.
+            long gap = RobotAttackRules.Ticks(Math.Max(0.5, 5 * attack.IntervalSeconds), tps, least: 1);
+            if (_spunAt[body] == 0 || _now - _lastAsk[body] > gap)
+            {
+                _spunAt[body] = _now;
+                world.Sound(b.Handle, MinigunWindUp);
+            }
+
+            _lastAsk[body] = _now;
+            if (_now < _spunAt[body] + RobotAttackRules.Ticks(attack.SpinUpSeconds, tps))
+            {
+                Refuse(family, AttackRefusal.SpinningUp);
+                return;
+            }
+        }
+
         if (attack.Kind == RobotAttackKind.Projectile && CountFlying() >= _flying.Length)
         {
             Refuse(family, AttackRefusal.Cap);
@@ -321,6 +411,9 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
         {
             _windupAt[body] = _now + windup;
             _windupSerial[body] = b.Lease.Serial;
+            _laser[body] = attack.Telegraph == RobotAttack.LaserTelegraph;
+            if (attack.Telegraph == RobotAttack.SpinTelegraph)
+                Spin(body, b);
             return;
         }
 
@@ -337,7 +430,7 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
             var body = bodies.Body(b);
             if (body.Parked || body.Handle != hurt.Attacker || !roster.IsLive(body.Robot))
                 continue;
-            int family = HordeWeapons.Of(rules.Rules.Robots.Template(roster.Template(body.Robot.Index)).Family);
+            int family = HordeWeapons.Of(rules.Rules.Robots.Template(roster.Template(body.Robot.Index)).Attack);
             _heroHits[family]++;
             _heroDamage[family] += hurt.Taken;
             return;
@@ -371,6 +464,8 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
 
         yield return string.Create(CultureInfo.InvariantCulture,
             $"projectiles alive {Flying} of {_flying.Length} (most {MostFlying}); beams healed {Healed:0.#} over {HealTicks} ticks; attack gestures {Gestures}");
+        yield return string.Create(CultureInfo.InvariantCulture,
+            $"lasers {Lasers}; backstabs {Backstabs}; heroes set alight {Ignites}; blasts {Blasts} hitting {BlastHeroHits} heroes; cloaks {Cloaks}, uncloaks {Uncloaks}; spin guarded {SpinGuarded}; aura crits {AuraCrits}");
     }
 
     //-------------------------------------------------------------------------
@@ -382,11 +477,15 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
             return;
         _serial[body] = b.Lease.Serial;
         var template = rules.Rules.Robots.Template(_horde!.Roster!.Template(b.Robot.Index));
-        _clip[body] = rules.Rules.Attacks.Settings.Of(template.Family)?.Clip ?? 0;
+        _clip[body] = rules.Rules.Attacks.Settings.Of(template.Attack)?.Clip ?? 0;
         _ready[body] = 0;
         _reloadUntil[body] = 0;
         _windupAt[body] = 0;
         _beamUntil[body] = 0;
+        _spunAt[body] = 0;
+        _lastAsk[body] = 0;
+        _laser[body] = false;
+        _detonating[body] = false;
     }
 
     private bool Ready(int body, RobotBodies bodies, RobotRoster roster)
@@ -403,6 +502,7 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
     private void Land(int body, RobotBodies bodies, RobotRoster roster)
     {
         _windupAt[body] = 0;
+        _laser[body] = false;
         var b = bodies.Body(body);
         if (b.Parked || b.Lease.Serial != _windupSerial[body] || !roster.IsLive(b.Robot))
         {
@@ -412,7 +512,7 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
 
         int i = b.Robot.Index;
         var template = rules.Rules.Robots.Template(roster.Template(i));
-        int family = HordeWeapons.Of(template.Family);
+        int family = HordeWeapons.Of(template.Attack);
         if (roster.State(i) == RobotState.Dead || ((RobotFlags)b.State.Flags & RobotFlags.Dead) != 0)
         {
             Refuse(family, AttackRefusal.Dead);
@@ -425,7 +525,7 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
             return;
         }
 
-        Fire(b, i, family, template, rules.Rules.Attacks.Of(template.Family));
+        Fire(b, i, family, template, rules.Rules.Attacks.Of(template));
     }
 
     private void Fire(RobotBody b, int i, int family, RobotTemplate template, RobotAttack attack)
@@ -438,28 +538,63 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
         if (weak != 1)
             stats = stats with { Damage = stats.Damage * weak };
         Vector eye = RobotAim.Eye(b), fwd = RobotAim.Forward(b);
-        switch (attack.Kind)
+        if (attack.Kind == RobotAttackKind.Blast)
         {
-            case RobotAttackKind.Melee:
-                Swing(b, template, attack, stats, eye, fwd);
-                break;
-            case RobotAttackKind.Hitscan:
-                Shoot(b, attack, stats, eye, fwd);
-                break;
-            case RobotAttackKind.Projectile:
-                if (!Launch(b, attack, stats, eye, fwd))
-                {
-                    Refuse(family, AttackRefusal.Refused);
-                    return;
-                }
+            Blast(b, i, attack, stats);
+            _fired[family]++;
+            return;
+        }
 
-                break;
-            case RobotAttackKind.Flame:
-                Burn(b, attack, stats, eye, fwd);
-                break;
+        // The champions' shaping: more shots fanned round the aim (multishot), a crit (an aura in reach), a burn on a hero hit.
+        float fan = 0f;
+        int shots = attack.Kind == RobotAttackKind.Melee ? 1 : Math.Max(1, shaping.Shots(i, out fan));
+        _crit = shaping.Crit(_horde, b);
+        if (_crit)
+            AuraCrits++;
+        _burn = Math.Max((float)attack.AfterburnSeconds, shaping.BurnSeconds(i));
+        bool launched = false;
+        for (int s = 0; s < shots; s++)
+        {
+            Vector dir = shots == 1 ? fwd : Fanned(fwd, fan * (s - (shots - 1) * 0.5f));
+            switch (attack.Kind)
+            {
+                case RobotAttackKind.Melee:
+                    Swing(b, template, attack, stats, eye, dir);
+                    break;
+                case RobotAttackKind.Hitscan:
+                    Shoot(b, attack, stats, eye, dir);
+                    break;
+                case RobotAttackKind.Projectile:
+                    launched |= Launch(b, attack, stats, eye, dir);
+                    break;
+                case RobotAttackKind.Flame:
+                    Burn(b, attack, stats, eye, dir);
+                    break;
+            }
+        }
+
+        if (attack.Kind == RobotAttackKind.Projectile && !launched)
+        {
+            Refuse(family, AttackRefusal.Refused);
+            return;
         }
 
         _fired[family]++;
+    }
+
+    private bool _crit;
+    private float _burn;
+
+    /// <summary>The bits a hit is dealt with: <paramref name="bits"/>, and TF2's crit when a champion's aura gives one (its damage layer triples it and says so).</summary>
+    private DamageType Bits(DamageType bits) => _crit ? bits | TF2.Shared.Combat.TFDamageBits.Critical : bits;
+
+    /// <summary>A hero hit sets him alight for the burn the attack carries (a flame's afterburn, a fire-enchanted champion's).</summary>
+    private void Afterburn(EntityHandle victim, RobotBody b)
+    {
+        if (_burn <= 0f || !world.IsPlayer(victim))
+            return;
+        world.Ignite(victim, b.Handle, _burn);
+        Ignites++;
     }
 
     private void Swing(RobotBody b, RobotTemplate template, RobotAttack attack, RobotStats stats, Vector eye, Vector fwd)
@@ -470,9 +605,36 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
             hit = world.Box(eye, end, (float)attack.HullUnits, b.Handle);
         if (!hit.Hit || hit.Entity == EntityHandle.None || IsBody(hit.Entity))
             return;
-        world.Hurt(hit.Entity, b.Handle, (float)RobotAttackRules.AttackDamage(stats, attack), DamageType.Club, fwd);
+        float damage = (float)RobotAttackRules.AttackDamage(stats, attack);
+        if (attack.BackstabMultiplier > 0 && world.IsPlayer(hit.Entity) && Behind(b, hit.Entity, attack.BackstabConeDegrees))
+        {
+            damage *= (float)attack.BackstabMultiplier;
+            Backstabs++;
+        }
+
+        world.Hurt(hit.Entity, b.Handle, damage, Bits(DamageType.Club), fwd);
+        Afterburn(hit.Entity, b);
         if (RobotAttackLooks.HitSound(template) is { } sound)
             world.Sound(b.Handle, sound);
+    }
+
+    /// <summary>Whether the swinger stands inside the cone of <paramref name="coneDegrees"/> about the back of the hero <paramref name="victim"/> (his eyes' facing).</summary>
+    private bool Behind(RobotBody b, EntityHandle victim, double coneDegrees)
+    {
+        int n = heroes.Gather(_horde!.Level!, _places, _eyes);
+        for (int h = 0; h < n; h++)
+        {
+            if (_eyes[h].Player != victim)
+                continue;
+            var feet = HordeVectors.ToEngine(_places[h].Position);
+            float yaw = _eyes[h].Yaw * (MathF.PI / 180f);
+            var back = new Vector(-MathF.Cos(yaw), -MathF.Sin(yaw), 0f);
+            var to = new Vector(b.Position.X - feet.X, b.Position.Y - feet.Y, 0f);
+            float l = to.Length;
+            return l > 1e-3f && Dot(to * (1f / l), back) >= MathF.Cos((float)coneDegrees * (MathF.PI / 180f));
+        }
+
+        return false;
     }
 
     private void Shoot(RobotBody b, RobotAttack attack, RobotStats stats, Vector eye, Vector fwd)
@@ -499,9 +661,12 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
             _victims[k].Damage += pellet;
         }
 
-        var bits = attack.Pellets > 1 ? DamageType.Bullet | DamageType.Buckshot : DamageType.Bullet;
+        var bits = Bits(attack.Pellets > 1 ? DamageType.Bullet | DamageType.Buckshot : DamageType.Bullet);
         for (int k = 0; k < victims; k++)
+        {
             world.Hurt(_victims[k].Victim, b.Handle, _victims[k].Damage, bits, fwd);
+            Afterburn(_victims[k].Victim, b);
+        }
     }
 
     private bool Launch(RobotBody b, RobotAttack attack, RobotStats stats, Vector eye, Vector fwd)
@@ -509,7 +674,7 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
         float clear = RobotHull.Maxs.X * b.Scale + 16f;
         Vector muzzle = eye + fwd * clear;
         var made = world.Launch(attack.Projectile, b.Handle, muzzle, fwd * (float)attack.Speed, (float)RobotAttackRules.AttackDamage(stats, attack),
-                                (int)TFTeam.Blue);
+                                (int)TFTeam.Blue, _crit);
         if (made == EntityHandle.None)
             return false;
         for (int k = 0; k < _flying.Length; k++)
@@ -543,8 +708,80 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
             var line = world.Line(eye, chest, b.Handle);
             if (line.Hit && line.Entity != _eyes[h].Player)
                 continue;
-            world.Hurt(_eyes[h].Player, b.Handle, damage, DamageType.Burn, fwd);
+            world.Hurt(_eyes[h].Player, b.Handle, damage, Bits(DamageType.Burn), fwd);
+            Afterburn(_eyes[h].Player, b);
         }
+    }
+
+    // ------------------------------------------------------------------ HO12: telegraphs, the blast, the cloak, the spin's guard
+
+    /// <summary>The sniper's laser: from its eye along its gun to what the line meets, for a moment (redrawn every other tick of the charge).</summary>
+    private void DrawLaser(int body, RobotBodies bodies, RobotRoster roster)
+    {
+        var b = bodies.Body(body);
+        if (b.Parked || b.Lease.Serial != _windupSerial[body] || !roster.IsLive(b.Robot))
+            return;
+        var attack = rules.Rules.Attacks.Of(rules.Rules.Robots.Template(roster.Template(b.Robot.Index)));
+        Vector eye = RobotAim.Eye(b), end = eye + RobotAim.Forward(b) * (float)attack.RangeUnits;
+        var line = world.Line(eye, end, b.Handle);
+        world.Laser(eye, line.Hit ? line.End : end);
+        Lasers++;
+    }
+
+    /// <summary>A sentry buster's spin: stock's sequence over its gait and its sound; it takes no damage till it blows.</summary>
+    private void Spin(int body, RobotBody b)
+    {
+        _detonating[body] = true;
+        world.Sound(b.Handle, BusterSpin);
+        var (seq, seconds) = world.Sequence(b.Handle, BusterSpinSequence);
+        if (seq >= 0)
+        {
+            b.Gesture(seq);
+            _gestureUntil[body] = _now + RobotAttackRules.Ticks(Math.Max(seconds, rules.Rules.Attacks.Of(RobotLooks.SentryBusterAttack).WindupSeconds), clock.TicksPerSecond, 1);
+        }
+    }
+
+    /// <summary>The blast: every hero in its radius with a clear line takes its damage; then its own blast kills the robot (L12).</summary>
+    private void Blast(RobotBody b, int i, RobotAttack attack, RobotStats stats)
+    {
+        int body = b.Index;
+        _detonating[body] = false;
+        Blasts++;
+        BlastHeroHits += RobotBlast.Hit(world, heroes, _horde!.Level!, b, (float)attack.BlastRadius, (float)RobotAttackRules.AttackDamage(stats, attack),
+                                        _places, _eyes);
+        world.Particle(BlastTrail, HordeVectors.ToEngine(b.Position));
+        world.Particle(BlastRing, HordeVectors.ToEngine(b.Position));
+        world.Sound(b.Handle, BusterExplode);
+        world.Hurt(b.Handle, b.Handle, (float)(_horde.Roster!.Life(i) + 1000), DamageType.Blast, new Vector(0f, 0f, 1f));
+    }
+
+    /// <summary>A spy's cloak on or off: the body's flag, the weapon hidden or shown, TF2's sound.</summary>
+    private void Cloak(RobotBody b, bool on)
+    {
+        if (!b.SetFlag(RobotFlags.Cloaked, on))
+            return;
+        world.Sound(b.Handle, on ? CloakSound : UncloakSound);
+        if (on)
+            Cloaks++;
+        else
+            Uncloaks++;
+    }
+
+    /// <summary>A sentry buster spinning takes nothing (stock's <c>m_takedamage = DAMAGE_NO</c> through the spin).</summary>
+    public double Guard(in RobotGuardHit hit)
+    {
+        int body = hit.Body.Index;
+        if ((uint)body >= MaxBodies || !_detonating[body] || hit.Attacker == hit.Body.Handle)
+            return hit.Taken;
+        SpinGuarded++;
+        return 0;
+    }
+
+    /// <summary><paramref name="fwd"/> turned by <paramref name="degrees"/> about the vertical (a multishot's fan).</summary>
+    private static Vector Fanned(Vector fwd, float degrees)
+    {
+        float r = degrees * (MathF.PI / 180f), c = MathF.Cos(r), s = MathF.Sin(r);
+        return new Vector(fwd.X * c - fwd.Y * s, fwd.X * s + fwd.Y * c, fwd.Z).Normalized;
     }
 
     private void StartBeam(int body, RobotBody b, int family, RobotBodies bodies, RobotRoster roster)
@@ -700,17 +937,5 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
 
     private static int Family(int family) => (uint)family < Families ? family : 0;
 
-    private static string FamilyName(int f) => f switch
-    {
-        HordeWeapons.Melee => "melee",
-        HordeWeapons.Scattergun => "scattergun",
-        HordeWeapons.RocketLauncher => "rocket_launcher",
-        HordeWeapons.GrenadeLauncher => "grenade_launcher",
-        HordeWeapons.Flamethrower => "flamethrower",
-        HordeWeapons.Minigun => "minigun",
-        HordeWeapons.Shotgun => "shotgun",
-        HordeWeapons.SyringeGun => "syringe_gun",
-        HordeWeapons.SniperRifle => "sniper_rifle",
-        _ => "no family",
-    };
+    private static string FamilyName(int f) => HordeWeapons.NameOf(f);
 }

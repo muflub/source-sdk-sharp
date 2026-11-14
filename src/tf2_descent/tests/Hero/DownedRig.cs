@@ -7,7 +7,10 @@ using TF2.Descent.Server;
 using TF2.Descent.Server.Hero;
 using TF2.Descent.Server.Items;
 using TF2.Descent.Server.Mode;
+using TF2.Descent.Server.Party;
 using TF2.Descent.Shared;
+
+using Xunit;
 
 namespace TF2.Descent.Tests.Hero;
 
@@ -36,24 +39,48 @@ internal sealed class DownedRig
     public readonly HeroDeathCosts Costs;
     public readonly RobotKillerNames Killers;
     public readonly RobotTemplates Robots = new();
+    public readonly TF2.Descent.Server.Gear.HeroWear Wear;
     public bool ModeActive { get; set; } = true;
 
-    public DownedRig(params int[] heroes)
+    /// <summary>Whether the rig's heroes were made one party at the start (WO9); <see cref="Strangers"/> makes none.</summary>
+    public readonly bool OneParty;
+
+    /// <summary>Heroes in no party: each is solo to the others (WO9).</summary>
+    public static DownedRig Strangers(params int[] heroes) => new(false, heroes);
+
+    public DownedRig(params int[] heroes) : this(true, heroes) { }
+
+    private DownedRig(bool oneParty, int[] heroes)
     {
+        OneParty = oneParty;
         var mode = new ModeState(this);
-        Downed = new HeroDowned(mode, Heroes.Heroes, Heroes.Rules, Clock, new HeroRig.ListHooks<IHeroDownedListener>([Told]), Heroes.Log);
+        Keys = Heroes.Keys();
+        Parties = new InMemoryParties(Heroes.Rules, new HeroRig.ListHooks<IPartyHook>([]));
+        Roster = new PartyRoster(Parties, new EnginePartySlots(Heroes.Heroes, Keys));
+        Downed = new HeroDowned(mode, Heroes.Heroes, Heroes.Rules, Clock, new HeroRig.ListHooks<IHeroDownedListener>([Told]), Roster, Heroes.Log);
         Killers = new RobotKillerNames(mode, Robots, Heroes.Engine);
         Damage = new DownedDamage(mode, Downed, Heroes.Heroes, Heroes.Engine, Clock, Killers);
         Ledger = new InMemoryItemLedger(Heroes.Rules, new HeroRig.ListHooks<IItemLedgerHook>([]), new StartingKit(Heroes.Rules));
-        Keys = Heroes.Keys();
         Graves = new HeroCorpses(mode, Heroes.Heroes, Keys, Ledger, Corpses, Clock, new ClientMessages(Messages), Heroes.Log);
-        Costs = new HeroDeathCosts(mode, Heroes.Heroes, Keys, Ledger, Heroes.Rules, Downed, Graves, Heroes.Log);
+        // The wear's schema is read only by a shot's tally: the death's flush never asks it.
+        Wear = new TF2.Descent.Server.Gear.HeroWear(Ledger, Keys, Heroes.Rules, new TF2.Shared.Econ.ItemSchema(Heroes.Engine, Heroes.Log), Heroes.Log);
+        Costs = new HeroDeathCosts(mode, Heroes.Heroes, Keys, Ledger, Heroes.Rules, Downed, Graves, Wear, Heroes.Log);
         Clock.Died = player => Costs.OnPlayerDied(new PlayerDeath(player, (int)(player.EntryIndex & 0xFFFF), EntityHandle.None,
                                                                   Clock.Origin(player), EntityHandle.None));
         Heroes.Engine.ReturnsEachCall("Entities.IsPlayer", () => (Heroes.Engine.Calls[^1].ArgAs<EntityHandle>(0).Value & 0xFFFF_0000u) == 0x0001_0000u);
-        foreach (int index in heroes.Length == 0 ? [A, B] : heroes)
+        int[] joined = heroes.Length == 0 ? [A, B] : heroes;
+        foreach (int index in joined)
             Join(index);
+        if (oneParty && joined.Length >= 2)
+            Assert.True(Parties.Make([.. joined.Select(Key)]).Result.Ok);
     }
+
+    /// <summary>The rig's parties (unhosted), and the roster the downed state reads.</summary>
+    public readonly InMemoryParties Parties;
+    public readonly PartyRoster Roster;
+
+    /// <summary>The heroes in <paramref name="indexes"/> form one party, the first leading, each out of his own first.</summary>
+    public void MakeParty(params int[] indexes) => Assert.True(Parties.Make([.. indexes.Select(Key)]).Result.Ok);
 
     public static EntityHandle PlayerOf(int index) => HeroRig.PlayerOf(index);
 
@@ -71,6 +98,9 @@ internal sealed class DownedRig
         Clock.Alive.Add(PlayerOf(index));
         Clock.Healths[PlayerOf(index)] = Clock.Max;
         Ledger.Load(Key(index)).Wait();
+        // A hero who joins a one-party rig after it was made joins the party (the facts' "another member").
+        if (OneParty && Parties.All.Count == 1 && Parties.All[0].Size < Parties.MaxSize)
+            MakeParty([.. Parties.All[0].Members.Select(m => Heroes.Heroes.All.First(h => Key(h.PlayerIndex) == m).PlayerIndex), index]);
     }
 
     /// <summary>The frame: the downed state's and the corpses' think.</summary>
@@ -144,7 +174,11 @@ internal sealed class DownedRig
     internal sealed class Listener : IHeroDownedListener
     {
         public List<(int Player, bool Down)> Heard { get; } = [];
+        public List<int> Died { get; } = [];
+        public List<int> Respawned { get; } = [];
         public void HeroDowned(int playerIndex, bool down, Vector at) => Heard.Add((playerIndex, down));
+        public void HeroDied(int playerIndex, Vector at) => Died.Add(playerIndex);
+        public void HeroRespawned(int playerIndex, Vector at) => Respawned.Add(playerIndex);
     }
 
     internal sealed class Bodies : ICorpseWorld

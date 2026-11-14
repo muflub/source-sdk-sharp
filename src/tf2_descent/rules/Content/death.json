@@ -8,6 +8,7 @@
     "reviveHoldSeconds": 3,
     "reviveRange": 96,
     "reviveLifePct": 30,
-    "graceSeconds": 2
+    "graceSeconds": 2,
+    "respawnGraceSeconds": 6
   }
 }

@@ -7,6 +7,7 @@ using TF2.Descent.Rules.Bestiary;
 using TF2.Descent.Rules.Robots;
 using TF2.Descent.Server;
 using TF2.Descent.Server.Hero;
+using TF2.Descent.Server.Party;
 using TF2.Descent.Shared;
 
 using Xunit;
@@ -42,13 +43,21 @@ public sealed class HeroExperienceTests
         public readonly Dictionary<EntityHandle, Vector> Origins = new();
         public readonly HashSet<EntityHandle> DeadPlayers = [];
         public readonly HeroExperience Xp;
+        public readonly InMemoryParties Parties;
+
+        /// <summary>Whether each hero joins the one party the rig keeps (WO9); false leaves him solo.</summary>
+        public bool JoinParty { get; set; } = true;
 
         public XpRig()
         {
             Rig.Engine.ReturnsEachCall("Entities.GetOrigin", () => Origins.GetValueOrDefault(Rig.Engine.Calls[^1].ArgAs<EntityHandle>(0)));
             Rig.Engine.ReturnsEachCall("Players.IsAlive", () => !DeadPlayers.Contains(Rig.Engine.Calls[^1].ArgAs<EntityHandle>(0)));
-            Xp = new HeroExperience(Rig.Heroes, Rig.Sheets, Rig.Engine, Rig.Engine, new ClientMessages(Rig.Engine), Checkpoints, Rig.Log);
+            Parties = new InMemoryParties(Rig.Rules, new Party.PartyChanges().Hooks);
+            var roster = new PartyRoster(Parties, new EnginePartySlots(Rig.Heroes, Rig.Keys()));
+            Xp = new HeroExperience(Rig.Heroes, Rig.Sheets, Rig.Engine, Rig.Engine, roster, new ClientMessages(Rig.Engine), Checkpoints, Rig.Log);
         }
+
+        private readonly List<string> _party = [];
 
         public TF2.Descent.Rules.TF2DescentRules Rules => Rig.Rules;
 
@@ -60,6 +69,12 @@ public sealed class HeroExperienceTests
             if (level > 1)
                 Assert.True(hero.Apply(s => Rig.AtLevel(s, level)).Ok);
             Origins[HeroRig.PlayerOf(index)] = at;
+            if (JoinParty)
+            {
+                _party.Add(Rig.Keys().Of(index)!);
+                if (_party.Count >= 2)
+                    Assert.True(Parties.Make(_party).GetAwaiter().GetResult().Ok);
+            }
             return hero;
         }
 
@@ -79,6 +94,60 @@ public sealed class HeroExperienceTests
 
         public int HealthSets(int index) =>
             Rig.Engine.Calls.Count(c => c.Member == "Entities.SetHealth" && c.ArgAs<EntityHandle>(0) == HeroRig.PlayerOf(index));
+    }
+
+    // ---- who a kill pays (WO9: the killer's party in range) ----
+
+    [Fact]
+    public void A_stranger_in_range_of_a_heros_kill_is_paid_nothing()
+    {
+        var x = new XpRig { JoinParty = false };
+        x.Hero(level: 5);
+        var stranger = x.Hero(Other, level: 5);
+        long before = stranger.Sheet!.Xp;
+
+        var paid = x.Xp.Pay(x.Kill(level: 5));
+
+        Assert.Equal([HeroRig.Index], paid.Select(g => g.PlayerIndex));
+        Assert.Equal(before, stranger.Sheet!.Xp);
+    }
+
+    [Fact]
+    public void A_party_member_in_range_of_the_killers_kill_is_paid_in_full_by_his_own_level()
+    {
+        var x = new XpRig();
+        x.Hero(level: 5);
+        var member = x.Hero(Other, level: 3);
+        var kill = x.Kill(level: 5);
+
+        x.Xp.Pay(kill);
+
+        Assert.Equal(x.Rules.Heroes.XpAtLevel(3) + x.KillXp(kill, 3), member.Sheet!.Xp);
+    }
+
+    [Fact]
+    public void A_party_member_out_of_range_is_paid_nothing()
+    {
+        var x = new XpRig();
+        x.Hero(level: 5);
+        var far = x.Hero(Far, level: 5, at: new Vector((float)x.Rules.Content.Experience.PartyRangeUnits + 1, 0, 0));
+
+        var paid = x.Xp.Pay(x.Kill(level: 5));
+
+        Assert.DoesNotContain(Far, paid.Select(g => g.PlayerIndex));
+        Assert.Equal(x.Rules.Heroes.XpAtLevel(5), far.Sheet!.Xp);
+    }
+
+    [Fact]
+    public void A_kill_by_no_hero_pays_every_hero_in_range_party_or_not()
+    {
+        var x = new XpRig { JoinParty = false };
+        x.Hero(level: 5);
+        x.Hero(Other, level: 5);
+
+        var paid = x.Xp.Pay(x.Kill(level: 5, killer: 0));
+
+        Assert.Equal([HeroRig.Index, Other], paid.Select(g => g.PlayerIndex));
     }
 
     // ---- what a kill pays ----

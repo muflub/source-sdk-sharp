@@ -1,6 +1,7 @@
 using SourceSharp.Abi;
 
 using TF2.Descent.Rules.Death;
+using TF2.Descent.Rules.Items;
 using TF2.Descent.Server.Items;
 
 using Xunit;
@@ -127,6 +128,136 @@ public sealed class HeroDeathTests
         Assert.Null(rig.Graves.Of(rig.Key(A)));
     }
 
+    /// <summary>The hero's ids by container: equipment slot, belt slot, and the backpack's ids.</summary>
+    private static (Dictionary<string, long> Worn, Dictionary<int, long> Belt, long[] Backpack) Containers(DownedRig rig, int index)
+    {
+        var inv = rig.Ledger.Find(rig.Key(index))!.Inventory;
+        return (inv.Equipped.ToDictionary(e => e.Key, e => e.Value.Id), inv.Belt.ToDictionary(e => e.Key, e => e.Value.Id),
+                [.. inv.Backpack.Values.Select(h => h.Id).Order()]);
+    }
+
+    /// <summary>The starting kit's weapons (in the backpack as the ledger loads it) put on, as the game's first settle does.</summary>
+    private static async Task<DownedRig> Kitted()
+    {
+        var rig = new DownedRig();
+        foreach (var (baseId, slot) in new[] { ("rocket_launcher", "primary"), ("shotgun", "secondary"), ("shovel", "melee") })
+        {
+            int from = rig.Ledger.Find(rig.Key(A))!.Inventory.Backpack.First(p => p.Value.Item.BaseId == baseId).Key;
+            Assert.True((await rig.Ledger.Equip(rig.Key(A), from, slot)).Ok);
+        }
+        return rig;
+    }
+
+    private static async Task<DownedRig> RecoveredAfterADeath(Func<DownedRig, Task>? before = null)
+    {
+        var rig = await Kitted();
+        if (before is not null)
+            await before(rig);
+        rig.Clock.Origins[PlayerOf(A)] = There;
+        rig.Hit(A, 500);
+        rig.RunTo(1200);
+        rig.Clock.Respawn(PlayerOf(A));
+        Assert.StartsWith("recovered", await rig.Graves.Use(A));
+        return rig;
+    }
+
+    [Fact]
+    public async Task His_worn_items_go_back_on_to_their_slots()
+    {
+        var rig = await Kitted();
+        var worn = Containers(rig, A).Worn;
+        Assert.Equal(3, worn.Count);   // the stimulus: the kit's launcher, shotgun and shovel
+
+        rig = await RecoveredAfterADeath();
+
+        Assert.Equal(worn.Keys, Containers(rig, A).Worn.Keys);
+        Assert.Equal(rig.Ledger.LastRecovery!.Equipped, Containers(rig, A).Worn.Count);
+        Assert.Empty(Containers(rig, A).Backpack);
+    }
+
+    [Fact]
+    public async Task Each_recovered_item_is_back_in_the_container_it_died_in_by_id()
+    {
+        (Dictionary<string, long>, Dictionary<int, long>, long[])? before = null;
+
+        var rig = await RecoveredAfterADeath(r =>
+        {
+            before = Containers(r, A);
+            return Task.CompletedTask;
+        });
+
+        var (worn, belt, pack) = Containers(rig, A);
+        Assert.Equal(before!.Value.Item1, worn);
+        Assert.Equal(before.Value.Item2, belt);
+        Assert.Equal(before.Value.Item3, pack);
+    }
+
+    [Fact]
+    public async Task His_belt_potions_go_back_on_the_belt()
+    {
+        var rig = await RecoveredAfterADeath();
+
+        Assert.Equal(3, Containers(rig, A).Belt.Count);
+        Assert.Equal(3, rig.Ledger.LastRecovery!.Belted);
+    }
+
+    [Fact]
+    public async Task His_backpack_items_go_back_to_the_backpack()
+    {
+        long given = 0;
+        var rig = await RecoveredAfterADeath(async r =>
+        {
+            Assert.Empty(r.Ledger.Find(r.Key(A))!.Inventory.Backpack);
+            Assert.True((await r.Ledger.Give(r.Key(A), "dog_tags", 0, 1)).Ok);
+            given = r.Ledger.Find(r.Key(A))!.Inventory.Backpack.Values.Single().Id;
+        });
+
+        Assert.Equal([given], Containers(rig, A).Backpack);
+    }
+
+    [Fact]
+    public async Task A_slot_filled_on_the_walk_back_sends_the_corpses_item_to_the_backpack()
+    {
+        var rig = await Kitted();
+        long shovel = rig.Ledger.Find(rig.Key(A))!.Inventory.Equipped["melee"].Id;
+        rig.Clock.Origins[PlayerOf(A)] = There;
+        rig.Hit(A, 500);
+        rig.RunTo(1200);
+        rig.Clock.Respawn(PlayerOf(A));
+        Assert.True((await rig.Ledger.Give(rig.Key(A), "shovel", 0, 1)).Ok);
+        Assert.True((await rig.Ledger.Equip(rig.Key(A), 0, "melee")).Ok);
+        long newShovel = rig.Ledger.Find(rig.Key(A))!.Inventory.Equipped["melee"].Id;
+
+        await rig.Graves.Use(A);
+
+        var (worn, _, pack) = Containers(rig, A);
+        Assert.Equal(newShovel, worn["melee"]);
+        Assert.Equal([shovel], pack);
+    }
+
+    [Fact]
+    public async Task The_wear_pending_at_a_death_is_written_onto_the_items_before_they_move()
+    {
+        long cap = 0;
+        ItemInstance? worn = null;
+        var rig = await RecoveredAfterADeath(async r =>
+        {
+            Assert.True((await r.Ledger.Give(r.Key(A), "cap", 0, 1)).Ok);
+            int from = r.Ledger.Find(r.Key(A))!.Inventory.Backpack.Single(p => p.Value.Item.BaseId == "cap").Key;
+            Assert.True((await r.Ledger.Equip(r.Key(A), from, "hat")).Ok);
+            cap = r.Ledger.Find(r.Key(A))!.Inventory.Equipped["hat"].Id;
+            worn = r.Ledger.Find(r.Key(A))!.Inventory.Equipped["hat"].Item;
+            r.Wear.Hit(A);
+            Assert.True(r.Wear.HasPending(r.Key(A), cap), "the stimulus: a hit below a point is pending");
+        });
+
+        var after = rig.Ledger.Find(rig.Key(A))!.Inventory.Equipped["hat"];
+        Assert.Equal(cap, after.Id);
+        Assert.False(rig.Wear.HasPending(rig.Key(A), cap));
+        Assert.NotEqual(worn, after.Item);
+        Assert.True(after.Item.WearUses > worn!.WearUses, $"wear progress {worn.WearUses} -> {after.Item.WearUses}");
+    }
+
     [Fact]
     public void Item_ids_are_conserved_between_the_hero_and_his_corpse()
     {
@@ -166,19 +297,25 @@ public sealed class HeroDeathTests
     [Fact]
     public async Task What_does_not_fit_stays_on_the_corpse()
     {
-        var rig = DeadAt(There);
+        var rig = await Kitted();
+        rig.Clock.Origins[PlayerOf(A)] = There;
+        rig.Hit(A, 500);
+        rig.RunTo(1200);
         rig.Clock.Respawn(PlayerOf(A));
         rig.Clock.Origins[PlayerOf(A)] = There;
         int corpse = rig.Ledger.Corpse(rig.Key(A))!.Items.Count;
-        // The backpack refilled while he walked back: room for one.
+        // While he walked back he took up a shovel and filled his backpack: the corpse's
+        // shovel can go neither to its old slot nor to the backpack; the rest goes back.
         int room = rig.Heroes.Rules.Inventory.BackpackSlots(rig.Hero(A).Sheet!);
-        for (int i = 0; i < room - 1; i++)
+        for (int i = 0; i < room; i++)
             Assert.True((await rig.Ledger.Give(rig.Key(A), "shovel", 0, 1)).Ok);
+        Assert.True((await rig.Ledger.Equip(rig.Key(A), 0, "melee")).Ok);
+        Assert.True((await rig.Ledger.Give(rig.Key(A), "shovel", 0, 1)).Ok);
 
         string done = await rig.Graves.Use(A);
 
-        Assert.Equal($"recovered 1, {corpse - 1} stay", done);
-        Assert.Equal(corpse - 1, rig.Ledger.Corpse(rig.Key(A))!.Items.Count);
+        Assert.Equal($"recovered {corpse - 1}, 1 stay", done);
+        Assert.Single(rig.Ledger.Corpse(rig.Key(A))!.Items);
         Assert.Single(rig.Corpses.Standing);
     }
 

@@ -59,6 +59,19 @@ public interface ILoadoutProvider
 }
 
 /// <summary>
+/// A <see cref="ILoadoutProvider"/> whose empty weapon answer can mean <b>no weapons</b>
+/// rather than no opinion: a class game's player whose loadout holds no weapon (an item game
+/// that took them all) has none, as stock's <c>CTFPlayer::ManageRegularWeapons</c> gives a slot
+/// with no item nothing, and must not be handed the core's HL2 kit instead. Implemented
+/// beside <see cref="ILoadoutProvider"/>; asked only when its weapon answer is empty.
+/// </summary>
+public interface IWeaponColumnOwner
+{
+    /// <summary>Whether this provider owns <paramref name="player"/>'s weapons column even when it names no weapon.</summary>
+    bool OwnsWeapons(EntityHandle player);
+}
+
+/// <summary>
 /// A mod's arm of a player's spawn (tf2 stage 2.3): what stock's
 /// <c>CTFPlayer::Spawn</c> does around the kit — the class taken before it
 /// (<c>ForceRespawn</c>'s <c>GetPlayerClass()->Init</c>), the health, the

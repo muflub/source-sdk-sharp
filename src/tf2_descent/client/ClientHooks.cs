@@ -16,6 +16,7 @@ public sealed class TF2DescentClientRegistrar : ISideServiceRegistrar
         registry.AddHooks<IInstanceHook>();
         registry.AddHooks<INextLevelHook>();
         registry.AddHooks<IReauthHook>();
+        registry.AddHooks<ITownHook>();
     }
 }
 

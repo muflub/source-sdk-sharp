@@ -180,7 +180,7 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
         int n = heroes.Gather(level, _places, _eyes);
         _gathered = n;
         for (int k = 0; k < n; k++)
-            _poses[k] = new HeroPose(_places[k].Seat, _places[k].Position, HordeVectors.ToAi(_eyes[k].Eye), _places[k].Room);
+            _poses[k] = new HeroPose(_places[k].Seat, _places[k].Position, HordeVectors.ToAi(_eyes[k].Eye), _places[k].Room, _eyes[k].Yaw);
         brains.Heroes(now, _poses.AsSpan(0, n));
         for (int k = 0; k < n; k++)
         {
@@ -368,7 +368,8 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
             + $"steps run {c.StepsRun} skipped {c.StepsSkipped} faulted {c.StepsFaulted} in flight {c.InFlight} (most {c.InFlightMax}), brain cpu {c.BrainCpuMicrosMean:0.0} us a decide; "
             + $"sight traces {v.Traces} (last tick {v.TracesThisTick}, most {v.MostTraces} of {v.Budget}, candidates {v.CandidatesThisTick}, unserved {v.UnservedThisTick}, longest wait {v.LongestWait} ticks), gained {v.Gains} lost {v.Losses}; "
             + $"sounds queued {SoundsQueued} overflowed {SoundsOverflowed} heard {b.SoundsHeard} to far {FarSounds}, landings {Landings}; hits {RobotHits}, taunts {Taunts}, hero deaths {HeroDeaths}, stuck {b.Stuck}, arrived told {b.ArrivalsTold}, allies told {b.AlliesTold}; "
-            + $"hero slots {HeroSlotsLine(b)}{(SoundsOverflowed > 0 || FarOverflowed > 0 || c.EventsDropped > 0 ? "; EVENTS LOST" : "")}");
+            + $"hero slots {HeroSlotsLine(b)}{(SoundsOverflowed > 0 || FarOverflowed > 0 || c.EventsDropped > 0 ? "; EVENTS LOST" : "")}")
+            + (c.StepsFaulted > 0 && c.LastFault is { } fault ? "; LAST FAULT: " + fault : "");
     }
 
     private static string HeroSlotsLine(HordeBrains b)

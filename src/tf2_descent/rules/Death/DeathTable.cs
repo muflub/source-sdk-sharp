@@ -10,7 +10,8 @@ public sealed record DeathDrops(bool Equipped, bool Backpack, bool Belt, bool Au
 /// <see cref="WindowSeconds"/>, each further one <see cref="ShortenPerDownSeconds"/> less, never
 /// under <see cref="WindowFloorSeconds"/>; a revive is <see cref="ReviveHoldSeconds"/> of held
 /// use within <see cref="ReviveRange"/> units, and leaves the hero at
-/// <see cref="ReviveLifePct"/> of maximum life with <see cref="GraceSeconds"/> of grace.
+/// <see cref="ReviveLifePct"/> of maximum life with <see cref="GraceSeconds"/> of grace. A hero
+/// who respawns takes no damage for <see cref="RespawnGraceSeconds"/>, or until he acts.
 /// </summary>
 public sealed record DownedSettings(
     double WindowSeconds,
@@ -19,7 +20,8 @@ public sealed record DownedSettings(
     double ReviveHoldSeconds,
     double ReviveRange,
     double ReviveLifePct,
-    double GraceSeconds);
+    double GraceSeconds,
+    double RespawnGraceSeconds);
 
 /// <summary>
 /// death.json (plan_tf2_rpg 2g, D6, D7, R5, R26; plan_descent_logic RU10): what drops,
@@ -48,7 +50,8 @@ public sealed class DeathTable : SingleTable<DeathSettings>
                 downed.Num("reviveHoldSeconds"),
                 downed.Num("reviveRange"),
                 downed.Num("reviveLifePct"),
-                downed.Num("graceSeconds")));
+                downed.Num("graceSeconds"),
+                downed.Num("respawnGraceSeconds")));
         drops.End();
         corpse.End();
         downed.End();
@@ -68,5 +71,6 @@ public sealed class DeathTable : SingleTable<DeathSettings>
         ContentChecks.Range(errors, t, null, "downed.reviveRange", w.ReviveRange, 1, 4096);
         ContentChecks.Range(errors, t, null, "downed.reviveLifePct", w.ReviveLifePct, 1, 100);
         ContentChecks.Range(errors, t, null, "downed.graceSeconds", w.GraceSeconds, 0, 60);
+        ContentChecks.Range(errors, t, null, "downed.respawnGraceSeconds", w.RespawnGraceSeconds, 0, 60);
     }
 }

@@ -1,6 +1,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Host.Contracts;
 using TF2.Descent.Rules;
+using TF2.Descent.Rules.Economy;
 using TF2.Descent.Rules.Hero;
 using TF2.Descent.Rules.Inventory;
 using TF2.Descent.Rules.Items;
@@ -18,7 +19,8 @@ namespace TF2.Descent.Server.Items;
 public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook> hooks, StartingKit kit)
     : ItemLedgerBase(rules as TF2DescentRules ?? throw new ArgumentException("the in-memory ledger needs TF2.Descent's own rules", nameof(rules)), hooks)
 {
-    private readonly Dictionary<string, (List<Held> Items, long Australium)> _corpses = new(StringComparer.Ordinal);
+    // Each corpse's items with where the hero carried them, so a loot puts them back (InventoryRules.Recover).
+    private readonly Dictionary<string, (List<CorpseItem> Items, long Australium)> _corpses = new(StringComparer.Ordinal);
     private ulong _rolls;
 
     /// <summary>The class a new hero starts as (HE1's mode spawns heroes as Soldiers).</summary>
@@ -54,13 +56,22 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
     protected override Task<Confirmed> Confirm(Op op, LedgerHero before, LedgerHero predicted) =>
         Task.FromResult(new Confirmed(predicted, null));
 
-    protected override Task<VendorAnswer> RollStock(LedgerHero hero, string vendor)
+    protected override Task<VendorAnswer> RollStock(LedgerHero hero, string vendor, long restock)
     {
-        // The rules' stock for this buyer (the vendor name carries the level and class, Vendors.Parse).
-        var stock = Rules.Vendors.StockOf($"{vendor}@{hero.Sheet.Level}@{hero.Sheet.ClassId}", RollSeed("vendor:" + vendor));
+        // The rules' stock for this buyer (the vendor name carries the level and class, Vendors.Parse),
+        // from the rules' seed of this session, the vendor, the hero and the restock (Vendors.StockSeed).
+        var stock = Rules.Vendors.StockOf($"{vendor}@{hero.Sheet.Level}@{hero.Sheet.ClassId}", StockSeed(vendor, hero.Hero, restock));
         return Task.FromResult(new VendorAnswer(true, null,
             [.. stock.Select(i => new VendorItem(NextId(), i, Rules.Pricing.Price(i, PriceKind.Buy)))]));
     }
+
+    /// <summary>The seed of a hero's stock at a vendor in a restock: the rules' <see cref="Vendors.StockSeed"/> over the session seed.</summary>
+    public ulong StockSeed(string vendor, string hero, long restock) => Vendors.StockSeed(SessionSeed, vendor, hero, restock);
+
+    /// <summary>The seed a crate opens with: the session and the crate's own seed, so the rules' <c>OpenCrate</c> over the same two replays it.</summary>
+    public ulong CrateSeed(ItemInstance crate) => TF2DescentRules.Hash("ledger_crate", SessionSeed, crate.Seed);
+
+    protected override ulong CrateSeedOf(ItemInstance crate) => CrateSeed(crate);
 
     /// <summary>Puts an item the world made on the floor (a test's item; later a container's roll).</summary>
     internal FloorItem PlaceOnFloor(ItemInstance item, string? forHero, Vector position) =>
@@ -135,13 +146,16 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
         return new DropResult(true, null, placed);
     }
 
-    /// <summary>Everything carried, and the Australium, onto the hero's corpse (as the host's RecordDeath).</summary>
+    /// <summary>Everything carried, and the Australium, onto the hero's corpse (as the host's RecordDeath), each item with where he carried it.</summary>
     public override Task<bool> RecordDeath(string hero, Vector position) => Serial(hero, async () =>
     {
         if (await Ensure(hero) is not { } h)
             return false;
-        var carried = h.Inventory.Items.ToList();
-        (List<Held> Items, long Australium) corpse = _corpses.TryGetValue(hero, out var c) ? c : (new List<Held>(), 0L);
+        var carried = h.Inventory.Equipped.Select(e => new CorpseItem(e.Value, Equipped: e.Key))
+            .Concat(h.Inventory.Belt.Select(b => new CorpseItem(b.Value, Belt: b.Key)))
+            .Concat(h.Inventory.Backpack.Values.Select(b => new CorpseItem(b)))
+            .ToList();
+        (List<CorpseItem> Items, long Australium) corpse = _corpses.TryGetValue(hero, out var c) ? c : (new List<CorpseItem>(), 0L);
         corpse.Items.AddRange(carried);
         _corpses[hero] = (corpse.Items, corpse.Australium + h.Inventory.Australium);
         var stripped = h with
@@ -158,36 +172,34 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
         return true;
     });
 
-    /// <summary>The hero's own corpse back onto them: as many items as fit, the rest stay; the Australium comes back.</summary>
+    /// <summary>
+    /// The hero's own corpse back onto them (<see cref="InventoryRules.Recover"/>): what he wore back
+    /// in its slot when it is free and still allowed, the belt's potions back on the belt, the rest
+    /// into the backpack as far as it fits; what does not fit stays. The Australium comes back.
+    /// </summary>
     public override Task<LootAnswer> LootCorpse(string hero) => Serial(hero, async () =>
     {
         if (await Ensure(hero) is not { } h)
             return new LootAnswer(false, 0, LedgerRefusals.NoHero);
         if (!_corpses.TryGetValue(hero, out var corpse))
             return new LootAnswer(false, 0, "no corpse");
-        var inventory = h.Inventory with { Australium = h.Inventory.Australium + corpse.Australium };
-        var stash = h.Stash;
-        int recovered = 0;
-        while (recovered < corpse.Items.Count)
-        {
-            var r = Rules.Inventory.Pickup(inventory, stash, h.Sheet, corpse.Items[recovered]);
-            if (!r.Ok)
-                break;
-            (inventory, stash) = (r.Hero, r.Stash);
-            recovered++;
-        }
-        var left = corpse.Items.Skip(recovered).ToList();
-        if (left.Count == 0)
+        var back = Rules.Inventory.Recover(h.Inventory, h.Sheet, corpse.Items);
+        var inventory = back.Hero with { Australium = back.Hero.Australium + corpse.Australium };
+        if (back.Left.Count == 0)
             _corpses.Remove(hero);
         else
-            _corpses[hero] = (left, 0);
-        Commit("loot_corpse", h, h with { Inventory = inventory, Stash = stash }, []);
-        return new LootAnswer(true, recovered, "");
+            _corpses[hero] = ([.. back.Left], 0);
+        Commit("loot_corpse", h, h with { Inventory = inventory }, []);
+        LastRecovery = back;
+        return new LootAnswer(true, back.Recovered, "");
     });
+
+    /// <summary>The last loot's recovery, where each item went (the log line and the facts).</summary>
+    public CorpseRecovery? LastRecovery { get; private set; }
 
     /// <summary>The hero's corpse: its items in the order a loot takes them, and its Australium; null with none.</summary>
     public override LedgerCorpse? Corpse(string hero) =>
-        _corpses.TryGetValue(hero, out var corpse) ? new LedgerCorpse([.. corpse.Items.Select(i => i.Id)], corpse.Australium) : null;
+        _corpses.TryGetValue(hero, out var corpse) ? new LedgerCorpse([.. corpse.Items.Select(i => i.Item.Id)], corpse.Australium) : null;
 
     /// <summary>The process keeps every hero for its life: a leave forgets nothing.</summary>
     public override void Forget(string hero)

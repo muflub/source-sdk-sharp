@@ -145,8 +145,10 @@ public sealed class HordeRoute
                 _goal = to;
                 _class = cls;
                 _epoch = epoch;
-                usable = true;
                 Advance(from);
+
+                // A goal already within a corner's reach leaves no corner to walk to: no path.
+                usable = _at < _count;
             }
             else
             {

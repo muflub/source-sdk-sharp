@@ -9,10 +9,12 @@ namespace TF2.Descent.Server;
 /// the activating player along <c>direction</c>; <c>Enable</c> and
 /// <c>Disable</c> gate it; <c>OnTransition</c> fires when a request is made.
 /// <c>map</c> is the linker's record of where it leads: the service decides
-/// the actual destination.
+/// the actual destination. In the town a way down opens the depth picker
+/// instead (plan_descent_logic WO8, mine plan E1): the hero picks the depth,
+/// and the picker's choice travels.
 /// </summary>
 [ScriptedEntity("logic_level_transition")]
-public sealed class LevelTransition(TravelService travel) : ScriptedEntity
+public sealed class LevelTransition(TravelService travel, Town.TownService town) : ScriptedEntity
 {
     public readonly Output OnTransition = new();
 
@@ -37,7 +39,10 @@ public sealed class LevelTransition(TravelService travel) : ScriptedEntity
             : TravelDirection.Down;
 
         OnTransition.Fire();
-        travel.Request(Entities.GetIndex(input.Activator), direction, DepthOf(Vars.Map));
+        int player = Entities.GetIndex(input.Activator);
+        if (direction == TravelDirection.Down && town.InTown && town.OpenDepth(player))
+            return;
+        travel.Request(player, direction, DepthOf(Vars.Map));
     }
 
     /// <summary>

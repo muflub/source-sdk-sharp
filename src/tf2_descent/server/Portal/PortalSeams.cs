@@ -103,18 +103,11 @@ public interface IPortalRoute
 
 /// <summary>
 /// Who may use a hero's portal besides him (the death plan's Q5: any party member; WO9 builds
-/// parties). The only registration today answers the owner alone.
+/// parties). Its registration is the party's (WO9: PartyPortalParty).
 /// </summary>
 public interface IPortalParty
 {
     bool MayUse(string owner, string hero);
-}
-
-/// <summary>Until parties (WO9): a portal is its owner's alone.</summary>
-[SideService(Side.Server, As = [typeof(IPortalParty)])]
-public sealed class SoloPortalParty : IPortalParty
-{
-    public bool MayUse(string owner, string hero) => owner == hero;
 }
 
 /// <summary>

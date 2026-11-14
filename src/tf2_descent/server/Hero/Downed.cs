@@ -1,11 +1,13 @@
 using System.Globalization;
 
 using SourceSharp.Abi;
+using SourceSharp.Ai;
 using SourceSharp.Server;
 
 using TF2.Descent.Rules;
 using TF2.Descent.Rules.Death;
 using TF2.Descent.Server.Mode;
+using TF2.Descent.Server.Party;
 using TF2.Server.Player;
 using TF2.Shared;
 
@@ -80,11 +82,17 @@ public sealed class EngineDownedWorld(IEngineEnvironment environment, IEngineEnt
         damage.Apply(player, EntityHandle.None, PlayerSelfCommand.SuicideDamage, DamageType.Generic);
 }
 
-/// <summary>Told when a hero goes down or gets up (WO6): the horde's brains (B.3's <c>HeroDowned</c>), and any later listener.</summary>
+/// <summary>Told when a hero goes down or gets up, dies or respawns (WO6): the horde's brains (B.3's <c>HeroDowned</c>), and any later listener.</summary>
 public interface IHeroDownedListener
 {
     /// <summary>The hero in <paramref name="playerIndex"/> went down (<paramref name="down"/>) or got up, at <paramref name="at"/>.</summary>
     void HeroDowned(int playerIndex, bool down, Vector at);
+
+    /// <summary>The hero in <paramref name="playerIndex"/> died, at <paramref name="at"/>, by whatever road.</summary>
+    void HeroDied(int playerIndex, Vector at);
+
+    /// <summary>The hero in <paramref name="playerIndex"/> stands again after a death (a respawn), at <paramref name="at"/>, in his respawn's grace.</summary>
+    void HeroRespawned(int playerIndex, Vector at);
 }
 
 /// <summary>What a lethal hit on a hero comes to (<see cref="HeroDowned.Lethal"/>).</summary>
@@ -102,23 +110,30 @@ public enum LethalAnswer
 
 /// <summary>
 /// THE DOWNED STATE (plan_descent_logic WO6; plan_tf2_rpg 2g, R26): the
-/// rules' machine (<see cref="DownedRules"/>) carried out in the game. Every
-/// hero on the level is a member of one party (Descent has no parties yet,
-/// WO9: one level is one party's instance, R7).
+/// rules' machine (<see cref="DownedRules"/>) carried out in the game, ONE
+/// MACHINE A PARTY (WO9: "a downed hero can be revived by a party member").
+/// Each hero is a member of the machine of his party
+/// (<see cref="IPartyRoster.MachineKey"/>); a hero in no party has a machine of
+/// his own, so he is solo, and a hero who is not in the downed hero's party
+/// neither keeps him down nor revives him.
 ///
 /// <list type="bullet">
 /// <item>A LETHAL HIT (<see cref="DownedDamage"/>) puts a hero down when
-/// another member stands: he keeps 1 life, cannot move, fire, cast or drink
-/// (<see cref="IDownedWorld.Freeze"/>, and each action's own refusal), takes no
-/// damage, and bleeds out over the rules' window. Solo, or the last one up,
-/// he dies of it.</item>
-/// <item>A REVIVE: a member up and in range who holds +use on him for the
-/// rules' time (not hurt, not moving out of range, not letting go) stands him
-/// up at the rules' share of his life, with the rules' grace.</item>
-/// <item>THE BLEED-OUT, and the PARTY WIPE (the last one up goes down or
-/// leaves): the downed die, killed outright here
+/// another member of his party stands: he keeps 1 life, cannot move, fire, cast
+/// or drink (<see cref="IDownedWorld.Freeze"/>, and each action's own refusal),
+/// takes no damage, and bleeds out over the rules' window. Solo, or the last
+/// one of his party up, he dies of it.</item>
+/// <item>A REVIVE: a member of his party up and in range who holds +use on him
+/// for the rules' time (not hurt, not moving out of range, not letting go)
+/// stands him up at the rules' share of his life, with the rules' grace.</item>
+/// <item>THE BLEED-OUT, and the PARTY WIPE (the last one of the party up goes
+/// down or leaves): the downed die, killed outright here
 /// (<see cref="IDownedWorld.Kill"/>). What a death costs is
 /// <see cref="HeroDeathCosts"/>', whatever killed him.</item>
+/// <item>A PARTY CHANGE: a hero whose party changes leaves the old machine (a
+/// hero down when he leaves his party dies, as one who leaves the level down
+/// does, and the old party falls if he was its last one up) and joins the new
+/// one, his downs on the level carried with him.</item>
 /// <item>Each change is on the hero's state, to every client
 /// (<see cref="HeroComponent.ShowDowned"/>, <see cref="HeroComponent.ShowRevive"/>),
 /// and told to the <see cref="IHeroDownedListener"/>s.</item>
@@ -126,30 +141,53 @@ public enum LethalAnswer
 /// </summary>
 [SideService(Side.Server)]
 public sealed class HeroDowned(IDescentModeState mode, Heroes heroes, TF2DescentRules rules, IDownedWorld world,
-                               IHooks<IHeroDownedListener> listeners, ILog log) : IGameLifecycle
+                               IHooks<IHeroDownedListener> listeners, IPartyRoster roster, ILog log) : IGameLifecycle
 {
     /// <summary>In TF2 Descent's downed block.</summary>
     public const int Order = ModStages.First + 950;
 
     public int LifecycleOrder => Order;
 
-    private DownedParty? _party;
+    private readonly Dictionary<string, DownedParty> _machines = new(StringComparer.Ordinal);
+    private readonly Dictionary<int, string> _in = new();
     private readonly HashSet<int> _killing = [];
     private readonly HashSet<int> _devHolds = [];
 
-    /// <summary>The party as the machine holds it now.</summary>
-    public DownedParty Party => _party ??= DownedRules.NewParty(world.TicksPerSecond);
+    /// <summary>Each party's machine as it is now, by its key (<see cref="IPartyRoster.MachineKey"/>).</summary>
+    public IReadOnlyDictionary<string, DownedParty> Machines => _machines;
+
+    /// <summary>The machine key the hero in <paramref name="playerIndex"/> is a member under; null when the machines have never seen him.</summary>
+    public string? MachineOf(int playerIndex) => _in.GetValueOrDefault(playerIndex);
 
     /// <summary>The player index a member id names.</summary>
     public static string Id(int playerIndex) => playerIndex.ToString(CultureInfo.InvariantCulture);
 
     private static int IndexOf(string id) => int.Parse(id, CultureInfo.InvariantCulture);
 
+    private DownedParty Machine(string key) =>
+        _machines.TryGetValue(key, out var party) ? party : _machines[key] = DownedRules.NewParty(world.TicksPerSecond);
+
     /// <summary>The member of <paramref name="playerIndex"/>, or null when the machine has never seen him.</summary>
-    public DownedMember? MemberOf(int playerIndex) => Party.Members.FirstOrDefault(m => m.Id == Id(playerIndex));
+    public DownedMember? MemberOf(int playerIndex) =>
+        _in.TryGetValue(playerIndex, out var key) && _machines.TryGetValue(key, out var party)
+            ? party.Members.FirstOrDefault(m => m.Id == Id(playerIndex))
+            : null;
 
     /// <summary>Whether the hero in <paramref name="playerIndex"/> is down.</summary>
     public bool IsDown(int playerIndex) => MemberOf(playerIndex)?.Standing == Standing.Down;
+
+    /// <summary>Whether the hero in <paramref name="playerIndex"/> takes no damage now: in his respawn's grace (the rules' <see cref="DownedRules.Untouchable"/>).</summary>
+    public bool Untouchable(int playerIndex) =>
+        mode.Active && MemberOf(playerIndex) is { } m && _in.TryGetValue(playerIndex, out var key)
+        && DownedRules.Untouchable(m, Math.Max(world.Tick, _machines[key].Tick));
+
+    /// <summary>Respawns told to the listeners since the module started, and deaths.</summary>
+    public int RespawnsTold { get; private set; }
+
+    public int DeathsTold { get; private set; }
+
+    // The hero's act count at his respawn: a move ends the grace (WO6, this lane's rule).
+    private readonly Dictionary<int, int> _actsAtRespawn = [];
 
     /// <summary>Whether this service is killing the player now (its own kill passes the damage layer's guards).</summary>
     public bool Killing(int playerIndex) => _killing.Contains(playerIndex);
@@ -174,7 +212,7 @@ public sealed class HeroDowned(IDescentModeState mode, Heroes heroes, TF2Descent
         if (!mode.Active || heroes.Of(playerIndex) is null)
             return LethalAnswer.Land;
         JoinAll();
-        var outcomes = Step(new DownedEvent.LethalDamage(Id(playerIndex)), dying: playerIndex);
+        var outcomes = Step(_in[playerIndex], new DownedEvent.LethalDamage(Id(playerIndex)), dying: playerIndex);
         if (outcomes.Any(o => o is DownedOutcome.Downed d && d.Member == Id(playerIndex)))
             return LethalAnswer.Down;
         if (outcomes.Any(o => o is DownedOutcome.Died d && d.Member == Id(playerIndex)))
@@ -186,19 +224,19 @@ public sealed class HeroDowned(IDescentModeState mode, Heroes heroes, TF2Descent
     public void Hurt(int playerIndex)
     {
         if (mode.Active && MemberOf(playerIndex) is { Reviving: not null })
-            Step(new DownedEvent.Damaged(Id(playerIndex)));
+            Step(_in[playerIndex], new DownedEvent.Damaged(Id(playerIndex)));
     }
 
     /// <summary>
     /// The hero in <paramref name="playerIndex"/> died (the death hook): a death
     /// the machine did not decide (a suicide, a kill outright) makes him dead
-    /// there too, and the party falls if nobody is left up.
+    /// there too, and his party falls if nobody of it is left up.
     /// </summary>
     public void Died(int playerIndex)
     {
         if (!mode.Active || MemberOf(playerIndex) is not { } m || m.Standing == Standing.Dead)
             return;
-        Step(new DownedEvent.Killed(Id(playerIndex)), dying: playerIndex);
+        Step(_in[playerIndex], new DownedEvent.Killed(Id(playerIndex)), dying: playerIndex);
     }
 
     //-------------------------------------------------------------------------
@@ -206,9 +244,10 @@ public sealed class HeroDowned(IDescentModeState mode, Heroes heroes, TF2Descent
     //-------------------------------------------------------------------------
 
     /// <summary>
-    /// The frame's work: members join and leave with the heroes, the dead who
-    /// stand again are up, timers run (revives complete, windows lapse), and
-    /// each standing hero's +use starts, holds or lets go of a revive.
+    /// The frame's work: members join and leave with the heroes and move with
+    /// their parties, the dead who stand again are up, timers run (revives
+    /// complete, windows lapse), and each standing hero's +use starts, holds or
+    /// lets go of a revive of a member of his own party.
     /// </summary>
     public void Think()
     {
@@ -216,42 +255,53 @@ public sealed class HeroDowned(IDescentModeState mode, Heroes heroes, TF2Descent
             return;
 
         JoinAll();
-        foreach (var gone in Party.Members.Where(m => m.InInstance && heroes.Of(IndexOf(m.Id)) is null).ToList())
-            Step(new DownedEvent.Left(gone.Id));
+        foreach (var (index, key) in _in.ToList())
+            if (heroes.Of(index) is null && MemberOf(index) is { InInstance: true })
+                Step(key, new DownedEvent.Left(Id(index)));
 
-        foreach (var dead in Party.Members.Where(m => m.Standing == Standing.Dead && m.InInstance).ToList())
-            if (heroes.Of(IndexOf(dead.Id)) is { } hero && world.IsAlive(hero.Player))
-                Step(new DownedEvent.Respawned(dead.Id));
+        foreach (var (index, key) in _in.ToList())
+            if (MemberOf(index) is { Standing: Standing.Dead, InInstance: true } && heroes.Of(index) is { } hero && world.IsAlive(hero.Player))
+                Step(key, new DownedEvent.Respawned(Id(index)));
 
-        Step(new DownedEvent.Tick());
+        foreach (string key in _machines.Keys.ToList())
+            Step(key, new DownedEvent.Tick());
 
-        foreach (var member in Party.Members.Where(m => m.Standing == Standing.Up && m.InInstance).ToList())
+        // A hero in his respawn's grace who has fired, swung or cast since ends it.
+        foreach (var (index, key) in _in.ToList())
         {
-            int index = IndexOf(member.Id);
+            if (MemberOf(index) is { RespawnGrace: true, Standing: Standing.Up } graced
+                && heroes.Of(index) is { } hero && _actsAtRespawn.TryGetValue(index, out int acts) && hero.Acts != acts)
+                Step(key, new DownedEvent.Acted(graced.Id));
+        }
+
+        foreach (var (index, key) in _in.ToList())
+        {
+            if (MemberOf(index) is not { Standing: Standing.Up, InInstance: true } member)
+                continue;
             if (heroes.Of(index) is not { } hero || !world.IsAlive(hero.Player))
                 continue;
             bool holding = _devHolds.Contains(index) || world.HoldingUse(hero.Player);
-            var current = MemberOf(index)!;
-            if (current.Reviving is { } target)
+            if (member.Reviving is { } target)
             {
                 if (!holding)
-                    Step(new DownedEvent.ReviveStop(member.Id));
+                    Step(key, new DownedEvent.ReviveStop(member.Id));
                 else if (!_devHolds.Contains(index) && heroes.Of(IndexOf(target)) is { } downed)
-                    Step(new DownedEvent.ReviverMoved(member.Id, Distance(hero, downed)));
+                    Step(key, new DownedEvent.ReviverMoved(member.Id, Distance(hero, downed)));
                 continue;
             }
             if (!holding)
                 continue;
-            // The nearest downed member nobody is reviving, if he is in reach.
-            var nearest = Party.Members
-                .Where(m => m.Standing == Standing.Down && !Party.Members.Any(o => o.Reviving == m.Id))
+            // The nearest downed member of his party nobody is reviving, if he is in reach.
+            var party = _machines[key];
+            var nearest = party.Members
+                .Where(m => m.Standing == Standing.Down && !party.Members.Any(o => o.Reviving == m.Id))
                 .Select(m => (Member: m, Hero: heroes.Of(IndexOf(m.Id))))
                 .Where(p => p.Hero is not null)
                 .Select(p => (p.Member, Distance: Distance(hero, p.Hero!)))
                 .OrderBy(p => p.Distance)
                 .FirstOrDefault();
             if (nearest.Member is { } down)
-                Step(new DownedEvent.ReviveStart(member.Id, down.Id, nearest.Distance));   // the rules refuse one out of reach
+                Step(key, new DownedEvent.ReviveStart(member.Id, down.Id, nearest.Distance));   // the rules refuse one out of reach
         }
         _devHolds.RemoveWhere(i => MemberOf(i)?.Reviving is null);
     }
@@ -268,7 +318,7 @@ public sealed class HeroDowned(IDescentModeState mode, Heroes heroes, TF2Descent
         if (heroes.Of(playerIndex) is not { } hero)
             return LethalAnswer.Land;
         JoinAll();
-        var outcomes = Step(new DownedEvent.LethalDamage(Id(playerIndex)));
+        var outcomes = Step(_in[playerIndex], new DownedEvent.LethalDamage(Id(playerIndex)));
         if (outcomes.Any(o => o is DownedOutcome.Downed d && d.Member == Id(playerIndex)))
         {
             world.SetHealth(hero.Player, 1);
@@ -278,22 +328,27 @@ public sealed class HeroDowned(IDescentModeState mode, Heroes heroes, TF2Descent
     }
 
     /// <summary>
-    /// <paramref name="by"/> (or the nearest member up) starts a revive of the
-    /// downed hero and holds it, as a held +use would, through the same
-    /// machine: it completes after the rules' hold unless he is hurt. Answers
-    /// the reviver, or why not.
+    /// <paramref name="by"/> (or the nearest member of his party up) starts a
+    /// revive of the downed hero and holds it, as a held +use would, through the
+    /// same machine: it completes after the rules' hold unless he is hurt. A
+    /// hero of another party is no member of the downed hero's machine, and is
+    /// refused. Answers the reviver, or why not.
     /// </summary>
     public string DevRevive(int playerIndex, int by)
     {
         if (!IsDown(playerIndex) || heroes.Of(playerIndex) is not { } downed)
             return $"player {playerIndex} is not down";
+        string key = _in[playerIndex];
+        var party = _machines[key];
         int reviver = by > 0
             ? by
-            : Party.Members.Where(m => m.Standing == Standing.Up && m.InInstance && heroes.Of(IndexOf(m.Id)) is not null)
+            : party.Members.Where(m => m.Standing == Standing.Up && m.InInstance && heroes.Of(IndexOf(m.Id)) is not null)
                 .Select(m => IndexOf(m.Id)).OrderBy(i => Distance(heroes.Of(i)!, downed)).FirstOrDefault();
         if (reviver <= 0 || heroes.Of(reviver) is null)
             return "nobody is up to revive";
-        var outcomes = Step(new DownedEvent.ReviveStart(Id(reviver), Id(playerIndex), 0));
+        if (_in.GetValueOrDefault(reviver) != key)
+            return $"refused: player {reviver} is not in player {playerIndex}'s party";
+        var outcomes = Step(key, new DownedEvent.ReviveStart(Id(reviver), Id(playerIndex), 0));
         if (outcomes.OfType<DownedOutcome.Refused>().FirstOrDefault() is { } refused)
             return $"refused: {refused.Why}";
         _devHolds.Add(reviver);
@@ -305,73 +360,122 @@ public sealed class HeroDowned(IDescentModeState mode, Heroes heroes, TF2Descent
     {
         if (!IsDown(playerIndex))
             return false;
-        long now = Math.Max(world.Tick, Party.Tick);
-        _party = Party with
+        string key = _in[playerIndex];
+        var party = _machines[key];
+        long now = Math.Max(world.Tick, party.Tick);
+        _machines[key] = party with
         {
-            Members = [.. Party.Members.Select(m => m.Id == Id(playerIndex) ? m with { BleedOutTick = now } : m)],
+            Members = [.. party.Members.Select(m => m.Id == Id(playerIndex) ? m with { BleedOutTick = now } : m)],
         };
-        Step(new DownedEvent.Tick());
+        Step(key, new DownedEvent.Tick());
         return true;
     }
 
-    /// <summary>Every member's state, one line each, for <c>tf2_descent_downed</c>.</summary>
+    /// <summary>Every member's state, one line each, under his party's machine, for <c>tf2_descent_downed</c>.</summary>
     public IEnumerable<string> Lines()
     {
-        long now = Party.Tick;
-        double rate = Party.TicksPerSecond;
-        long hold = DownedRules.Ticks(Party, rules.Content.Death.Downed.ReviveHoldSeconds);
-        foreach (var m in Party.Members)
+        foreach (var (key, party) in _machines)
         {
-            string line = $"player {m.Id}: {m.Standing}{(m.InInstance ? "" : " (away)")}, downs this level {m.DownsThisLevel}";
-            if (m.Standing == Standing.Down)
-                line += string.Create(CultureInfo.InvariantCulture,
-                    $", bleeds out at tick {m.BleedOutTick} ({Math.Max(0, m.BleedOutTick - now) / rate:0.0}s)");
-            if (Party.Members.FirstOrDefault(o => o.Reviving == m.Id) is { } reviver)
-                line += string.Create(CultureInfo.InvariantCulture,
-                    $", revived by player {reviver.Id} {Math.Clamp((now - reviver.ReviveStartTick) / (double)hold, 0, 1):0%}");
-            if (m.Reviving is { } target)
-                line += $", reviving player {target}";
-            if (DownedRules.InGrace(m, now))
-                line += $", in grace to tick {m.GraceUntilTick}";
-            yield return line;
+            long now = party.Tick;
+            double rate = party.TicksPerSecond;
+            long hold = DownedRules.Ticks(party, rules.Content.Death.Downed.ReviveHoldSeconds);
+            foreach (var m in party.Members)
+            {
+                string line = $"[{key}] player {m.Id}: {m.Standing}{(m.InInstance ? "" : " (away)")}, downs this level {m.DownsThisLevel}";
+                if (m.Standing == Standing.Down)
+                    line += string.Create(CultureInfo.InvariantCulture,
+                        $", bleeds out at tick {m.BleedOutTick} ({Math.Max(0, m.BleedOutTick - now) / rate:0.0}s)");
+                if (party.Members.FirstOrDefault(o => o.Reviving == m.Id) is { } reviver)
+                    line += string.Create(CultureInfo.InvariantCulture,
+                        $", revived by player {reviver.Id} {Math.Clamp((now - reviver.ReviveStartTick) / (double)hold, 0, 1):0%}");
+                if (m.Reviving is { } target)
+                    line += $", reviving player {target}";
+                if (DownedRules.InGrace(m, now))
+                    line += $", in grace to tick {m.GraceUntilTick}";
+                yield return line;
+            }
         }
     }
 
     //-------------------------------------------------------------------------
 
-    /// <summary>Every hero in the game is a member, in the instance.</summary>
+    /// <summary>Every hero in the game is a member of his party's machine, in the instance.</summary>
     private void JoinAll()
     {
         foreach (var hero in heroes.All.ToList())
-            Join(hero.PlayerIndex);
-    }
-
-    /// <summary>The hero in <paramref name="playerIndex"/> is a member, in the instance.</summary>
-    private void Join(int playerIndex)
-    {
-        if (playerIndex <= 0)
-            return;
-        if (MemberOf(playerIndex) is { InInstance: true })
-            return;
-        Step(new DownedEvent.Joined(Id(playerIndex)));
+            Place(hero.PlayerIndex);
     }
 
     /// <summary>
-    /// One event through the machine at the world's tick, its outcomes carried
-    /// out. <paramref name="dying"/> is a hero whose death the caller deals
-    /// itself (the lethal hit, the death hook): he is not killed again.
+    /// The hero in <paramref name="playerIndex"/> is a member of his party's
+    /// machine, in the instance: one whose party changed leaves the old machine
+    /// (dying if he was down) and joins the new one with his downs on the level.
     /// </summary>
-    private IReadOnlyList<DownedOutcome> Step(DownedEvent e, int dying = -1)
+    private void Place(int playerIndex)
+    {
+        if (playerIndex <= 0)
+            return;
+        string key = roster.MachineKey(playerIndex);
+        string id = Id(playerIndex);
+        if (_in.TryGetValue(playerIndex, out var held) && held != key)
+        {
+            Step(held, new DownedEvent.Left(id));
+            var left = MemberOf(playerIndex)!;
+            var old = _machines[held];
+            _machines[held] = old with { Members = [.. old.Members.Where(m => m.Id != id)] };
+            if (_machines[held].Members.IsEmpty)
+                _machines.Remove(held);
+            _in.Remove(playerIndex);
+            Enter(key, playerIndex, left.DownsThisLevel, left.Standing == Standing.Dead);
+            return;
+        }
+
+        if (!_in.ContainsKey(playerIndex))
+        {
+            bool dead = heroes.Of(playerIndex) is { } hero && !world.IsAlive(hero.Player);
+            Enter(key, playerIndex, 0, dead);
+            return;
+        }
+
+        if (MemberOf(playerIndex) is { InInstance: false })
+            Step(key, new DownedEvent.Joined(id));
+    }
+
+    /// <summary>A member of the machine <paramref name="key"/>: up (or dead, as he is), with the downs he has taken on the level.</summary>
+    private void Enter(string key, int playerIndex, int downs, bool dead)
+    {
+        string id = Id(playerIndex);
+        Step(key, new DownedEvent.Joined(id));
+        _in[playerIndex] = key;
+        var party = _machines[key];
+        _machines[key] = party with
+        {
+            Members = [.. party.Members.Select(m => m.Id == id ? m with { DownsThisLevel = downs, Standing = dead ? Standing.Dead : m.Standing } : m)],
+        };
+    }
+
+    /// <summary>
+    /// One event through the machine <paramref name="key"/> at the world's tick,
+    /// its outcomes carried out. <paramref name="dying"/> is a hero whose death
+    /// the caller deals itself (the lethal hit, the death hook): he is not killed again.
+    /// </summary>
+    private IReadOnlyList<DownedOutcome> Step(string key, DownedEvent e, int dying = -1)
     {
         long tick = world.Tick;
-        if (tick < Party.Tick)
+        var party = Machine(key);
+        if (tick < party.Tick)
         {
-            // The engine's tick went back (a new map the level hook missed): the party starts again.
-            log.Warning($"[TF2Descent/Downed] the tick went back from {Party.Tick} to {tick}: a new party\n");
-            _party = DownedRules.NewParty(world.TicksPerSecond);
+            // The engine's tick went back (a new map the level hook missed): every party starts again.
+            log.Warning($"[TF2Descent/Downed] the tick went back from {party.Tick} to {tick}: new parties\n");
+            _machines.Clear();
+            _in.Clear();
+            JoinAll();
+            if (e is DownedEvent.Joined or DownedEvent.Tick)
+                return [];
+            party = Machine(key);
         }
-        var step = rules.Downed.Step(Party, e, tick);
-        _party = step.Party;
+        var step = rules.Downed.Step(party, e, tick);
+        _machines[key] = step.Party;
         foreach (var outcome in step.Outcomes)
             Carry(outcome, (int)tick, dying);
         return step.Outcomes;
@@ -384,7 +488,8 @@ public sealed class HeroDowned(IDescentModeState mode, Heroes heroes, TF2Descent
             case DownedOutcome.Downed d when heroes.Of(IndexOf(d.Member)) is { } hero:
             {
                 hero.ShowDowned(true, now, (int)d.BleedOutTick);
-                float seconds = (float)((d.BleedOutTick - now) / Party.TicksPerSecond) + 1f;
+                double rate = _in.TryGetValue(hero.PlayerIndex, out var key) ? _machines[key].TicksPerSecond : world.TicksPerSecond;
+                float seconds = (float)((d.BleedOutTick - now) / rate) + 1f;
                 world.Freeze(hero.Player, seconds);
                 log.Msg(string.Create(CultureInfo.InvariantCulture,
                     $"[TF2Descent/Downed] player {d.Member} is DOWN at tick {now}: bleeds out at tick {d.BleedOutTick} ({seconds - 1f:0.0}s), down {MemberOf(hero.PlayerIndex)?.DownsThisLevel} on this level\n"));
@@ -413,8 +518,13 @@ public sealed class HeroDowned(IDescentModeState mode, Heroes heroes, TF2Descent
                         world.Unfreeze(hero.Player);
                 }
                 log.Msg($"[TF2Descent/Downed] player {d.Member} DIES ({d.Cause}) at tick {now}\n");
-                // The machine's own deaths are dealt here; a lethal hit, a hook's death or a leave deal their own.
-                if (index != dying && d.Cause != DeathCause.LeftWhileDown && hero is not null && world.IsAlive(hero.Player))
+                _actsAtRespawn.Remove(index);
+                if (hero is not null)
+                    TellDied(hero);
+                // The machine's own deaths are dealt here; a lethal hit or a hook's death deal their own. A
+                // leave dies here only when the hero is still in the game (his party changed while he was
+                // down): one who left the level is gone.
+                if (index != dying && hero is not null && world.IsAlive(hero.Player))
                 {
                     _killing.Add(index);
                     try
@@ -428,6 +538,21 @@ public sealed class HeroDowned(IDescentModeState mode, Heroes heroes, TF2Descent
                 }
                 break;
             }
+            case DownedOutcome.Respawned r when heroes.Of(IndexOf(r.Member)) is { } hero:
+            {
+                _actsAtRespawn[hero.PlayerIndex] = hero.Acts;
+                log.Msg(string.Create(CultureInfo.InvariantCulture,
+                    $"[TF2Descent/Downed] player {r.Member} RESPAWNED at tick {now}: no damage to tick {r.GraceUntilTick} ({(r.GraceUntilTick - now) / world.TicksPerSecond:0.0}s) unless he acts\n"));
+                RespawnsTold++;
+                int index = hero.PlayerIndex;
+                var at = world.Origin(hero.Player);
+                listeners.Each(nameof(IHeroDownedListener.HeroRespawned), l => l.HeroRespawned(index, at));
+                break;
+            }
+            case DownedOutcome.GraceEnded g:
+                _actsAtRespawn.Remove(IndexOf(g.Member));
+                log.Msg($"[TF2Descent/Downed] player {g.Member} acted at tick {now}: his respawn's grace ends\n");
+                break;
             case DownedOutcome.ReviveStarted s when heroes.Of(IndexOf(s.Target)) is { } target:
                 target.ShowRevive(IndexOf(s.Reviver), now, (int)s.CompletesAtTick);
                 log.Msg($"[TF2Descent/Downed] player {s.Reviver} starts reviving player {s.Target}: done at tick {s.CompletesAtTick}\n");
@@ -450,10 +575,20 @@ public sealed class HeroDowned(IDescentModeState mode, Heroes heroes, TF2Descent
         listeners.Each(nameof(IHeroDownedListener.HeroDowned), l => l.HeroDowned(index, down, at));
     }
 
-    /// <summary>A new level: nobody is down, the downs counted are the last level's, a new party.</summary>
+    private void TellDied(HeroComponent hero)
+    {
+        DeathsTold++;
+        int index = hero.PlayerIndex;
+        var at = world.Origin(hero.Player);
+        listeners.Each(nameof(IHeroDownedListener.HeroDied), l => l.HeroDied(index, at));
+    }
+
+    /// <summary>A new level: nobody is down, the downs counted are the last level's, new machines.</summary>
     public void OnLevelInit(string mapName)
     {
-        _party = null;
+        _machines.Clear();
+        _in.Clear();
+        _actsAtRespawn.Clear();
         _killing.Clear();
         _devHolds.Clear();
     }
@@ -490,7 +625,7 @@ public sealed class DownedDamage(IDescentModeState mode, HeroDowned downed, Hero
     {
         if (!mode.Active || HeroIndex(hit.Victim) is not { } index)
             return Decision.UseStockRule;
-        return downed.IsDown(index) && !Outright(index, hit.Damage) ? Decision.No : Decision.UseStockRule;
+        return (downed.IsDown(index) || downed.Untouchable(index)) && !Outright(index, hit.Damage) ? Decision.No : Decision.UseStockRule;
     }
 
     public float Modify(in DamageContext hit, float damage)
@@ -498,7 +633,7 @@ public sealed class DownedDamage(IDescentModeState mode, HeroDowned downed, Hero
         if (!mode.Active || !(damage > 0f) || HeroIndex(hit.Victim) is not { } index || Outright(index, damage))
             return damage;
 
-        if (downed.IsDown(index))
+        if (downed.IsDown(index) || downed.Untouchable(index))
             return 0f;
 
         int health = world.Health(hit.Victim);
@@ -541,13 +676,53 @@ public sealed class DownedRegistrar : ISideServiceRegistrar
 /// The horde's brains hear a hero go down and get up (WO6; plan_tf2_rpg 2g:
 /// a downed hero's threat drops to zero so the fight moves on), through the
 /// session's own feed (<see cref="Horde.Session.HordeSession.HeroDowned"/>).
+///
+/// <para>
+/// A DEATH IS NOT A CAMP (this lane's rule; the plan is silent): when a hero
+/// dies, every brain with a body forgets him as the core forgets a player
+/// gone to watch (<see cref="AiEvent.ActorSpectating"/>: his last place,
+/// what it heard of him, nothing learnt while he is gone), so no robot runs
+/// to where he fell to search: with nothing left to hunt it walks home. When
+/// he respawns he is back, a stranger: a robot finds him again only by
+/// seeing or hearing him. The session already carries any core event to its
+/// brains; no decider changed.
+/// </para>
 /// </summary>
 [SideService(Side.Server)]
-public sealed class DownedHordeTap(Horde.Session.HordeSession session) : IHeroDownedListener, IOrderedHook
+public sealed class DownedHordeTap(Horde.Session.HordeSession session, Horde.IHordeClock clock) : IHeroDownedListener, IOrderedHook
 {
     public const int Order = ModStages.First + 955;
 
     public int HookOrder => Order;
 
+    /// <summary>Forgets and comebacks told to brains since the module started.</summary>
+    public long Forgotten { get; private set; }
+
+    public long Returned { get; private set; }
+
     public void HeroDowned(int playerIndex, bool down, Vector at) => session.HeroDowned(playerIndex, down, at);
+
+    public void HeroDied(int playerIndex, Vector at) => Tell(playerIndex, gone: true);
+
+    public void HeroRespawned(int playerIndex, Vector at) => Tell(playerIndex, gone: false);
+
+    private void Tell(int seat, bool gone)
+    {
+        if (session.Brains is not { } brains || session.Horde?.Bodies is not { } bodies || seat <= 0)
+            return;
+        ActorId hero = brains.HeroSlots.ActorOf(seat);
+        if (!hero.IsValid)
+            return;
+        var tick = new Tick((int)clock.Tick);
+        for (int b = 1; b <= bodies.LastBody; b++)
+        {
+            if (brains.BrainAt(b) is not { IsValid: true } brain)
+                continue;
+            brains.Session.Push(AiEvent.ActorSpectating(brain, tick, hero, gone));
+            if (gone)
+                Forgotten++;
+            else
+                Returned++;
+        }
+    }
 }

@@ -219,8 +219,13 @@ public sealed class HordeReplayTests
         var soldier = rig.Robot(Centre(1) + At(-150, 60), "soldier", seed: 52);
         var medic = rig.Robot(Centre(1) + At(-200, 0), "medic", seed: 53, joinLastPack: true);
         var scout = rig.Robot(Centre(2), "scout", seed: 54);
-        foreach (var id in new[] { rusher, soldier, medic, scout })
-            rig.Lend(id, yaw: 0f);
+        var lent = new List<TF2.Descent.Ai.Roster.RobotId> { rusher, soldier, medic, scout };
+        // HO12: every other family fights in the same recording.
+        string[] rest = ["pyro", "demoman", "heavy", "engineer", "sniper", "sentry_buster", "giant_heavy"];
+        for (int k = 0; k < rest.Length; k++)
+            lent.Add(rig.Robot(Centre(k % 2 == 0 ? 2 : 3) + At(-120 + 40 * k, 150 - 50 * (k % 3)), rest[k], seed: (ulong)(60 + k)));
+        foreach (var id in lent)
+            rig.Lend(id, yaw: lent.IndexOf(id) < 4 ? 0f : 180f);   // the new ones east of the run face it
         rig.Roster.Hurt(soldier.Index, rig.Roster.Stats(soldier.Index).Life * 0.6);
 
         for (int t = 0; t < Ticks; t++)
@@ -235,6 +240,14 @@ public sealed class HordeReplayTests
         Assert.Contains(log.Intents, i => i.Action.Kind == ActionKind.Fire);
         Assert.Contains(log.Intents, i => i.Action.Kind == ActionKind.Ability && i.Action.WeaponSlot == HordeAbilities.Heal);
         Assert.Contains(log.Intents, i => i.Move.Kind == MoveKind.Follow);
+        // HO12: the other families fought in it too (the stimulus for the replay fact over them).
+        var nodes = log.Intents.Select(i => (FamilyNode)i.Reason.NodeId).ToHashSet();
+        string seen = string.Join(", ", nodes.Order());
+        Assert.True(nodes.Contains(FamilyNode.Suppress), $"the heavies held and fired: {seen}");
+        Assert.True(nodes.Overlaps([FamilyNode.Stalk, FamilyNode.Flank, FamilyNode.Stab]), $"the spy fought: {seen}");
+        Assert.True(nodes.Overlaps([FamilyNode.Aim, FamilyNode.Relocate]), $"the sniper aimed or ran: {seen}");
+        Assert.True(nodes.Overlaps([FamilyNode.Burn, FamilyNode.Circle, FamilyNode.Lob]), $"the pyro, the scout or the demoman fought: {seen}");
+        Assert.True(nodes.Overlaps([FamilyNode.Run, FamilyNode.Detonate]), $"the buster ran: {seen}");
         return (bytes.ToArray(), level, log.Intents.Count);
     }
 

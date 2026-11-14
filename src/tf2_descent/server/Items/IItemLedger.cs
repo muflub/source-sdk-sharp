@@ -1,4 +1,5 @@
 using SourceSharp.Abi;
+using TF2.Descent.Rules.Economy;
 using TF2.Descent.Rules.Hero;
 using TF2.Descent.Rules.Inventory;
 using TF2.Descent.Rules.Items;
@@ -36,6 +37,9 @@ public sealed record LedgerItem(long Id, ItemInstance Item, ItemPlace Place, int
 /// </summary>
 public sealed record LedgerHero(string Hero, HeroSheet Sheet, HeroInventory Inventory, StashState Stash)
 {
+    /// <summary>The hero's price stats (Haggler's, <see cref="IItemLedger.SetPrices"/>): what moves the prices he meets at a vendor.</summary>
+    public BuyerPrices Prices { get; init; }
+
     /// <summary>Every item the hero can see, with where it is.</summary>
     public IEnumerable<LedgerItem> Items =>
         Inventory.Backpack.Select(p => new LedgerItem(p.Value.Id, p.Value.Item, ItemPlace.Backpack, p.Key))
@@ -61,6 +65,19 @@ public sealed record LedgerCorpse(IReadOnlyList<long> Items, long Australium)
 
 /// <summary>An item a vendor offers, at its buy price.</summary>
 public sealed record VendorItem(long Id, ItemInstance Item, long Price);
+
+/// <summary>What a price is for, as <see cref="IItemLedger.Price"/> asks it.</summary>
+public enum LedgerPrice
+{
+    /// <summary>A vendor's buy price of the item.</summary>
+    Buy,
+    /// <summary>What a vendor pays for it.</summary>
+    Sell,
+    /// <summary>The Spy's fee to identify it.</summary>
+    Identify,
+    /// <summary>The Engineer's price to repair it (lossless, L7).</summary>
+    Repair,
+}
 
 /// <summary>
 /// What one change did to a hero's view, for the network and UI to follow without polling:
@@ -189,6 +206,24 @@ public interface IItemLedger
     /// <summary>Gives the ledger the hero's current sheet (a level-up, a respec): capacity and requirements follow it.</summary>
     void SetSheet(string hero, HeroSheet sheet);
 
+    /// <summary>
+    /// Gives the ledger the hero's price stats (Haggler's, the rules' <c>Pricing.BuyerOf</c>): every
+    /// price he meets after it is moved by them (<c>Pricing.ForBuyer</c>). Hosted they move nothing:
+    /// the host prices a buy, a sale, an identify and a repair itself, with no stat of the buyer's.
+    /// </summary>
+    void SetPrices(string hero, BuyerPrices prices);
+
+    /// <summary>
+    /// What the hero would pay for <paramref name="what"/> on <paramref name="item"/> now, or be
+    /// paid for it (a sale), by the rules and his price stats; null when the rules would refuse it
+    /// (an identified item to the Spy; one the Engineer will not repair: not gear, at its
+    /// maximum, unusable). Nothing changes.
+    /// </summary>
+    long? Price(string hero, LedgerPrice what, ItemInstance item);
+
+    /// <summary>What buying back the item sold as <paramref name="index"/> costs: the price it sold for; null for none there.</summary>
+    long? BuyBackPrice(string hero, int index);
+
     /// <summary>Every item on this level's floor.</summary>
     IReadOnlyCollection<FloorItem> Floor { get; }
 
@@ -251,13 +286,20 @@ public interface IItemLedger
     /// <summary>Stash slot to the first free backpack slot.</summary>
     Task<LedgerResult> Withdraw(string hero, int stashSlot);
 
-    /// <summary>What a vendor offers this hero.</summary>
-    Task<VendorAnswer> Stock(string hero, string vendor);
+    /// <summary>
+    /// What a vendor offers this hero in restock <paramref name="restock"/> (the rules'
+    /// <c>Vendors.Restock</c> of the town's age): the same stock, less what he bought, until the
+    /// restock changes; unhosted, rolled from the rules' <c>Vendors.StockSeed</c> of the session,
+    /// the vendor, the hero and the restock. Prices are his (<see cref="SetPrices"/>).
+    /// </summary>
+    Task<VendorAnswer> Stock(string hero, string vendor, long restock = 0);
 
     Task<LedgerResult> Buy(string hero, string vendor, long stockId);
 
+    /// <summary>Sells a backpack item at its sell price, moved by the seller's price stats; the vendor keeps it for buy-back at that price.</summary>
     Task<LedgerResult> Sell(string hero, string vendor, int slot);
 
+    /// <summary>Buys back a sold item at the price it sold for.</summary>
     Task<LedgerResult> BuyBack(string hero, string vendor, int index);
 
     /// <summary>The Spy's identify, for his fee; the item keeps its id.</summary>

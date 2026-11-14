@@ -156,10 +156,10 @@ internal sealed class BrainRig
     }
 
     /// <summary>A hero in seat <paramref name="seat"/> standing at <paramref name="feet"/>.</summary>
-    public void Hero(int seat, AiVector feet)
+    public void Hero(int seat, AiVector feet, float yaw = 0f)
     {
         Heroes.RemoveAll(h => h.Seat == seat);
-        Heroes.Add(new HeroPose(seat, feet, feet + new AiVector(0f, 0f, 64f), Level.RoomAt(feet)));
+        Heroes.Add(new HeroPose(seat, feet, feet + new AiVector(0f, 0f, 64f), Level.RoomAt(feet), yaw));
     }
 
     /// <summary>One server tick: heroes, apply, sync, sight, hearing, the slide, publish.</summary>

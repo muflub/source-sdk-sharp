@@ -16,6 +16,10 @@ namespace TF2.Descent.Client.Ui.Screens;
 /// attributes (the plan's narrow rule). C.1's shift = 5 bulk spend has no
 /// modifier-key surface on this toolkit, so the points bar carries a
 /// "spend per click" toggle that multiplies every + button (1 / 5).
+/// The points bar sits in the footer beside Reset and Apply, outside the
+/// scrolled body: inside it, the window's default size cut the points box off
+/// under the button row (found live). The window's status line (a refusal's
+/// reason) runs under the footer.
 /// </summary>
 public sealed class CharSheet : UiScreen, IUiWindowed
 {
@@ -34,6 +38,7 @@ public sealed class CharSheet : UiScreen, IUiWindowed
     private readonly CoinLabel _coin;
     private readonly IDescentSheetHover? _hover;
     private readonly HintTip? _hint;
+    private readonly StatusRow? _status;
 
     private int _spend = 1;
     private float _pulsePhase;
@@ -46,8 +51,10 @@ public sealed class CharSheet : UiScreen, IUiWindowed
         IDescentSheetActions actions,
         CoinLabel coin,
         IDescentSheetHover? hover = null,
-        HintTip? hint = null)
+        HintTip? hint = null,
+        StatusRow? status = null)
     {
+        _status = status;
         _windows = windows;
         _sheet = sheet;
         _actions = actions;
@@ -110,9 +117,10 @@ public sealed class CharSheet : UiScreen, IUiWindowed
                                 Derived(ref ui);
                         }
                     }
-                    PointsBar(ref ui);
                 }
                 CommitFooter(ref ui);
+                if (_status is not null)
+                    ui.Sub("status", _status);
             }
 
             // The hover hint last: an overlay above the scrolled body,
@@ -252,14 +260,14 @@ public sealed class CharSheet : UiScreen, IUiWindowed
         }
     }
 
-    /// <summary>Bottom row: the points number, a pulsing chip while points remain (§2.3), and the spend-per-click toggle.</summary>
+    /// <summary>The points number, a pulsing chip while points remain (§2.3), and the spend-per-click toggle: the footer's first row.</summary>
     private void PointsBar(ref UiFrame ui)
     {
         int points = _sheet.AttributePoints;
-        using (ui.Row(Space.M, Align.Centre).Width(Size.Fill))
+        using (ui.Row(Space.M, Align.Centre).Width(Size.Fill).Pad(Space.M, Space.None))
         {
             ui.Text("#Descent_Sheet_Points", Text.Caption, Tone.TextMuted);
-            using (ui.Box().Size(Size.Du(PlateDu), Size.Du(RowDu)).Fill(Tone.Surface)
+            using (ui.Box().Name("points").Size(Size.Du(PlateDu), Size.Du(RowDu)).Fill(Tone.Surface)
                      .Border(Tone.Line, 1).Round(Radius.S).Pad(Space.S, Space.None))
                 ui.Number(points, Text.Body).Color(points > 0 ? DescentPaints.Raised : (UiPaint)Tone.TextMuted)
                     .At(UiAnchor.Right).Size(Size.Fill, Size.Fill).TextAlign(Align.End);
@@ -306,6 +314,7 @@ public sealed class CharSheet : UiScreen, IUiWindowed
         if (staged == 0 && _sheet.AttributePoints == 0)
             return;
         ui.Divider();
+        PointsBar(ref ui);
         using (ui.Row(Space.S, Align.Centre).Width(Size.Fill).Pad(Space.M, Space.None))
         {
             if (staged > 0)

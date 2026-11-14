@@ -178,6 +178,12 @@ public sealed class DescentContent
     /// <summary>Every robot attack's numbers and the projectile cap (HO7).</summary>
     public RobotAttackSettings RobotAttacks => Get<RobotAttackSettings>(RobotAttackTable.TableName);
 
+    /// <summary>The miner's lamp's light, the depth it is lit from and the step a hero's look is sent in (HE10).</summary>
+    public World.LampSettings Lamp => Get<World.LampSettings>(World.LampTable.TableName);
+
+    /// <summary>The hazards' cadence and kinds: lava, slime (HE10, mine plan D8).</summary>
+    public World.HazardSettings Hazards => Get<World.HazardSettings>(World.HazardTable.TableName);
+
     /// <summary>The shipped content; throws <see cref="ContentLoadException"/> naming every error if it does not load.</summary>
     public static DescentContent Shipped() => new ContentLoader().Load(new EmbeddedContentSource()).OrThrow();
 }

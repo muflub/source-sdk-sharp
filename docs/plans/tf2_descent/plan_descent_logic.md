@@ -3,16 +3,15 @@
 Measured at `ce143b36b` (main, 2026-11-10). Reviewed and committed that day
 ("commit it and start on CR").
 
-**Status, 2026-11-12.** On main at `f5b423323`: 56 of the 66 packages. CR1,
-CR3 to CR6, CR8 to CR10; every rules package but RU14 (its retune and model
-are held on `descent-ru-d` for a ruling); HE0 to HE9 with the class gate;
-HO0 to HO11; WO1 to WO7; UI1 to UI3 and UI5 to UI7. Ruled and not built:
-CR2. Running: HO12 (`descent-ho12`), WO8 with UI4 (`descent-wo8`), HE10
-(`descent-he10`), WO9 (`descent-wo9`), and a polish lane for what playing
-the landed packages turned up (`descent-polish1`). Not started: HO13 (after
-HO12), CR7, CR11. Section 4.7 says what each landed package gave and found.
-Each part of section 5's "first blood" milestone has been seen live in an
-unhosted game; the whole run has not yet been played through in one sitting.
+**Status, 2026-11-12, late.** On main at `8aa183777`: 61 of the 66
+packages. CR1, CR3 to CR6, CR8 to CR10; every rules package but RU14 (its
+retune and model are held on `descent-ru-d` for a ruling); HE0 to HE10 with
+the class gate; HO0 to HO12; WO1 to WO9; UI1 to UI7. Ruled and not built:
+CR2. Running: HO13 (`descent-ho13`) and a lane on how robots come to know of
+a hero (`descent-sight`). Not started, held for the user: CR7, CR11.
+Section 4.7 says what each landed package gave and found. Each part of
+section 5's "first blood" milestone has been seen live in an unhosted game;
+the whole run has not yet been played through in one sitting.
 
 The design is `plan_tf2_rpg.md` (rulings R1 to R29, defaults D1 to D25,
 appendices A to D). This file does not restate it. It says what to build in
@@ -820,6 +819,57 @@ Seams by name, for the packages that build on them; then what did not hold.
   back unequipped; the corner minimap covers TF2's kill feed; a refusal's
   notice is hidden under an open window. `god` does nothing through the
   debug route, so a proof keeps its hero alive by level and refill.
+
+**Landed 2026-11-12, later (`f5b423323` to `8aa183777`).**
+- HE10: the miner's lamp rides the hero's networked state (`LampOn`,
+  `LampPitch`) and every client makes the light itself (`IDynamicLights`), so
+  a lamp costs no edict; `lamp.json`; key L; `IHeroVisibility` (a neutral
+  stand-in until the sight lane). Hazards: `HazardService` over brush
+  entities named `tf2_descent_hazard_<kind>` and `hazards.json` (lava is
+  fire and hurts robots; slime is unresisted and does not), bites through
+  the hero damage path, `HazardKillerNames`. No generated level has a dark
+  room or a hazard volume yet: both are asks of the map session.
+- WO8 and UI4: `TownService` stands eight stalls at the town's `shop_*`
+  markers (`tf2_descent_vendor`); use opens a window for its hero alone; the
+  verbs `tf2_descent_town_buy`, `_sell`, `_buyback`, `_identify`, `_repair`,
+  `_repair_all`, `_craft`, `_crate`, `_stash_in`, `_stash_out`, `_descend`
+  go through the ledger by the rules, and a refusal shows on the window's
+  own status line. `BuyerPrices` is the first reader of `price_buy_pct` and
+  `price_sell_pct`. Stock restocks hourly, per hero. In town the way down
+  opens the depth picker. The Phase 9 gate ran through the windows unhosted,
+  but for trade between two clients, the reconnect step and a hosted run.
+  Asks of the map session: `shop_engineer` and `shop_bench` markers.
+- The polish lane: a respawn has a grace (`death.json`
+  `respawnGraceSeconds` 6, ended by a shot, a swing or a cast) and the
+  brains forget the dead (`AiEvent.ActorSpectating`); the core's
+  `IWeaponColumnOwner` and TF2's `TFLoadoutProvider.OwnsWeapons`, so an
+  empty TF kit is no weapons (an unarmed hero had been handed HL2's crowbar
+  and gravity gun); an empty melee slot swings the class's stock melee,
+  which is no item; a recovered corpse puts gear and potions back where
+  they were (`InventoryRules.Recover`); pending wear is written before a
+  death. HUD: the minimap hangs under TF2's kill feed, the party frames sit
+  top left, a six-slot skill strip (`SkillSlotsStrip`), a status row in the
+  sheet, the skill tree and the inventory (`IDescentWindowStatus`), Equip /
+  Move / Drop on the bag, slot assignment from the skill tree. **Still
+  open:** a robot that sees the respawned hero kills him when the grace
+  ends (three deaths in 27 s in one boot): the sight lane's target.
+- HO12: deciders for the scout, pyro, demoman, heavy, shotgunner, sniper,
+  spy and sentry buster, so no template is left on the bare hunt; every
+  champion affix has its behaviour (`server/Horde/Champions`:
+  `IRobotDamageGuard`, `IHordeTicker`, `IRobotAttackShaping`); nine of
+  B.11's ten temperament gates are facts (Cover is not built). Release, 48
+  bodies of every family: the horde tick is 991 us mean, 1,266 us p95. The
+  buster is in no depth's packs yet.
+- WO9: `IParties` (`InMemoryParties` unhosted, `HostedParties` over
+  `IHostParties`), `IPartyHook`, `IPartyRoster`; the client verbs
+  `tf2_descent_party_invite`, `_accept`, `_decline`, `_leave`, `_kick`,
+  `_disband`; key P. Every "all heroes are one party" stand-in is replaced:
+  one downed machine a party (a hero in no party is solo), the portal, the
+  loot seats and the XP of a hero's kill, the director's party size, skill
+  auras and party-wide shrines; a party shares one automap. Asks of the
+  host: decline, disband, a notice when a party changes elsewhere, the
+  party on `BootInfo`.
+- Descent's keys now take six of TF2's binds: C, I, K, M, L and P.
 
 **For every lane.** A wall-clock bound in a fact fails on a loaded box: the
 horde's stall fact failed three landings at 255 to 440 ms against 250 and

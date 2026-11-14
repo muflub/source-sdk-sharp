@@ -50,15 +50,37 @@ internal sealed class RigAttackWorld : IRobotAttackWorld
         return (int)MathF.Ceiling(damage);
     }
 
-    public EntityHandle Launch(string className, EntityHandle owner, Vector origin, Vector velocity, float damage, int team)
+    public EntityHandle Launch(string className, EntityHandle owner, Vector origin, Vector velocity, float damage, int team, bool critical = false)
     {
         if (RefuseLaunch)
             return EntityHandle.None;
         var made = new EntityHandle((1u << 16) | _next++);
         Alive.Add(made);
         Launches.Add((className, owner, origin, velocity, damage, team, made));
+        if (critical)
+            CriticalLaunches++;
         return made;
     }
+
+    /// <summary>Launches made as crits.</summary>
+    public int CriticalLaunches { get; private set; }
+
+    /// <summary>The lasers drawn, the particles dispatched, the heroes set alight, and the sequences asked by name (17 for any, half a second, unless a fact says).</summary>
+    public List<(Vector From, Vector To)> Lasers { get; } = [];
+
+    public List<(string Name, Vector At)> Particles { get; } = [];
+
+    public List<(EntityHandle Victim, EntityHandle Attacker, float Seconds)> Ignites { get; } = [];
+
+    public (int Sequence, float Seconds) Named { get; set; } = (17, 0.5f);
+
+    public (int Sequence, float Seconds) Sequence(EntityHandle entity, string name) => Named;
+
+    public void Laser(Vector from, Vector to) => Lasers.Add((from, to));
+
+    public void Particle(string name, Vector at) => Particles.Add((name, at));
+
+    public void Ignite(EntityHandle victim, EntityHandle attacker, float seconds) => Ignites.Add((victim, attacker, seconds));
 
     public void Sound(EntityHandle entity, string sound) => Sounds.Add((entity, sound));
 
@@ -69,6 +91,12 @@ internal sealed class RigAttackWorld : IRobotAttackWorld
 
     /// <summary>A line that meets <paramref name="victim"/> wherever it is aimed.</summary>
     public static Func<Vector, Vector, TraceResult> Meets(EntityHandle victim) => (_, to) => new TraceResult(true, 0.5f, to, default, victim);
+}
+
+/// <summary>The rig's controller as the champions' services ask for the level's horde.</summary>
+internal sealed class RigHordeCurrent(ServerHordeRig rig) : IHordeCurrent
+{
+    public HordeController? Current => rig.Controller;
 }
 
 /// <summary>The motion's reports as a fact sets them: a look a body holds now.</summary>
@@ -102,7 +130,8 @@ internal sealed class AttackRig
     {
         Horde = new ServerHordeRig();
         Clock = new RigClock(Horde);
-        Attacks = new RobotAttacks(new RigRules(), World, Horde.Heroes, Motion, Clock);
+        Shaping = new TF2.Descent.Server.Horde.Champions.ChampionShaping(new RigRules(), new RigHordeCurrent(Horde));
+        Attacks = new RobotAttacks(new RigRules(), World, Horde.Heroes, Motion, Clock, Shaping, new RigHooks<IHordeTicker>(Tickers));
         Attacks.Begin(Horde.Controller, Horde.Now);
     }
 
@@ -111,6 +140,12 @@ internal sealed class AttackRig
     public RigAttackWorld World { get; } = new();
     public RigMotionReports Motion { get; } = new();
     public RobotAttacks Attacks { get; }
+
+    /// <summary>The champions' shaping the hands ask (the real one, over the rig's roster).</summary>
+    public TF2.Descent.Server.Horde.Champions.ChampionShaping Shaping { get; }
+
+    /// <summary>The tickers the hands tick, in order (none unless a fact adds them).</summary>
+    public List<IHordeTicker> Tickers { get; } = [];
     public long Now => Horde.Now;
     public RobotRoster Roster => Horde.Roster;
 

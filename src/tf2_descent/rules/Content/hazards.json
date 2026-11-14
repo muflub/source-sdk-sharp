@@ -1,0 +1,7 @@
+{
+  "cadence": 0.5,
+  "kinds": [
+    { "id": "lava", "name": "Lava", "damageType": "fire", "perSecond": 40, "perDepth": 6, "robots": true },
+    { "id": "slime", "name": "Toxic slime", "damageType": "none", "perSecond": 12, "perDepth": 2, "robots": false }
+  ]
+}

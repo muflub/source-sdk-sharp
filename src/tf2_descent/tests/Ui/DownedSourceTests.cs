@@ -143,7 +143,7 @@ public sealed class DownedSourceTests
         var hud = new ClientEngine { Strict = false }.Returns("Hud.LocalPlayerIndex", Local).Returns("Hud.LocalPlayerHealth", 120);
         var party = new Src.PartySource(new Heroes(Hero(Local, downed: false), Hero(Other, downed: true)), hud,
                                         new Names((Local, "Bugha"), (Other, "Merasmus")), new NoStandalones(),
-                                        new ClientEngine { Strict = false });
+                                        new ClientEngine { Strict = false }, ClientParties.Of(Local, (Local, "Bugha"), (Other, "Merasmus")));
 
         Assert.Equal(2, party.MemberCount);
         Assert.Equal((false, true), (party.Member(0).Downed, party.Member(1).Downed));

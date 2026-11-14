@@ -141,12 +141,25 @@ public sealed class HeroEquipment(
     public TFSlotItem KitAnswer(HeroGear gear, TFClass cls, string equipmentSlot)
     {
         if (gear.In(equipmentSlot) is not { } held)
-            return TFSlotItem.Empty;
+            return equipmentSlot == FallbackSlot ? Fallback(cls) : TFSlotItem.Empty;
         var row = rules.Content.ItemBases[held.Item.BaseId];
         if (!row.AllowsClass(ClassId(cls)))
             return TFSlotItem.Empty;
         return TFItemOf(gear, equipmentSlot) is { } item ? TFSlotItem.Of(item) : TFSlotItem.NoOpinion;
     }
+
+    /// <summary>The equipment slot an empty one of which is filled by the class's stock weapon (<see cref="Fallback"/>).</summary>
+    public const string FallbackSlot = "melee";
+
+    /// <summary>
+    /// THE FALLBACK MELEE (this lane's choice where the plans are silent; the user may
+    /// overrule it): a hero with nothing in his melee slot (after a death, all of it is on his
+    /// corpse) swings the class's stock melee, the schema's base item for the TF melee slot,
+    /// so a Soldier on his corpse run can still fight. It is no Descent item: no ledger id, no
+    /// affix, no wear, nothing to drop or lose, and it goes the moment a melee is equipped.
+    /// </summary>
+    public TFSlotItem Fallback(TFClass cls) =>
+        schema.BaseItem(cls, TFLoadoutSlot.Melee) is { } definition ? TFSlotItem.Of(TFItem.Base(definition)) : TFSlotItem.Empty;
 
     /// <summary>
     /// The TF item an equipped weapon is handed to TF2 as; null for an empty slot, an item

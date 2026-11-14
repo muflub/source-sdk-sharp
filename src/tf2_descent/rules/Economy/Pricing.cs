@@ -1,5 +1,6 @@
 using SourceSharp.Host.Contracts;
 using TF2.Descent.Rules.Content;
+using TF2.Descent.Rules.Hero;
 using TF2.Descent.Rules.Items;
 
 namespace TF2.Descent.Rules.Economy;
@@ -13,6 +14,10 @@ namespace TF2.Descent.Rules.Economy;
 /// the Stock price), so a sale reveals nothing.</item>
 /// <item>Anything else: its base value per unit of its stack. A crate: the Scout's price for its level.</item>
 /// <item>Buy = value · buy, rounded up; sell = value · sell, rounded down; vendor value = value.</item>
+/// <item>The buyer's own price stats (plan_tf2_rpg Appendix A.5, Haggler: "−4 % vendor, repair,
+/// identify and crate prices; +4 % sell prices") move a price last (<see cref="ForBuyer"/>):
+/// what he pays by <c>price_buy_pct</c>, rounded up, what he is paid by <c>price_sell_pct</c>,
+/// rounded down, each percent held inside its stat's range.</item>
 /// </list>
 /// </summary>
 public sealed class Pricing
@@ -55,6 +60,35 @@ public sealed class Pricing
     /// <summary>The Spy's fee to identify an item: base + perItemLevel · item level, rounded up.</summary>
     public long IdentifyFee(ItemInstance item) => (long)Math.Ceiling(E.IdentifyBase + E.IdentifyPerItemLevel * item.ItemLevel - 1e-9);
 
+    /// <summary>A buyer's price stats, from his stats' totals (economy.json's <c>buyer</c> names the two stats).</summary>
+    public BuyerPrices BuyerOf(HeroStats stats) => new(stats.Total(E.BuyerBuyStat), stats.Total(E.BuyerSellStat));
+
+    /// <summary>
+    /// A price as <paramref name="buyer"/> meets it: a sell price (<see cref="PriceKind.Sell"/>)
+    /// raised by his sell percent and rounded down; anything he pays (a buy, a repair, an
+    /// identify, a crate) moved by his buy percent and rounded up. Each percent is held inside
+    /// its stat's range; a price of 0 stays 0.
+    /// </summary>
+    public long ForBuyer(long price, PriceKind kind, BuyerPrices buyer)
+    {
+        if (price <= 0) return 0;
+        bool sell = kind == PriceKind.Sell;
+        string stat = sell ? E.BuyerSellStat : E.BuyerBuyStat;
+        double pct = sell ? buyer.SellPct : buyer.BuyPct;
+        if (_content.Stats.TryGet(stat, out var row)) pct = Math.Clamp(pct, row.Min, row.Max);
+        double moved = price * (1 + pct / 100);
+        return sell ? (long)Math.Floor(moved + 1e-9) : (long)Math.Ceiling(moved - 1e-9);
+    }
+
     /// <summary>The Scout's price for a sealed crate at a buyer's level: price + perLevel · level (D23).</summary>
     public long CratePrice(int level) => E.GamblePrice + E.GamblePerLevel * Math.Max(1, level);
+}
+
+/// <summary>
+/// A buyer's price stats (economy.json's <c>buyer</c>): the percent that moves what he pays and
+/// the percent that moves what he is paid. <see cref="None"/> moves nothing.
+/// </summary>
+public readonly record struct BuyerPrices(double BuyPct, double SellPct)
+{
+    public static BuyerPrices None => default;
 }

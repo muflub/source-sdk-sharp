@@ -34,7 +34,7 @@ public sealed class ExperienceCommandsTests
             Assert.Null(rig.Sheets.Leased(HeroRig.Index, "76561197960287931", null, "soldier", "Jane"));
         rig.Engine.Returns("Players.IsAlive", true);
         var hero = rig.Join()!;
-        var xp = new HeroExperience(rig.Heroes, rig.Sheets, rig.Engine, rig.Engine, new ClientMessages(rig.Engine), new NoCheckpoints(), rig.Log);
+        var xp = new HeroExperience(rig.Heroes, rig.Sheets, rig.Engine, rig.Engine, new Party.OneParty(), new ClientMessages(rig.Engine), new NoCheckpoints(), rig.Log);
         return (rig, hero, new HeroXpCommand(Cheats, rig.Heroes, xp, rig.Host, rig.Rules, rig.Log));
     }
 

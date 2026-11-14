@@ -14,9 +14,10 @@ public enum Standing
 /// <summary>
 /// One party member in the downed machine. <see cref="DownsThisLevel"/> counts the downs
 /// already taken on this level (each shortens the next window). <see cref="BleedOutTick"/>
-/// is when a down member dies; <see cref="GraceUntilTick"/> is when a revived member's grace
-/// ends. A member reviving another names it in <see cref="Reviving"/>, from
-/// <see cref="ReviveStartTick"/>.
+/// is when a down member dies; <see cref="GraceUntilTick"/> is when a revived (or respawned)
+/// member's grace ends, and <see cref="RespawnGrace"/> says the grace is a respawn's: no damage
+/// at all, and it ends early when the member acts (<see cref="DownedEvent.Acted"/>). A member
+/// reviving another names it in <see cref="Reviving"/>, from <see cref="ReviveStartTick"/>.
 /// </summary>
 public sealed record DownedMember(
     string Id,
@@ -26,7 +27,8 @@ public sealed record DownedMember(
     long BleedOutTick = 0,
     long GraceUntilTick = 0,
     string? Reviving = null,
-    long ReviveStartTick = 0);
+    long ReviveStartTick = 0,
+    bool RespawnGrace = false);
 
 /// <summary>
 /// A party as the downed machine sees it, at <see cref="Tick"/>, on a server running
@@ -84,6 +86,9 @@ public abstract record DownedEvent
     /// game made outright): dead whatever its standing, and the party falls if nobody is left up.
     /// </summary>
     public sealed record Killed(string Member) : DownedEvent;
+
+    /// <summary><paramref name="Member"/> attacked or used a skill: a respawn's grace ends there.</summary>
+    public sealed record Acted(string Member) : DownedEvent;
 }
 
 /// <summary>What a step decided, for the server to carry out and the client to show.</summary>
@@ -99,6 +104,12 @@ public abstract record DownedOutcome
 
     /// <summary><paramref name="Member"/> stands at <paramref name="LifePct"/> of max life, untouchable until <paramref name="GraceUntilTick"/>.</summary>
     public sealed record Revived(string Member, string By, double LifePct, long GraceUntilTick) : DownedOutcome;
+
+    /// <summary><paramref name="Member"/> stands again (a respawn), taking no damage until <paramref name="GraceUntilTick"/> or until it acts.</summary>
+    public sealed record Respawned(string Member, long GraceUntilTick) : DownedOutcome;
+
+    /// <summary><paramref name="Member"/>'s respawn grace ended early: it acted.</summary>
+    public sealed record GraceEnded(string Member) : DownedOutcome;
 
     public sealed record ReviveStarted(string Reviver, string Target, long CompletesAtTick) : DownedOutcome;
 
@@ -159,7 +170,10 @@ public sealed record DownedStep(DownedParty Party, ImmutableArray<DownedOutcome>
 /// on the level, to a floor of 5 s. A member up and in range who holds use for 3 s, not
 /// damaged and not moving out of range, revives the downed one at 30 % life with 2 s of
 /// grace. A window that lapses kills that hero; when nobody is left standing in the
-/// instance, everyone down dies. Solo there is no downed state. Every number is death.json's.
+/// instance, everyone down dies. Solo there is no downed state. A dead member who respawns
+/// stands with the table's respawn grace: no damage at all for its seconds, ended early by
+/// his first attack or skill (a respawn is not an execution: the plan is silent, this lane's
+/// rule). Every number is death.json's.
 /// </summary>
 public sealed class DownedRules
 {
@@ -186,6 +200,9 @@ public sealed class DownedRules
     /// <summary>Whether a member is in its post-revive grace at <paramref name="tick"/>.</summary>
     public static bool InGrace(DownedMember member, long tick) => member.Standing == Standing.Up && tick < member.GraceUntilTick;
 
+    /// <summary>Whether a member takes no damage at all at <paramref name="tick"/>: in a respawn's grace.</summary>
+    public static bool Untouchable(DownedMember member, long tick) => member.RespawnGrace && InGrace(member, tick);
+
     /// <summary>Applies <paramref name="e"/> at <paramref name="tick"/>, after the timers due by then have run.</summary>
     public DownedStep Step(DownedParty party, DownedEvent e, long tick)
     {
@@ -207,8 +224,9 @@ public sealed class DownedRules
             DownedEvent.Joined j => party.Members.Any(m => m.Id == j.Member)
                 ? party.With(party.Member(j.Member) with { InInstance = true })
                 : party with { Members = party.Members.Add(new DownedMember(j.Member)) },
-            DownedEvent.Respawned r => Respawn(party, r.Member, outcomes),
+            DownedEvent.Respawned r => Respawn(party, r.Member, tick, outcomes),
             DownedEvent.Killed k => KillOutright(party, k.Member, outcomes),
+            DownedEvent.Acted a => Act(party, a.Member, tick, outcomes),
             _ => throw new ArgumentOutOfRangeException(nameof(e), e, "not a downed event"),
         };
         return new DownedStep(party, outcomes.ToImmutable());
@@ -224,7 +242,7 @@ public sealed class DownedRules
             long done = reviver.ReviveStartTick + hold;
             long grace = done + Ticks(party, S.GraceSeconds);
             party = party.With(reviver with { Reviving = null, ReviveStartTick = 0 });
-            party = party.With(target with { Standing = Standing.Up, BleedOutTick = 0, GraceUntilTick = grace });
+            party = party.With(target with { Standing = Standing.Up, BleedOutTick = 0, GraceUntilTick = grace, RespawnGrace = false });
             outcomes.Add(new DownedOutcome.Revived(target.Id, reviver.Id, S.ReviveLifePct, grace));
         }
         foreach (var lapsed in party.Members.Where(m => m.Standing == Standing.Down && m.BleedOutTick <= tick).ToList())
@@ -314,8 +332,8 @@ public sealed class DownedRules
         return Fall(party, outcomes);
     }
 
-    /// <summary>A dead member stands again, its downs on the level kept; any other is refused.</summary>
-    private static DownedParty Respawn(DownedParty party, string id, ImmutableArray<DownedOutcome>.Builder outcomes)
+    /// <summary>A dead member stands again, its downs on the level kept, in the respawn's grace; any other is refused.</summary>
+    private DownedParty Respawn(DownedParty party, string id, long tick, ImmutableArray<DownedOutcome>.Builder outcomes)
     {
         var m = party.Member(id);
         if (m.Standing != Standing.Dead)
@@ -323,7 +341,19 @@ public sealed class DownedRules
             outcomes.Add(new DownedOutcome.Refused(DownedRefusal.NotDead));
             return party;
         }
-        return party.With(m with { Standing = Standing.Up, InInstance = true, BleedOutTick = 0, GraceUntilTick = 0 });
+        long grace = tick + Ticks(party, S.RespawnGraceSeconds);
+        outcomes.Add(new DownedOutcome.Respawned(id, grace));
+        return party.With(m with { Standing = Standing.Up, InInstance = true, BleedOutTick = 0, GraceUntilTick = grace, RespawnGrace = true });
+    }
+
+    /// <summary>A member acted: a respawn's grace it is in ends now; anything else is unchanged (an act is no refusal).</summary>
+    private static DownedParty Act(DownedParty party, string id, long tick, ImmutableArray<DownedOutcome>.Builder outcomes)
+    {
+        var m = party.Member(id);
+        if (!Untouchable(m, tick))
+            return party;
+        outcomes.Add(new DownedOutcome.GraceEnded(id));
+        return party.With(m with { GraceUntilTick = tick, RespawnGrace = false });
     }
 
     /// <summary>A death the machine did not decide: the member is dead whatever it was, and the party falls with nobody up.</summary>
@@ -353,7 +383,7 @@ public sealed class DownedRules
         // Whoever was reviving the dead hero lets go: the target is gone.
         foreach (var r in party.Members.Where(o => o.Reviving == id).ToList())
             party = Interrupt(party, r.Id, ReviveBreak.TargetGone, outcomes);
-        party = party.With(party.Member(id) with { Standing = Standing.Dead, BleedOutTick = 0, GraceUntilTick = 0, Reviving = null });
+        party = party.With(party.Member(id) with { Standing = Standing.Dead, BleedOutTick = 0, GraceUntilTick = 0, Reviving = null, RespawnGrace = false });
         outcomes.Add(new DownedOutcome.Died(id, cause));
         return party;
     }

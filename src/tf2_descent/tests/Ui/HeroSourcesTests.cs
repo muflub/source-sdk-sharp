@@ -598,7 +598,9 @@ public sealed class HeroSourcesTests
         var w = SheetWindow(Hero());
         var pointer = new Src.SkillPointer(w.Clock);
         var skillHover = new Src.SkillHoverSource(pointer, new Ranks(), Content);
-        var tip = new Src.HintTipSource(w.Hover, skillHover);
+        var town = new client::TF2.Descent.Client.Town.TownCache(Content);
+        var vendorHover = new Src.VendorHoverSource(new Src.WarePointer(w.Clock), town, w.Items, new Src.ItemViewNames(Content), Content);
+        var tip = new Src.HintTipSource(w.Hover, skillHover, vendorHover);
         Assert.False(tip.Active);
 
         pointer.Report(Skill("salvo"));

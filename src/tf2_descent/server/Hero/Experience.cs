@@ -42,10 +42,12 @@ public sealed class PlayerLevelCheckpoint(PlayerService players) : IHeroLevelChe
 ///
 /// <list type="bullet">
 /// <item>Every living hero with a sheet within experience.json's party range
-/// of where the robot died is paid <see cref="TF2.Descent.Rules.Loot.ExperienceRules.KillXp(TF2.Descent.Rules.Robots.RobotStats, int)"/>
-/// by his own level, in full: a party does not share. The killer counts for
-/// nothing here: a hero out of range is not paid though he killed it, and a
-/// kill by the world pays the heroes in range.</item>
+/// of where the robot died, and in the killer's party (WO9; a solo killer is
+/// his own party, so a stranger in range is paid nothing), is paid
+/// <see cref="TF2.Descent.Rules.Loot.ExperienceRules.KillXp(TF2.Descent.Rules.Robots.RobotStats, int)"/>
+/// by his own level, in full: a party does not split it (D10). The killer's
+/// place counts for nothing: a hero out of range is not paid though he killed
+/// it, and a kill by the world (no hero) pays every hero in range.</item>
 /// <item>The sheet takes it through <see cref="HeroComponent.Apply"/>: the
 /// rules' <see cref="HeroRules.GainXp"/> (points for each level, the cap's
 /// excess discarded) and one more kill of the template in the bestiary
@@ -60,7 +62,7 @@ public sealed class PlayerLevelCheckpoint(PlayerService players) : IHeroLevelChe
 /// </list>
 /// </summary>
 [SideService(Side.Server)]
-public sealed class HeroExperience(Heroes heroes, HeroSheets sheets, IEngineEntities entities, IEnginePlayers players,
+public sealed class HeroExperience(Heroes heroes, HeroSheets sheets, IEngineEntities entities, IEnginePlayers players, Party.IPartyRoster roster,
                                    ClientMessages messages, IHeroLevelCheckpoint checkpoints, ILog log)
     : IRobotKillHook, IOrderedHook
 {
@@ -80,9 +82,12 @@ public sealed class HeroExperience(Heroes heroes, HeroSheets sheets, IEngineEnti
         var rules = sheets.Rules;
         double range = rules.Content.Experience.PartyRangeUnits;
         var paid = new List<HeroGain>();
+        bool byHero = kill.ByPlayer && heroes.Of(kill.Killer) is not null;
         foreach (var hero in heroes.All.OrderBy(h => h.PlayerIndex).ToList())
         {
             if (hero.Sheet is not { } sheet || hero.Player == EntityHandle.None || !players.IsAlive(hero.Player))
+                continue;
+            if (byHero && !roster.SameParty(kill.Killer, hero.PlayerIndex))
                 continue;
             if (Distance(entities.GetOrigin(hero.Player), kill.Position) > range)
                 continue;

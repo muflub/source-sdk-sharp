@@ -299,7 +299,8 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
                 {
                     List<string> w = [.. provider.Weapons(player)];
                     List<(string, int)> a = [.. provider.Ammo(player)];
-                    if (w.Count > 0) bestWeapons = w;
+                    // An owner's empty answer is "no weapons" (IWeaponColumnOwner): the core's kit does not stand in.
+                    if (w.Count > 0 || provider is IWeaponColumnOwner owner && owner.OwnsWeapons(player)) bestWeapons = w;
                     if (a.Count > 0) bestAmmo = a;
                 }
                 catch (Exception e)

@@ -29,20 +29,3 @@ public sealed class BossSource : IDescentBoss
     public int Phase => 0;
 }
 
-/// <summary>
-/// The party window's actions (<see cref="IDescentPartyActions"/>): no code,
-/// and inviting, leaving and joining do nothing. Live with the host's parties
-/// (WO9): client commands the server answers.
-/// </summary>
-[SideService(Side.Client, As = [typeof(IDescentPartyActions)])]
-public sealed class PartyActions : IDescentPartyActions
-{
-    public string PartyCode => "";
-
-    public void Invite() { }
-
-    public void Leave() { }
-
-    public void Join(string code) { }
-}
-

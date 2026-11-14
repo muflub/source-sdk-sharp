@@ -30,6 +30,7 @@ public sealed class RobotBodies : IRobotBodies
     private readonly IRobotHitSink _hits;
     private readonly IEngineEntityRender _render;
     private readonly ISkillHits _skillHits;
+    private readonly RobotGuardChain? _guards;
     private readonly Dictionary<(string Model, string Sequence), int> _sequences = new();
 
     // A status's damage tick in flight (BeginStatusTick): the body it is for, its amount and type.
@@ -38,7 +39,7 @@ public sealed class RobotBodies : IRobotBodies
     private string _tickType = "";
 
     public RobotBodies(RobotBody[] bodies, RobotRoster roster, HordeLevel level, TF2DescentRules rules, HordeParking parking,
-                       IRobotHitSink hits, IEngineEntityRender render, ISkillHits skillHits)
+                       IRobotHitSink hits, IEngineEntityRender render, ISkillHits skillHits, RobotGuardChain? guards = null)
     {
         _bodies = bodies;
         _roster = roster;
@@ -48,6 +49,7 @@ public sealed class RobotBodies : IRobotBodies
         _hits = hits;
         _render = render;
         _skillHits = skillHits;
+        _guards = guards;
     }
 
     /// <summary>The highest body index.</summary>
@@ -91,7 +93,7 @@ public sealed class RobotBodies : IRobotBodies
         body.Lend(lease, robot, model, (float)_roster.Scale(i), start.Position, start.Yaw, start.Life, stats.Life,
                   TemplateId(t.Id), (byte)Math.Clamp(_roster.MonsterLevel(i), 0, 255), flags, (byte)_roster.StatusBits(i));
         body.Play(Sequence(body, model, RobotLooks.IdleSequence(t)), running: false);
-        body.Weapon?.Show(RobotLooks.WeaponModel(t));
+        body.Holds(RobotLooks.WeaponModel(t));
         _parking.Unpark(body.Handle);
         if (body.Weapon is { } w)
             _parking.Unpark(w.Handle);
@@ -145,7 +147,9 @@ public sealed class RobotBodies : IRobotBodies
     /// (<see cref="RobotRules.DamageTaken"/>), times its statuses' damage-taken
     /// multiplier (a mark); nothing at all for the type it is immune to, which is
     /// an IMMUNE hit (<see cref="RobotHit.Immune"/>). A status's tick is its
-    /// amount, not what TF's layer made of the hit carrying it.</item>
+    /// amount, not what TF's layer made of the hit carrying it. Then the guards
+    /// (<see cref="IRobotDamageGuard"/>, HO12: a champion's über or shield, a
+    /// buster's spin) may take less.</item>
     /// <item>The hit is handed on (<see cref="IRobotHitSink"/>) whatever it took,
     /// an immune one too, so the brain still hears who attacked it.</item>
     /// </list>
@@ -174,6 +178,8 @@ public sealed class RobotBodies : IRobotBodies
         var stats = _roster.Stats(i);
         bool immune = stats.Immunity == type && dealt > 0;
         double taken = immune ? 0 : RobotRules.DamageTaken(stats, type, dealt) * _roster.DamageTakenFactor(i);
+        if (taken > 0 && _guards is { } guards)
+            taken = guards.Guard(new RobotGuardHit(body, i, attacker, type, position, taken, _roster.Life(i), stats.Life));
         bool killed = _roster.Hurt(i, taken);
         double life = _roster.Life(i);
         int healthAfter = killed ? 0 : Math.Max(1, (int)Math.Ceiling(life));

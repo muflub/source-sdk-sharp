@@ -42,6 +42,8 @@ public sealed class BeltHookOrderTests
     [InlineData(typeof(IClientCommandHook), nameof(BeltClientCommands))]
     [InlineData(typeof(TF2.Shared.ITFWeaponHook), nameof(TF2.Descent.Server.Gear.HeroWearTaps))]
     [InlineData(typeof(IPlayerHurtHook), nameof(TF2.Descent.Server.Gear.HeroWearTaps))]
+    [InlineData(typeof(TF2.Shared.ITFWeaponHook), nameof(HeroActTaps))]
+    [InlineData(typeof(IHeroDownedListener), nameof(DownedHordeTap))]
     [InlineData(typeof(IFrameLifecycle), nameof(TF2.Descent.Server.Gear.HeroWearFlush))]
     [InlineData(typeof(IGameLifecycle), nameof(TF2.Descent.Server.Gear.HeroWearFlush))]
     [InlineData(typeof(IClientLifecycle), nameof(TF2.Descent.Server.Gear.HeroWearFlush))]

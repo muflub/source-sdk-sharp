@@ -31,10 +31,19 @@ public sealed class RobotContentTests
     [Fact]
     public void Giants_are_the_classes_mvm_has_giants_of()
     {
-        var giants = Content.Robots.Rows.Where(r => r.Size == "giant").Select(r => r.Class).Order();
+        var giants = Content.Robots.Rows.Where(r => r.Size == "giant" && r.Attack != "sentry_buster").Select(r => r.Class).Order();
 
         Assert.Equal(["demoman", "heavy", "medic", "pyro", "scout", "soldier"], giants);
-        Assert.All(Content.Robots.Rows.Where(r => r.Size == "giant"), r => Assert.Equal((1.5, 1.9), (r.ScaleMin, r.ScaleMax)));
+        Assert.All(Content.Robots.Rows.Where(r => r.Size == "giant" && r.Attack != "sentry_buster"), r => Assert.Equal((1.5, 1.9), (r.ScaleMin, r.ScaleMax)));
+    }
+
+    [Fact]
+    public void The_sentry_buster_is_a_giant_of_stocks_scale_that_never_takes_cover()
+    {
+        var buster = Content.Robots["sentry_buster"];
+
+        Assert.Equal(("giant", 1.75, 1.75), (buster.Size, buster.ScaleMin, buster.ScaleMax));
+        Assert.Equal(0, buster.Cap("cover", 10));
     }
 
     [Fact]

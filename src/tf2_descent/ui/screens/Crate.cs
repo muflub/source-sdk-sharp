@@ -11,7 +11,8 @@ namespace TF2.Descent.Client.Ui.Screens;
 /// short, and <c>Open</c>. No particle fantasy: an open crate lands a reveal
 /// row where the rolled item's card sits in its rarity colour.
 /// </summary>
-public sealed class Crate(UiWindows windows, IDescentCrate crate, IDescentCrateActions? actions = null) : UiScreen, IUiWindowed
+public sealed class Crate(UiWindows windows, IDescentCrate crate, IDescentCrateActions? actions = null,
+                          IDescentTownStatus? status = null) : UiScreen, IUiWindowed
 {
     public override string Name => "crate";
     /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
@@ -38,6 +39,7 @@ public sealed class Crate(UiWindows windows, IDescentCrate crate, IDescentCrateA
     private readonly ItemSlot _well = new();
     private readonly RarityChip _chip = new();
     private readonly CoinLabel _coin = new();
+    private readonly TownStatusLine _statusLine = new();
 
     public override void Describe(ref UiFrame ui)
     {
@@ -81,12 +83,13 @@ public sealed class Crate(UiWindows windows, IDescentCrate crate, IDescentCrateA
     {
         using (ui.Box().Size(ui.Narrow ? Size.Fill : Size.Du(CardDu), Size.Auto)
                  .Fill(Tone.SurfaceRaised).Border(Tone.Line, 1).Round(Radius.L).Pad(Space.M, Space.M).Key("card"))
-            using (ui.Column(Space.S, Align.Centre))
+            using (ui.Column(Space.S, Align.Centre).Width(Size.Fill))
             {
                 ui.Sub("well", _well, new ItemSlotProps(null, false, false, false, false));
                 // The base type is game data, so it keeps its case; no rung colour yet.
-                ui.Data(crate.BaseName, Text.Heading, Tone.Text).Elide();
-                ui.Text("#Descent_Crate_Base", Text.Caption, Tone.TextMuted);
+                // Fill + Wrap: a long base ("Sealed Crate: Rocket Launchers") stays in its card.
+                ui.Data(crate.BaseName, Text.Heading, Tone.Text).Width(Size.Fill).Wrap(CardDu - 24).TextAlign(Align.Centre).Elide();
+                ui.Text("#Descent_Crate_Base", Text.Caption, Tone.TextMuted).Width(Size.Fill).Wrap(CardDu - 24).TextAlign(Align.Centre);
             }
     }
 
@@ -177,6 +180,10 @@ public sealed class Crate(UiWindows windows, IDescentCrate crate, IDescentCrateA
                 ui.Sub("coin", _coin, new CoinLabelProps(crate.PriceAustralium, !crate.Affordable));
             }
         }
+
+        // UI4: the server's word on the last open (a refusal: short of Australium, a full backpack).
+        if (status is { } st)
+            ui.Sub("status", _statusLine, new TownStatusProps(st.StatusToken, st.StatusData, st.StatusError));
 
         using (ui.DialogButtons().Width(Size.Fill))
         {

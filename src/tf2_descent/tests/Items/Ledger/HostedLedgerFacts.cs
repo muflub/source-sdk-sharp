@@ -245,4 +245,20 @@ public sealed class HostedLedgerFacts : LedgerFacts
 
         Assert.Equal(LedgerRefusals.NoHero, load.Refusal);
     }
+
+    [Fact]
+    public async Task Hosted_a_buyers_price_stats_move_nothing_the_host_prices_itself()
+    {
+        await _ledger.Load(A);
+        await SetAustralium(A, 100_000);
+        _ledger.SetPrices(A, new TF2.Descent.Rules.Economy.BuyerPrices(-20, 20));
+
+        var offer = (await _ledger.Stock(A, "saxton")).Items[0];
+        var buy = await _ledger.Buy(A, "saxton", offer.Id);
+
+        Assert.True(buy.Ok, buy.Refusal);
+        Assert.Equal(R.Pricing.Price(offer.Item, SourceSharp.Host.Contracts.PriceKind.Buy), offer.Price);
+        Assert.Equal(100_000 - offer.Price, _host.Australium[A]);
+        Assert.Equal(_host.Australium[A], _ledger.Find(A)!.Inventory.Australium);
+    }
 }

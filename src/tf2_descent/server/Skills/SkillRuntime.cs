@@ -574,6 +574,8 @@ public sealed class SkillRuntime(TF2DescentRules rules, Heroes heroes, SkillCast
             return Refuse(caster, def.Id, CastRefusal.NoMana);
 
         caster.State = result.State;
+        // A cast is an act: it ends a respawn's grace (WO6's downed state reads the count).
+        hero.Acted();
         if (result.Skill is not { } skill)
         {
             log.Msg(Line(caster.PlayerIndex, $"{def.Id} switched off"));

@@ -112,6 +112,25 @@ public sealed class DescentUiCompositionTests
     }
 
     [Fact]
+    public void The_town_windows_are_built_over_the_live_town_sources_and_stop_without_them()
+    {
+        // plan_descent_logic UI4: the vendor, the stash, the bench, the crate stall and the depth
+        // picker read the client's live sources, the status line and the vendor's picks among them.
+        var services = Services();
+        Assert.Equal("VendorSource", services.Resolve(typeof(IDescentVendor))!.GetType().Name);
+        Assert.Equal("TownStatusSource", services.Resolve(typeof(IDescentTownStatus))!.GetType().Name);
+        Assert.Equal("VendorPicks", services.Resolve(typeof(IDescentVendorPicks))!.GetType().Name);
+        Assert.Contains(Built(services), s => s.Name == "vendor");
+
+        var without = new ServiceContainer();
+        foreach (var type in services.ServiceTypes.Where(t => t != typeof(IDescentVendor)))
+            without.AddFactory(type, _ => services.Resolve(type)!);
+
+        var error = Assert.ThrowsAny<Exception>(() => Built(without));
+        Assert.Contains("IDescentVendor", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Every_descent_screen_draws_a_frame_on_the_games_sources()
     {
         var windows = new UiWindows(new MemoryWindowStore());
@@ -270,5 +289,43 @@ public sealed class DescentUiCompositionTests
 
         Escape(host);
         Assert.True(host.Menu.IsOpen("mainmenu"));
+    }
+
+    //-------------------------------------------------------------------------
+    // A click reaches a town window (UI4)
+    //-------------------------------------------------------------------------
+
+    [Fact]
+    public void A_click_reaches_the_vendor_window_when_no_item_is_inspected()
+    {
+        // The inspect modal's overlay took every click while nothing was inspected: live, the
+        // vendor's tabs, rows and buttons answered nothing (the Inventory's UI3 bug, again).
+        var windows = new UiWindows(new MemoryWindowStore());
+        var services = Services();
+        var town = (TF2.Descent.Client.Town.TownCache)services.Resolve(typeof(TF2.Descent.Client.Town.ITownView))!;
+        var catalog = (TF2.Descent.Client.Content.DescentCatalog)services.Resolve(typeof(TF2.Descent.Client.Content.DescentCatalog))!;
+        town.OnTownWindow(new TF2.Descent.Shared.TownWindowView(TF2.Descent.Shared.TownScreen.Vendor, 0, TF2.Descent.Shared.TownStance.Weapons,
+                                                                 catalog.Fingerprint, 20, 0, 0, [], [], "#Descent_Vendor_Hale", "", true));
+        var fake = new FakeMainMenu();
+        UiScreen[] menus = [new MainMenu(fake, fake, new BuildStampPanel(new FakeBuildStamp())),
+                            .. Built(services, windows).Where(s => s.Layer == UiLayerKind.Menu)];
+        var engine = Fake().Returns("Clock.Now", 3f).Returns("Hud.LocalPlayerHealth", 0)
+                           .Returns("Hud.LocalPlayerIndex", 1).Returns("Environment.Globals", default(Globals));
+        var host = UiHostKit.Build(new UiFidelityTests.RecordingSurface(), [], menus, null, engine, windows: windows);
+        Assert.True(host.TakePanel("descent_vendor", true, []));
+        host.Paint(1, 1920, 1080);
+        static bool SellButton(Debug.Api.Client.Interfaces.DebugClientUiDraw d) =>
+            d.Kind == "Text" && d.Text.Contains("Btn_Sell", StringComparison.OrdinalIgnoreCase);
+        var tab = host.Debug.ReadMenu(false).Draws.First(d => d.Kind == "Text" && d.Text.Contains("Tab_Sell", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(host.Debug.ReadMenu(false).Draws, SellButton);
+
+        foreach (var kind in new[] { UiInputKind.MouseMove, UiInputKind.MouseDown, UiInputKind.MouseUp })
+        {
+            host.Input((int)kind, tab.X0 + 8, tab.Y0 + 8, kind == UiInputKind.MouseMove ? 0 : 107, 0, 0f);
+            host.Paint(1, 1920, 1080);
+        }
+        host.Paint(1, 1920, 1080);
+
+        Assert.Contains(host.Debug.ReadMenu(false).Draws, SellButton);
     }
 }

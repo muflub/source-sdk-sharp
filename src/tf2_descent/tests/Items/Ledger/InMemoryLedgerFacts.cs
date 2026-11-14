@@ -147,6 +147,7 @@ public sealed class InMemoryLedgerFacts : LedgerFacts
         await _ledger.Load(A);
         await SetAustralium(A, 77);
         int carried = _ledger.Find(A)!.Inventory.Items.Count();
+        int belted = _ledger.Find(A)!.Inventory.Belt.Count;
 
         bool died = await _ledger.RecordDeath(A, default);
         var bare = _ledger.Find(A)!;
@@ -156,7 +157,9 @@ public sealed class InMemoryLedgerFacts : LedgerFacts
         Assert.Empty(bare.Inventory.Items);
         Assert.Equal(0, bare.Inventory.Australium);
         Assert.Equal((true, carried), (loot.Ok, loot.Recovered));
-        Assert.Equal(carried, _ledger.Find(A)!.Inventory.Backpack.Count);
+        // Each back where it was carried (InventoryRules.Recover): the kit's potions on the belt, its weapons in the backpack.
+        Assert.Equal(carried, _ledger.Find(A)!.Inventory.Items.Count());
+        Assert.Equal(belted, _ledger.Find(A)!.Inventory.Belt.Count);
         Assert.Equal(77, _ledger.Find(A)!.Inventory.Australium);
     }
 

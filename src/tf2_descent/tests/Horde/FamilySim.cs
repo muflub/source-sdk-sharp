@@ -42,6 +42,11 @@ internal sealed class FamilySim
     public HordeLevel Level { get; }
     public float Speed { get; set; } = 300f;
     public int Now => _tick;
+
+    /// <summary>The session's faulted steps, and the last fault's text (a decider that threw).</summary>
+    public long Faulted => _s.Counters.StepsFaulted;
+
+    public string? LastFault => _s.Counters.LastFault;
     public List<Bot> Bots { get; } = [];
     public List<HeroIn> Heroes { get; } = [];
 
@@ -95,6 +100,9 @@ internal sealed class FamilySim
         public AiVector At { get; set; }
         public AiVector Velocity { get; set; }
         public bool Seen { get; set; } = true;
+
+        /// <summary>The yaw the hero's eyes face, degrees (the view carries it: <see cref="HordeView.Hero"/>).</summary>
+        public float Yaw { get; set; }
     }
 
     /// <summary>A robot of family <paramref name="family"/> at <paramref name="at"/> with the core's eleven <paramref name="levels"/>.</summary>
@@ -144,7 +152,7 @@ internal sealed class FamilySim
                 var view = snap.Add(b.Id, self);
                 foreach (var h in Heroes)
                     if (h.Seen)
-                        view.AddSighted(new ActorFacts(h.Id, h.At, h.Velocity, -1, ActorActivity.None, 1f, Team: HordeBrains.HeroTeam));
+                        view.AddSighted(new ActorFacts(h.Id, h.At, h.Velocity, HordeView.Hero(h.Yaw), ActorActivity.None, 1f, Team: HordeBrains.HeroTeam));
                 foreach (var m in Bots.Where(m => m != b && m.Pack == b.Pack).OrderBy(m => m.At.DistanceTo(b.At)).ThenBy(m => m.Id.Slot).Take(HordeView.PackMates))
                     view.AddSighted(new ActorFacts(m.Id, m.At, m.Velocity, HordeView.Mate(m.Family, m.Life / m.Most), ActorActivity.None, 1f, Team: HordeBrains.RobotTeam));
             }

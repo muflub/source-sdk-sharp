@@ -54,7 +54,7 @@ public sealed class DownedBleedOutCommand(SvCheatsConVar cheats, Heroes heroes, 
 /// </summary>
 [ConCommand("tf2_descent_downed", Help = "tf2_descent_downed: every hero's downed state, the horde told, the corpses (sv_cheats).")]
 public sealed class DownedPrintCommand(SvCheatsConVar cheats, HeroDowned downed, HeroCorpses corpses, HordeSession session,
-                                       HeroDeathCosts costs, ILog log)
+                                       HeroDeathCosts costs, DownedHordeTap tap, ILog log)
 {
     public void Execute()
     {
@@ -63,7 +63,7 @@ public sealed class DownedPrintCommand(SvCheatsConVar cheats, HeroDowned downed,
             log.Warning("[TF2Descent/Downed] tf2_descent_downed runs only under sv_cheats\n");
             return;
         }
-        log.Msg($"[TF2Descent/Downed] tick {downed.Party.Tick}, {downed.Party.Members.Length} member(s); told {downed.DownsTold} down(s) and {downed.UpsTold} up(s); the horde told {session.HeroDowns} down(s), {session.HeroUps} up(s)\n");
+        log.Msg($"[TF2Descent/Downed] {downed.Machines.Count} party machine(s), {downed.Machines.Values.Sum(p => p.Members.Length)} member(s); told {downed.DownsTold} down(s) and {downed.UpsTold} up(s); the horde told {session.HeroDowns} down(s), {session.HeroUps} up(s); deaths {downed.DeathsTold}, respawns {downed.RespawnsTold}, brains told to forget {tap.Forgotten}, back {tap.Returned}\n");
         foreach (var line in downed.Lines())
             log.Msg($"[TF2Descent/Downed]   {line}\n");
         foreach (var line in corpses.Lines())

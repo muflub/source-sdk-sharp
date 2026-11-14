@@ -16,6 +16,9 @@ internal sealed class FakePaths : IHordePaths
 
     public int Searches { get; private set; }
 
+    /// <summary>A path of one corner, the goal itself.</summary>
+    public bool Short { get; set; }
+
     public List<(AiVector From, AiVector To, ClearanceClass Class)> Asked { get; } = [];
 
     public PathAnswer Find(AiVector from, AiVector to, ClearanceClass cls, int budget, Span<AiVector> corners, Span<NavEdgeType> arrive,
@@ -27,6 +30,14 @@ internal sealed class FakePaths : IHordePaths
         truncated = false;
         if (Answer != PathAnswer.Found)
             return Answer;
+        if (Short)
+        {
+            corners[0] = to;
+            arrive[0] = NavEdgeType.Walk;
+            count = 1;
+            return PathAnswer.Found;
+        }
+
         // A dogleg: up, across, then the goal.
         corners[0] = new AiVector(from.X, from.Y + 200f, from.Z);
         corners[1] = new AiVector(to.X, from.Y + 200f, from.Z);
@@ -50,6 +61,26 @@ public sealed class HordeRouteTests
 
     private static SelfState View(int epoch, ClearanceClass cls = ClearanceClass.Stand) =>
         new(From, default, default, 100, 100, 0, 0, 0, SelfFlags.Alive, AltAmmo: epoch, Grenades: (int)cls);
+
+    // Found live (2026-11-11, HO12's 48-body fight: 26 to 461 faulted steps a run): a path found to a goal
+    // the robot already stands within a corner's reach of was taken with no corner left, and the move read
+    // corner 0 of none (IndexOutOfRangeException on the worker).
+    [Fact]
+    public void A_path_found_to_a_goal_already_in_reach_is_no_path_and_the_room_route_walks()
+    {
+        var paths = new FakePaths { Short = true };
+        var route = new HordeRoute(Row(4, markers: 0), paths);
+        var near = From + At(HordeRoute.PassUnits * 0.5f, 0);
+        var tick = new Tick(0);
+        while (!HordeRoute.SearchTurn(tick, 0))
+            tick = new Tick(tick.Value + 1);
+
+        var move = route.Follow(tick, View(77), From, near, MoveSpeed.Run);
+
+        Assert.Equal(1, paths.Searches);   // the stimulus: a path was found
+        Assert.Equal(RoomRoute.Follow(Row(4, markers: 0), From, near, MoveSpeed.Run), move);
+        Assert.False(route.HasPath);
+    }
 
     [Fact]
     public void Before_the_view_names_a_ready_graph_the_walker_takes_the_room_route_and_asks_no_path()

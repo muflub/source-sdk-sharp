@@ -85,7 +85,14 @@ public sealed class HordeChainTests
     {
         var bare = HordeFixtures.TheRules.Content.Robots.Rows.Where(t => RobotLooks.WeaponModel(t) is null).Select(t => t.Id);
 
-        Assert.Equal(["captain_punch"], bare);
+        Assert.Equal(["sentry_buster", "captain_punch"], bare);
+    }
+
+    [Fact]
+    public void The_sentry_buster_wears_stocks_buster_model()
+    {
+        Assert.Equal(RobotLooks.SentryBusterModel, RobotLooks.BodyModel(HordeFixtures.TheRules.Robots.Template("sentry_buster")));
+        Assert.Equal(RobotLooks.GiantDemomanModel, RobotLooks.BodyModel(HordeFixtures.TheRules.Robots.Template("giant_demoman")));
     }
 
     [Fact]

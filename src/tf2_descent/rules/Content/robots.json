@@ -25,7 +25,10 @@
     "resist": { "blast": -25, "fire": -25 }, "weights": { "accuracy": 3, "cover": 3, "soloness": 3 }, "caps": {}, "flags": [] },
   { "id": "spy", "name": "Spy Robot", "class": "spy", "family": "melee", "size": "ordinary", "scaleMin": 0.85, "scaleMax": 1.15,
     "life": 125, "damage": 40, "speed": 320, "reach": 48, "xp": 30,
-    "resist": { "shock": -25 }, "weights": { "cunning": 3, "soloness": 3 }, "caps": {}, "flags": [] },
+    "resist": { "shock": -25 }, "weights": { "cunning": 3, "soloness": 3 }, "caps": {}, "flags": [], "attack": "knife" },
+  { "id": "sentry_buster", "name": "Sentry Buster", "class": "demoman", "family": "melee", "size": "giant", "scaleMin": 1.75, "scaleMax": 1.75,
+    "life": 250, "damage": 300, "speed": 440, "reach": 48, "xp": 40,
+    "resist": {}, "weights": { "aggression": 4, "nerve": 4 }, "caps": { "cover": 0 }, "flags": [], "attack": "sentry_buster" },
 
   { "id": "runt_scout", "name": "Runt Scout", "class": "scout", "family": "scattergun", "size": "runt", "scaleMin": 0.6, "scaleMax": 0.75,
     "life": 100, "damage": 48, "speed": 400, "reach": 48, "xp": 20,

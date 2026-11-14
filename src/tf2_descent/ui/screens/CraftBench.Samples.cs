@@ -46,6 +46,14 @@ public static class CraftBenchSamples
         CanCraft = true,
     };
 
+    /// <summary>UI4: a craft done, on the status line.</summary>
+    [UiSample("crafted, on the status line")]
+    private static UiScreen Crafted(UiSampleServices s)
+    {
+        s.Add<IDescentTownStatus>(new FakeTownStatus("#Descent_Town_Done_craft", "repair_kit", false));
+        return Build(s, Bench(), null, new FakeCraftActions());
+    }
+
     [UiSample("reroll: two locked, one open")]
     private static UiScreen RerollTwoLockedOneOpen(UiSampleServices s)
         => Build(s, Bench(), null, new FakeCraftActions());

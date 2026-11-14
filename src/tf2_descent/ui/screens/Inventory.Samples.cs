@@ -12,7 +12,8 @@ namespace TF2.Descent.Client.Ui.Screens;
 public static class InventorySamples
 {
     public static UiScreen Build(UiSampleServices s, FakeInvEquip equip, FakeInvBackpack bag,
-        FakeInvHover hover, FakeInvPurse purse, FakeInvBelt belt, FakeInvActions actions)
+        FakeInvHover hover, FakeInvPurse purse, FakeInvBelt belt, FakeInvActions actions,
+        FakeWindowStatus? status = null, FakeInvDrop? drop = null)
     {
         if (!s.Has<IUiWindowStore>())
             s.Add<IUiWindowStore>(new MemoryWindowStore());
@@ -22,7 +23,23 @@ public static class InventorySamples
         s.Add<IDescentInvPurse>(purse);
         s.Add<IDescentBelt>(belt);
         s.Add<IDescentItemActions>(actions);
+        s.Add<IDescentItemDrop>(drop ?? new FakeInvDrop());
+        s.Add<IDescentWindowStatus>(status ?? new FakeWindowStatus { Showing = false });
         return s.Create<Inventory>();
+    }
+
+    /// <summary>The bag in move mode with its first item picked up (framed in the accent), and a
+    /// refusal on the window's status line: what the controls the live play lacked look like.</summary>
+    [UiSample("move-picked-refused")]
+    private static UiScreen MovePicked(UiSampleServices s)
+    {
+        var screen = (Inventory)Build(s,
+            new FakeInvEquip { Earned = [true, true, true, true, true, true, true, true, true], Have = [true, true, true, true, true, true, true, true, true] },
+            new FakeInvBackpack(), new FakeInvHover(), new FakeInvPurse(), new FakeInvBelt(), new FakeInvActions(),
+            new FakeWindowStatus { Text = "Requirement not met: Direct Hit" });
+        screen.SetMode(Inventory.CellMode.Move);
+        screen.OnCell(0);
+        return screen;
     }
 
     /// <summary>Everything the class may wear, worn: all nine doll slots
@@ -237,6 +254,14 @@ public sealed class FakeInvActions : IDescentItemActions
     public void Hover(int slotOrCell) => LastHover = slotOrCell;
     public void Use(int slotOrCell) => LastUse = slotOrCell;
     public void Move(int fromCell, int toCell) => (LastFrom, LastTo) = (fromCell, toCell);
+}
+
+/// <summary>The drops, recorded so a wiring test can read them back.</summary>
+public sealed class FakeInvDrop : IDescentItemDrop
+{
+    public int LastDrop = -1;
+
+    public void Drop(int cell) => LastDrop = cell;
 }
 
 /// <summary>The Australium (D12).</summary>

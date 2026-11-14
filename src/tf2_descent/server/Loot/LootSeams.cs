@@ -22,8 +22,10 @@ public interface ILootParty
 {
     /// <summary>
     /// The heroes a kill at <paramref name="at"/> pays loot to: each living hero with a sheet within
-    /// the party range (experience.json's, the XP's), the killer first when he is one of them, then
-    /// by slot; at most the rules' seats (<see cref="Rules.Loot.LootRules.Seats"/>).
+    /// the party range (experience.json's, the XP's) who is in the killer's party (WO9; a solo
+    /// killer is his own party, a stranger in range gets no seat; a kill by no hero pays every hero
+    /// in range), the killer first when he is one of them, then by slot; at most the rules' seats
+    /// (<see cref="Rules.Loot.LootRules.Seats"/>).
     /// </summary>
     IReadOnlyList<LootMember> Near(Vector at, int killer);
 
@@ -34,18 +36,21 @@ public interface ILootParty
     Vector? Origin(int player);
 }
 
-/// <summary>The heroes, the engine's places and the ledger's names (<see cref="HeroKeys"/>).</summary>
+/// <summary>The heroes, the engine's places, the ledger's names (<see cref="HeroKeys"/>) and the killer's party (<see cref="Party.IPartyRoster"/>).</summary>
 [SideService(Side.Server, As = [typeof(ILootParty)])]
-public sealed class HeroLootParty(Heroes heroes, HeroKeys keys, IEngineEntities entities, IEnginePlayers players, TF2DescentRules rules)
+public sealed class HeroLootParty(Heroes heroes, HeroKeys keys, IEngineEntities entities, IEnginePlayers players, TF2DescentRules rules,
+                                   Party.IPartyRoster roster)
     : ILootParty
 {
     public IReadOnlyList<LootMember> Near(Vector at, int killer)
     {
         double range = rules.Content.Experience.PartyRangeUnits;
         var near = new List<LootMember>();
+        bool byHero = killer > 0 && heroes.Of(killer) is not null;
         foreach (var hero in heroes.All.OrderBy(h => h.PlayerIndex != killer).ThenBy(h => h.PlayerIndex))
         {
-            if (hero.Sheet is null || hero.Player == EntityHandle.None || !players.IsAlive(hero.Player))
+            if (hero.Sheet is null || hero.Player == EntityHandle.None || !players.IsAlive(hero.Player)
+                || (byHero && !roster.SameParty(killer, hero.PlayerIndex)))
                 continue;
             var origin = entities.GetOrigin(hero.Player);
             if (LootFloor.Distance(origin, at) > range || keys.Of(hero.PlayerIndex) is not { } name)

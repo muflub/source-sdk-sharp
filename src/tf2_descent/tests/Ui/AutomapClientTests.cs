@@ -118,7 +118,9 @@ public sealed class AutomapClientTests
         var server = new RecordingEngine();
         var at = new Vector(-99_999, -99_999, -99_999);
         server.ReturnsEachCall("Entities.GetOrigin", () => at);
-        var automap = new AutomapService(new Levels(), hero.Heroes, hero.Sheets, server, server);
+        var automap = new AutomapService(new Levels(), hero.Heroes, hero.Sheets, server, server, new Party.OneParty(),
+                                         new Server.Party.InMemoryParties(hero.Rules, new Party.PartyChanges().Hooks),
+                                         new Server.Party.EnginePartySlots(hero.Heroes, hero.Keys()));
         hero.Join();
         int arrival = Level.Rooms.Single(r => r.Role == LevelRoomRole.Arrival).Id;
         int next = Level.Neighbours(arrival).First();

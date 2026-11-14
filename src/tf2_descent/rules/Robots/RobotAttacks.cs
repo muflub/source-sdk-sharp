@@ -9,6 +9,9 @@ public enum RobotAttackKind
     Hitscan,
     Projectile,
     Flame,
+
+    /// <summary>A blast round the robot itself after its windup (the sentry buster's): every hero in its radius with a clear line, then the robot.</summary>
+    Blast,
 }
 
 /// <summary>
@@ -20,6 +23,19 @@ public enum RobotAttackKind
 /// the half-width of a swing's box, the flame cone's half-angle, and the projectile it fires and
 /// its speed. A melee attack's reach is the robot's own (<see cref="RobotStats.Reach"/>, which
 /// follows scale).
+///
+/// <para>
+/// HO12's columns, each optional (0 or empty when a row does not use it): the damage type of a
+/// row that is no weapon family (<see cref="DamageType"/>; a family's row takes its family's),
+/// the minigun's spin before its first shot (<see cref="SpinUpSeconds"/>), how fast a brain may
+/// turn the gun (<see cref="TurnDegreesPerSecond"/>, 0 for as fast as the body turns), the pull on
+/// a lobbed projectile (<see cref="Gravity"/>, units a second squared), the knife's multiplier and
+/// cone behind its victim (<see cref="BackstabMultiplier"/>, <see cref="BackstabConeDegrees"/>,
+/// the half-angle about the victim's back), a blast's radius and how near its target a buster
+/// starts it (<see cref="BlastRadius"/>, <see cref="TriggerUnits"/>), the seconds a flame sets a
+/// hero alight for (<see cref="AfterburnSeconds"/>), and what a windup shows the heroes
+/// (<see cref="Telegraph"/>: <c>laser</c>, the sniper's beam; <c>spin</c>, the buster's spin).
+/// </para>
 /// </summary>
 public sealed record RobotAttack(
     string Id,
@@ -35,7 +51,21 @@ public sealed record RobotAttack(
     double HullUnits,
     double ConeDegrees,
     string Projectile,
-    double Speed);
+    double Speed,
+    string DamageType = "",
+    double SpinUpSeconds = 0,
+    double TurnDegreesPerSecond = 0,
+    double Gravity = 0,
+    double BackstabMultiplier = 0,
+    double BackstabConeDegrees = 0,
+    double BlastRadius = 0,
+    double TriggerUnits = 0,
+    double AfterburnSeconds = 0,
+    string Telegraph = "")
+{
+    /// <summary>The telegraphs a windup may show.</summary>
+    public const string LaserTelegraph = "laser", SpinTelegraph = "spin";
+}
 
 /// <summary>A medic robot's heal (HO6): life a second on its patient, how far its beam reaches, and how long one ask keeps the beam on.</summary>
 public sealed record RobotHealSettings(double PerSecond, double Range, double HoldSeconds);
@@ -76,10 +106,12 @@ public sealed class RobotAttackTable : SingleTable<RobotAttackSettings>
             string kind = a.Str("kind");
             var parsed = Enum.GetValues<RobotAttackKind>().FirstOrDefault(k => string.Equals(k.ToString(), kind, StringComparison.OrdinalIgnoreCase), (RobotAttackKind)(-1));
             if ((int)parsed < 0)
-                f.Errors.Add(f.Table, "attacks", ContentRule.Malformed, $"'kind' is '{kind}', not melee, hitscan, projectile or flame");
+                f.Errors.Add(f.Table, "attacks", ContentRule.Malformed, $"'kind' is '{kind}', not melee, hitscan, projectile, flame or blast");
             var r = new RobotAttack(a.Str("id"), parsed, a.Num("intervalSeconds"), a.Num("windupSeconds"), a.Num("damageShare"), a.Int("clip"),
                 a.Num("reloadSeconds"), a.Int("pellets"), a.Num("spreadDegrees"), a.Num("rangeUnits"), a.Num("hullUnits"), a.Num("coneDegrees"),
-                a.Str("projectile"), a.Num("speed"));
+                a.Str("projectile"), a.Num("speed"), a.StrOr("damageType", "") ?? "", a.NumOr("spinUpSeconds", 0), a.NumOr("turnDegreesPerSecond", 0),
+                a.NumOr("gravity", 0), a.NumOr("backstabMultiplier", 0), a.NumOr("backstabConeDegrees", 0), a.NumOr("blastRadius", 0),
+                a.NumOr("triggerUnits", 0), a.NumOr("afterburnSeconds", 0), a.StrOr("telegraph", "") ?? "");
             a.End();
             return r;
         }).ToList();
@@ -87,10 +119,11 @@ public sealed class RobotAttackTable : SingleTable<RobotAttackSettings>
     }
 
     /// <summary>
-    /// The cap fits the edict budget; every family a robot template holds has exactly one row;
-    /// each row names a family; its numbers are in range, and each kind has what it needs: a
-    /// projectile names its class and a speed, a hitscan a reach and at least a pellet, a flame
-    /// a reach and a cone, a melee swing a box.
+    /// The cap fits the edict budget; every attack a robot template holds (its family's, or the
+    /// row its <c>attack</c> names) has exactly one row; each row names a family, or names its own
+    /// damage type; its numbers are in range, and each kind has what it needs: a projectile names
+    /// its class and a speed, a hitscan a reach and at least a pellet, a flame a reach and a cone,
+    /// a melee swing a box, a blast a radius; a telegraph is one the hands know, on a windup.
     /// </summary>
     protected override void Validate(DescentContent content, RobotAttackSettings s, ContentErrors errors)
     {
@@ -103,7 +136,27 @@ public sealed class RobotAttackTable : SingleTable<RobotAttackSettings>
 
         foreach (var a in s.Attacks)
         {
-            ContentChecks.Reference<FamilyRow>(content, errors, t, a.Id, "id", a.Id, ContentTables.Families);
+            if (a.DamageType.Length > 0)
+                ContentChecks.Reference<DamageTypeRow>(content, errors, t, a.Id, "damageType", a.DamageType, ContentTables.DamageTypes);
+            else
+                ContentChecks.Reference<FamilyRow>(content, errors, t, a.Id, "id", a.Id, ContentTables.Families);
+            ContentChecks.Range(errors, t, a.Id, "spinUpSeconds", a.SpinUpSeconds, 0, 10);
+            ContentChecks.Range(errors, t, a.Id, "turnDegreesPerSecond", a.TurnDegreesPerSecond, 0, 3600);
+            ContentChecks.Range(errors, t, a.Id, "gravity", a.Gravity, 0, 10000);
+            ContentChecks.Range(errors, t, a.Id, "backstabMultiplier", a.BackstabMultiplier, 0, 100);
+            ContentChecks.Range(errors, t, a.Id, "backstabConeDegrees", a.BackstabConeDegrees, 0, 180);
+            ContentChecks.Range(errors, t, a.Id, "triggerUnits", a.TriggerUnits, 0, 4096);
+            ContentChecks.Range(errors, t, a.Id, "afterburnSeconds", a.AfterburnSeconds, 0, 60);
+            if (a.BackstabMultiplier > 0 && a.Kind != RobotAttackKind.Melee)
+                errors.Add(t, a.Id, ContentRule.Malformed, "only a melee attack backstabs");
+            if (a.BackstabMultiplier > 0 && !(a.BackstabConeDegrees > 0))
+                errors.Add(t, a.Id, ContentRule.OutOfRange, "a backstab names the cone behind its victim it lands in");
+            if (a.Gravity > 0 && a.Kind != RobotAttackKind.Projectile)
+                errors.Add(t, a.Id, ContentRule.Malformed, "only a projectile is lobbed under gravity");
+            if (a.Telegraph is not ("" or RobotAttack.LaserTelegraph or RobotAttack.SpinTelegraph))
+                errors.Add(t, a.Id, ContentRule.Malformed, $"'telegraph' is '{a.Telegraph}', not laser or spin");
+            else if (a.Telegraph.Length > 0 && !(a.WindupSeconds > 0))
+                errors.Add(t, a.Id, ContentRule.OutOfRange, "a telegraph is shown over a windup: the row has none");
             ContentChecks.Range(errors, t, a.Id, "intervalSeconds", a.IntervalSeconds, 0.01, 60);
             ContentChecks.Range(errors, t, a.Id, "windupSeconds", a.WindupSeconds, 0, 10);
             ContentChecks.Range(errors, t, a.Id, "damageShare", a.DamageShare, 0, 100);
@@ -129,6 +182,9 @@ public sealed class RobotAttackTable : SingleTable<RobotAttackSettings>
                 case RobotAttackKind.Melee:
                     ContentChecks.Range(errors, t, a.Id, "hullUnits", a.HullUnits, 1, 256);
                     break;
+                case RobotAttackKind.Blast:
+                    ContentChecks.Range(errors, t, a.Id, "blastRadius", a.BlastRadius, 1, 4096);
+                    break;
             }
         }
 
@@ -136,9 +192,19 @@ public sealed class RobotAttackTable : SingleTable<RobotAttackSettings>
         if (!content.TryGet<Table<RobotTemplate>>(ContentTables.Robots, out var robots)
             || !content.TryGet<Table<FamilyRow>>(ContentTables.Families, out var families))
             return;
-        foreach (var family in robots.Rows.Select(r => r.Family).Distinct(StringComparer.Ordinal))
-            if (families.TryGet(family, out _) && s.Of(family) is null)
-                errors.Add(t, family, ContentRule.DanglingReference, $"robots hold family '{family}', which has no attack row");
+        var told = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var template in robots.Rows)
+        {
+            if (template.AttackRow is { } named)
+            {
+                if (s.Of(named) is null && told.Add(named))
+                    errors.Add(t, named, ContentRule.DanglingReference, $"robot '{template.Id}' names attack '{named}', which has no attack row");
+            }
+            else if (families.TryGet(template.Family, out _) && s.Of(template.Family) is null && told.Add(template.Family))
+            {
+                errors.Add(t, template.Family, ContentRule.DanglingReference, $"robots hold family '{template.Family}', which has no attack row");
+            }
+        }
     }
 }
 
@@ -167,8 +233,11 @@ public sealed class RobotAttackRules
     /// <summary>What one pellet of an attack deals: the attack's damage split evenly over its pellets.</summary>
     public static double PelletDamage(RobotStats robot, RobotAttack attack) => AttackDamage(robot, attack) / Math.Max(1, attack.Pellets);
 
-    /// <summary>The damage type a family's attack is resisted as (families.json).</summary>
-    public string DamageTypeOf(RobotAttack attack) => _content.Families[attack.Id].DamageType;
+    /// <summary>The damage type an attack is resisted as: its own, else its family's (families.json).</summary>
+    public string DamageTypeOf(RobotAttack attack) => attack.DamageType.Length > 0 ? attack.DamageType : _content.Families[attack.Id].DamageType;
+
+    /// <summary>The attack robots of <paramref name="template"/> make: the row it names, else its family's.</summary>
+    public RobotAttack Of(RobotTemplate template) => Of(template.Attack);
 
     /// <summary>How far a robot's melee swing reaches: its own reach, which follows its scale.</summary>
     public static double MeleeReach(RobotStats robot) => robot.Reach;

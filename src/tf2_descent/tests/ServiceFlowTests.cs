@@ -611,7 +611,8 @@ public sealed partial class ServiceFlowTests
     /// <param name="reached">The depth the joining character has reached (the join's answer).</param>
     /// <param name="kind">The instance: the town ("hub") or a level at <paramref name="levelDepth"/>.</param>
     private static (World W, TravelService Travel, RecordingEngine Net) Travel(
-        HostingMode mode = HostingMode.Hosted, int reached = 0, Kills? kills = null, string kind = "hub", int levelDepth = 3)
+        HostingMode mode = HostingMode.Hosted, int reached = 0, Kills? kills = null, string kind = "hub", int levelDepth = 3,
+        TF2.Descent.Server.Party.IPartyTravel? party = null)
     {
         var (w, players, clients, net) = Players(kind, levelDepth: levelDepth);
         w.Link.JoinAnswer = w.Link.JoinAnswer with { ReachedDepth = reached };
@@ -621,7 +622,7 @@ public sealed partial class ServiceFlowTests
         if (mode != HostingMode.Hosted)
             w.Link.ModeIs = mode;
         var host = w.Host;
-        return (w, new TravelService(w.Link, host, players, new ClientMessages(net), kills ?? new Kills(), w.Log), net);
+        return (w, new TravelService(w.Link, host, players, new ClientMessages(net), kills ?? new Kills(), party ?? new AnyoneTravels(), w.Log), net);
     }
 
     private static int Notices(RecordingEngine net) => NoticesSent(net).Count;

@@ -302,7 +302,63 @@ public sealed class DownedRulesTests
 
         Assert.Equal(Standing.Up, step.Party.Member("a").Standing);
         Assert.Equal(1, step.Party.Member("a").DownsThisLevel);
+        Assert.Equal([new Out.Respawned("a", 300 + 60)], step.Outcomes.ToArray());
+    }
+
+    /// <summary>"a" dead at tick 200 and respawned at 300: in the respawn's grace to tick 360 (6 s).</summary>
+    private static DownedParty Respawned() =>
+        Step(Step(WithADown(), new Ev.Tick(), 200).Party, new Ev.Respawned("a"), 300).Party;
+
+    [Fact]
+    public void A_respawn_is_untouchable_for_six_seconds()
+    {
+        var p = Respawned();
+
+        Assert.True(DownedRules.Untouchable(p.Member("a"), 359));
+        Assert.False(DownedRules.Untouchable(p.Member("a"), 360));
+    }
+
+    [Fact]
+    public void Lethal_damage_in_a_respawns_grace_is_shielded()
+    {
+        var hit = Step(Respawned(), new Ev.LethalDamage("a"), 330);
+
+        Assert.Equal([new Out.Shielded("a")], hit.Outcomes.ToArray());
+        Assert.Equal(Standing.Up, hit.Party.Member("a").Standing);
+    }
+
+    [Fact]
+    public void Acting_ends_a_respawns_grace_early()
+    {
+        var step = Step(Respawned(), new Ev.Acted("a"), 320);
+
+        Assert.Equal([new Out.GraceEnded("a")], step.Outcomes.ToArray());
+        Assert.False(DownedRules.Untouchable(step.Party.Member("a"), 320));
+        Assert.False(DownedRules.InGrace(step.Party.Member("a"), 320));
+    }
+
+    [Fact]
+    public void Acting_does_not_end_a_revives_grace()
+    {
+        var p = Step(WithADown(), new Ev.ReviveStart("b", "a", 50), 0).Party;
+        p = Step(p, new Ev.Tick(), 30).Party;
+
+        var step = Step(p, new Ev.Acted("a"), 40);
+
         Assert.Empty(step.Outcomes);
+        Assert.True(DownedRules.InGrace(step.Party.Member("a"), 40));
+        Assert.False(DownedRules.Untouchable(step.Party.Member("a"), 40));
+    }
+
+    [Fact]
+    public void Acting_out_of_any_grace_changes_nothing()
+    {
+        var p = Party("a", "b");
+
+        var step = Step(p, new Ev.Acted("a"), 10);
+
+        Assert.Empty(step.Outcomes);
+        Assert.Equal(p.Member("a"), step.Party.Member("a"));
     }
 
     [Fact]

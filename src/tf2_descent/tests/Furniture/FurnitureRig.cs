@@ -220,7 +220,7 @@ internal sealed class FurnitureRig
         Ledger = new InMemoryItemLedger(Rules, new NoLedgerHooks(), new StartingKit(Rules));
         Floor = new LootFloor(Mode, LootSpawner, Rooms, Ledger, Party, Engine, Engine, new ClientMessages(Engine), Log);
         Service = new FurnitureService(Mode, Level, Rules, Spawner, Rooms, World, Heroes, Ledger, Floor, new RigGround(), Buffs, Parking,
-            Hazards, new ClientMessages(Engine), Log, Automap);
+            Hazards, new ClientMessages(Engine), Log, Automap, Parties);
         World.IsParked = Parking.IsParked;
         Heroes.Add(SlotA, A, new Vector(-5000, -5000, 0));
         if (ready)
@@ -266,6 +266,9 @@ internal sealed class FurnitureRig
     /// <summary>The first row of a kind (and variant), or a fact-stopping failure naming the seed.</summary>
     /// <summary>What the furniture told the automap: the slots a sight shrine revealed every room to, and the shrines used.</summary>
     public RigAutomapReveal Automap { get; } = new();
+
+    /// <summary>Every hero one party (the facts written before WO9), but for the slots named strangers.</summary>
+    public TF2.Descent.Tests.Skills.SkillRig.RigParty Parties { get; } = new();
 
     public FurnitureRow First(FurnitureKind kind, string? variant = null) =>
         Service.Rows.FirstOrDefault(r => r.Kind == kind && (variant is null || r.Variant == variant))

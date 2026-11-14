@@ -80,6 +80,20 @@ public sealed class Vendors
         return (parts[0], level, parts.Length > 2 ? parts[2] : "any");
     }
 
+    /// <summary>
+    /// Which stock a town shows <paramref name="seconds"/> after it opened (plan_tf2_rpg Phase 9:
+    /// "stock rolled per hub per hour"): one more every economy.json <c>restock.seconds</c>, from 0.
+    /// </summary>
+    public long Restock(double seconds) =>
+        seconds <= 0 ? 0 : (long)Math.Floor(seconds / _content.EconomySettings.RestockSeconds + 1e-9);
+
+    /// <summary>
+    /// The seed of one buyer's stock at one vendor in one restock of one town: a town (its own
+    /// seed), the vendor, the buyer and the restock each give another roll, the same four the same.
+    /// </summary>
+    public static ulong StockSeed(ulong townSeed, string vendor, string buyer, long restock) =>
+        SeededRandom.Mix(townSeed, "vendor_stock", vendor, buyer, restock.ToString(CultureInfo.InvariantCulture));
+
     /// <summary>The stock of <paramref name="vendor"/> for one seed (see the class summary).</summary>
     public IReadOnlyList<RolledItem> Stock(string vendor, ulong seed) =>
         [.. StockOf(vendor, seed).Select(_codec.ToRolled)];

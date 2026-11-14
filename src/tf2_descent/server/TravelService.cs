@@ -13,8 +13,10 @@ namespace TF2.Descent.Server;
 /// one of <c>TownDescents.Destinations</c> for the depth the player's
 /// character has reached and the bosses it has killed, else refused with a
 /// notice and nothing asked of the host. The party rule (D8: a party may enter
-/// any level its leader has reached) waits on parties; until then the
-/// requesting player's own character decides.
+/// any level its leader has reached; WO9): in a party, the way down is the
+/// leader's to ask for (<see cref="Party.IPartyTravel"/>), so the depths are
+/// his; a member asking is told the leader picks, and nothing is asked of the
+/// host, unless his party is on a level and he would join it.
 /// </para>
 /// </summary>
 [SideService(Side.Server)]
@@ -24,6 +26,7 @@ public sealed class TravelService(
     PlayerService players,
     ClientMessages messages,
     IBossKills bossKills,
+    Party.IPartyTravel party,
     ILog log)
 {
     /// <summary>The depth a descent from the town goes to when none was picked: the first level.</summary>
@@ -79,6 +82,12 @@ public sealed class TravelService(
 
         if (host.Boot is not { } boot || players.ByEntity(entIndex) is not { } player)
             return Task.FromResult<TravelAnswer?>(null);
+
+        if (party.Refusal(entIndex, direction) is { } refused)
+        {
+            messages.Notice(entIndex, refused);
+            return Task.FromResult<TravelAnswer?>(null);
+        }
 
         int picked = depth > 0 ? depth : DefaultDepth;
         if (direction == TravelDirection.Down && IsHub(boot) && !MayPick(player, picked))

@@ -17,7 +17,8 @@ public sealed class CraftBench(
     UiWindows windows,
     IDescentCraft craft,
     IDescentCraftActions? actions = null,
-    IDescentCraftShortage? shortage = null) : UiScreen, IUiWindowed
+    IDescentCraftShortage? shortage = null,
+    IDescentTownStatus? status = null) : UiScreen, IUiWindowed
 {
     public override string Name => "craftbench";
     /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
@@ -47,6 +48,7 @@ public sealed class CraftBench(
 
     private readonly RarityChip _chip = new();
     private readonly ItemSlot _well = new();
+    private readonly TownStatusLine _statusLine = new();
 
     public override void Describe(ref UiFrame ui)
     {
@@ -250,6 +252,9 @@ public sealed class CraftBench(
             ui.Divider();
             // The output preview, straight from the source: "a random <base> at your level".
             ui.Text(craft.PreviewToken, Text.Body, Tone.TextMuted).Wrap(BenchDu - 48);
+            // UI4: the server's word on the last craft.
+            if (status is { } st)
+                ui.Sub("status", _statusLine, new TownStatusProps(st.StatusToken, st.StatusData, st.StatusError));
             using (ui.Row(Space.S, Align.Centre).Width(Size.Fill))
             {
                 ui.Flex();

@@ -72,9 +72,13 @@ public sealed class LootReplayTests
         var ledger = new InMemoryItemLedger(rules, new NoLedgerHooks(), new StartingKit(rules));
         var floorRig = new LootRig(ledger: ledger);
         var level = new RigLevel(Depth, Seed);
-        var experience = new HeroExperience(heroes.Heroes, heroes.Sheets, heroes.Engine, heroes.Engine, new ClientMessages(heroes.Engine),
+        var experience = new HeroExperience(heroes.Heroes, heroes.Sheets, heroes.Engine, heroes.Engine, new Party.OneParty(), new ClientMessages(heroes.Engine),
                                             new Checkpoints(), heroes.Log);
-        var party = new HeroLootParty(heroes.Heroes, keys, heroes.Engine, heroes.Engine, rules);
+        // The two heroes are one party (WO9): a kill by either pays both.
+        var parties = new TF2.Descent.Server.Party.InMemoryParties(rules, new Party.PartyChanges().Hooks);
+        Assert.True((await parties.Make([nameA, nameB])).Ok);
+        var party = new HeroLootParty(heroes.Heroes, keys, heroes.Engine, heroes.Engine, rules,
+                                      new TF2.Descent.Server.Party.PartyRoster(parties, new TF2.Descent.Server.Party.EnginePartySlots(heroes.Heroes, keys)));
         var rewards = new LootRewards(rules, level, party, ledger, new RigGround(), floorRig.Floor, floorRig.Log);
         var roster = horde.Roster;
         var kills = new RobotKills(new Rosters(roster), horde.Registry, horde.Engine, new Chain(rewards, experience), horde.Log);

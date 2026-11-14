@@ -127,6 +127,46 @@ public sealed class HordeViewTests
     }
 
     [Fact]
+    public void A_heros_facing_round_trips_through_the_packed_field()
+    {
+        foreach (float yaw in new[] { 0f, 90f, 179.9f, -90f, 359.95f, 725f })
+        {
+            var f = new ActorFacts(new ActorId(50, 1), default, default, HordeView.Hero(yaw), ActorActivity.None, 1f, Team: HordeBrains.HeroTeam);
+            float want = ((yaw % 360f) + 360f) % 360f;
+            float got = HordeView.HeroYaw(f);
+            Assert.True(MathF.Abs(got - want) < 0.051f || MathF.Abs(got - want) > 359.9f, $"yaw {yaw}: {got}");
+        }
+    }
+
+    [Fact]
+    public void A_view_carries_the_facing_of_a_hero_it_sees()
+    {
+        var rig = new BrainRig();
+        var soldier = rig.Robot(Centre(0), "soldier", seed: 1);
+        int b = rig.Lend(soldier, yaw: 0f);
+        rig.Hero(1, Centre(0) + At(300, 0), yaw: 135f);
+        rig.Tick(150);
+
+        var hero = Assert.Single(ViewOf(rig, b).Sighted.ToArray(), f => HordeView.IsHero(f));
+
+        Assert.Equal(135f, HordeView.HeroYaw(hero), 1);
+    }
+
+    [Fact]
+    public void Each_attack_row_has_its_family_number_and_name()
+    {
+        foreach (var t in TheRules.Content.Robots.Rows)
+        {
+            int n = HordeWeapons.Of(t.Attack);
+            Assert.True(n > HordeWeapons.None && n < HordeWeapons.Count, t.Id);
+            Assert.Equal(t.Attack, HordeWeapons.NameOf(n));
+        }
+
+        Assert.Equal(HordeWeapons.Knife, HordeWeapons.Of(TheRules.Robots.Template("spy").Attack));
+        Assert.Equal(HordeWeapons.SentryBuster, HordeWeapons.Of(TheRules.Robots.Template("sentry_buster").Attack));
+    }
+
+    [Fact]
     public void The_hunt_does_not_chase_a_pack_mate()
     {
         var rig = new BrainRig();

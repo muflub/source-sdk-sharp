@@ -111,6 +111,18 @@ internal sealed class RigHitHooks(IReadOnlyList<IRobotHitSink> members) : IHooks
     }
 }
 
+/// <summary>A hook chain as a fact hands it: the members it names, in order.</summary>
+internal sealed class RigHooks<T>(IReadOnlyList<T> members) : IHooks<T> where T : class
+{
+    public IReadOnlyList<T> All => members;
+
+    public void Each(string what, Action<T> call)
+    {
+        foreach (var m in members)
+            call(m);
+    }
+}
+
 /// <summary>A world where nothing blocks a line and every box is in every PVS, unless a fact says otherwise.</summary>
 internal sealed class RigSightWorld : ISightWorld
 {
@@ -132,11 +144,11 @@ internal sealed class RigHeroes : IHordeHeroes
 {
     public List<(HeroPlace Place, HeroEye Eye)> Heroes { get; } = [];
 
-    public void Put(HordeLevel level, AiVector at)
+    public void Put(HordeLevel level, AiVector at, float yaw = 0f)
     {
         int room = level.RoomAt(at);
         var eye = new Vector(at.X, at.Y, at.Z + 64f);
-        Heroes.Add((new HeroPlace(Heroes.Count + 1, room, at), new HeroEye(new EntityHandle((uint)(Heroes.Count + 1)), eye, room)));
+        Heroes.Add((new HeroPlace(Heroes.Count + 1, room, at), new HeroEye(new EntityHandle((uint)(Heroes.Count + 1)), eye, room, yaw)));
     }
 
     public int Gather(HordeLevel level, Span<HeroPlace> places, Span<HeroEye> eyes)
@@ -186,6 +198,7 @@ internal sealed class ServerHordeRig
         services.AddInstance<IRobotHitSink>(Hits);
         HitMembers.Add(Hits);
         services.AddInstance<IHooks<IRobotHitSink>>(new RigHitHooks(HitMembers));
+        services.AddInstance<IHooks<IRobotDamageGuard>>(new RigHooks<IRobotDamageGuard>(GuardMembers));
         Motion = new RobotMotion(World);
         services.AddInstance<IHordeActors>(Actors);
         services.AddInstance(Motion);
@@ -215,6 +228,9 @@ internal sealed class ServerHordeRig
 
     /// <summary>The skill hit in flight the bodies read (<see cref="RigSkillHits.Skill"/>).</summary>
     public RigSkillHits SkillHits { get; } = new();
+
+    /// <summary>The guard chain's members, in order (none unless a fact adds them).</summary>
+    public List<IRobotDamageGuard> GuardMembers { get; } = [];
 
     /// <summary>The hit chain's members, in order: <see cref="Hits"/> first; a fact may add more.</summary>
     public List<IRobotHitSink> HitMembers { get; } = [];

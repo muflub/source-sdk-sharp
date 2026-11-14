@@ -115,12 +115,55 @@ public sealed class HeroKitSourceFacts
     public void An_empty_weapon_slot_is_empty_in_TF2()
     {
         var rig = new EquipmentRig();
+        Assert.True(rig.Unequip("secondary").Ok);
+
+        var answer = rig.Answer(TFLoadoutSlot.Secondary);
+
+        Assert.True(answer.HasOpinion);
+        Assert.Null(answer.Item);
+    }
+
+    /// <summary>The stock shovel's defindex in TF's schema.</summary>
+    private const int Shovel = 6;
+
+    [Fact]
+    public void An_empty_melee_slot_swings_the_classs_stock_melee()
+    {
+        var rig = new EquipmentRig();
         Assert.True(rig.Unequip("melee").Ok);
 
         var answer = rig.Answer(TFLoadoutSlot.Melee);
 
-        Assert.True(answer.HasOpinion);
-        Assert.Null(answer.Item);
+        Assert.Equal(Shovel, answer.Item!.Defindex);
+        Assert.Empty(answer.Item.Attributes);
+        Assert.DoesNotContain(rig.Held.Inventory.Items, h => (ulong)h.Id == answer.Item.Id);
+    }
+
+    [Fact]
+    public void A_melee_equipped_replaces_the_fallback()
+    {
+        var rig = new EquipmentRig();
+        long id = rig.Held.Inventory.Equipped["melee"].Id;
+        Assert.True(rig.Unequip("melee").Ok);
+        var fallback = rig.Answer(TFLoadoutSlot.Melee).Item!;
+        int from = rig.Held.Inventory.Backpack.Single(p => p.Value.Id == id).Key;
+
+        Assert.True(rig.Equip(from, "melee").Ok);
+
+        var answer = rig.Answer(TFLoadoutSlot.Melee).Item!;
+        Assert.Equal((ulong)id, answer.Id);
+        Assert.False(answer.SameAs(fallback));
+    }
+
+    [Fact]
+    public async Task A_hero_stripped_by_a_death_keeps_a_melee_and_nothing_else()
+    {
+        var rig = new EquipmentRig();
+        Assert.True(await rig.Ledger.RecordDeath(EquipmentRig.Key, default));
+
+        Assert.Null(rig.Answer(TFLoadoutSlot.Primary).Item);
+        Assert.Null(rig.Answer(TFLoadoutSlot.Secondary).Item);
+        Assert.Equal(Shovel, rig.Answer(TFLoadoutSlot.Melee).Item!.Defindex);
     }
 
     [Fact]

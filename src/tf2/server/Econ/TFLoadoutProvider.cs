@@ -52,7 +52,7 @@ public sealed class TFLoadoutProvider(IHooks<ITFItemSource> sources,
                                       WeaponCatalog catalog, Player.TFPlayerCarriers carriers,
                                       AttributeHooks hooks, IEnginePlayers players,
                                       IEnginePrecache precache, ILog log)
-    : ILoadoutProvider, IOrderedHook
+    : ILoadoutProvider, IWeaponColumnOwner, IOrderedHook
 {
     private readonly ITeamRoundState _round = round;
     private readonly ITFStalemateSettings _stalemate = stalemate;
@@ -273,6 +273,18 @@ public sealed class TFLoadoutProvider(IHooks<ITFItemSource> sources,
         foreach (var value in item.Attributes)
             container.Set(value);
         return container;
+    }
+
+    /// <summary>
+    /// A player with a class owns his weapons column whatever it holds: a loadout whose
+    /// sources left every weapon slot empty gives him no weapon, as stock's
+    /// <c>ManageRegularWeapons</c> gives an empty slot nothing (tf_player.cpp:4496-4560),
+    /// never the core's HL2 kit. A player with no class has no opinion.
+    /// </summary>
+    public bool OwnsWeapons(EntityHandle player)
+    {
+        var cls = classes.ClassOf(player);
+        return cls >= TFClass.Scout && cls < TFClass.CountAll;
     }
 
     /// <summary>

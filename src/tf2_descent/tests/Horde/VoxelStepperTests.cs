@@ -274,18 +274,27 @@ public sealed class VoxelStepperTests
     /// <summary>
     /// One tick, then until the worker has run the set that tick handed it: a tick whose hand-over
     /// the worker's lock refused (<see cref="WorkerMotionStepper.Contended"/>) is ticked again.
-    /// Waits by yielding (allocates nothing), and gives up after a bound of yields, never a clock.
+    /// Waits by yielding (allocates nothing) for as long as the worker takes: on a loaded box a pool
+    /// thread can wait seconds for a core, and a bound of yields ran out there, so a tick went by
+    /// with no step and the fact that counts step ages failed. The only limit is a minute, against
+    /// a hang.
     /// </summary>
     internal static void Settle(MotionRig rig, WorkerMotionStepper worker)
     {
+        long giveUp = System.Diagnostics.Stopwatch.GetTimestamp() + 60 * System.Diagnostics.Stopwatch.Frequency;
         for (int attempt = 0; attempt < 100; attempt++)
         {
             long ran = worker.StepsRun, refused = worker.Contended;
             rig.Tick();
             if (worker.Contended != refused)
                 continue;
-            for (int i = 0; i < 10_000_000 && worker.StepsRun == ran && worker.Busy; i++)
+            while (worker.StepsRun == ran && worker.Busy)
+            {
+                if (System.Diagnostics.Stopwatch.GetTimestamp() > giveUp)
+                    throw new TimeoutException("the worker never finished the set it was handed");
                 Thread.Yield();
+            }
+
             return;
         }
     }

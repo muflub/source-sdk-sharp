@@ -176,7 +176,9 @@ public sealed class RobotRulesTable : SingleTable<RobotRulesSettings>
 /// range, base life, damage, move speed, melee reach and XP at scale 1 and monster level 1,
 /// resistance per damage type (−50 to +75 %), temperament weights and per-skill caps (B.11;
 /// unnamed skills weigh 1 and cap at the skill maximum), an authored temperament for a boss,
-/// MvM attribute flags, and the shallowest depth it appears at.
+/// MvM attribute flags, and the shallowest depth it appears at. <see cref="AttackRow"/> names the
+/// robot_attacks.json row it fights with when that is not its family's (HO12: the spy's knife,
+/// the sentry buster's blast); <see cref="Attack"/> is the row either way.
 /// </summary>
 public sealed record RobotTemplate(
     string Id,
@@ -195,9 +197,13 @@ public sealed record RobotTemplate(
     IReadOnlyDictionary<string, double> Weights,
     IReadOnlyDictionary<string, int> Caps,
     IReadOnlyDictionary<string, int>? FixedTemperament,
-    IReadOnlyList<string> Flags) : IContentRow
+    IReadOnlyList<string> Flags,
+    string? AttackRow = null) : IContentRow
 {
     public bool Boss => FixedTemperament is not null;
+
+    /// <summary>The robot_attacks.json row this robot fights with: the one it names, else its family's.</summary>
+    public string Attack => AttackRow ?? Family;
 
     public double ResistTo(string damageType) => Resist.TryGetValue(damageType, out var r) ? r : 0;
 
@@ -219,7 +225,8 @@ public sealed class RobotTemplateTable : RowTable<RobotTemplate>
             f.Num("scaleMin"), f.Num("scaleMax"), f.Num("life"), f.Num("damage"), f.Num("speed"), f.Num("reach"), f.Num("xp"),
             RobotJson.Numbers(f, "resist"), RobotJson.Numbers(f, "weights"), RobotJson.Ints(f, "caps"),
             hasFixed ? RobotJson.Levels(f, fixedElements) : null,
-            RobotJson.Strings(f, "flags"));
+            RobotJson.Strings(f, "flags"),
+            f.StrOr("attack", null));
     }
 
     protected override void ValidateRow(DescentContent content, RobotTemplate r, ContentErrors errors)
@@ -286,7 +293,8 @@ public sealed class RobotTemplateTable : RowTable<RobotTemplate>
 /// A champion affix (2f, R25) and its stat effects, in percent: life, damage, move speed, XP,
 /// knockback resistance, resistance per damage type added to the template's (then clamped),
 /// and the one damage type it makes the robot immune to, if any. What it does in a fight is
-/// <see cref="Behaviour"/>, the horde's to carry out.
+/// <see cref="Behaviour"/>, the horde's to carry out, with the numbers in <see cref="Params"/>
+/// (HO12; <see cref="ChampionBehaviours"/> names each behaviour's).
 /// </summary>
 public sealed record ChampionAffix(
     string Id,
@@ -298,7 +306,40 @@ public sealed record ChampionAffix(
     double KnockbackResistPct,
     IReadOnlyDictionary<string, double> Resist,
     string? Immunity,
-    string Behaviour) : IContentRow;
+    string Behaviour,
+    IReadOnlyDictionary<string, double> Params) : IContentRow
+{
+    /// <summary>The behaviour's number <paramref name="name"/> (the loader refuses a row that lacks one its behaviour reads).</summary>
+    public double Param(string name) => Params.TryGetValue(name, out var v) ? v : throw new KeyNotFoundException($"champion '{Id}' has no '{name}'");
+}
+
+/// <summary>
+/// The champion behaviours the horde carries out (plan_tf2_rpg 2f; HO12) and the numbers each
+/// reads from its row's <c>params</c>, with their bounds. A behaviour that is its stats alone
+/// (<see cref="ExtraFast"/>, <see cref="Giant"/>, <see cref="Immune"/>) reads none.
+/// </summary>
+public static class ChampionBehaviours
+{
+    public const string ExtraFast = "extra_fast", UberAtLowHealth = "uber_at_low_health", ExplodeOnDeath = "explode_on_death",
+                        CritAura = "crit_aura", FireEnchanted = "fire_enchanted", MedicShield = "medic_shield", Teleport = "teleport",
+                        Multishot = "multishot", Giant = "giant", Immune = "immune";
+
+    /// <summary>Each behaviour's numbers: name, least, most.</summary>
+    public static IReadOnlyDictionary<string, (string Name, double Min, double Max)[]> Numbers { get; } =
+        new Dictionary<string, (string, double, double)[]>(StringComparer.Ordinal)
+        {
+            [ExtraFast] = [],
+            [UberAtLowHealth] = [("belowLifePct", 1, 99), ("seconds", 0.1, 60)],
+            [ExplodeOnDeath] = [("radius", 1, 2048), ("damagePct", 1, 1000)],
+            [CritAura] = [("radius", 1, 4096)],
+            [FireEnchanted] = [("burnSeconds", 0.1, 60)],
+            [MedicShield] = [("frontDegrees", 1, 180), ("absorbPct", 1, 100)],
+            [Teleport] = [("cooldownSeconds", 0.5, 120), ("fromUnits", 1, 8192), ("toUnits", 48, 2048)],
+            [Multishot] = [("shots", 2, 9), ("spreadDegrees", 1, 45)],
+            [Giant] = [],
+            [Immune] = [],
+        };
+}
 
 public sealed class ChampionAffixTable : RowTable<ChampionAffix>
 {
@@ -306,7 +347,8 @@ public sealed class ChampionAffixTable : RowTable<ChampionAffix>
 
     protected override ChampionAffix ReadRow(JsonFields f) =>
         new(f.Str("id"), f.Str("name"), f.Num("lifePct"), f.Num("damagePct"), f.Num("speedPct"), f.Num("xpPct"),
-            f.Num("knockbackResistPct"), RobotJson.Numbers(f, "resist"), f.StrOr("immunity", null), f.Str("behaviour"));
+            f.Num("knockbackResistPct"), RobotJson.Numbers(f, "resist"), f.StrOr("immunity", null), f.Str("behaviour"),
+            RobotJson.Numbers(f, "params"));
 
     protected override void ValidateRow(DescentContent content, ChampionAffix a, ContentErrors errors)
     {
@@ -323,6 +365,25 @@ public sealed class ChampionAffixTable : RowTable<ChampionAffix>
         }
         if (a.Immunity is { } immune)
             ContentChecks.Reference<DamageTypeRow>(content, errors, t, a.Id, "immunity", immune, ContentTables.DamageTypes);
+
+        if (!ChampionBehaviours.Numbers.TryGetValue(a.Behaviour, out var numbers))
+        {
+            errors.Add(t, a.Id, ContentRule.DanglingReference, $"'behaviour' is '{a.Behaviour}', which the horde does not carry out");
+            return;
+        }
+
+        foreach (var (name, min, max) in numbers)
+        {
+            if (a.Params.TryGetValue(name, out var v))
+                ContentChecks.Range(errors, t, a.Id, "params." + name, v, min, max);
+            else
+                errors.Add(t, a.Id, ContentRule.Malformed, $"behaviour '{a.Behaviour}' reads 'params.{name}', which the row lacks");
+        }
+
+        foreach (var name in a.Params.Keys.Where(k => !numbers.Any(n => n.Name == k)))
+            errors.Add(t, a.Id, ContentRule.Malformed, $"'params.{name}' is not a number behaviour '{a.Behaviour}' reads");
+        if ((a.Behaviour == ChampionBehaviours.Immune) != (a.Immunity is not null))
+            errors.Add(t, a.Id, ContentRule.Malformed, "an immunity is the immune behaviour's, and the immune behaviour names one");
     }
 }
 

@@ -10,7 +10,10 @@ public sealed record RarityOdds(string Rarity, int Weight);
 /// economy.json (plan_tf2_rpg 2d, 2i, 2j, 2k; D22, D23, D24): what items are worth and what
 /// the town's services cost. Vendor value of gear is the base's value, raised per item level,
 /// times the rarity's value multiplier, raised by its net power (an unidentified item is
-/// valued as Stock, D22); a buy and a sell are fractions of it. The Spy's identify fee rises
+/// valued as Stock, D22); a buy and a sell are fractions of it, moved by the buyer's own price
+/// stats (<see cref="BuyerBuyStat"/>, <see cref="BuyerSellStat"/>: Haggler's). A vendor's stock
+/// is rolled again every <see cref="RestockSeconds"/> of a town's life (plan_tf2_rpg Phase 9:
+/// "stock rolled per hub per hour"). The Spy's identify fee rises
 /// with item level; a Dossier identifies in the field. Metal is TF2's ladder (each rung worth
 /// <see cref="MetalRatio"/> of the one below, both ways); salvage yields the rarity's metal
 /// raised per item level. Recipes cost metal: a random item of a chosen base (on the
@@ -24,6 +27,9 @@ public sealed record EconomySettings(
     double ValuePerPower,
     double BuyFactor,
     double SellFactor,
+    string BuyerBuyStat,
+    string BuyerSellStat,
+    double RestockSeconds,
     double IdentifyBase,
     double IdentifyPerItemLevel,
     string IdentifyRecipe,
@@ -72,6 +78,8 @@ public sealed class EconomyTable : SingleTable<EconomySettings>
     {
         var value = f.Obj("value");
         var prices = f.Obj("prices");
+        var buyer = f.Obj("buyer");
+        var restock = f.Obj("restock");
         var identify = f.Obj("identify");
         var metal = f.Obj("metal");
         var salvage = f.Obj("salvage");
@@ -84,6 +92,8 @@ public sealed class EconomyTable : SingleTable<EconomySettings>
         var s = new EconomySettings(
             value.Num("perItemLevel"), value.Num("perPower"),
             prices.Num("buy"), prices.Num("sell"),
+            buyer.Str("buy"), buyer.Str("sell"),
+            restock.Num("seconds"),
             identify.Num("base"), identify.Num("perItemLevel"), identify.Str("recipe"), identify.Str("dossier"),
             ItemTables.Strings(metal, "ladder"), metal.Int("ratio"), metal.Str("up"), metal.Str("down"),
             salvage.Num("perItemLevel"),
@@ -93,7 +103,7 @@ public sealed class EconomyTable : SingleTable<EconomySettings>
             kit.Str("recipe"), kit.Int("cost"),
             potions.Str("recipe"), potions.Int("combine"),
             gamble.Long("price"), gamble.Long("perLevel"), gamble.Int("levelSpread"), Odds(gamble, "odds"));
-        foreach (var o in new[] { value, prices, identify, metal, salvage, craft, reroll, upgrade, kit, potions, gamble })
+        foreach (var o in new[] { value, prices, buyer, restock, identify, metal, salvage, craft, reroll, upgrade, kit, potions, gamble })
             o.End();
         return s;
     }
@@ -105,6 +115,9 @@ public sealed class EconomyTable : SingleTable<EconomySettings>
         ContentChecks.Range(errors, t, null, "value.perPower", s.ValuePerPower, 0, 100);
         ContentChecks.Range(errors, t, null, "prices.buy", s.BuyFactor, 1e-6, 100);
         ContentChecks.Range(errors, t, null, "prices.sell", s.SellFactor, 0, s.BuyFactor);   // never sell above the buy price
+        ContentChecks.Stat(content, errors, t, null, s.BuyerBuyStat);
+        ContentChecks.Stat(content, errors, t, null, s.BuyerSellStat);
+        ContentChecks.Range(errors, t, null, "restock.seconds", s.RestockSeconds, 60, 7 * 24 * 3600);
         ContentChecks.Range(errors, t, null, "identify.base", s.IdentifyBase, 0, 1e9);
         ContentChecks.Range(errors, t, null, "identify.perItemLevel", s.IdentifyPerItemLevel, 0, 1e9);
         ContentChecks.Range(errors, t, null, "metal.ratio", s.MetalRatio, 2, 100);

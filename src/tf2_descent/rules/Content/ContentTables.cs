@@ -62,6 +62,7 @@ public static class ContentTables
         new Items.ConsumableTable(),
         new RobotConditionTable(),
         new RobotAttackTable(),
+        new World.LampTable(), new World.HazardTable(),
     ];
 
     /// <summary>The names of <see cref="All"/>, in order.</summary>

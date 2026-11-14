@@ -1,5 +1,7 @@
 using SourceSharp.Abi;
+using TF2.Descent.Rules.Economy;
 using TF2.Descent.Rules.Hero;
+using TF2.Descent.Rules.Items;
 
 namespace TF2.Descent.Server.Items;
 
@@ -60,6 +62,9 @@ public sealed class ItemLedger(
     public Task<LedgerResult> Load(string hero) => Current.Load(hero);
     public LedgerHero? Find(string hero) => Current.Find(hero);
     public void SetSheet(string hero, HeroSheet sheet) => Current.SetSheet(hero, sheet);
+    public void SetPrices(string hero, BuyerPrices prices) => Current.SetPrices(hero, prices);
+    public long? Price(string hero, LedgerPrice what, ItemInstance item) => Current.Price(hero, what, item);
+    public long? BuyBackPrice(string hero, int index) => Current.BuyBackPrice(hero, index);
     public Task<DropResult> KillDrop(KillDrop kill) => Current.KillDrop(kill);
     public Task<DropResult> BossDrop(BossDrop boss) => Current.BossDrop(boss);
     public Task<DropResult> PotionDrop(string hero, string potionBase, uint killSeq, int depth, Vector position) =>
@@ -77,7 +82,7 @@ public sealed class ItemLedger(
     public Task<LedgerResult> Drink(string hero, int index) => Current.Drink(hero, index);
     public Task<LedgerResult> Deposit(string hero, int from) => Current.Deposit(hero, from);
     public Task<LedgerResult> Withdraw(string hero, int stashSlot) => Current.Withdraw(hero, stashSlot);
-    public Task<VendorAnswer> Stock(string hero, string vendor) => Current.Stock(hero, vendor);
+    public Task<VendorAnswer> Stock(string hero, string vendor, long restock = 0) => Current.Stock(hero, vendor, restock);
     public Task<LedgerResult> Buy(string hero, string vendor, long stockId) => Current.Buy(hero, vendor, stockId);
     public Task<LedgerResult> Sell(string hero, string vendor, int slot) => Current.Sell(hero, vendor, slot);
     public Task<LedgerResult> BuyBack(string hero, string vendor, int index) => Current.BuyBack(hero, vendor, index);

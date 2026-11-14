@@ -65,6 +65,22 @@ public sealed record InventoryResult(HeroInventory Hero, StashState Stash, IRead
 }
 
 /// <summary>
+/// An item on a corpse and where the hero carried it when he died: the equipment slot it was
+/// worn in, the belt slot it hung on, or neither (the backpack).
+/// </summary>
+public sealed record CorpseItem(Held Item, string? Equipped = null, int? Belt = null);
+
+/// <summary>
+/// A corpse recovered (<see cref="InventoryRules.Recover"/>): the hero's inventory after it, the
+/// items that did not fit and stay on the corpse (their places kept), and how many went back on
+/// to their old equipment slot, their old belt slot and the backpack.
+/// </summary>
+public sealed record CorpseRecovery(HeroInventory Hero, IReadOnlyList<CorpseItem> Left, int Equipped, int Belted, int Packed)
+{
+    public int Recovered => Equipped + Belted + Packed;
+}
+
+/// <summary>
 /// The inventory's rules (plan_descent_logic RU5; plan_tf2_rpg 2d; R4, R8, R13, D4), pure
 /// functions over an immutable state, so the host can replay them.
 /// <list type="bullet">
@@ -141,6 +157,63 @@ public sealed class InventoryRules
     //-------------------------------------------------------------------------
     // The backpack
     //-------------------------------------------------------------------------
+
+    /// <summary>
+    /// The hero's own corpse back onto him (WO5's walk back; the plans say "one use-key takes
+    /// all that fits" and are silent on where: this lane's rule). What he wore goes back on to
+    /// its old equipment slot when that slot is free and the equip rules still take it (the
+    /// level, the requirements with what is already back on, in the inventory's slot order);
+    /// what hung on the belt goes back to its old belt slot when that is free; everything else,
+    /// and whatever could not go back where it was, is picked up into the backpack. What does
+    /// not fit stays on the corpse, its place kept.
+    /// </summary>
+    public CorpseRecovery Recover(HeroInventory hero, HeroSheet sheet, IReadOnlyList<CorpseItem> corpse)
+    {
+        int equipped = 0, belted = 0, packed = 0;
+        var placed = new HashSet<CorpseItem>();
+
+        // Worn items first, slot by slot in the inventory's order, so a requirement reads what is already back on.
+        foreach (var slot in S.Equipment)
+        {
+            foreach (var c in corpse)
+            {
+                if (c.Equipped != slot.Id || placed.Contains(c) || hero.Equipped.ContainsKey(slot.Id))
+                    continue;
+                var others = hero.Equipped.Select(e => new EquippedItem(e.Key, e.Value.Item)).ToList();
+                if (EquipRefusal(sheet, slot.Id, c.Item.Item, others) is not null)
+                    continue;
+                hero = hero with { Equipped = hero.Equipped.Add(slot.Id, c.Item) };
+                placed.Add(c);
+                equipped++;
+            }
+        }
+
+        foreach (var c in corpse)
+        {
+            if (c.Belt is not { } index || placed.Contains(c) || index < 0 || index >= S.BeltSlots || hero.Belt.ContainsKey(index)
+                || _content.ItemBases[c.Item.Item.BaseId].Slot != S.BeltAccepts)
+                continue;
+            hero = hero with { Belt = hero.Belt.Add(index, c.Item) };
+            placed.Add(c);
+            belted++;
+        }
+
+        var left = new List<CorpseItem>();
+        foreach (var c in corpse)
+        {
+            if (placed.Contains(c))
+                continue;
+            int slot = FreeSlot(hero, sheet);
+            if (slot < 0)
+            {
+                left.Add(c);
+                continue;
+            }
+            hero = hero with { Backpack = hero.Backpack.Add(slot, c.Item) };
+            packed++;
+        }
+        return new CorpseRecovery(hero, left, equipped, belted, packed);
+    }
 
     /// <summary>Picks an item up into the first free slot; refused when full (R4: loot is the picker's alone).</summary>
     public InventoryResult Pickup(HeroInventory hero, StashState stash, HeroSheet sheet, Held item)

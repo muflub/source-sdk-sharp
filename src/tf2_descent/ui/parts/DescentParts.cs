@@ -24,7 +24,8 @@ public readonly record struct ItemSlotProps(
     bool Hovered,
     bool Inspectable = false,     // the corner button opens the inspect modal
     int InspectCell = -1,         // the owner screen's cell key for the button
-    IDescentInspectActions? InspectActions = null);
+    IDescentInspectActions? InspectActions = null,
+    float WidthDu = ItemSlot.SizeDu);  // a wide cell (the doll's) runs the name over two lines
 
 /// <summary>
 /// One item cell (D4's one-cell slots): a recessed well, the item's base name
@@ -45,7 +46,8 @@ public sealed class ItemSlot : UiPanel<ItemSlotProps>
         var frame = p.Hovered ? ((UiPaint)Tone.Accent).WithOpacity(0.9f)
                   : p.Equipped ? (UiPaint)Tone.Accent
                   : (UiPaint)Tone.Line;
-        var box = ui.Box().Size(Size.Du(SizeDu), Size.Du(SizeDu)).Round(Radius.M)
+        bool wide = p.WidthDu > SizeDu;
+        var box = ui.Box().Size(Size.Du(p.WidthDu), Size.Du(SizeDu)).Round(Radius.M)
                     .Fill(Tone.SurfaceRaised).Border(frame, p.Hovered ? 2 : 1);
         using (box)
         {
@@ -114,7 +116,12 @@ public sealed class ItemSlot : UiPanel<ItemSlotProps>
             // restarted review). The row runs from the bottom-right corner,
             // so the Unusual star keeps its corner; three 14-du chips fill the
             // 42 du between the rail (x 2) and the corner inset (x 44) exactly.
-            if (item.BaseName.Length > 0)
+            // A wide cell (the doll's) wraps the name over its two lines: the
+            // one-word cut of a 48-du cell read "Rock..." and "Shotg..." live.
+            if (item.BaseName.Length > 0 && wide)
+                ui.Data(item.BaseName, Text.Caption, Tone.Text).Wrap(p.WidthDu - (float)Space.L).Elide().Width(Size.Fill)
+                  .At(UiAnchor.Top).Inset(Space.S, Space.XS);
+            else if (item.BaseName.Length > 0)
                 ui.Data(item.BaseName, Text.Caption, Tone.Text).Width(Size.Fill).Elide()
                   .At(UiAnchor.Top).Inset(Space.XS, Space.XS);
             if (p.WithdrawOnly || item.Broken || item.HasUnusual)
@@ -271,6 +278,102 @@ public sealed class BeltStrip : UiPanel
     }
 }
 
+/// <summary>
+/// What a <see cref="SkillSlotsStrip"/> does: when <see cref="Armed"/> (a learned skill is
+/// picked in the skill window) every slot wears the accent and a click on one reports it
+/// through <see cref="OnSlot"/> (0-based); otherwise it only shows.
+/// </summary>
+public readonly record struct SkillSlotsProps(bool Armed = false, Action<int>? OnSlot = null, bool Compact = false);
+
+/// <summary>
+/// The hero's six skill-bar slots (HE6), the belt's family: three columns of two rows of
+/// 112 x 48 cells (compact, in the HUD's narrow column: one row of six keys with their
+/// cooldowns and no names, the column's width), each with its key (4 to 9) in the belt's keycap chip, the skill's name,
+/// the cooldown as a scrim that drains from the top as it runs out, and an accent frame on
+/// the slot whose key is held on a charge. The HUD shows it; the skill window shows it as
+/// the bar it assigns into.
+/// </summary>
+public sealed class SkillSlotsStrip : UiPanel<SkillSlotsProps>
+{
+    public const float SlotDu = BeltStrip.SlotDu;
+    public const float CellDu = 48;
+
+    /// <summary>The strip's width: three slots and their two gaps.</summary>
+    public const float WidthDu = 3 * SlotDu + 2 * (float)Space.S;
+
+    /// <summary>The key of the first slot (the client's key actions bind 4 to 9).</summary>
+    public const int FirstKey = 4;
+
+    private readonly IDescentSkillSlots _slots;
+    private readonly UiSize[] _three = [Size.Du(SlotDu), Size.Du(SlotDu), Size.Du(SlotDu)];
+    private readonly UiSize[] _six = [Size.Du(CompactDu), Size.Du(CompactDu), Size.Du(CompactDu), Size.Du(CompactDu), Size.Du(CompactDu), Size.Du(CompactDu)];
+
+    /// <summary>A compact cell's side: six and their gaps fit the HUD's narrow column.</summary>
+    public const float CompactDu = 36;
+
+    public SkillSlotsStrip(IDescentSkillSlots slots) => _slots = slots;
+
+    public override void Describe(ref UiFrame ui, in SkillSlotsProps p)
+    {
+        using (ui.Grid(p.Compact ? _six : _three, Space.S, Space.S).Key("skills"))
+        {
+            for (int i = 0; i < _slots.SlotCount; i++)
+            {
+                bool charging = _slots.SlotCharging(i);
+                float left = Math.Clamp(_slots.SlotCooldown(i), 0f, 1f);
+                float w = p.Compact ? CompactDu : SlotDu, h = p.Compact ? CompactDu : CellDu;
+                var cell = ui.Box().Size(Size.Du(w), Size.Du(h)).Fill(Tone.SurfaceRaised).Round(Radius.M)
+                             .Border(p.Armed || charging ? Tone.Accent : Tone.Line, p.Armed || charging ? 2 : 1).Key(i);
+                var hit = p.OnSlot is null ? default : ui.Interact(cell);
+                using (cell)
+                {
+                    if (left > 0f)
+                    {
+                        // The cooldown, draining: a scrim the height of what is left, and
+                        // a warning rail along the bottom as long (the scrim alone read as
+                        // barely darker on the HUD's dark panel, live).
+                        ui.Rect(Tone.Scrim, Size.Fill, Size.Du(h * left)).At(UiAnchor.Bottom).Layered();
+                        ui.Rect(Tone.Warning, Size.Du(w * left), Size.Du(4)).At(UiAnchor.BottomLeft).Layered();
+                    }
+                    string name = _slots.SlotNameToken(i);
+                    using (ui.Row(Space.XS, Align.Centre).Size(Size.Fill, Size.Fill).Pad(Space.XS, Space.XS))
+                    {
+                        using (ui.Box().Size(Size.Du(16), Size.Du(16)).Fill(Tone.Surface).Round(Radius.S))
+                            ui.Text($"{FirstKey + i}", Text.Caption, Tone.TextMuted).Size(Size.Fill, Size.Fill).TextAlign(Align.Centre);
+                        if (name.Length > 0 && !p.Compact)
+                            ui.Text(name, Text.Caption, Tone.Text).Wrap(SlotDu - 32).Elide().Width(Size.Fill);
+                    }
+                }
+                if (hit.Clicked)
+                    p.OnSlot?.Invoke(i);
+            }
+        }
+    }
+}
+
+/// <summary>
+/// An open window's status line (<see cref="IDescentWindowStatus"/>): the last notice the
+/// server sent, in the warning ink with its mark, for as long as the source shows it; a row
+/// of the same height with nothing in it otherwise, so the window does not jump.
+/// </summary>
+public sealed class StatusRow(IDescentWindowStatus status) : UiPanel
+{
+    public const float HeightDu = 24;
+
+    public override void Describe(ref UiFrame ui)
+    {
+        bool showing = status.Showing && status.Text.Length > 0;
+        using (ui.Row(Space.S, Align.Centre).Size(Size.Fill, Size.Du(HeightDu)).Key("status")
+                 .Fill(showing ? Tone.Surface : Tone.None).Round(Radius.S))
+        {
+            if (!showing)
+                return;
+            ui.Icon(UiShape.Cross45, Tone.Warning, 16);
+            ui.Data(status.Text, Text.Caption, Tone.Warning).Elide().Width(Size.Fill);
+        }
+    }
+}
+
 /// <summary>What one <see cref="PartyPill"/> shows.</summary>
 public readonly record struct PartyPillProps(DescentPartyMember Member, bool Focus, bool Reviving);
 
@@ -371,7 +474,9 @@ public readonly record struct ItemGridProps(
     int Columns,
     Action<int>? OnHover,                         // cell index, when the pointer lands on one
     Action<int>? OnUse,                           // cell index, on click
-    IDescentInspectActions? InspectActions = null);  // the slot's button opens the modal
+    IDescentInspectActions? InspectActions = null,   // the slot's button opens the modal
+    int Picked = -1,                              // a cell picked up for a move: framed in the accent
+    bool UseEmpty = false);                       // an empty cell's click reaches OnUse too (a move's target)
 
 /// <summary>
 /// The one-cell-item grid (D4): a grid of <see cref="ItemSlot"/> cells,
@@ -403,10 +508,10 @@ public sealed class ItemGrid : UiPanel<ItemGridProps>
                 if (p.OnHover is { } hv && hit.Hovered && item is not null) hv(i);
                 using (cell)
                     ui.Sub(-1 - i, _slot,
-                           new ItemSlotProps(item, false, past, false, hit.Hovered,
+                           new ItemSlotProps(item, false, past, i == p.Picked, hit.Hovered,
                                              item is not null && p.InspectActions is not null, i,
                                              p.InspectActions));
-                if (p.OnUse is { } use && hit.Clicked && item is not null) use(i);
+                if (p.OnUse is { } use && hit.Clicked && (item is not null || p.UseEmpty)) use(i);
             }
         }
     }
@@ -605,7 +710,9 @@ public sealed class NumberField : UiPanel<NumberFieldProps>
 
 /// <summary>What a <see cref="SkillCard"/> shows and what its owner answers with.</summary>
 public readonly record struct SkillCardProps(
-    DescentSkill Skill, Action<int>? OnBuy, Action<int>? OnHover);
+    DescentSkill Skill, Action<int>? OnBuy, Action<int>? OnHover,
+    Action<int>? OnPick = null,   // a click on the card's body picks it to assign to the skill bar
+    bool Picked = false);         // the card picked: framed in the positive ink
 
 /// <summary>
 /// One skill on the tier ladder (Appendix A): the name in Heading, the rank as
@@ -639,10 +746,11 @@ public sealed class SkillCard : UiPanel<SkillCardProps>
         var rowW = badge ? Size.Du(BadgeClearDu) : Size.Auto;
         var card = ui.Box().Key(s.Id).Size(Size.Du(CardDu), Size.Du(ui.Narrow ? 116 : 124))
                      .Fill(Tone.Surface).Round(Radius.M)
-                     .Border(buyable ? Tone.Accent : Tone.Line, buyable ? 2 : 1)
+                     .Border(p.Picked ? Tone.Positive : buyable ? Tone.Accent : Tone.Line, p.Picked || buyable ? 2 : 1)
                      .Pad(Space.S, Space.S);
         var hit = ui.Interact(card);
         if (hit.Hovered) p.OnHover?.Invoke(s.Id);
+        if (hit.Clicked) p.OnPick?.Invoke(s.Id);
         using (card)
         {
             using (ui.Column(Space.S, Align.Start))
@@ -839,6 +947,33 @@ public sealed class HintTip : UiPanel
                           .Width(Size.Fill).TextAlign(Align.Centre).Elide();
                 }
             }
+        }
+    }
+}
+
+/// <summary>A town window's status line: the server's word on the hero's last verb (UI4).</summary>
+public readonly record struct TownStatusProps(string Token, string Data, bool Error);
+
+/// <summary>
+/// The status line a town window draws above its footer (plan_descent_logic UI4): a dot in the
+/// accent for what was done, in the warning tone for a refusal (a tone every town window
+/// already wears, so the line adds none to a screen's budget), the server's copy, and its data (an item's
+/// name, a price, an unworded code) muted after it. Drawn inside the window because a HUD notice
+/// hides under an open one. An empty token draws nothing and takes no room.
+/// </summary>
+public sealed class TownStatusLine : UiPanel<TownStatusProps>
+{
+    public override void Describe(ref UiFrame ui, in TownStatusProps p)
+    {
+        if (p.Token.Length == 0)
+            return;
+        using (ui.Box().Size(Size.Fill, Size.Auto).Fill(Tone.SurfaceRaised).Round(Radius.M).Pad(Space.S, Space.M).Key("status"))
+        using (ui.Row(Space.S, Align.Centre).Width(Size.Fill))
+        {
+            ui.Shape(UiShape.Dot, p.Error ? Tone.Warning : Tone.Accent, 12);
+            ui.Text(p.Token, Text.Body, Tone.Text);
+            if (p.Data.Length > 0)
+                ui.Data(p.Data, Text.Body, Tone.TextMuted).Width(Size.Fill).Elide();
         }
     }
 }

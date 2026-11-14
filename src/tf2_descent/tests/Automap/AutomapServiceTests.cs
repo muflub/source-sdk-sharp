@@ -42,7 +42,9 @@ public sealed class AutomapServiceTests
         public Kit()
         {
             Wire.ReturnsEachCall("Entities.GetOrigin", () => At);
-            Automap = new AutomapService(Levels, Hero.Heroes, Hero.Sheets, Wire, Wire);
+            Automap = new AutomapService(Levels, Hero.Heroes, Hero.Sheets, Wire, Wire, new Party.OneParty(),
+                                         new Server.Party.InMemoryParties(Hero.Rules, new Party.PartyChanges().Hooks),
+                                         new Server.Party.EnginePartySlots(Hero.Heroes, Hero.Keys()));
             Component = Hero.Join()!;
         }
 

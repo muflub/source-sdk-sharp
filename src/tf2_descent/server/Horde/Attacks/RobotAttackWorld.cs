@@ -1,5 +1,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Ai;
+using SourceSharp.Server;
+using SourceSharp.Shared;
 
 using TF2.Descent.Ai.Brains;
 using TF2.Descent.Ai.Motion;
@@ -31,20 +33,69 @@ public interface IRobotAttackWorld
     int Hurt(EntityHandle victim, EntityHandle attacker, float damage, DamageType bits, Vector direction);
 
     /// <summary>Launches a TF projectile owned by <paramref name="owner"/> on <paramref name="team"/>; answers its entity, or none when the engine refused it.</summary>
-    EntityHandle Launch(string className, EntityHandle owner, Vector origin, Vector velocity, float damage, int team);
+    EntityHandle Launch(string className, EntityHandle owner, Vector origin, Vector velocity, float damage, int team, bool critical = false);
 
     /// <summary>Plays <paramref name="sound"/> on <paramref name="entity"/>.</summary>
     void Sound(EntityHandle entity, string sound);
 
     /// <summary>The sequence of <paramref name="entity"/>'s model for <paramref name="activity"/>, and its length in seconds; -1 when the model has none.</summary>
     (int Sequence, float Seconds) Gesture(EntityHandle entity, string activity);
+
+    // HO12.
+
+    /// <summary>The sequence of <paramref name="entity"/>'s model named <paramref name="name"/>, and its length in seconds; -1 when the model has none.</summary>
+    (int Sequence, float Seconds) Sequence(EntityHandle entity, string name);
+
+    /// <summary>A sniper's laser for a moment, from <paramref name="from"/> to <paramref name="to"/>: what the heroes see of a charging shot.</summary>
+    void Laser(Vector from, Vector to);
+
+    /// <summary>TF2's particle system <paramref name="name"/> at <paramref name="at"/>.</summary>
+    void Particle(string name, Vector at);
+
+    /// <summary>Sets the player <paramref name="victim"/> alight for <paramref name="seconds"/>, burning in <paramref name="attacker"/>'s name (TF2's afterburn).</summary>
+    void Ignite(EntityHandle victim, EntityHandle attacker, float seconds);
 }
 
-/// <summary>The engine's answers to <see cref="IRobotAttackWorld"/>: <see cref="TraceMask.Shot"/> lines and boxes, the damage call, CR6's spawner, the sound emitter.</summary>
+/// <summary>
+/// The engine's answers to <see cref="IRobotAttackWorld"/>: <see cref="TraceMask.Shot"/> lines and boxes, the damage call, CR6's
+/// spawner, the sound emitter; HO12's laser (a beam temp entity on the laser sprite, red, a tenth of a second), particles
+/// (the effect dispatch TFTeleporter's show uses) and TF2's afterburn on a hero.
+/// </summary>
 [SideService(Side.Server, As = [typeof(IRobotAttackWorld)])]
 public sealed class EngineRobotAttackWorld(IEngineWorldQuery world, IEngineEntities entities, IEngineDamage damage, ITFProjectileSpawner spawner,
-                                           IEngineSound sound, IEngineEntityRender render) : IRobotAttackWorld
+                                           IEngineSound sound, IEngineEntityRender render, IEnginePrecache precache, ITempEnts temps,
+                                           TF2.Server.Combat.TFAfterburns afterburns, IGameClock clock) : IRobotAttackWorld
 {
+    /// <summary>The laser's sprite (precached by the body), and how long one beam of it lasts.</summary>
+    public const string LaserSprite = "sprites/laserbeam.vmt";
+
+    public const float LaserLife = 0.1f;
+
+    public (int Sequence, float Seconds) Sequence(EntityHandle entity, string name)
+    {
+        int seq = render.LookupSequence(entity, name);
+        return seq < 0 ? (-1, 0f) : (seq, render.SequenceDuration(entity, seq));
+    }
+
+    public void Laser(Vector from, Vector to)
+    {
+        var look = new TeBeamLook(precache.PrecacheModel(LaserSprite), 0, 0, 0, LaserLife, 1.5f, 1.5f, 0, 0f, 255, 32, 16, 200, 0);
+        temps.BeamPoints(TeFilters.Pvs(from), 0f, from, to, in look);
+    }
+
+    public void Particle(string name, Vector at)
+    {
+        TeEffectData record = new() { Scale = 1f, HitBox = precache.ParticleSystemIndex(name), Origin = at, Start = at };
+        temps.DispatchEffect(TeFilters.Pvs(at), 0f, "ParticleEffect", in record);
+    }
+
+    public void Ignite(EntityHandle victim, EntityHandle attacker, float seconds)
+    {
+        if (victim == EntityHandle.None || !entities.IsPlayer(victim))
+            return;
+        afterburns.Of(entities.GetIndex(victim))?.Ignite(clock.Now, attacker, TF2.Shared.TFWeaponId.Flamethrower, "tf_weapon_flamethrower", seconds);
+    }
+
     public (int Sequence, float Seconds) Gesture(EntityHandle entity, string activity)
     {
         int seq = render.LookupSequenceByActivity(entity, activity);
@@ -67,8 +118,8 @@ public sealed class EngineRobotAttackWorld(IEngineWorldQuery world, IEngineEntit
     public int Hurt(EntityHandle victim, EntityHandle attacker, float amount, DamageType bits, Vector direction) =>
         damage.TakeDamageAnswered(victim, attacker, amount, bits, direction);
 
-    public EntityHandle Launch(string className, EntityHandle owner, Vector origin, Vector velocity, float amount, int team) =>
-        spawner.Spawn(new TFProjectileSpawn(className, owner, origin, velocity, amount) { Team = team })?.Handle ?? EntityHandle.None;
+    public EntityHandle Launch(string className, EntityHandle owner, Vector origin, Vector velocity, float amount, int team, bool critical = false) =>
+        spawner.Spawn(new TFProjectileSpawn(className, owner, origin, velocity, amount, critical) { Team = team })?.Handle ?? EntityHandle.None;
 
     public void Sound(EntityHandle entity, string name) => sound.EntityEmitSound(entity, name);
 }

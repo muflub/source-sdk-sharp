@@ -998,6 +998,17 @@ public sealed class RobotMotion(IMotionWorld world) : IRobotMotion, IRobotImpuls
         _blocked[b] = BlockedReport.Clear;
     }
 
+    /// <summary>
+    /// A body put somewhere else by hand (HO12: a teleporting champion): its motion forgets the
+    /// body, so at the next tick it starts again from where the body now stands, as at a lend
+    /// (settled, holding, no order); a step still in flight for it is dropped by its serial.
+    /// </summary>
+    public void Restart(int body)
+    {
+        if ((uint)body < (uint)_serial.Length)
+            _serial[body] = 0;
+    }
+
     /// <summary>The robot a lent body's motion belongs to, for the dev print (none for a body without motion).</summary>
     public bool Moving(int body) => (uint)body < (uint)_serial.Length && _serial[body] != 0;
 

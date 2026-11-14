@@ -28,7 +28,7 @@ public sealed class HordeAiCommand(HordeSession session, HordeService horde, ILo
             return;
         }
 
-        string doing = b.Session.TryReadBrain(body, br => br.Decider is { } d ? $"{d.Doing.Leaf} goal ({d.Doing.Goal.X:0},{d.Doing.Goal.Y:0},{d.Doing.Goal.Z:0}) target {d.Doing.Target}{(d.Doing.Verdict.Length > 0 ? " (" + d.Doing.Verdict + ")" : "")}" : "no decider", out string? read)
+        string doing = b.Session.TryReadBrain(body, br => br.Decider is { } d ? $"{d.Doing.Branch}: {d.Doing.Leaf} goal ({d.Doing.Goal.X:0},{d.Doing.Goal.Y:0},{d.Doing.Goal.Z:0}) target {d.Doing.Target}{(d.Doing.Verdict.Length > 0 ? " (" + d.Doing.Verdict + ")" : "")}" : "no decider", out string? read)
             ? read! : "busy";
         var (range, cos, recognize, hearing) = b.SenseOf(body);
         var seen = new System.Text.StringBuilder();

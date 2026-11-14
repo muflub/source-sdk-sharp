@@ -229,6 +229,16 @@ public sealed class HeroComponent : IPlayerComponent
     /// </summary>
     public bool Downed { get; private set; }
 
+    /// <summary>
+    /// How many times the hero has acted (fired, swung, cast) since he joined: the downed
+    /// state ends a respawn's grace when this moves (<c>HeroDowned</c>). Counted by the
+    /// weapon tap (<c>HeroActTaps</c>) and the skills runtime's casts.
+    /// </summary>
+    public int Acts { get; private set; }
+
+    /// <summary>The hero attacked or cast once.</summary>
+    public void Acted() => Acts++;
+
     /// <summary>The downed state onto the hero and the wire: down from <paramref name="startTick"/> to <paramref name="endTick"/>, or up (both 0).</summary>
     public void ShowDowned(bool down, int startTick, int endTick)
     {

@@ -32,6 +32,19 @@ public static class CrateSamples
         Weights = [50_000, 30_000, 15_000, 4_990, 10],
     };
 
+    /// <summary>UI4: an open the server refused (a full backpack), on the status line.</summary>
+    [UiSample("refused: backpack full")]
+    private static UiScreen Refused(UiSampleServices s)
+    {
+        s.Add<IDescentTownStatus>(new FakeTownStatus("#Descent_Town_backpack_full", "", true));
+        return Build(s, Published(), null, new FakeCrateActions());
+    }
+
+    /// <summary>A long base name, as the Scout's crates are named live.</summary>
+    [UiSample("a long crate name")]
+    private static UiScreen LongName(UiSampleServices s)
+        => Build(s, Published() with { BaseName = "Sealed Crate: Rocket Launchers" }, null, new FakeCrateActions());
+
     [UiSample("odds shown, affordable")]
     private static UiScreen Preview(UiSampleServices s) => Build(s, Published(), null, new FakeCrateActions());
 

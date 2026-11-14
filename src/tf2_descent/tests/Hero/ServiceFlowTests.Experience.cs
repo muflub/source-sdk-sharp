@@ -37,7 +37,7 @@ public sealed partial class ServiceFlowTests
         hero.Attach(HeroRig.PlayerOf(3));
         hero.Tick(0f);   // no hero entity here: the first tick reads the sheet
         Assert.NotNull(hero.Sheet);
-        var xp = new HeroExperience(heroes, h.Sheets, engine, engine, new ClientMessages(engine), new PlayerLevelCheckpoint(h.Players), h.W.Log);
+        var xp = new HeroExperience(heroes, h.Sheets, engine, engine, new Party.OneParty(), new ClientMessages(engine), new PlayerLevelCheckpoint(h.Players), h.W.Log);
         return (hero, xp);
     }
 

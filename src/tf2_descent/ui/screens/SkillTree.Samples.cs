@@ -11,7 +11,8 @@ namespace TF2.Descent.Client.Ui.Screens;
 
 public static class SkillTreeSamples
 {
-    public static UiScreen Build(UiSampleServices s, FakeSkillTree skills, FakeSkillHover? hover = null)
+    public static UiScreen Build(UiSampleServices s, FakeSkillTree skills, FakeSkillHover? hover = null,
+                                 FakeSkillSlotActions? slotActions = null, FakeWindowStatus? status = null)
     {
         if (!s.Has<IUiWindowStore>())
             s.Add<IUiWindowStore>(new MemoryWindowStore());
@@ -23,7 +24,29 @@ public static class SkillTreeSamples
         // nothing, which is the pointer-less state.
         s.Add<IDescentSkillHover>(hover ??= new FakeSkillHover());
         s.Add<IDescentHintTip>(hover);
+        s.Add<IDescentSkillSlots>(new FakeSkillSlots());
+        s.Add<IDescentSkillSlotActions>(slotActions ?? new FakeSkillSlotActions());
+        s.Add<IDescentWindowStatus>(status ?? new FakeWindowStatus { Showing = false });
         return s.Create<SkillTree>();
+    }
+
+    /// <summary>Assigning: a learned action card picked (its positive frame) and the bar's slots lit to take it.</summary>
+    [UiSample("assigning-to-the-bar")]
+    private static UiScreen Assigning(UiSampleServices s)
+    {
+        var tree = SoldierTree(3, 0);
+        var screen = (SkillTree)Build(s, tree);
+        var tab = tree.Tab(0);
+        for (int i = 0; i < tab.SkillCount; i++)
+        {
+            var skill = tab.Skill(i);
+            if (skill.Rank > 0 && skill.Kind == DescentSkillKind.Action)
+            {
+                screen.Pick(skill.Id);
+                break;
+            }
+        }
+        return screen;
     }
 
     /// <summary>A Soldier at 24 with 3 points: the Ordnance ladder mid-build, prereq links visible.</summary>
@@ -60,7 +83,7 @@ public static class SkillTreeSamples
         => Build(s, SoldierTree(3, 0), hover: new FakeSkillHover { HoveredSkill = 102 });
     // ---- the Soldier's four tabs (Appendix A) --------------------------------
 
-    private static FakeSkillTree SoldierTree(int points, int tab, bool fresh = false)
+    public static FakeSkillTree SoldierTree(int points, int tab, bool fresh = false)
         => new()
         {
             HeroLevel = fresh ? 2 : 24,
@@ -213,4 +236,12 @@ public sealed class FakeSkillHover : IDescentSkillHover
     public string ValueToken(int i) => string.Empty;
     public string ValueData(int i) => string.Empty;
     public bool ValueGood(int i) => true;
+}
+
+/// <summary>The bar assignments, recorded so a wiring test can read them back.</summary>
+public sealed class FakeSkillSlotActions : IDescentSkillSlotActions
+{
+    public (int Slot, int Skill) Last = (-1, -1);
+
+    public void Assign(int slot, int skillId) => Last = (slot, skillId);
 }

@@ -97,6 +97,31 @@ public sealed class FurnitureUseTests
     }
 
     [Fact]
+    public async Task A_party_wide_shrine_takes_the_users_party_and_not_a_stranger()
+    {
+        var rig = RigWith(FurnitureKind.Shrine, "sight");
+        var row = rig.First(FurnitureKind.Shrine, "sight");
+        rig.Stand(FurnitureRig.SlotB, row, new Vector(10, 10, 0));
+        rig.Parties.Strangers.Add(FurnitureRig.SlotB);    // WO9: B is in no party with A
+
+        await rig.Service.UseAs(row, rig.Stand(FurnitureRig.SlotA, row));
+
+        Assert.Equal([FurnitureRig.SlotA], rig.Automap.RevealedAll);
+    }
+
+    [Fact]
+    public async Task A_party_wide_shrine_takes_every_member_of_the_users_party()
+    {
+        var rig = RigWith(FurnitureKind.Shrine, "sight");
+        var row = rig.First(FurnitureKind.Shrine, "sight");
+        rig.Stand(FurnitureRig.SlotB, row, new Vector(10, 10, 0));
+
+        await rig.Service.UseAs(row, rig.Stand(FurnitureRig.SlotA, row));
+
+        Assert.Equal([FurnitureRig.SlotA, FurnitureRig.SlotB], rig.Automap.RevealedAll.Order());
+    }
+
+    [Fact]
     public async Task A_shrine_that_is_not_of_sight_shows_used_and_reveals_no_room()
     {
         var rig = RigWith(FurnitureKind.Shrine, "plenty");

@@ -18,7 +18,7 @@ public interface IHordeParty
 /// one: on a fresh boot nobody has connected yet, so one; on a level change the party that
 /// travelled is still connected.
 /// </summary>
-[SideService(Side.Server, As = [typeof(IHordeParty)])]
+[SideService(Side.Server)]
 public sealed class ConnectedHordeParty(IConnectedClients clients, IBotPlayers bots) : IHordeParty
 {
     public int PartySize()

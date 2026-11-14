@@ -17,6 +17,11 @@ namespace TF2.Descent.Client.Ui.Screens;
 /// Narrow: the ladder narrows to one card per row, the tier gutter becomes a
 /// caption above each band and the connectors go — they only mean something
 /// with the ladder's width.
+/// Under the tabs, the skill bar (keys 4 to 9, the HUD's strip): a click on a
+/// learned castable card picks it (a positive frame), the bar's slots light,
+/// and a click on one assigns the skill there through the server's
+/// <c>tf2_descent_assign</c>; a second click on the card puts it back. The
+/// window's status line (a refusal's reason) runs along the bottom.
 /// </summary>
 public sealed class SkillTree : UiScreen, IUiWindowed
 {
@@ -35,6 +40,11 @@ public sealed class SkillTree : UiScreen, IUiWindowed
     private readonly HintTip? _hint;
     private readonly IDescentSkillTabActions? _tabActions;
     private readonly SkillTreeBody _body;
+    private readonly SkillSlotsStrip? _bar;
+    private readonly IDescentSkillSlotActions? _slotActions;
+    private readonly StatusRow? _status;
+    private readonly Action<int> _onSlot;
+    private readonly Action<int>? _onPick;
 
     // Tab titles, rebuilt only when the tab count changes (describe allocates
     // nothing): ui.Tabs takes a span, and a string[] is a span.
@@ -43,14 +53,57 @@ public sealed class SkillTree : UiScreen, IUiWindowed
     public SkillTree(UiWindows windows, IDescentSkills skills,
                      IDescentSkillActions? actions = null,
                      IDescentSkillHover? hover = null, HintTip? hint = null,
-                     IDescentSkillTabActions? tabActions = null)
+                     IDescentSkillTabActions? tabActions = null,
+                     SkillSlotsStrip? bar = null, IDescentSkillSlotActions? slotActions = null,
+                     StatusRow? status = null)
     {
         _windows = windows;
         _skills = skills;
         _hover = hover;
         _hint = hint;
         _tabActions = tabActions;
+        _bar = bar;
+        _slotActions = slotActions;
+        _status = status;
+        _onSlot = AssignTo;
+        _onPick = slotActions is null ? null : new Action<int>(Pick);
         _body = new SkillTreeBody(actions, hover);
+    }
+
+    /// <summary>The card picked to assign to the skill bar; -1 for none.</summary>
+    public int Picked { get; private set; } = -1;
+
+    /// <summary>A card's body was clicked: a learned castable skill is picked (again: put back); any other is not.</summary>
+    public void Pick(int skillId)
+    {
+        Picked = Picked == skillId || !Castable(skillId) ? -1 : skillId;
+    }
+
+    /// <summary>A closed window drops its pick.</summary>
+    public override void Closed() => Picked = -1;
+
+    /// <summary>A bar slot was clicked: the picked skill is assigned there, and the pick ends.</summary>
+    public void AssignTo(int slot)
+    {
+        if (Picked >= 0)
+            _slotActions?.Assign(slot, Picked);
+        Picked = -1;
+    }
+
+    /// <summary>Whether the card is a skill a bar slot takes: an action or a toggle with a rank learned.</summary>
+    private bool Castable(int skillId)
+    {
+        for (int t = 0; t < _skills.TabCount; t++)
+        {
+            var tab = _skills.Tab(t);
+            for (int i = 0; i < tab.SkillCount; i++)
+            {
+                var s = tab.Skill(i);
+                if (s.Id == skillId)
+                    return s.Rank > 0 && s.Kind is DescentSkillKind.Action or DescentSkillKind.Toggle;
+            }
+        }
+        return false;
     }
 
     public override string Name => "skilltree";
@@ -104,9 +157,13 @@ public sealed class SkillTree : UiScreen, IUiWindowed
                         ui.Number(_skills.SkillPoints, Text.Number);
                     }
             }
+            if (_bar is not null && _slotActions is not null)
+                BarRow(ref ui);
             _body.ResetAnchor();
-            var bodyBox = ui.Sub("body", _body, new SkillTreeBodyProps(_skills.Tab(tab), tab == tabCount - 1))
+            var bodyBox = ui.Sub("body", _body, new SkillTreeBodyProps(_skills.Tab(tab), tab == tabCount - 1, Picked, _onPick))
                             .Size(Size.Fill, Size.Fill);
+            if (_status is not null)
+                ui.Sub("status", _status);
 
             // The card hint last: the overlay draws above the ladder, anchored
             // to the hovered card the body captured during its draw (the
@@ -121,6 +178,21 @@ public sealed class SkillTree : UiScreen, IUiWindowed
                            .Inset(Space.None, Space.XS))
                     ui.Sub("hint", _hint);
             }
+        }
+    }
+
+    /// <summary>The skill bar under the tabs: its caption and what a click does now, then the six slots.</summary>
+    private void BarRow(ref UiFrame ui)
+    {
+        using (ui.Row(Space.L, Align.Centre).Width(Size.Fill))
+        {
+            using (ui.Column(Space.XS, Align.Start).Width(Size.Fill))
+            {
+                ui.Text("#Descent_Skill_Bar", Text.Caption, Tone.TextMuted);
+                ui.Text(Picked >= 0 ? "#Descent_Skill_Bar_Place" : "#Descent_Skill_Bar_Pick", Text.Caption,
+                        Picked >= 0 ? Tone.Positive : Tone.TextMuted).Wrap(320).Elide();
+            }
+            ui.Sub("bar", _bar!, new SkillSlotsProps(Picked >= 0, _onSlot));
         }
     }
 
@@ -278,7 +350,7 @@ public sealed class SkillTree : UiScreen, IUiWindowed
                             float x = cardX0 + (slot % cols) * (CardW + ColGap);
                             float cy = BandPad + headingH + (slot / cols) * (SlotH + RowGap);
                             firstOfBand = firstOfBand < 0 ? i : firstOfBand;
-                            DrawSlot(ref ui, t, i, x, cy);
+                            DrawSlot(ref ui, t, i, x, cy, p.Picked, p.OnPick);
                         }
                         if (p.Mercenary)
                         {
@@ -303,7 +375,7 @@ public sealed class SkillTree : UiScreen, IUiWindowed
 
         /// <summary>One card: the shared <see cref="SkillCard"/> at the top of a 200 x 148 slot,
         /// the requirement row Positive when met (or the first synergy hint) under it.</summary>
-        private void DrawSlot(ref UiFrame ui, IDescentSkillTab t, int i, float x, float y)
+        private void DrawSlot(ref UiFrame ui, IDescentSkillTab t, int i, float x, float y, int picked, Action<int>? pick)
         {
             var s = t.Skill(i);
             using (var slot = ui.Box().Size(Size.Du(CardW), Size.Du(SlotH)).At(UiAnchor.TopLeft)
@@ -312,7 +384,7 @@ public sealed class SkillTree : UiScreen, IUiWindowed
                 // The card reports its own pointer (SkillCard interacts with
                 // the card box); the view-model answers on the next frame,
                 // and the card it names owns the popup's anchor.
-                ui.Sub(s.Id, _card, new SkillCardProps(s, _buy, _hoverCard));
+                ui.Sub(s.Id, _card, new SkillCardProps(s, _buy, _hoverCard, pick, s.Id == picked));
                 if (hover is not null && hover.HoveredSkill == s.Id)
                 {
                     _anchor = slot;
@@ -451,5 +523,5 @@ public sealed class SkillTree : UiScreen, IUiWindowed
     }
 
     /// <summary>What <see cref="SkillTreeBody"/> shows: the tab's data, and whether it is the Mercenary one.</summary>
-    public readonly record struct SkillTreeBodyProps(IDescentSkillTab Tab, bool Mercenary);
+    public readonly record struct SkillTreeBodyProps(IDescentSkillTab Tab, bool Mercenary, int Picked = -1, Action<int>? OnPick = null);
 }

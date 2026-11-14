@@ -69,7 +69,7 @@ public sealed class HeroLedgerSheetTests
     {
         var k = await Make();
         var hero = k.Rig.Join()!;
-        var xp = new HeroExperience(k.Rig.Heroes, k.Rig.Sheets, k.Rig.Engine, k.Rig.Engine, new ClientMessages(k.Rig.Engine),
+        var xp = new HeroExperience(k.Rig.Heroes, k.Rig.Sheets, k.Rig.Engine, k.Rig.Engine, new Party.OneParty(), new ClientMessages(k.Rig.Engine),
                                     new NoCheckpoints(), k.Rig.Log);
 
         Assert.NotNull(xp.Grant(hero, k.Rig.Rules.Heroes.XpAtLevel(4), new Dictionary<string, int>(), null, "a fact"));

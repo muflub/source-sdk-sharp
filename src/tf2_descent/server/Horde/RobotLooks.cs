@@ -84,6 +84,12 @@ public static class RobotLooks
     public const string GiantDemomanModel = "models/bots/demo_boss/bot_demo_boss.mdl";
     public const string GiantHeavyModel = "models/bots/heavy_boss/bot_heavy_boss.mdl";
 
+    /// <summary>MvM's sentry buster (stock's <c>bot_sentry_buster.mdl</c>, the demoman's skeleton): a template that fights with the buster's blast wears it.</summary>
+    public const string SentryBusterModel = "models/bots/demo/bot_sentry_buster.mdl";
+
+    /// <summary>The attack row a sentry buster fights with (robot_attacks.json).</summary>
+    public const string SentryBusterAttack = "sentry_buster";
+
     public const string RocketLauncher = "models/weapons/c_models/c_rocketlauncher/c_rocketlauncher.mdl";
     public const string GrenadeLauncher = "models/weapons/c_models/c_grenadelauncher/c_grenadelauncher.mdl";
     public const string Flamethrower = "models/weapons/c_models/c_flamethrower/c_flamethrower.mdl";
@@ -97,7 +103,7 @@ public static class RobotLooks
     /// <summary>Whether the template's size class is drawn with the giant model where its class has one.</summary>
     public static bool IsBig(RobotTemplate t) => t.Size is "giant" or "boss";
 
-    public static string BodyModel(RobotTemplate t) => (t.Class, IsBig(t)) switch
+    public static string BodyModel(RobotTemplate t) => t.Attack == SentryBusterAttack ? SentryBusterModel : (t.Class, IsBig(t)) switch
     {
         ("scout", true) => GiantScoutModel,
         ("soldier", true) => GiantSoldierModel,

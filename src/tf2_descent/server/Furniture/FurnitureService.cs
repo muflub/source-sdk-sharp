@@ -46,7 +46,7 @@ public sealed class FurnitureService(IDescentModeState mode, ILevelData level, T
                                      IRoomActivity rooms, IFurnitureWorld world, IFurnitureHeroes heroes, IItemLedger ledger,
                                      LootFloor floor, ILootGround ground, FurnitureBuffs buffs, FurnitureParking parking,
                                      IHooks<IFurnitureHazardHook> hazards, ClientMessages messages, ILog log,
-                                     Automap.IAutomapReveal automap)
+                                     Automap.IAutomapReveal automap, Party.IPartyRoster roster)
     : IGameLifecycle, IFrameLifecycle
 {
     /// <summary>The most furniture entities a level has (section 2: furniture in woken rooms, 32).</summary>
@@ -434,7 +434,8 @@ public sealed class FurnitureService(IDescentModeState mode, ILevelData level, T
     /// </summary>
     public ShrineUse UseShrine(FurnitureRow row, FurnitureHero user)
     {
-        var living = heroes.Living();
+        // The party the shrine's "party" means: the user's (WO9), every member here; a stranger takes nothing of it.
+        var living = heroes.Living().Where(h => roster.SameParty(user.Slot, h.Slot)).ToList();
         var slots = living.ToDictionary(h => h.Key, h => h.Slot, StringComparer.Ordinal);
         var use = rules.Furniture.Shrines.Use(row.Shrine!, user.Key, [.. living.Select(h => h.Key)],
             key => slots.TryGetValue(key, out int slot) ? heroes.SpellsKnown(slot) : [], Seed);

@@ -13,7 +13,7 @@ public static class DescentHudSamples
 {
     public static UiScreen Build(UiSampleServices s, FakeVitals vitals, FakeBelt? belt = null,
         FakeXp? xp = null, FakeParty? party = null, FakeBoss? boss = null,
-        FakeCast? cast = null, FakeGearWarn? warn = null, FakeAutomap? map = null)
+        FakeCast? cast = null, FakeGearWarn? warn = null, FakeAutomap? map = null, FakeSkillSlots? skills = null)
     {
         s.Add<IDescentVitals>(vitals);
         s.Add<IDescentBelt>(belt ?? new FakeBelt());
@@ -23,6 +23,7 @@ public static class DescentHudSamples
         s.Add<IDescentCastBar>(cast ?? new FakeCast());
         s.Add<IDescentGearWarning>(warn ?? new FakeGearWarn());
         s.Add<IDescentAutomap>(map ?? new FakeAutomap());
+        s.Add<IDescentSkillSlots>(skills ?? new FakeSkillSlots());
         return s.Create<DescentHud>();
     }
 
@@ -61,6 +62,16 @@ public static class DescentHudSamples
         new FakeVitals { Mana = 8 },
         cast: new FakeCast { Casting = true, SpellName = "Chain Lightning", Fraction = 0.3f, Interrupted = true });
 
+    [UiSample("skills on cooldown, one charging")]
+    private static UiScreen SkillsBusy(UiSampleServices s) => Build(s,
+        new FakeVitals { Mana = 40 },
+        skills: new FakeSkillSlots
+        {
+            Names = ["#Descent_SkillName_patriot_missile", "#Descent_SkillName_rocket_leap", "#Descent_SkillName_rain_of_freedom", "", "#Descent_SkillName_patriot_missile", ""],
+            Cooldowns = [0.7f, 0f, 0.25f, 0f, 1f, 0f],
+            Charging = 2,
+        });
+
     [UiSample("solo, no hero yet")]
     private static UiScreen Bare(UiSampleServices s) => Build(s,
         new FakeVitals { HasHero = false, Life = 0, Mana = 0 },
@@ -69,6 +80,20 @@ public static class DescentHudSamples
 }
 
 // ---- fakes -------------------------------------------------------------------
+
+public sealed class FakeSkillSlots : IDescentSkillSlots
+{
+    public string[] Names { get; init; } = ["#Descent_SkillName_patriot_missile", "#Descent_SkillName_rocket_leap", "", "", "", ""];
+    public float[] Cooldowns { get; init; } = [0f, 0f, 0f, 0f, 0f, 0f];
+
+    /// <summary>The 1-based slot whose key is held on a charge; 0 for none.</summary>
+    public int Charging { get; init; }
+
+    public int SlotCount => Names.Length;
+    public string SlotNameToken(int slot) => Names[slot];
+    public float SlotCooldown(int slot) => Cooldowns[slot];
+    public bool SlotCharging(int slot) => Charging == slot + 1;
+}
 
 public sealed class FakeVitals : IDescentVitals
 {

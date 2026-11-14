@@ -9,4 +9,10 @@ public static class HordeAbilities
 {
     /// <summary>A medic's heal beam on the pack-mate its look names (HO6).</summary>
     public const int Heal = 1;
+
+    /// <summary>A spy's cloak on (HO12): its body fades from the heroes' eyes until it uncloaks or attacks.</summary>
+    public const int Cloak = 2;
+
+    /// <summary>A spy's cloak off (HO12): the uncloak's sound and fade-in, its telegraph before a stab.</summary>
+    public const int Decloak = 3;
 }

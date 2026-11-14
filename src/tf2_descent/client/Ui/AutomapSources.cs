@@ -4,6 +4,7 @@ using SourceSharp.Client.Vgui;
 using SourceSharp.Shared;
 
 using TF2.Descent.Client.Automap;
+using TF2.Descent.Client.Party;
 using TF2.Descent.Shared;
 
 namespace TF2.Descent.Client.Ui;
@@ -35,14 +36,14 @@ public interface IAutomapWorld
     /// <summary>Which way the local player looks, world yaw degrees (0 east, anticlockwise).</summary>
     float LocalYaw { get; }
 
-    /// <summary>Fills <paramref name="into"/> (cleared first) with where every other hero this client holds stands.</summary>
+    /// <summary>Fills <paramref name="into"/> (cleared first) with where every other member of the local hero's party stands (WO9).</summary>
     void PartyPositions(List<Vector> into);
 }
 
 /// <summary><see cref="IAutomapWorld"/> over the HUD's local player, the minimap's view yaw and the client's hero entities.</summary>
 [SideService(Side.Client, As = [typeof(IAutomapWorld)])]
 public sealed class EngineAutomapWorld(IEngineHud hud, IMinimapWorld view, IHeroStates heroes, IClientStandalones standalones,
-                                       IEngineEntities entities) : IAutomapWorld
+                                       IEngineEntities entities, IPartyState party) : IAutomapWorld
 {
     public Vector? LocalOrigin => hud.LocalPlayerOrigin;
 
@@ -54,7 +55,7 @@ public sealed class EngineAutomapWorld(IEngineHud hud, IMinimapWorld view, IHero
         int local = hud.LocalPlayerIndex;
         foreach (var hero in heroes.All())
         {
-            if (hero.PlayerIndex == local || standalones.GetByIndex(hero.PlayerIndex) is not { } player)
+            if (hero.PlayerIndex == local || !party.IsMember(hero.PlayerIndex) || standalones.GetByIndex(hero.PlayerIndex) is not { } player)
                 continue;
             into.Add(entities.GetOrigin(player.Handle));
         }

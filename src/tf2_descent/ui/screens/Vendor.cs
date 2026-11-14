@@ -38,6 +38,11 @@ public sealed class Vendor : UiScreen, IUiWindowed
     // the right column's plate. Uninjected or inactive: nothing draws, so
     // every existing sample renders unchanged.
     private readonly IDescentVendorPortrait? _portrait;
+    // UI4: the window's status line (the server's word on the last verb) and the two picks
+    // the game must know; unwired (the samples), neither draws nor is told anything.
+    private readonly IDescentTownStatus? _status;
+    private readonly IDescentVendorPicks? _picks;
+    private readonly TownStatusLine _statusLine = new();
     private readonly CoinLabel _purse;
     private readonly ItemGrid _grid;
 
@@ -72,8 +77,11 @@ public sealed class Vendor : UiScreen, IUiWindowed
                   IDescentVendorHover? wareHover = null, IDescentItemHover? itemHover = null,
                   HintTip? hint = null, ItemTooltip? itemTip = null,
                   IDescentInspect? inspect = null, IDescentInspectActions? inspectActions = null,
-                  IDescentVendorPortrait? portrait = null)
+                  IDescentVendorPortrait? portrait = null, IDescentTownStatus? status = null,
+                  IDescentVendorPicks? picks = null)
     {
+        _status = status;
+        _picks = picks;
         _windows = windows;
         _vendor = vendor;
         _actions = actions;
@@ -122,7 +130,11 @@ public sealed class Vendor : UiScreen, IUiWindowed
     public const float PortraitDu = 320;
 
     private void PickSell(int cell) => _sellCell = cell;
-    private void PickService(int cell) => _svcCell = cell;
+    private void PickService(int cell)
+    {
+        _svcCell = cell;
+        _picks?.PickService(cell);
+    }
 
     /// <summary>The first cell the service could act on: a broken/worn piece for the
     /// Repairman, an unidentified one for the Spy; -1 when the pack holds neither.</summary>
@@ -186,6 +198,9 @@ public sealed class Vendor : UiScreen, IUiWindowed
             else if (gamble) GambleBody(ref ui);
             else ShopBody(ref ui, narrow);
 
+            if (_status is { } st)
+                ui.Sub("status", _statusLine, new TownStatusProps(st.StatusToken, st.StatusData, st.StatusError));
+
             // The footer: the shop's tabs (left), the purse, the posture's action.
             if (service)
             {
@@ -216,6 +231,7 @@ public sealed class Vendor : UiScreen, IUiWindowed
                     if (ui.Button("act", TabButtonToken(), true, null, ActionEnabled(out int argIndex)).Clicked)
                     {
                         if (_tab == 1) _actions.Sell(argIndex);
+                        else if (_tab == 2 && _picks is not null) _picks.BuyBack(argIndex);
                         else _actions.Buy(argIndex);
                     }
                 }
@@ -245,7 +261,9 @@ public sealed class Vendor : UiScreen, IUiWindowed
             // The inspect modal last and modal (the Inventory's pattern): the
             // player's own items are items here too; the wares list is rows,
             // not slots, so it wears none.
-            if (_inspect is not null && _inspectModal is { } modal)
+            // Only while showing: a modal overlay covers the window and takes every
+            // click even when the part inside draws nothing (the Inventory's UI3 fix).
+            if (_inspect is { Showing: true } && _inspectModal is { } modal)
                 using (ui.Overlay("inspect", modal: true))
                     ui.Sub("inspect", modal);
         }

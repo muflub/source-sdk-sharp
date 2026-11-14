@@ -30,7 +30,8 @@ internal sealed class PortalRig
     public PortalRig(bool hosted = false, IPortalParty? party = null)
     {
         Route.Hosted = hosted;
-        Portals = new TownPortals(Mode, World, Route, Anchors, party ?? new SoloPortalParty(), Log);
+        Portals = new TownPortals(Mode, World, Route, Anchors,
+                                  party ?? new Server.Party.PartyPortalParty(new Server.Party.InMemoryParties(new Rules.TF2DescentRules(), new Party.PartyChanges().Hooks)), Log);
         World.Heroes[Slot] = new FakeHero(Hero) { Feet = new Vector(0f, 0f, 0f) };
     }
 

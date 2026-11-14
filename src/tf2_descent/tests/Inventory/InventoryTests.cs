@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using SourceSharp.Host.Contracts;
 using TF2.Descent.Rules;
 using TF2.Descent.Rules.Hero;
@@ -221,6 +222,49 @@ public sealed class InventoryTests
     {
         Assert.Equal(InventoryRefusals.Requirement, Equip(Gear("black_box").Item, "primary", Sheet(brawn: 34)));
         Assert.Null(Equip(Gear("black_box").Item, "primary", Sheet(brawn: 35)));
+    }
+
+    //-------------------------------------------------------------------------
+    // A corpse recovered (WO5's walk back)
+    //-------------------------------------------------------------------------
+
+    [Fact]
+    public void A_recovered_item_whose_requirement_no_longer_holds_goes_to_the_backpack()
+    {
+        var box = Gear("black_box");
+        var corpse = new[] { new CorpseItem(box, Equipped: "primary") };
+
+        var short_ = Inv.Recover(new HeroInventory(), Sheet(brawn: 34), corpse);
+        var met = Inv.Recover(new HeroInventory(), Sheet(brawn: 35), corpse);
+
+        Assert.Equal(box.Id, met.Hero.Equipped["primary"].Id);   // the control: met, it goes back on
+        Assert.Empty(short_.Hero.Equipped);
+        Assert.Equal(box.Id, Assert.Single(short_.Hero.Backpack).Value.Id);
+    }
+
+    [Fact]
+    public void A_recovered_potion_whose_belt_slot_is_taken_goes_to_the_backpack()
+    {
+        var mine = Stack("health_small", 1);
+        var taken = new HeroInventory { Belt = ImmutableSortedDictionary<int, Held>.Empty.Add(0, Stack("mana_small", 1)) };
+
+        var r = Inv.Recover(taken, Sheet(), [new CorpseItem(mine, Belt: 0)]);
+
+        Assert.Equal(mine.Id, Assert.Single(r.Hero.Backpack).Value.Id);
+        Assert.Equal((0, 1), (r.Belted, r.Packed));
+    }
+
+    [Fact]
+    public void What_a_full_backpack_cannot_take_stays_on_the_corpse_with_its_place()
+    {
+        var hero = Fill(new HeroInventory(), Sheet(), Inv.BackpackSlots(Sheet()));
+        var worn = new CorpseItem(Gear("shovel"), Equipped: "melee");
+        var loose = new CorpseItem(Gear("shovel"));
+
+        var r = Inv.Recover(hero, Sheet(), [worn, loose]);
+
+        Assert.Equal(worn.Item.Id, r.Hero.Equipped["melee"].Id);
+        Assert.Equal([loose], r.Left);
     }
 
     [Fact]

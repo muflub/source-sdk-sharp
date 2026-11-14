@@ -42,6 +42,22 @@ namespace TF2.Descent.Server.Horde;
 [Precache(PrecacheKind.Model, RobotLooks.GiantPyroModel)]
 [Precache(PrecacheKind.Model, RobotLooks.GiantDemomanModel)]
 [Precache(PrecacheKind.Model, RobotLooks.GiantHeavyModel)]
+[Precache(PrecacheKind.Model, RobotLooks.SentryBusterModel)]
+[Precache(PrecacheKind.Model, Attacks.EngineRobotAttackWorld.LaserSprite)]
+[Precache(PrecacheKind.Sound, Attacks.RobotAttacks.MinigunWindUp)]
+[Precache(PrecacheKind.Sound, Attacks.RobotAttacks.BusterSpin)]
+[Precache(PrecacheKind.Sound, Attacks.RobotAttacks.BusterExplode)]
+[Precache(PrecacheKind.Sound, Attacks.RobotAttacks.CloakSound)]
+[Precache(PrecacheKind.Sound, Attacks.RobotAttacks.UncloakSound)]
+[Precache(PrecacheKind.ParticleSystem, Attacks.RobotAttacks.BlastTrail)]
+[Precache(PrecacheKind.ParticleSystem, Attacks.RobotAttacks.BlastRing)]
+[Precache(PrecacheKind.Sound, Champions.ChampionGuards.UberOn)]
+[Precache(PrecacheKind.Sound, Champions.ChampionGuards.UberOff)]
+[Precache(PrecacheKind.Sound, Champions.ChampionTeleports.SendSound)]
+[Precache(PrecacheKind.Sound, Champions.ChampionTeleports.ReceiveSound)]
+[Precache(PrecacheKind.ParticleSystem, Champions.ChampionTeleports.Out)]
+[Precache(PrecacheKind.ParticleSystem, Champions.ChampionTeleports.In)]
+[Precache(PrecacheKind.Material, RobotDrawing.UberMaterial)]
 public sealed class RobotBody(IEngineEntityRender render) : ScriptedEntity
 {
     [NetState] public RobotNetState State = new();
@@ -216,6 +232,35 @@ public sealed class RobotBody(IEngineEntityRender render) : ScriptedEntity
     }
 
     internal void SetStatuses(byte statuses) => State.Statuses = statuses;
+
+    /// <summary>Whether the body's flags carry <paramref name="flag"/>.</summary>
+    public bool Has(RobotFlags flag) => ((RobotFlags)State.Flags & flag) != 0;
+
+    /// <summary>Sets or clears one of HO12's look flags (<see cref="RobotFlags.Cloaked"/>, <see cref="RobotFlags.Uber"/>); answers whether it changed. A cloak hides the held weapon too.</summary>
+    internal bool SetFlag(RobotFlags flag, bool on)
+    {
+        if (Parked || Has(flag) == on)
+            return false;
+        State.Flags = (byte)(on ? (RobotFlags)State.Flags | flag : (RobotFlags)State.Flags & ~flag);
+        if (flag == RobotFlags.Cloaked && Weapon is { } w)
+        {
+            if (on)
+                w.Hide();
+            else
+                w.Show(_weaponModel);
+        }
+
+        return true;
+    }
+
+    private string? _weaponModel;
+
+    /// <summary>The weapon model the body holds (kept for a cloak to put back).</summary>
+    internal void Holds(string? weapon)
+    {
+        _weaponModel = weapon;
+        Weapon?.Show(weapon);
+    }
 
     /// <summary>Healed to <paramref name="life"/> of <paramref name="lifeMax"/> (a medic's beam, HO6): the engine health and the health bar follow the roster's life.</summary>
     internal void Healed(double life, double lifeMax)

@@ -25,8 +25,8 @@ public interface IHordeOrders
     void Act(int body, in ActionIntent action);
 }
 
-/// <summary>A hero this tick: its seat (player index), feet, eye and room.</summary>
-public readonly record struct HeroPose(int Seat, AiVector Feet, AiVector Eye, int Room);
+/// <summary>A hero this tick: its seat (player index), feet, eye, room, and the yaw its eyes face, degrees (HO12: the spy reads it).</summary>
+public readonly record struct HeroPose(int Seat, AiVector Feet, AiVector Eye, int Room, float Yaw = 0f);
 
 /// <summary>
 /// A sound the horde may hear (plan_tf2_rpg B.3): what it was, where, how far

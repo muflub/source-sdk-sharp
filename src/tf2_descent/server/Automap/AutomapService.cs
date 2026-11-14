@@ -7,6 +7,7 @@ using SourceSharp.Shared;
 using TF2.Descent.Rules.Automap;
 using TF2.Descent.Server.Hero;
 using TF2.Descent.Server.Level;
+using TF2.Descent.Server.Party;
 using TF2.Descent.Shared;
 
 using AutomapModel = TF2.Descent.Rules.Automap.Automap;
@@ -31,7 +32,9 @@ public interface IAutomapReveal
 
 /// <summary>
 /// THE AUTOMAP, REVEALED ROOM BY ROOM BY THE SERVER (plan_descent_logic UI5, mine plan E2;
-/// plan_tf2_rpg 2m, R23). Each hero has his own map of the level (a shared party map is WO9's):
+/// plan_tf2_rpg 2m, R23). Each hero has a map of the level, and a party shares one (WO9): a room a
+/// member reveals is revealed to every member here, a hero who joins a party is given the party's map
+/// (and the party his), and one who leaves keeps every room he was shown. The map is
 /// the rules' <see cref="AutomapRules"/> over the level's room graph
 /// (<see cref="LevelAdapters.ToAutomap"/>). A room is revealed when the hero stands in it
 /// (<see cref="LevelData.RoomAt"/>, looked at every <see cref="PollFrames"/> frames), and only
@@ -43,8 +46,9 @@ public interface IAutomapReveal
 /// level change starts every map empty.
 /// </summary>
 [SideService(Side.Server, As = [typeof(IAutomapReveal)])]
-public sealed class AutomapService(ILevelData levels, Heroes heroes, HeroSheets sheets, IEngineEntities entities, IUserMessageSender sender)
-    : IAutomapReveal, IFrameLifecycle, IPlayerSpawnHook, IGameLifecycle, IOrderedHook
+public sealed class AutomapService(ILevelData levels, Heroes heroes, HeroSheets sheets, IEngineEntities entities, IUserMessageSender sender,
+                                   IPartyRoster roster, IParties parties, IPartySlots slots)
+    : IAutomapReveal, IFrameLifecycle, IPlayerSpawnHook, IGameLifecycle, IPartyHook, IOrderedHook
 {
     /// <summary>TF2 Descent's automap block (UI5), after the robot views (1200).</summary>
     public const int Order = ModStages.First + 1210;
@@ -95,31 +99,86 @@ public sealed class AutomapService(ILevelData levels, Heroes heroes, HeroSheets 
         }
     }
 
-    /// <summary>Reveals <paramref name="roomKey"/> to the hero in <paramref name="playerIndex"/>; false when he had it.</summary>
+    /// <summary>
+    /// Reveals <paramref name="roomKey"/> to the hero in <paramref name="playerIndex"/> and to every
+    /// member of his party on this server (WO9: the party shares one map), each sent it as his own
+    /// reveal; false when the hero had it.
+    /// </summary>
     public bool Reveal(int playerIndex, string roomKey)
     {
         if (!Refresh() || !_graph!.HasRoom(roomKey))
             return false;
+        bool his = false;
+        foreach (int mate in roster.MatesOf(playerIndex))
+        {
+            bool added = Enter(mate, roomKey);
+            if (mate == playerIndex)
+                his = added;
+        }
+        return his;
+    }
+
+    /// <summary>The room on one hero's map, sent to him; false when he had it.</summary>
+    private bool Enter(int playerIndex, string roomKey)
+    {
         string key = KeyOf(playerIndex);
         var map = _maps.GetValueOrDefault(key) ?? AutomapModel.Empty;
         if (map.Seen(roomKey))
             return false;
-        _maps[key] = map = AutomapRules.Enter(map, _graph, roomKey);
+        _maps[key] = map = AutomapRules.Enter(map, _graph!, roomKey);
         Send(playerIndex, map, roomKey);
         return true;
     }
 
+    /// <summary>Every room of the level, to the hero and the members of his party here (the party shares one map).</summary>
     public void RevealAll(int playerIndex)
     {
         if (!Refresh())
             return;
-        string key = KeyOf(playerIndex);
-        var before = _maps.GetValueOrDefault(key) ?? AutomapModel.Empty;
-        var after = AutomapRules.RevealAll(before, _graph!);
-        _maps[key] = after;
-        foreach (string room in after.RoomsSeen)
-            if (!before.Seen(room))
-                Send(playerIndex, after, room);
+        foreach (int mate in roster.MatesOf(playerIndex))
+        {
+            string key = KeyOf(mate);
+            var before = _maps.GetValueOrDefault(key) ?? AutomapModel.Empty;
+            var after = AutomapRules.RevealAll(before, _graph!);
+            _maps[key] = after;
+            foreach (string room in after.RoomsSeen)
+                if (!before.Seen(room))
+                    Send(mate, after, room);
+        }
+    }
+
+    /// <summary>
+    /// The party's maps made one (WO9): each member of the hero's party here holds every room any
+    /// of them has seen (<see cref="AutomapRules.Merge"/>), and is sent the ones he lacked. What a
+    /// joiner gets (the party's map), and what the party gets of his.
+    /// </summary>
+    public void Share(int playerIndex)
+    {
+        if (!Refresh())
+            return;
+        var mates = roster.MatesOf(playerIndex);
+        if (mates.Count < 2)
+            return;
+        var party = mates.Aggregate(AutomapModel.Empty, (m, slot) => AutomapRules.Merge(m, MapOf(slot)));
+        foreach (int mate in mates)
+        {
+            string key = KeyOf(mate);
+            var before = MapOf(mate);
+            var after = AutomapRules.Merge(before, party);
+            _maps[key] = after;
+            foreach (string room in after.RoomsSeen)
+                if (!before.Seen(room))
+                    Send(mate, after, room);
+        }
+    }
+
+    /// <summary>A hero joined a party (or formed one): the party's maps are made one. One who leaves keeps every room he was shown.</summary>
+    public void OnPartyChanged(in PartyChange change)
+    {
+        if (change.Kind is not (PartyChangeKind.Joined or PartyChangeKind.Formed))
+            return;
+        if (parties.HeroOf(change.Member) is { } hero && slots.SlotOf(hero) is > 0 and var slot)
+            Share(slot);
     }
 
     public void ShrineUsed(string markerKey)

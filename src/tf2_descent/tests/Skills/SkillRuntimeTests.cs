@@ -48,6 +48,22 @@ public sealed class SkillRuntimeTests
     }
 
     [Fact]
+    public void A_cast_is_an_act_and_a_refused_one_is_not()
+    {
+        var rig = Patriot();
+        var hero = rig.Hero();
+        int before = hero.Acts;
+
+        var cast = rig.Runtime.Press(SkillRig.Index, 1);
+        rig.Run(1);
+        hero.SetMana(0);
+        var refused = rig.Runtime.Press(SkillRig.Index, 1);
+
+        Assert.Equal((SkillUseKind.Cast, SkillUseKind.Refused), (cast.Kind, refused.Kind));
+        Assert.Equal(before + 1, hero.Acts);
+    }
+
+    [Fact]
     public void A_refusal_is_told_again_after_a_second()
     {
         var rig = Patriot();

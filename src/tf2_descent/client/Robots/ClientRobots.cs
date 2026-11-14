@@ -36,6 +36,19 @@ public sealed class ClientRobot(IEngineEntityRender render, ClientRobotPoses pos
     /// <summary>The animation layer an attack gesture plays on.</summary>
     public const int GestureLayer = 0;
 
+    /// <summary>A cloaked spy's alpha: a shimmer a hero who looks hard can see.</summary>
+    public const int CloakAlpha = 18;
+
+    /// <summary>TF2's invulnerable sheen for BLU (C_TFPlayer's <c>m_InvulnerableMaterial</c>).</summary>
+    public const string UberMaterial = RobotDrawing.UberMaterial;
+
+    private bool _cloaked, _uber;
+
+    /// <summary>Whether the client draws the body cloaked, and with the über sheen.</summary>
+    public bool DrawnCloaked => _cloaked;
+
+    public bool DrawnUber => _uber;
+
     /// <summary>Updates decoded since the entity was made.</summary>
     public int Updates { get; private set; }
 
@@ -75,6 +88,20 @@ public sealed class ClientRobot(IEngineEntityRender render, ClientRobotPoses pos
             _gesture = State.Gesture;
             _gestureSerial = State.GestureSerial;
             Render.SetAnimLayer(Handle, GestureLayer, _gesture >= 0 ? _gesture : -1, 1f, 1f, 0, true);
+        }
+
+        // HO12's looks: a spy's cloak (all but invisible), a champion's über (TF2's invulnerable sheen on BLU).
+        bool cloaked = (Flags & RobotFlags.Cloaked) != 0, uber = (Flags & RobotFlags.Uber) != 0;
+        if (cloaked != _cloaked)
+        {
+            _cloaked = cloaked;
+            Render.SetBlending(Handle, cloaked, false, cloaked ? CloakAlpha : 255);
+        }
+
+        if (uber != _uber)
+        {
+            _uber = uber;
+            Render.SetMaterialOverride(Handle, uber ? UberMaterial : "");
         }
 
         if (_pose[0] == -2)

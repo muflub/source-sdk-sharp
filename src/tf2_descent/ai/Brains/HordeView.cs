@@ -24,6 +24,10 @@ namespace TF2.Descent.Ai.Brains;
 /// family and its life's share packed into <see cref="ActorFacts.WeaponSeen"/>
 /// (<see cref="Mate"/>): what a pack's board tells its members (plan_tf2_rpg B.4,
 /// the board medics read), not what its eyes see.</item>
+/// <item><b>A hero's facing</b> (HO12): a sighted hero's <see cref="ActorFacts.WeaponSeen"/> is
+/// the yaw its eyes face, in tenths of a degree, 0 to 3599 (<see cref="Hero"/>,
+/// <see cref="HeroYaw"/>): what anyone at the robot's eyes sees of a player (which way it looks),
+/// and what a spy needs to come at it from behind.</item>
 /// <item><b>Its navigation</b>: <see cref="SelfState.AltAmmo"/> is the level graph's epoch once
 /// the server has it ready (<see cref="IHordePaths.Epoch"/>; 0 before: the room route), and
 /// <see cref="SelfState.Grenades"/> the clearance class the robot plans by
@@ -54,6 +58,23 @@ public static class HordeView
     /// <summary>A pack-mate's <see cref="ActorFacts.WeaponSeen"/>: its family in the low byte, its life in thousandths above.</summary>
     public static int Mate(int family, double lifeShare) =>
         (family & FamilyMask) | ((int)Math.Round(Math.Clamp(lifeShare, 0, 1) * 1000, MidpointRounding.AwayFromZero) << FamilyBits);
+
+    /// <summary>A sighted hero's <see cref="ActorFacts.WeaponSeen"/>: the yaw <paramref name="yaw"/> (degrees, any turn) in tenths of a degree, 0 to 3599.</summary>
+    public static int Hero(float yaw)
+    {
+        int tenths = (int)MathF.Round(yaw * 10f) % 3600;
+        return tenths < 0 ? tenths + 3600 : tenths;
+    }
+
+    /// <summary>The yaw a sighted hero faces, degrees 0 to 360 (0 when its facts carry none).</summary>
+    public static float HeroYaw(in ActorFacts f) => f.WeaponSeen is >= 0 and < 3600 ? f.WeaponSeen / 10f : 0f;
+
+    /// <summary>The unit floor vector a sighted hero faces.</summary>
+    public static AiVector HeroForward(in ActorFacts f)
+    {
+        float y = HeroYaw(f) * (MathF.PI / 180f);
+        return new AiVector(MathF.Cos(y), MathF.Sin(y), 0f);
+    }
 
     /// <summary>Whether a sighted actor is a pack-mate (a robot), not a hero.</summary>
     public static bool IsMate(in ActorFacts f) => f.Team == HordeBrains.RobotTeam;

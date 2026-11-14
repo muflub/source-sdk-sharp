@@ -27,7 +27,7 @@ public sealed class DeathRulesTests
         Assert.Equal(new DeathDrops(true, true, true, true), d.Drops);
         Assert.Equal(900, d.CorpseLingerSeconds);
         Assert.Equal(25, d.LostAndFoundFeePct);
-        Assert.Equal(new DownedSettings(20, 5, 5, 3, 96, 30, 2), d.Downed);
+        Assert.Equal(new DownedSettings(20, 5, 5, 3, 96, 30, 2, 6), d.Downed);
     }
 
     [Fact]

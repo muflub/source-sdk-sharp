@@ -239,6 +239,7 @@ public sealed class HordeBrains : IHordeSightSink
             hero.Present = true;
             hero.Feet = pose.Feet;
             hero.Eye = pose.Eye;
+            hero.Yaw = pose.Yaw;
             hero.Room = pose.Room;
             hero.SeenAt = now;
         }
@@ -361,7 +362,7 @@ public sealed class HordeBrains : IHordeSightSink
         {
             Brain = actor,
             Row = row,
-            Family = HordeWeapons.Of(template.Family),
+            Family = HordeWeapons.Of(template.Attack),
             Class = TemplateNumber(template.Id),
             LastPos = _poses.Position(b),
             EyeHeight = EyeHeight * scale,
@@ -636,7 +637,7 @@ public sealed class HordeBrains : IHordeSightSink
             {
                 ref readonly Hero hero = ref _hero[h];
                 if (hero.Present && _vision.Holds(b, h))
-                    view.AddSighted(new ActorFacts(hero.Actor, hero.Feet, hero.Velocity, -1, ActorActivity.None, _vision.Fraction(b, h), Team: HeroTeam));
+                    view.AddSighted(new ActorFacts(hero.Actor, hero.Feet, hero.Velocity, HordeView.Hero(hero.Yaw), ActorActivity.None, _vision.Fraction(b, h), Team: HeroTeam));
             }
 
             AddMates(b, view);
@@ -849,6 +850,7 @@ public sealed class HordeBrains : IHordeSightSink
         public AiVector Feet;
         public AiVector Eye;
         public AiVector Velocity;
+        public float Yaw;
         public int Room;
         public long SeenAt;
     }

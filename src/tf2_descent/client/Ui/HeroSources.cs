@@ -370,9 +370,22 @@ public sealed class ItemActions(IItemViews items, DescentCatalog catalog, IDesce
 
     public void Move(int fromCell, int toCell)
     {
-        if (fromCell < 0 || toCell < 0 || fromCell == toCell || items.In(ItemContainer.Backpack, fromCell) is null)
+        if (fromCell < 0 || toCell < 0 || fromCell == toCell)
             return;
-        line.Send(string.Create(CultureInfo.InvariantCulture, $"tf2_descent_item_move {fromCell} {toCell}"));
+        // The stash locker keys its own cells after the backpack's span (UI4): a move across is a deposit or a withdrawal.
+        int span = StashKeys.Span(items);
+        var c = CultureInfo.InvariantCulture;
+        if (fromCell >= span)
+        {
+            if (items.In(ItemContainer.Stash, fromCell - span) is not null && toCell < span)
+                line.Send(string.Create(c, $"tf2_descent_town_stash_out {fromCell - span}"));
+            return;
+        }
+        if (items.In(ItemContainer.Backpack, fromCell) is null)
+            return;
+        line.Send(toCell >= span
+            ? string.Create(c, $"tf2_descent_town_stash_in {fromCell}")
+            : string.Create(c, $"tf2_descent_item_move {fromCell} {toCell}"));
     }
 }
 
@@ -389,6 +402,7 @@ public sealed class ItemHoverSource(ItemPointer pointer, IItemViews items, ItemV
 {
     private OwnerItemView? Subject =>
         !pointer.Active || items.ContentMismatch ? null
+        : pointer.Row >= StashKeys.Span(items) ? items.In(ItemContainer.Stash, pointer.Row - StashKeys.Span(items))
         : pointer.Row >= 0 ? items.In(ItemContainer.Backpack, pointer.Row)
         : items.In(ItemContainer.Equipped, -1 - pointer.Row);
 
@@ -431,6 +445,23 @@ public sealed class ItemHoverSource(ItemPointer pointer, IItemViews items, ItemV
 
     public DescentAffixLine CompareAffix(int i) =>
         Compared is { } c && i >= 0 && i < c.Affixes.Count ? names.Line(c.Affixes[i].Affix, c.Affixes[i].Value) : default;
+}
+
+/// <summary>
+/// How the stash locker keys its cells to <see cref="IDescentItemActions"/> (the Stash screen's
+/// <c>BpSpan</c>): the backpack's cells first, then the stash's after the backpack's span, the
+/// larger of its item count and its capacity.
+/// </summary>
+public static class StashKeys
+{
+    public static int Span(IItemViews items)
+    {
+        int count = 0;
+        foreach (var item in items.Items)
+            if (item.Container == ItemContainer.Backpack)
+                count++;
+        return Math.Max(count, items.BackpackCapacity);
+    }
 }
 
 /// <summary>The Australium the inventory shows (<see cref="IDescentInvPurse"/>): the purse the item views carry.</summary>
@@ -658,12 +689,12 @@ public sealed class SkillGroupsSource : IDescentSkillGroups
 /// <summary>
 /// The hover popup's content (<see cref="IDescentHintTip"/>, what every
 /// screen's HintTip part reads): the subject whose pointer is on a row, the
-/// sheet's or the skill tree's; inactive when neither is.
+/// sheet's, the skill tree's or the vendor's wares (UI4); inactive when none is.
 /// </summary>
 [SideService(Side.Client, As = [typeof(IDescentHintTip)])]
-public sealed class HintTipSource(IDescentSheetHover sheet, IDescentSkillHover skill) : IDescentHintTip
+public sealed class HintTipSource(IDescentSheetHover sheet, IDescentSkillHover skill, IDescentVendorHover vendor) : IDescentHintTip
 {
-    private IDescentHintTip? Live => sheet.Active ? sheet : skill.Active ? skill : null;
+    private IDescentHintTip? Live => sheet.Active ? sheet : skill.Active ? skill : vendor.Active ? vendor : null;
 
     public bool Active => Live is not null;
 

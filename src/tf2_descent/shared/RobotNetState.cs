@@ -23,6 +23,19 @@ public enum RobotFlags : byte
 
     /// <summary>The robot's life is spent; its body goes back to the pool at the next decision.</summary>
     Dead = 8,
+
+    /// <summary>A spy robot's cloak is on (HO12): the client draws the body all but invisible.</summary>
+    Cloaked = 16,
+
+    /// <summary>A champion's über is on (HO12): it takes no damage, and the client draws TF2's invulnerable sheen.</summary>
+    Uber = 32,
+}
+
+/// <summary>What the client draws HO12's flags with, named once for both sides (the server precaches it).</summary>
+public static class RobotDrawing
+{
+    /// <summary>TF2's invulnerable sheen for BLU (C_TFPlayer's <c>m_InvulnerableMaterial</c>).</summary>
+    public const string UberMaterial = "models/effects/invulnfx_blue";
 }
 
 /// <summary>

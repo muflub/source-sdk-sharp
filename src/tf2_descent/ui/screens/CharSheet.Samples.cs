@@ -12,7 +12,7 @@ namespace TF2.Descent.Client.Ui.Screens;
 public static class CharSheetSamples
 {
     private static UiScreen Build(UiSampleServices s, FakeSheet sheet, MemoryWindowStore? store = null,
-                                  FakeSheetHover? hover = null)
+                                  FakeSheetHover? hover = null, FakeWindowStatus? status = null)
     {
         if (!s.Has<IUiWindowStore>())
             s.Add<IUiWindowStore>(store ?? new MemoryWindowStore());
@@ -27,6 +27,7 @@ public static class CharSheetSamples
         hover ??= new FakeSheetHover();
         s.Add<IDescentSheetHover>(hover);
         s.Add<IDescentHintTip>(hover);
+        s.Add<IDescentWindowStatus>(status ?? new FakeWindowStatus { Showing = false });
         return s.Create<CharSheet>();
     }
 
@@ -54,6 +55,11 @@ public static class CharSheetSamples
             DamageMin = 44,
             DamageMax = 58,
         };
+
+    /// <summary>A spend the server refused: its reason on the window's status line, under the footer.</summary>
+    [UiSample("refused")]
+    private static UiScreen Refused(UiSampleServices s)
+        => Build(s, MidSheet(), status: new FakeWindowStatus { Text = "No points to spend on Aim" });
 
     [UiSample("fresh 1 Soldier")]
     private static UiScreen FreshSoldier(UiSampleServices s)

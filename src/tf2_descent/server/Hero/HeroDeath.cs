@@ -28,6 +28,10 @@ namespace TF2.Descent.Server.Hero;
 /// (<see cref="IItemLedger.RecordDeath"/>), unhosted; hosted,
 /// <c>DeathService</c> records the death with the host, as it did. The
 /// corpse's entity stands where he fell (<see cref="HeroCorpses.Place"/>).</item>
+/// <item>THE WEAR his weapons and armour gathered below a point (HE9's batching) is
+/// written first (<see cref="Gear.HeroWear.FlushHero"/>), queued on the ledger before the
+/// death moves the items to the corpse, so the items keep it (found by the wear lane:
+/// the death used to drop it).</item>
 /// <item>THE RESPAWN: the mode's (<c>HeroRespawn</c>) at the level's
 /// arrival, unhosted (the town needs the host's hop); a fallen hero is held
 /// dead (<see cref="IRespawnGate"/>).</item>
@@ -35,7 +39,7 @@ namespace TF2.Descent.Server.Hero;
 /// </summary>
 [SideService(Side.Server)]
 public sealed class HeroDeathCosts(IDescentModeState mode, Heroes heroes, HeroKeys keys, IItemLedger ledger, TF2DescentRules rules,
-                                   HeroDowned downed, HeroCorpses corpses, ILog log)
+                                   HeroDowned downed, HeroCorpses corpses, Gear.HeroWear wear, ILog log)
     : IPlayerDeathHook, IRespawnGate, IOrderedHook
 {
     /// <summary>In TF2 Descent's downed block.</summary>
@@ -83,6 +87,8 @@ public sealed class HeroDeathCosts(IDescentModeState mode, Heroes heroes, HeroKe
             return;
         }
         int index = death.EntIndex;
+        // The ledger takes a hero's operations in order: the wear lands on the items before they move.
+        wear.FlushHero(key, "death");
         _ = Record(index, key, death.Origin, hardcore);
     }
 

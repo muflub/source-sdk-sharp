@@ -56,7 +56,30 @@ public sealed class HordeSessionShapeTests
     public void A_hit_reaches_the_tally_then_the_brains_then_the_immune_notice_then_the_blasts_push()
     {
         var members = Members(typeof(HordeSession).Assembly, typeof(IRobotHitSink)).OrderBy(m => m.Order).Select(m => m.Name).ToArray();
-        Assert.Equal([nameof(RobotHitTally), nameof(HordeHitSense), nameof(RobotImmuneNotices), nameof(RobotBlastPush)], members);
+        Assert.Equal([nameof(RobotHitTally), nameof(HordeHitSense), nameof(RobotImmuneNotices), nameof(RobotBlastPush),
+                      nameof(TF2.Descent.Server.Horde.Champions.ChampionDeaths), nameof(TF2.Descent.Server.Horde.Champions.ChampionTeleports)], members);
+    }
+
+    /// <summary>HO12's guard chain: the buster's spin (the hands) first, then the champions' über and shield; each order its own.</summary>
+    [Fact]
+    public void A_hit_is_guarded_by_the_busters_spin_then_the_champions()
+    {
+        var members = Members(typeof(HordeSession).Assembly, typeof(IRobotDamageGuard)).OrderBy(m => m.Order).ToArray();
+
+        Assert.Equal([nameof(TF2.Descent.Server.Horde.Attacks.RobotAttacks), nameof(TF2.Descent.Server.Horde.Champions.ChampionGuards)], members.Select(m => m.Name));
+        Assert.Equal(members.Length, members.Select(m => m.Order).Distinct().Count());
+        Assert.All(members, m => Assert.True(m.Order >= ModStages.First));
+    }
+
+    /// <summary>HO12's tickers: the champions' guards alone, at an order of their own.</summary>
+    [Fact]
+    public void The_hordes_tickers_are_the_champions_guards()
+    {
+        var members = Members(typeof(HordeSession).Assembly, typeof(IHordeTicker));
+
+        var only = Assert.Single(members);
+        Assert.Equal(nameof(TF2.Descent.Server.Horde.Champions.ChampionGuards), only.Name);
+        Assert.True(only.Order >= ModStages.First);
     }
 
     [Fact]

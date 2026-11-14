@@ -132,6 +132,23 @@ public sealed class SkillBinderTests
     }
 
     [Fact]
+    public void An_aura_does_not_reach_a_stranger_in_radius()
+    {
+        var rig = new SkillRig();
+        var caster = rig.Join(level: 2);
+        var stranger = rig.Join(4);
+        rig.Party.Strangers.Add(4);    // WO9: a hero in no party with the caster is no member of his
+        rig.World.Origins[stranger.Player] = new Vector(300, 0, 0);
+        rig.Learn("battle_orders");
+        rig.Slot(1, "battle_orders");
+
+        rig.Runtime.Press(SkillRig.Index, 1);
+
+        Assert.Equal(15, caster.Stats!.Total("damage_all_pct"), 6);
+        Assert.Equal(0, stranger.Stats!.Total("damage_all_pct"), 6);
+    }
+
+    [Fact]
     public void A_buff_puts_its_conditions_on_the_hero_as_TF_conditions_for_its_duration()
     {
         var rig = new SkillRig();

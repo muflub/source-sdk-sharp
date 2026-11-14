@@ -33,12 +33,101 @@ public sealed class RobotAttackRulesTests
     }
 
     [Fact]
-    public void Every_family_a_robot_holds_has_an_attack()
+    public void Every_attack_a_robot_holds_has_a_row()
     {
-        var families = Rules.Content.Robots.Rows.Select(r => r.Family).Distinct().ToList();
+        var attacks = Rules.Content.Robots.Rows.Select(r => r.Attack).Distinct().ToList();
 
-        Assert.Equal(9, families.Count);
-        Assert.All(families, f => Assert.Equal(f, Rules.Attacks.Of(f).Id));
+        Assert.Equal(11, attacks.Count);
+        Assert.All(Rules.Content.Robots.Rows, t => Assert.Equal(t.Attack, Rules.Attacks.Of(t).Id));
+    }
+
+    [Fact]
+    public void The_spy_fights_with_its_knife_and_the_buster_with_its_blast()
+    {
+        Assert.Equal(("melee", "knife"), (Rules.Robots.Template("spy").Family, Rules.Robots.Template("spy").Attack));
+        Assert.Equal("sentry_buster", Rules.Robots.Template("sentry_buster").Attack);
+        Assert.Equal("scattergun", Rules.Robots.Template("scout").Attack);
+    }
+
+    [Fact]
+    public void A_template_naming_an_attack_with_no_row_is_refused()
+    {
+        var errors = RobotContentTests.Errors(ContentTables.Robots,
+            n => n.AsArray().Select(r => r!.AsObject()).First(r => (string)r["id"]! == "spy")["attack"] = "garrotte");
+
+        Assert.Contains(errors, e => e.Rule == ContentRule.DanglingReference && e.Message.Contains("'garrotte'"));
+    }
+
+    [Fact]
+    public void A_backstab_on_an_attack_that_does_not_swing_is_refused()
+    {
+        var errors = Errors(n =>
+        {
+            Row(n, "scattergun")["backstabMultiplier"] = 2;
+            Row(n, "scattergun")["backstabConeDegrees"] = 90;
+        });
+
+        Assert.Contains(errors, e => e.Row == "scattergun" && e.Message.Contains("only a melee attack backstabs"));
+    }
+
+    [Fact]
+    public void A_backstab_with_no_cone_is_refused()
+    {
+        var errors = Errors(n => Row(n, "knife")["backstabConeDegrees"] = 0);
+
+        Assert.Contains(errors, e => e.Row == "knife" && e.Message.Contains("cone behind its victim"));
+    }
+
+    [Fact]
+    public void A_telegraph_with_no_windup_is_refused()
+    {
+        var errors = Errors(n => Row(n, "sniper_rifle")["windupSeconds"] = 0);
+
+        Assert.Contains(errors, e => e.Row == "sniper_rifle" && e.Message.Contains("telegraph is shown over a windup"));
+    }
+
+    [Fact]
+    public void An_unknown_telegraph_is_refused()
+    {
+        var errors = Errors(n => Row(n, "sniper_rifle")["telegraph"] = "fireworks");
+
+        Assert.Contains(errors, e => e.Row == "sniper_rifle" && e.Rule == ContentRule.Malformed && e.Message.Contains("'fireworks'"));
+    }
+
+    [Fact]
+    public void A_blast_with_no_radius_is_refused()
+    {
+        var errors = Errors(n => Row(n, "sentry_buster")["blastRadius"] = 0);
+
+        Assert.Contains(errors, e => e.Row == "sentry_buster" && e.Message.Contains("blastRadius"));
+    }
+
+    [Fact]
+    public void Gravity_on_an_attack_that_throws_nothing_is_refused()
+    {
+        var errors = Errors(n => Row(n, "minigun")["gravity"] = 320);
+
+        Assert.Contains(errors, e => e.Row == "minigun" && e.Message.Contains("lobbed under gravity"));
+    }
+
+    [Fact]
+    public void A_row_that_is_no_family_and_names_no_damage_type_is_refused()
+    {
+        var errors = Errors(n => Row(n, "knife").Remove("damageType"));
+
+        Assert.Contains(errors, e => e.Row == "knife" && e.Rule == ContentRule.DanglingReference);
+    }
+
+    [Fact]
+    public void The_new_rows_carry_the_numbers_the_families_read()
+    {
+        Assert.Equal(0.75, Rules.Attacks.Of("minigun").SpinUpSeconds, 9);
+        Assert.True(Rules.Attacks.Of("minigun").TurnDegreesPerSecond > 0);
+        Assert.True(Rules.Attacks.Of("grenade_launcher").Gravity > 0);
+        Assert.Equal(RobotAttack.LaserTelegraph, Rules.Attacks.Of("sniper_rifle").Telegraph);
+        Assert.True(Rules.Attacks.Of("flamethrower").AfterburnSeconds > 0);
+        Assert.Equal((RobotAttackKind.Blast, RobotAttack.SpinTelegraph), (Rules.Attacks.Of("sentry_buster").Kind, Rules.Attacks.Of("sentry_buster").Telegraph));
+        Assert.True(Rules.Attacks.Of("knife").BackstabMultiplier > 1);
     }
 
     [Fact]
@@ -141,6 +230,13 @@ public sealed class RobotAttackRulesTests
         Assert.Equal("blast", Rules.Attacks.DamageTypeOf(Rules.Attacks.Of("rocket_launcher")));
         Assert.Equal("bullet", Rules.Attacks.DamageTypeOf(Rules.Attacks.Of("melee")));
         Assert.Equal("fire", Rules.Attacks.DamageTypeOf(Rules.Attacks.Of("flamethrower")));
+    }
+
+    [Fact]
+    public void A_row_that_is_no_family_is_resisted_as_its_own_damage_type()
+    {
+        Assert.Equal("bullet", Rules.Attacks.DamageTypeOf(Rules.Attacks.Of("knife")));
+        Assert.Equal("blast", Rules.Attacks.DamageTypeOf(Rules.Attacks.Of("sentry_buster")));
     }
 
     [Fact]

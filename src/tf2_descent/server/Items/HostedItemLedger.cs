@@ -255,7 +255,13 @@ public sealed class HostedItemLedger(IGameRules rules, IHooks<IItemLedgerHook> h
         }
     }
 
-    protected override async Task<VendorAnswer> RollStock(LedgerHero hero, string vendor)
+    /// <summary>The host prices with no stat of the buyer's: his price stats move nothing here.</summary>
+    protected override bool BuyerPricing => false;
+
+    /// <summary>The host's stock is asked each time (it restocks by its own rules).</summary>
+    protected override bool KeepsStock => false;
+
+    protected override async Task<VendorAnswer> RollStock(LedgerHero hero, string vendor, long restock)
     {
         var r = await host.VendorStock(vendor);
         if (!r.Ok)

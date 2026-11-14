@@ -191,6 +191,53 @@ public class LoadoutProviderTests
             "the provider owns the weapons column whole — the crowbar the mod never named is gone");
     }
 
+    /// <summary>A provider that owns the weapons column for the players <see cref="Owns"/> says.</summary>
+    private sealed class Owner(IEnumerable<string>? weapons, bool owns) : ILoadoutProvider, IWeaponColumnOwner
+    {
+        public int Asked { get; private set; }
+        public IEnumerable<string> Weapons(EntityHandle player) => weapons ?? [];
+        public IEnumerable<(string, int)> Ammo(EntityHandle player) => [];
+
+        public bool OwnsWeapons(EntityHandle player)
+        {
+            Asked++;
+            return owns;
+        }
+    }
+
+    [Fact]
+    public void AnOwnersEmptyWeaponAnswerGivesNoWeapons()
+    {
+        var rig = new Rig();
+        Assert.NotEmpty(rig.Gave(rig.Rules()));   // the control: the core's kit
+
+        var owner = new Owner(null, owns: true);
+        var kit = rig.Gave(rig.Rules(new ListHooks<ILoadoutProvider>(owner)));
+
+        Assert.Empty(kit);
+        Assert.True(owner.Asked > 0, "the owner was asked");
+    }
+
+    [Fact]
+    public void AnOwnerThatDoesNotOwnThePlayerLeavesTheCoreKit()
+    {
+        var rig = new Rig();
+
+        var kit = rig.Gave(rig.Rules(new ListHooks<ILoadoutProvider>(new Owner(null, owns: false))));
+
+        Assert.True(kit.SequenceEqual(GameRules.Loadout), "no opinion: the core's kit stands");
+    }
+
+    [Fact]
+    public void AnOwnersNamedWeaponsAreGivenAsAnyProviders()
+    {
+        var rig = new Rig();
+
+        var kit = rig.Gave(rig.Rules(new ListHooks<ILoadoutProvider>(new Owner(["weapon_357"], owns: true))));
+
+        Assert.Equal(["weapon_357"], kit);
+    }
+
     [Fact]
     public void AProviderCanTakeOneColumnAndLeaveTheOther()
     {

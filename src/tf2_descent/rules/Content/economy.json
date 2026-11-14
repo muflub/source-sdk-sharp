@@ -1,6 +1,8 @@
 {
   "value": { "perItemLevel": 0.1, "perPower": 0.5 },
   "prices": { "buy": 1, "sell": 0.25 },
+  "buyer": { "buy": "price_buy_pct", "sell": "price_sell_pct" },
+  "restock": { "seconds": 3600 },
   "identify": { "base": 10, "perItemLevel": 4, "recipe": "identify", "dossier": "dossier" },
   "metal": { "ladder": ["scrap", "reclaimed", "refined"], "ratio": 3, "up": "metal_up", "down": "metal_down" },
   "salvage": { "perItemLevel": 0.1 },

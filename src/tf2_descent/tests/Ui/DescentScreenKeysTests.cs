@@ -58,6 +58,14 @@ public sealed class DescentScreenKeysTests
     }
 
     [Fact]
+    public void P_opens_the_party_window()
+    {
+        var final = Final(Actions());
+
+        Assert.Equal("tf2_descent_ui party", final["p"]);
+    }
+
+    [Fact]
     public void M_toggles_the_automap()
     {
         var final = Final(Actions());
@@ -68,7 +76,7 @@ public sealed class DescentScreenKeysTests
     [Fact]
     public void The_window_keys_are_none_of_the_skill_or_belt_keys()
     {
-        string[] windows = ["c", "i", "k", "m"];
+        string[] windows = ["c", "i", "k", "m", "p"];
         var reserved = SkillKeys.SlotKeys.Concat(SkillKeys.BeltKeys).ToArray();
 
         Assert.Equal(10, reserved.Length);                       // the stimulus: the skills' six and the belt's four
@@ -78,7 +86,7 @@ public sealed class DescentScreenKeysTests
     }
 
     [Fact]
-    public void The_window_keys_take_exactly_four_of_tf2s_binds()
+    public void The_window_keys_take_exactly_five_of_tf2s_binds()
     {
         var actions = Actions();
         var tf2Only = ClientKeyActions.Of(typeof(client::TF2.Client.MoveForwardKey).Assembly.GetTypes(), typeof(ClientKeyActions).Assembly);
@@ -89,6 +97,7 @@ public sealed class DescentScreenKeysTests
         var displaced = before.Where(kv => after[kv.Key] != kv.Value).ToDictionary(kv => kv.Key, kv => kv.Value);
         foreach (string skillKey in SkillKeys.SlotKeys)
             displaced.Remove(skillKey);
+        displaced.Remove("l");   // the miner's lamp's key (HE10): HeroLampLightsTests holds it
 
         Assert.Equal(new Dictionary<string, string>
         {
@@ -96,6 +105,7 @@ public sealed class DescentScreenKeysTests
             ["i"] = "showmapinfo",
             ["k"] = "cl_decline_first_notification",
             ["m"] = "open_charinfo_direct",        // TF2's loadout, which Descent keeps closed (HE1)
+            ["p"] = "say_party",                   // the party window (WO9): heroes are one team, team chat reaches the party
         }, displaced);
     }
 }

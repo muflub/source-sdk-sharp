@@ -77,6 +77,27 @@ public sealed class TFItemSourceTests
     }
 
     [Fact]
+    public void AClassedPlayerWhoseSourcesEmptyEveryWeaponSlotOwnsAnEmptyWeaponColumn()
+    {
+        var empty = new Source((_, _, slot) => slot is >= TFLoadoutSlot.Primary and <= TFLoadoutSlot.Melee
+            ? TFSlotItem.Empty
+            : TFSlotItem.NoOpinion);
+        var provider = Provider(null, empty);
+
+        Assert.NotEmpty(Provider().Weapons(Player));   // the control: the inventory's kit
+        Assert.Empty(provider.Weapons(Player));
+        Assert.True(provider.OwnsWeapons(Player), "an empty kit is no weapons, not the core's HL2 kit");
+    }
+
+    [Fact]
+    public void APlayerWithNoClassOwnsNoWeaponColumn()
+    {
+        var provider = LoadoutDeps.Loadout(Inventory(), _schema, new Classes(TFClass.Undefined), log: _log);
+
+        Assert.False(provider.OwnsWeapons(Player));
+    }
+
+    [Fact]
     public void ASourcesItemIsTheOneInItsSlot()
     {
         var rolled = RolledLauncher();

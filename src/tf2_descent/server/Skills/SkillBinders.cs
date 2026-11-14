@@ -41,15 +41,17 @@ public sealed class SkillBinders
     private readonly Heroes _heroes;
     private readonly SkillBuffs _buffs;
     private readonly IRobotStatusSink _robots;
+    private readonly Party.IPartyRoster _roster;
     private readonly ILog _log;
     private readonly Dictionary<Primitive, ISkillBinder> _byPrimitive = new();
 
-    public SkillBinders(ISkillWorld world, Heroes heroes, SkillBuffs buffs, IRobotStatusSink robots, ILog log)
+    public SkillBinders(ISkillWorld world, Heroes heroes, SkillBuffs buffs, IRobotStatusSink robots, Party.IPartyRoster roster, ILog log)
     {
         _world = world;
         _heroes = heroes;
         _buffs = buffs;
         _robots = robots;
+        _roster = roster;
         _log = log;
     }
 
@@ -79,7 +81,10 @@ public sealed class SkillBinders
     public int Ticks(double seconds) =>
         seconds <= 0 ? 0 : (int)Math.Round(seconds / _world.TickInterval, MidpointRounding.AwayFromZero);
 
-    /// <summary>The heroes alive within <paramref name="radius"/> of <paramref name="hero"/>, the hero first; just the hero for a radius of 0.</summary>
+    /// <summary>
+    /// The members of the hero's party (WO9: a stranger is not his party) alive within <paramref name="radius"/>
+    /// of <paramref name="hero"/>, the hero first; just the hero for a radius of 0, or solo.
+    /// </summary>
     public IReadOnlyList<HeroComponent> PartyAround(EntityHandle hero, double radius)
     {
         var found = new List<HeroComponent>();
@@ -92,6 +97,7 @@ public sealed class SkillBinders
         Vector at = _world.OriginOf(hero);
         foreach (var h in _heroes.All.OrderBy(h => h.PlayerIndex))
             if (!ReferenceEquals(h, self) && h.Player != EntityHandle.None && _world.IsAlive(h.Player)
+                && (self is null || _roster.SameParty(self.PlayerIndex, h.PlayerIndex))
                 && (_world.OriginOf(h.Player) - at).Length <= radius)
                 found.Add(h);
         return found;

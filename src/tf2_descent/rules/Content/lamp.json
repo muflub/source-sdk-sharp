@@ -1,0 +1,12 @@
+{
+  "light": {
+    "radius": 720,
+    "innerAngle": 20,
+    "outerAngle": 38,
+    "colour": { "r": 255, "g": 226, "b": 178 },
+    "exponent": 3,
+    "forward": 8
+  },
+  "onFromDepth": 1,
+  "pitchStep": 3
+}

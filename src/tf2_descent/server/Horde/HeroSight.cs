@@ -9,7 +9,7 @@ using TF2.Descent.Server.Mode;
 namespace TF2.Descent.Server.Horde;
 
 /// <summary>A hero as sight needs it: the player, its eye, and the room it stands in (-1 for none).</summary>
-public readonly record struct HeroEye(EntityHandle Player, Vector Eye, int Room);
+public readonly record struct HeroEye(EntityHandle Player, Vector Eye, int Room, float Yaw = 0f);
 
 /// <summary>What sight asks of the world: the potentially visible set, then a line.</summary>
 public interface ISightWorld
@@ -204,7 +204,7 @@ public sealed class HordeHeroes(ITeams teams, IEnginePlayers players, IEngineEnt
             var feet = HordeVectors.ToAi(entities.GetOrigin(player));
             int room = level.RoomAt(feet);
             places[n] = new HeroPlace(entities.GetIndex(player), room, feet);
-            eyes[n] = new HeroEye(player, entities.GetEyePosition(player), room);
+            eyes[n] = new HeroEye(player, entities.GetEyePosition(player), room, entities.GetEyeAngles(player).Y);
             n++;
         }
 

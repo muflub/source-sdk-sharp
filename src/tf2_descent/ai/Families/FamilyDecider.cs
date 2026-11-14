@@ -43,6 +43,39 @@ public enum FamilyNode : short
 
     /// <summary>A medic running from a hero.</summary>
     Flee,
+
+    /// <summary>A scout in its band, circling its hero and firing.</summary>
+    Circle,
+
+    /// <summary>A pyro on its hero, flame on.</summary>
+    Burn,
+
+    /// <summary>A demoman in its band, lobbing.</summary>
+    Lob,
+
+    /// <summary>A heavy holding its ground, gun turning onto its hero.</summary>
+    Suppress,
+
+    /// <summary>A sniper holding, aiming and charging its shot.</summary>
+    Aim,
+
+    /// <summary>A sniper rushed: running for room.</summary>
+    Relocate,
+
+    /// <summary>A spy going to a point behind its hero, cloaked.</summary>
+    Stalk,
+
+    /// <summary>A spy near its hero but in front of it: going round to its back.</summary>
+    Flank,
+
+    /// <summary>A spy at its hero, knife out.</summary>
+    Stab,
+
+    /// <summary>A sentry buster running at its hero.</summary>
+    Run,
+
+    /// <summary>A sentry buster at its hero: spinning up its blast.</summary>
+    Detonate,
 }
 
 /// <summary>
@@ -84,7 +117,7 @@ public abstract class FamilyDecider : IDecider, IHordeRouted
     public static ImmutableArray<string> Names => [.. Enum.GetValues<FamilyNode>().Select(NameOf)];
 
     /// <summary>Each node's branch: the hunt's own, then one a fight.</summary>
-    public static ImmutableArray<int> Branches => [.. HuntDecider.Branches, 6, 6, 7, 7, 7, 7, 8, 8, 8];
+    public static ImmutableArray<int> Branches => [.. HuntDecider.Branches, 6, 6, 7, 7, 7, 7, 8, 8, 8, 9, 10, 11, 12, 13, 13, 14, 14, 14, 15, 15];
 
     public IReadOnlyList<string> NodeNames => Names;
 
@@ -105,7 +138,18 @@ public abstract class FamilyDecider : IDecider, IHordeRouted
             FamilyNode.BackOff => "back-off",
             FamilyNode.Heal => "heal",
             FamilyNode.Follow => "follow",
-            _ => "flee",
+            FamilyNode.Flee => "flee",
+            FamilyNode.Circle => "circle",
+            FamilyNode.Burn => "burn",
+            FamilyNode.Lob => "lob",
+            FamilyNode.Suppress => "suppress",
+            FamilyNode.Aim => "aim",
+            FamilyNode.Relocate => "relocate",
+            FamilyNode.Stalk => "stalk",
+            FamilyNode.Flank => "flank",
+            FamilyNode.Stab => "stab",
+            FamilyNode.Run => "run",
+            _ => "detonate",
         };
 
     public IntentCommand Decide(Tick tick, PerceivedView view, int seq)
@@ -202,6 +246,89 @@ public abstract class FamilyDecider : IDecider, IHordeRouted
 
         return false;
     }
+
+    // ------------------------------------------------------------------ HO12's shared pieces
+
+    private Tick _flipAt;
+    private float _side = 1f;
+    private bool _strafing;
+
+    /// <summary>
+    /// Whether to strafe now and to which side (+1 left of the hero's line, -1 right): every
+    /// <c>strafeMeanSeconds</c> or so (Agility) the robot chooses again, strafing with the chance its
+    /// <c>strafeWeight</c> gives (Agility; 1 for a family that always moves, <paramref name="always"/>).
+    /// </summary>
+    protected bool Strafe(Tick tick, out float side, bool always = false)
+    {
+        if (tick >= _flipAt)
+        {
+            _strafing = always || Roll(tick, 7) < Params.StrafeWeight;
+            _side = Roll(tick, 8) < 0.5f ? -1f : 1f;
+            _flipAt = tick + Math.Max(1, (int)MathF.Ceiling(Params.StrafeMeanSeconds * (0.5f + Roll(tick, 9)) / Setup.TickSeconds));
+        }
+
+        side = _side;
+        return _strafing;
+    }
+
+    /// <summary>Whether the line of fire the view carries runs to within <paramref name="slack"/> of <paramref name="aim"/> (an untraced line counts as clear).</summary>
+    protected static bool LineClear(PerceivedView view, AiVector eye, AiVector aim, float slack)
+    {
+        int line = view.Self.Reserve;
+        return line == HordeView.NotTraced || line >= eye.DistanceTo(aim) - slack;
+    }
+
+    /// <summary>Whether the robot's life is under its <c>retreatHealthPct</c> (Nerve: a fearless robot fights on lower).</summary>
+    protected bool Hurt(PerceivedView view) => HordeView.Life(view.Self) < Params.RetreatHealthPct;
+
+    /// <summary>A sighted actor's chest.</summary>
+    protected static AiVector Chest(in ActorFacts f) => f.Origin + new AiVector(0f, 0f, FamilyNumbers.ChestUnits);
+
+    /// <summary>
+    /// The centre of the pack-mates in view, and whether the robot stands past its <c>leashUnits</c>
+    /// from it (Soloness: a lone robot's leash is long, a pack-bound one's short). False with no mate.
+    /// </summary>
+    protected bool Leashed(PerceivedView view, AiVector self, out AiVector centre)
+    {
+        centre = default;
+        int n = 0;
+        foreach (ref readonly ActorFacts m in view.Sighted)
+        {
+            if (!HordeView.IsMate(m))
+                continue;
+            centre += m.Origin;
+            n++;
+        }
+
+        if (n == 0)
+            return false;
+        centre *= 1f / n;
+        return self.DistanceTo(centre) > Params.LeashUnits;
+    }
+
+    /// <summary>The engine yaw of a floor direction, degrees.</summary>
+    protected static float YawOf(AiVector d) => MathF.Atan2(d.Y, d.X) * (180f / MathF.PI);
+
+    /// <summary>A point <paramref name="distance"/> from <paramref name="eye"/> along engine angles <paramref name="pitch"/>, <paramref name="yaw"/> (pitch positive down).</summary>
+    protected static AiVector Along(AiVector eye, float pitch, float yaw, float distance) =>
+        eye + HordeView.Forward(new AiAngles(pitch, yaw, 0f)) * distance;
+
+    /// <summary><paramref name="d"/> turned by <paramref name="degrees"/> about the vertical.</summary>
+    protected static AiVector Turned(AiVector d, float degrees)
+    {
+        float r = degrees * (MathF.PI / 180f), c = MathF.Cos(r), s = MathF.Sin(r);
+        return new AiVector(d.X * c - d.Y * s, d.X * s + d.Y * c, d.Z);
+    }
+
+    /// <summary>The angle from <paramref name="from"/> to <paramref name="to"/>, degrees, -180 to 180.</summary>
+    protected static float Delta(float from, float to)
+    {
+        float d = (to - from) % 360f;
+        return d > 180f ? d - 360f : d < -180f ? d + 360f : d;
+    }
+
+    /// <summary>An ability ask: the horde's row (<see cref="HordeAbilities"/>).</summary>
+    protected static ActionIntent Ability(int row) => new(ActionKind.Ability, FireStyle.Tap, row, 0);
 
     /// <summary>The intent, with the decide's node traced and its doing record.</summary>
     protected IntentCommand End(Tick tick, int seq, FamilyNode node, in MoveIntent move, in LookIntent look, in ActionIntent action, AiVector goal, ActorId target,

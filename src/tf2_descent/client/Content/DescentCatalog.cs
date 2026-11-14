@@ -91,7 +91,7 @@ public sealed class DescentCatalog
     [
         "skills", "skill_tabs", "skill_settings", "item_bases", "affixes", "attributes", "rarities",
         "families", "damage_types", "unusual_effects", "uniques", "inventory",
-        "robots", "champions", "status",
+        "robots", "champions", "status", "lamp", "hazards",
     ];
 
     /// <summary>The token of a skill's name.</summary>

@@ -77,6 +77,25 @@ public partial class HeroNetState
     public partial bool Hardcore { get; set; }
 
     /// <summary>
+    /// The hero's miner's lamp is lit (HE10; mine plan M9, D7, E5): every client lights it for a
+    /// hero it can see. The server writes it lit only for a living hero whose switch is on.
+    /// </summary>
+    public partial bool LampOn { get; set; }
+
+    /// <summary>
+    /// The hero's look, as whole steps of lamp.json's pitch step above straight up
+    /// (<c>LampRules.PitchSteps</c>): where every other client points his lamp. Written while the
+    /// lamp is lit; a client may not know another player's pitch otherwise.
+    /// </summary>
+    [NetField(Bits = 7)] public partial byte LampPitch { get; set; }
+
+    /// <summary>
+    /// The hazard the hero stands in (HE10, mine plan D8): hazards.json's kind, its position plus
+    /// one; 0 for none. For his HUD's warning; every client holds it.
+    /// </summary>
+    [NetField(Bits = 4)] public partial byte Hazard { get; set; }
+
+    /// <summary>
     /// The wire's rounding: a value as the whole number a HUD shows, rounded
     /// down and held inside 0..65535. A NaN is 0.
     /// </summary>

@@ -5,6 +5,7 @@ using SourceSharp.Shared;
 
 using TF2.Descent.Client.Belt;
 using TF2.Descent.Client.Content;
+using TF2.Descent.Client.Party;
 using TF2.Descent.Client.Skills;
 
 namespace TF2.Descent.Client.Ui;
@@ -59,36 +60,57 @@ public sealed class XpSource(IHeroStates heroes) : IDescentXp
 }
 
 /// <summary>
-/// The party frames (<see cref="IDescentParty"/>): every hero this client
-/// holds, by player index, the local one included. The name is the engine's
-/// player info; the life is the local player's own health, or another
-/// player's as the core's <c>player_manager</c> row carries it (the
-/// scoreboard's health column, sent to every client); the maximum is the
-/// hero's sheet. Distance is from the local player's origin to the other
-/// player's entity, in whole units. The list is read once each time the
-/// count is asked, so a frame's rows agree with its count.
+/// The party frames (<see cref="IDescentParty"/>): the local hero's party as
+/// the server told it (<see cref="IPartyState"/>, WO9), in the order its
+/// members joined, him among them; solo, the local hero alone. A member on
+/// this server is read from his hero: the name is the engine's player info;
+/// the life is the local player's own health, or another player's as the
+/// core's <c>player_manager</c> row carries it (the scoreboard's health
+/// column, sent to every client); the maximum is the hero's sheet. Distance is
+/// from the local player's origin to the other player's entity, in whole
+/// units. A member who is not on this server (hosted: in town, or on another
+/// level) is <see cref="DescentPartyMember.OffLevel"/>, with the name, class
+/// and level the server sent and no life. Another hero who is not in the party
+/// is not listed. The list is read once each time the count is asked, so a
+/// frame's rows agree with its count.
 /// </summary>
 [SideService(Side.Client, As = [typeof(IDescentParty)])]
 public sealed class PartySource(IHeroStates heroes, IEngineHud hud, IPlayerNames names,
-                                IClientStandalones standalones, IEngineEntities entities) : IDescentParty
+                                IClientStandalones standalones, IEngineEntities entities, IPartyState party) : IDescentParty
 {
-    private IReadOnlyList<HeroState> _heroes = [];
+    private readonly List<DescentPartyMember> _rows = [];
 
     public int MemberCount
     {
         get
         {
-            _heroes = heroes.All();
-            return _heroes.Count;
+            _rows.Clear();
+            var view = party.View;
+            if (!view.InParty)
+            {
+                if (heroes.Local() is { } me)
+                    _rows.Add(Row(me, ""));
+                return _rows.Count;
+            }
+
+            int local = hud.LocalPlayerIndex;
+            foreach (var m in view.Members)
+            {
+                _rows.Add(m.Slot > 0 && heroes.Of(m.Slot) is { } hero
+                    ? Row(hero, m.Name)
+                    : new DescentPartyMember(m.Name, HeroClassTokens.Of(m.ClassId), m.Level, 0, 0, false,
+                                             m.Slot > 0 && m.Slot == local, false, 0, OffLevel: m.Slot == 0));
+            }
+            return _rows.Count;
         }
     }
 
-    public DescentPartyMember Member(int i)
+    public DescentPartyMember Member(int i) => _rows[i];
+
+    private DescentPartyMember Row(HeroState hero, string sent)
     {
-        var hero = _heroes[i];
-        int local = hud.LocalPlayerIndex;
-        bool isLocal = hero.PlayerIndex == local;
-        string name = names.TryGet(hero.PlayerIndex, out var info) ? info.Name : "";
+        bool isLocal = hero.PlayerIndex == hud.LocalPlayerIndex;
+        string name = names.TryGet(hero.PlayerIndex, out var info) && info.Name.Length > 0 ? info.Name : sent;
         return new DescentPartyMember(name, HeroClassTokens.Of(hero.ClassId), hero.Level,
                                       isLocal ? Math.Max(0, hud.LocalPlayerHealth) : HealthOf(hero.PlayerIndex), hero.LifeMax,
                                       hero.Downed, isLocal, hero.Hardcore,

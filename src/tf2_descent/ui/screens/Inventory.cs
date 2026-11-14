@@ -14,6 +14,13 @@ namespace TF2.Descent.Client.Ui.Screens;
 /// tooltip is the ItemTooltip part in an overlay anchored near the hovered
 /// slot, so it reads over the busy grid. Clicks go to IDescentItemActions:
 /// a backpack cell by its index, a doll slot as <c>-1 - slot</c>.
+/// The doll's cells are the belt's width (112 du), so an item's name reads
+/// whole over two lines. A row under the bag's caption picks what a click on
+/// a bag cell does: equip it (the default), move it (a click picks the item
+/// up, framed in the accent; a click on another cell puts it there, swapping
+/// with what is in it), or drop it at the hero's feet. The toolkit has no
+/// drag and no second button, so the mode is the context. The window's
+/// status line (the last notice: a refusal's reason) sits along the bottom.
 /// Narrow (a dragged-narrow window): the doll stacks above the backpack and
 /// the grid thins to the columns the width allows.
 /// </summary>
@@ -30,15 +37,31 @@ public sealed class Inventory(
     ItemSlot slot,
     IDescentItemActions? actions = null,
     IDescentInspect? inspect = null,
-    IDescentInspectActions? inspectActions = null) : UiScreen, IUiWindowed
+    IDescentInspectActions? inspectActions = null,
+    IDescentItemDrop? drop = null,
+    StatusRow? status = null) : UiScreen, IUiWindowed
 {
+    /// <summary>A doll cell's width: the belt's slot, room for a name on two lines.</summary>
+    public const float DollCellDu = BeltStrip.SlotDu;
+
+    /// <summary>What a click on a bag cell does.</summary>
+    public enum CellMode : byte { Equip, Move, Drop }
+
+    /// <summary>The bag's click mode (the row under its caption).</summary>
+    public CellMode Mode { get; private set; }
+
+    /// <summary>The bag cell picked up for a move; -1 for none.</summary>
+    public int Picked { get; private set; } = -1;
+
+    private Action<int>? _onCell;
+
     public override string Name => "inventory";
     /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
     public override string? Panel => "descent_inventory";
     public string WindowId => "inventory";
     private const float ColumnDu = ItemSlot.SizeDu + (float)Space.XS;
+    private const float DollColumnDu = DollCellDu + (float)Space.M;
     private readonly Action<int>? _onCellHover = actions is null ? null : new Action<int>(actions.Hover);
-    private readonly Action<int>? _onCellUse = actions is null ? null : new Action<int>(actions.Use);
     private UiBox _anchor;
     private bool _hasAnchor;
     // The inspect modal is the screen's (the overlay is the screen's surface);
@@ -80,14 +103,18 @@ public sealed class Inventory(
             // The grid thins to the width when the window is dragged narrow;
             // the body then stacks doll over backpack.
             float bodyW = ui.DesignWidth - 2 * UiWindowWidget.Ring - 2 * (float)Space.L;
-            int cols = ui.Narrow ? Math.Clamp((int)((bodyW + (float)Space.XS) / ColumnDu), 4, 8) : 8;
-            var props = new ItemGridProps(backpack, cols, _onCellHover, _onCellUse, _inspectActions);
+            // Beside the wide doll the bag takes the columns the rest of the width holds, up to 8.
+            float bagW = ui.Narrow ? bodyW : bodyW - (3 * DollColumnDu - (float)Space.M) - (float)Space.L;
+            int cols = Math.Clamp((int)((bagW + (float)Space.XS) / ColumnDu), 4, 8);
+            var props = new ItemGridProps(backpack, cols, _onCellHover, actions is null ? null : CellAction(), _inspectActions,
+                                          Picked, UseEmpty: Mode == CellMode.Move && Picked >= 0);
 
             UiBox bagBox;
             if (ui.Narrow)
             {
                 DollRow(ref ui);
                 BagCaption(ref ui);
+                ModeRow(ref ui);
                 using (ui.Scroll("bagscroll", Space.None).Size(Size.Fill, Size.Fill))
                     bagBox = ui.Sub("bag", grid, props);
             }
@@ -99,6 +126,7 @@ public sealed class Inventory(
                     using (ui.Column(Space.S, Align.Stretch))
                     {
                         BagCaption(ref ui);
+                        ModeRow(ref ui);
                         using (ui.Scroll("bagscroll", Space.None).Width(Size.Fill).Height(Size.Fill))
                             bagBox = ui.Sub("bag", grid, props);
                     }
@@ -108,6 +136,8 @@ public sealed class Inventory(
             // The potion belt along the bottom, centred, the HUD's strip.
             using (ui.Row(Space.None, Align.Centre).Width(Size.Fill))
                 ui.Sub("belt", belt);
+            if (status is not null)
+                ui.Sub("status", status);
 
             // The tooltip last: the overlay draws above the grid it covers,
             // anchored to the hovered doll slot, or to the bag when the grid
@@ -174,7 +204,7 @@ public sealed class Inventory(
             return;
         var item = equip.SlotItem(i);
         bool earned = equip.SlotEarned(i);
-        var box = ui.Box().Size(Size.Du(ItemSlot.SizeDu), Size.Du(ItemSlot.SizeDu)).Key(i);
+        var box = ui.Box().Size(Size.Du(DollCellDu), Size.Du(ItemSlot.SizeDu)).Key(i);
         var hit = ui.Interact(box);
         if (hit.Hovered)
         {
@@ -188,7 +218,7 @@ public sealed class Inventory(
         using (box)
             ui.Sub(-1 - i, slot, new ItemSlotProps(item, !earned, false, item is not null, hit.Hovered,
                                                    item is not null && _inspectActions is not null, i,
-                                                   _inspectActions));
+                                                   _inspectActions, DollCellDu));
         if (hit.Clicked && item is not null)
             actions?.Use(-1 - i);
     }
@@ -206,6 +236,80 @@ public sealed class Inventory(
             if (backpack.Overflow)
                 ui.Text("#Descent_Inv_Overflow", Text.Caption, Tone.Warning);
         }
+    }
+
+    /// <summary>
+    /// What a bag cell's click does, by the mode: equip, pick up then put down
+    /// (a second click on the picked cell puts it back), or drop.
+    /// </summary>
+    public void OnCell(int cell)
+    {
+        switch (Mode)
+        {
+            case CellMode.Move when Picked < 0:
+                if (backpack.Cell(cell) is not null)
+                    Picked = cell;
+                break;
+            case CellMode.Move:
+                if (cell != Picked)
+                    actions?.Move(Picked, cell);
+                Picked = -1;
+                break;
+            case CellMode.Drop:
+                if (backpack.Cell(cell) is not null)
+                    drop?.Drop(cell);
+                break;
+            default:
+                actions?.Use(cell);
+                break;
+        }
+    }
+
+    /// <summary>A closed window opens again equipping: a drop mode left on would drop the next click (seen live on a reopen).</summary>
+    public override void Closed() => SetMode(CellMode.Equip);
+
+    /// <summary>The bag's click mode changes; a pick in hand is put back.</summary>
+    public void SetMode(CellMode mode)
+    {
+        Mode = mode;
+        Picked = -1;
+    }
+
+    /// <summary>Not a describe method: the cell action is made once, on first need.</summary>
+    private Action<int> CellAction() => _onCell ??= OnCell;
+
+    /// <summary>A mode chip's width: three and their gaps fit the bag's narrowest (four-column) width.</summary>
+    private const float ChipDu = 64;
+
+    /// <summary>The bag's click modes as a row of chips (the selected one in the accent); what a click does now under them.</summary>
+    private void ModeRow(ref UiFrame ui)
+    {
+        if (actions is null)
+            return;
+        using (ui.Row(Space.S, Align.Centre).Width(Size.Fill))
+        {
+            ModeChip(ref ui, CellMode.Equip, "#Descent_Inv_Mode_Equip");
+            ModeChip(ref ui, CellMode.Move, "#Descent_Inv_Mode_Move");
+            if (drop is not null)
+                ModeChip(ref ui, CellMode.Drop, "#Descent_Inv_Mode_Drop");
+        }
+        if (Mode == CellMode.Move)
+            ui.Text(Picked >= 0 ? "#Descent_Inv_Move_Put" : "#Descent_Inv_Move_Pick", Text.Caption, Tone.TextMuted).Elide().Width(Size.Fill);
+        else if (Mode == CellMode.Drop)
+            ui.Text("#Descent_Inv_Drop_Hint", Text.Caption, Tone.Warning).Elide().Width(Size.Fill);
+    }
+
+    /// <summary>One mode chip: a 64 x 32 click target, accent-filled while its mode is on.</summary>
+    private void ModeChip(ref UiFrame ui, CellMode mode, string token)
+    {
+        bool on = Mode == mode;
+        var chip = ui.Box().Key(600 + (int)mode).Size(Size.Du(ChipDu), Size.Du(32)).Round(Radius.M)
+                     .Fill(on ? Tone.Accent : Tone.SurfaceRaised).Border(on ? Tone.Accent : Tone.Line, 1);
+        var hit = ui.Interact(chip);
+        using (chip)
+            ui.Text(token, Text.Caption, on ? Tone.OnAccent : Tone.Text).At(UiAnchor.Centre).Elide();
+        if (hit.Clicked)
+            SetMode(mode);
     }
 
     /// <summary>The doll's cell for a silhouette position; the source owns the

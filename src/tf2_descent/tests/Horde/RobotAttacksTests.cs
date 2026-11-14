@@ -209,7 +209,7 @@ public sealed class RobotAttacksTests
         rig.Fire(body);
         rig.Tick((int)RobotAttackRules.Ticks(AttackOf("sniper_rifle").WindupSeconds, Tps));
 
-        var (from, to) = Assert.Single(rig.World.Lines);
+        var (from, to) = rig.World.Lines[^1];   // the shot, after the laser's lines
         var dir = (to - from).Normalized;
         Assert.True(dir.Y > 0.999f, $"along the body's look (+y), not at the hero (+x): {dir}");
     }
@@ -223,9 +223,9 @@ public sealed class RobotAttacksTests
         body.State.BodyPitch = 20f;   // and 20 up
 
         rig.Fire(body);
-        rig.Tick(40);
+        rig.Tick((int)RobotAttackRules.Ticks(AttackOf("sniper_rifle").WindupSeconds, Tps) + 5);
 
-        var (from, to) = Assert.Single(rig.World.Lines);
+        var (from, to) = rig.World.Lines[^1];   // the shot, after the laser's lines
         var dir = (to - from).Normalized;
         Assert.Equal(MathF.Sin(20f * MathF.PI / 180f), dir.Z, 3);
         Assert.Equal(30f, MathF.Atan2(dir.Y, dir.X) * 180f / MathF.PI, 2);

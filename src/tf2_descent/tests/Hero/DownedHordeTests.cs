@@ -18,7 +18,7 @@ namespace TF2.Descent.Tests.Hero;
 /// </summary>
 public sealed class DownedHordeTests
 {
-    private static (ServerHordeRig Rig, HordeSession Session) Make()
+    private static (ServerHordeRig Rig, HordeSession Session, RigClock Clock) Make()
     {
         HordeSession? session = null;
         var clock = new RigClock(null);
@@ -31,17 +31,23 @@ public sealed class DownedHordeTests
             return session;
         });
         clock.Rig = rig;
-        return (rig, session!);
+        return (rig, session!, clock);
     }
 
     private static (ServerHordeRig Rig, HordeSession Session) WithAHeroSeen()
     {
-        var (rig, session) = Make();
+        var (rig, session, _) = WithAHeroSeenAndClock();
+        return (rig, session);
+    }
+
+    private static (ServerHordeRig Rig, HordeSession Session, RigClock Clock) WithAHeroSeenAndClock()
+    {
+        var (rig, session, clock) = Make();
         rig.Lent("soldier");
         rig.Heroes.Put(rig.Level, Centre(0) + At(0, 220));
         rig.Tick(30);
         Assert.True(session.Brains!.HeroSlots.ActorOf(1).IsValid);
-        return (rig, session);
+        return (rig, session, clock);
     }
 
     [Fact]
@@ -50,7 +56,7 @@ public sealed class DownedHordeTests
         var (_, session) = WithAHeroSeen();
         long before = session.Brains!.Session.Counters.EventsIn;
 
-        new DownedHordeTap(session).HeroDowned(1, down: true, new Vector(0, 0, 0));
+        new DownedHordeTap(session, new RigClock(null)).HeroDowned(1, down: true, new Vector(0, 0, 0));
 
         Assert.Equal(1, session.HeroDowns);
         Assert.Equal(before + 1, session.Brains.Session.Counters.EventsIn);
@@ -61,9 +67,48 @@ public sealed class DownedHordeTests
     {
         var (_, session) = WithAHeroSeen();
 
-        new DownedHordeTap(session).HeroDowned(1, down: false, default);
+        new DownedHordeTap(session, new RigClock(null)).HeroDowned(1, down: false, default);
 
         Assert.Equal((0L, 1L), (session.HeroDowns, session.HeroUps));
+    }
+
+    [Fact]
+    public void A_heros_death_tells_every_brain_with_a_body_to_forget_him()
+    {
+        var (_, session, clock) = WithAHeroSeenAndClock();
+        long before = session.Brains!.Session.Counters.EventsIn;
+        var tap = new DownedHordeTap(session, clock);
+
+        tap.HeroDied(1, default);
+
+        Assert.True(tap.Forgotten > 0, "the stimulus: a brain to tell");
+        Assert.Equal(before + tap.Forgotten, session.Brains.Session.Counters.EventsIn);
+        Assert.Equal(0, tap.Returned);
+    }
+
+    [Fact]
+    public void A_heros_respawn_tells_every_brain_he_is_back()
+    {
+        var (_, session, clock) = WithAHeroSeenAndClock();
+        var tap = new DownedHordeTap(session, clock);
+        tap.HeroDied(1, default);
+        long before = session.Brains!.Session.Counters.EventsIn;
+
+        tap.HeroRespawned(1, default);
+
+        Assert.Equal(tap.Forgotten, tap.Returned);
+        Assert.Equal(before + tap.Returned, session.Brains.Session.Counters.EventsIn);
+    }
+
+    [Fact]
+    public void A_seat_with_no_hero_slot_is_forgotten_by_nobody()
+    {
+        var (_, session, clock) = WithAHeroSeenAndClock();
+        var tap = new DownedHordeTap(session, clock);
+
+        tap.HeroDied(9, default);
+
+        Assert.Equal(0, tap.Forgotten);
     }
 
     [Fact]

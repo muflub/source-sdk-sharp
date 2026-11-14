@@ -163,7 +163,7 @@ public sealed class HudSourcesTests
     public void A_party_of_one_is_the_local_hero_with_his_own_health()
     {
         var party = new Src.PartySource(new Heroes(Hero(hardcore: true)), Engine(health: 120), new Names((Local, "Bugha")),
-                                       new Standalones([Rows((Local, 99))]), new ClientEngine { Strict = false });
+                                       new Standalones([Rows((Local, 99))]), new ClientEngine { Strict = false }, ClientParties.Solo());
 
         Assert.Equal(1, party.MemberCount);
         var m = party.Member(0);
@@ -181,7 +181,8 @@ public sealed class HudSourcesTests
         var hud = Engine(health: 120).Returns("Hud.LocalPlayerOrigin", (Vector?)new Vector(0, 0, 0));
         var party = new Src.PartySource(new Heroes(Hero(), Hero(index: other, level: 7, lifeMax: 210)), hud,
                                        new Names((Local, "Bugha"), (other, "Merasmus")),
-                                       new Standalones([Rows((Local, 99), (other, 88))], (other, player)), entities);
+                                       new Standalones([Rows((Local, 99), (other, 88))], (other, player)), entities,
+                                       ClientParties.Of(Local, (Local, "Bugha"), (other, "Merasmus")));
 
         Assert.Equal(2, party.MemberCount);
         var (first, second) = (party.Member(0), party.Member(1));
@@ -189,6 +190,72 @@ public sealed class HudSourcesTests
         Assert.Equal(("Merasmus", false, 7), (second.Name, second.Local, second.Level));
         Assert.Equal((88, 210), (second.Life, second.LifeMax));   // the player row's health over his sheet's maximum
         Assert.Equal(500, second.DistanceUnits);                  // 3-4-5
+    }
+
+    [Fact]
+    public void A_hero_on_the_server_who_is_not_in_the_party_has_no_frame()
+    {
+        const int stranger = 4, mate = 5;
+        var party = new Src.PartySource(new Heroes(Hero(), Hero(index: stranger), Hero(index: mate, level: 9)), Engine(health: 120),
+                                       new Names((Local, "Bugha"), (stranger, "Stranger"), (mate, "Mate")),
+                                       new Standalones([Rows((Local, 99), (stranger, 50), (mate, 60))]), new ClientEngine { Strict = false },
+                                       ClientParties.Of(Local, (Local, "Bugha"), (mate, "Mate")));
+
+        Assert.Equal(2, party.MemberCount);
+        Assert.Equal(["Bugha", "Mate"], new[] { party.Member(0).Name, party.Member(1).Name });
+        Assert.Equal((9, 60), (party.Member(1).Level, party.Member(1).Life));
+    }
+
+    [Fact]
+    public void Solo_among_other_heroes_the_frames_are_the_local_hero_alone()
+    {
+        var party = new Src.PartySource(new Heroes(Hero(), Hero(index: 4)), Engine(health: 120), new Names((Local, "Bugha"), (4, "Other")),
+                                       new Standalones([Rows((Local, 99), (4, 50))]), new ClientEngine { Strict = false }, ClientParties.Solo());
+
+        Assert.Equal(1, party.MemberCount);
+        Assert.True(party.Member(0).Local);
+    }
+
+    [Fact]
+    public void A_member_not_on_this_server_is_off_level_with_the_name_and_level_the_server_sent()
+    {
+        var party = new Src.PartySource(new Heroes(Hero()), Engine(health: 120), new Names((Local, "Bugha")),
+                                       new Standalones([Rows((Local, 99))]), new ClientEngine { Strict = false },
+                                       ClientParties.Of(Local, (Local, "Bugha"), (0, "InTown")));
+
+        Assert.Equal(2, party.MemberCount);
+        var away = party.Member(1);
+        Assert.Equal(("InTown", "#Descent_Class_Soldier", 5, true), (away.Name, away.ClassToken, away.Level, away.OffLevel));
+        Assert.Equal((0, false, false), (away.Life, away.Local, away.Downed));
+        Assert.False(party.Member(0).OffLevel);
+    }
+
+    private sealed class Minimap : client::SourceSharp.Client.Vgui.IMinimapWorld
+    {
+        public Vector LocalOrigin => default;
+        public float LocalYaw => 0f;
+        public void OtherPlayers(List<Vector> into) => into.Clear();
+        public bool OnScreen(Vector origin) => false;
+    }
+
+    [Fact]
+    public void The_automaps_party_marks_are_the_party_members_only()
+    {
+        const int stranger = 4, mate = 5;
+        var strangerBody = new client::TF2.Descent.Client.ClientHeroEntity(new ClientEngine());
+        var mateBody = new client::TF2.Descent.Client.ClientHeroEntity(new ClientEngine());
+        // Each origin asked is a new place: a stranger's would be a second mark.
+        int asked = 0;
+        var entities = new ClientEngine { Strict = false };
+        entities.ReturnsEachCall("Entities.GetOrigin", () => new Vector(50 + 100 * asked++, 60, 0));
+        var world = new Src.EngineAutomapWorld(Engine(), new Minimap(), new Heroes(Hero(), Hero(index: stranger), Hero(index: mate)),
+                                               new Standalones([], (stranger, strangerBody), (mate, mateBody)), entities,
+                                               ClientParties.Of(Local, (Local, "Bugha"), (mate, "Mate")));
+        var marks = new List<Vector>();
+
+        world.PartyPositions(marks);
+
+        Assert.Equal([new Vector(50, 60, 0)], marks);
     }
 
     //-------------------------------------------------------------------------
@@ -389,14 +456,10 @@ public sealed class HudSourcesTests
     }
 
     [Fact]
-    public void The_hero_and_town_windows_have_nothing_to_show()
+    public void The_spellbook_and_the_inspect_modal_have_nothing_to_show()
     {
+        // The town's windows are live since UI4 (TownSourcesTests).
         Assert.Equal(0, new Src.SpellsSource().SpellCount);
-        Assert.Equal((0, 0), (new Src.VendorSource().BuyCount, new Src.VendorSource().SellCount));
-        Assert.Equal(0, new Src.StashSource().CellCount);
-        Assert.Equal(0, new Src.DepthsSource().RowCount);
-        Assert.Equal(0, new Src.CrateSource().OddsRowCount);
-        Assert.Null(new Src.CraftSource().ItemUnderTest);
         Assert.False(new Src.InspectSource().Showing);
     }
 }

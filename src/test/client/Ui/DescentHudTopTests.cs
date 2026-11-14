@@ -72,6 +72,7 @@ public class DescentHudTopTests
         s.Add<IDescentCastBar>(new FakeCast());
         s.Add<IDescentGearWarning>(new FakeGearWarn());
         s.Add<IDescentAutomap>(rooms > 0 ? new FakeAutomap() : new NoRooms());
+        s.Add<IDescentSkillSlots>(new FakeSkillSlots());
         return s.Create<DescentHud>();
     }
 
@@ -130,9 +131,74 @@ public class DescentHudTopTests
         s.Add<IDescentCastBar>(new FakeCast());
         s.Add<IDescentGearWarning>(new FakeGearWarn());
         s.Add<IDescentAutomap>(new NoRooms());
+        s.Add<IDescentSkillSlots>(new FakeSkillSlots());
         var els = Render(s.Create<DescentHud>(), UiSamples.Screen(1920, 1080), out var ctx);
         var corner = Assert.Single(els, e => UiTestKit.NameOf(ctx, e) == "corner");
 
         Assert.True(1080 - corner.Rect.Y <= 85 * 1080 / 480f, $"the corner rises {1080 - corner.Rect.Y} px, into the chat's band");
+    }
+
+    /// <summary>
+    /// A party of two reached one row into TF2's chat when its frames stacked in the corner
+    /// (the UI2 finding): the frames stand top-left and the corner keeps under the chat.
+    /// </summary>
+    [Fact]
+    public void A_party_of_two_keeps_the_corner_under_tf2s_chat()
+    {
+        var els = Render(Sample("healthy-party-of-two-map-revealed"), UiSamples.Screen(1920, 1080), out var ctx);
+        var corner = Assert.Single(els, e => UiTestKit.NameOf(ctx, e) == "corner");
+        Assert.Contains(els, e => UiTestKit.NameOf(ctx, e).StartsWith("PartyPill", StringComparison.Ordinal));   // the frames drew
+
+        Assert.True(1080 - corner.Rect.Y <= 85 * 1080 / 480f, $"the corner rises {1080 - corner.Rect.Y} px, into the chat's band");
+    }
+
+    /// <summary>The lowest point TF2's kill feed reaches with its four lines, on this screen.</summary>
+    private static float KillFeedBottom(in ScreenInfo screen)
+    {
+        var feed = Assert.Single(PreviewRun.AllSamples(), s => !s.Gallery && s.Group == "tfkillfeed" && s.Slug == "four-capped").Create();
+        var els = Render(feed, screen, out var ctx);
+        Assert.Contains(els, e => UiTestKit.NameOf(ctx, e) == "victim");   // the feed drew
+        // The bars' contents: each line's names and icon box (the screen's own root spans the screen).
+        return els.Where(e => UiTestKit.NameOf(ctx, e) is "killer" or "victim" or "icon box" or "info").Max(e => e.Rect.Y + e.Rect.H);
+    }
+
+    /// <summary>The corner minimap and TF2's kill feed both stood top right, the map over the feed (found live).</summary>
+    [Theory]
+    [InlineData(1920, 1080)]
+    [InlineData(1280, 720)]
+    [InlineData(1024, 768)]
+    [InlineData(3440, 1440)]
+    public void The_minimap_hangs_under_tf2s_kill_feed(int w, int h)
+    {
+        var screen = UiSamples.Screen(w, h);
+        float feed = KillFeedBottom(screen);
+
+        var els = Render(Hud(rooms: 3), screen, out var ctx);
+        var map = els.Where(e => UiTestKit.NameOf(ctx, e).StartsWith("AutomapCanvas[minimap]", StringComparison.Ordinal)).ToArray();
+
+        Assert.NotEmpty(map);
+        Assert.True(map.Min(e => e.Rect.Y) >= feed, $"{w}x{h}: the minimap's top {map.Min(e => e.Rect.Y)} is above the feed's bottom {feed}");
+    }
+
+    [Fact]
+    public void The_hud_shows_the_six_skill_slots_with_their_keys()
+    {
+        var els = Render(Sample("skills-on-cooldown-one-charging"), UiSamples.Screen(1920, 1080), out var ctx);
+        var texts = Enumerable.Range(0, els.Length).Select(i => UiTestKit.RunText(ctx, i)).ToArray();
+
+        Assert.Contains(els, e => UiTestKit.NameOf(ctx, e) == "skillcorner");
+        foreach (string key in new[] { "4", "5", "6", "7", "8", "9" })
+            Assert.Contains(key, texts);
+        Assert.Contains(texts, t => t.StartsWith("Patriot", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void The_cast_bar_rides_above_the_skill_slots()
+    {
+        var els = Render(Sample("low-life-broken-belt-boss-engaged-casting-gear-broken"), UiSamples.Screen(1920, 1080), out var ctx);
+        var strip = Assert.Single(els, e => UiTestKit.NameOf(ctx, e) == "skillcorner");
+        var cast = Assert.Single(els, e => UiTestKit.NameOf(ctx, e) == "cast");
+
+        Assert.True(cast.Rect.Y + cast.Rect.H <= strip.Rect.Y, $"cast {cast.Rect} overlaps the skill slots {strip.Rect}");
     }
 }
