@@ -561,6 +561,19 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
                                      result.Crit, result.Custom, weapon, weaponName, now),
                      damager: enemy);
 
+        // RECORD_DAMAGE_EVENT (CTFPlayerShared::RecordDamageEvent, tf_player_shared.cpp:9574-9660,
+        // called at tf_player.cpp:10801-10804): every hit a TF player deals to another player joins
+        // that player's damage-event list, from which the next half-second think weighs the crit
+        // multiplier. The caller's gate is stock's -- a TF attacker who is not the victim himself
+        // (:10801); health before and the kill stand in for stock's after-apply words (:10802-10803)
+        // the way the heal_on_kill arm reads them (:1053-1055), this seam running before the apply.
+        if (attackerIsPlayer && !self)
+        {
+            float prevHealth = entities.GetHealth(hit.Victim);                          // :10770
+            carriers.Part<TFCritMultTicker>(hit.Attacker.EntryIndex)
+                     ?.RecordDamageEvent(result, prevHealth - result.Damage <= 0f, prevHealth, now);
+        }
+
         // OnDealtDamage's meter walk (tf_player.cpp:9968-10038), stock's call
         // on the attacker at the end of the victim's OnTakeDamage (:9790-9796):
         // the hitting item's DAMAGE or COMBO meter fills by the hit's share of

@@ -55,8 +55,11 @@ public sealed unsafe class PredictionClientBinding(Crossings crossings, ISideMod
                    (i, h) => game.GetChargeBump(i, h),
                    (i, v) => game.GetParachuteFallCap(i, v),
                    (i, m, b) => game.GetPlayerSolidMask(i, m, b),
-                   (i, b, g, w, t) => game.GetDuckButtons(i, b, g, w, t),
-                   (i, t, a) => game.GetDuckRelease(i, t, a)));
+                   (i, b, g, w, t, d, k) => game.GetDuckButtons(i, b, g, w, t, d, k),
+                   (i, t, a) => game.GetDuckRelease(i, t, a),
+                   (i, c) => game.GetAirSpeedCap(i, c),
+                   (i, f, s, m) => game.GetHighMaxSpeed(i, f, s, m),
+                   (i, y, ft, ti) => game.GetChargeYawCap(i, y, ft, ti)));
 
     /// <summary>
     /// The WHOLE of ProcessMovement, in C#, for the client's native forwarder.

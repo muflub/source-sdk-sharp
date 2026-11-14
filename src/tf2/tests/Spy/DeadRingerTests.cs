@@ -395,6 +395,7 @@ public sealed class DeadRingerTests
         public bool ActivateInvisibilityWatch(int playerIndex) => false;
         public bool FeignDeathHit(int victimIndex, EntityHandle attacker = default) { Asked.Add(victimIndex); return false; }
         public bool KnifeReady(int ownerIndex, float now) => true;
+        public bool DecreaseKnifeRegenerationTime(int ownerIndex, float value) => false;   // the exists gate (:163)
         public void MeltKnife(int ownerIndex, float now, float seconds) { }
         public bool Disguise(int playerIndex, TFClass disguiseClass, TFTeam disguiseTeam) => false;
         public bool LastDisguise(int playerIndex, TFClass desired = TFClass.Undefined) => false;

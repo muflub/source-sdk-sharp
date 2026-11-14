@@ -212,12 +212,35 @@ public class RejoinScoresTests
         Assert.Equal(40, rig.Mod.Score[6]);
     }
 
+    /// <summary>
+    /// Any rules' reset of the players' scores (TF2's game restart among them)
+    /// reaches the table through the core's chain, and the console says so.
+    /// </summary>
+    [Fact]
+    public void AMatchResetClearsTheTable()
+    {
+        var rig = new Rig();
+        var a = rig.Connect(1, steam: 9);
+        rig.Score(a, frags: 5, deaths: 0);
+        rig.Leave(1);
+        Assert.Equal(1, rig.Rejoin.Count);
+
+        new ListHooks<IMatchResetHook>(rig.Rejoin).Raise("match restart");
+
+        Assert.Equal(0, rig.Rejoin.Count);
+        Assert.Contains(rig.Log.Lines, l => l.Text.Contains("match restart: forgot 1 departed player score(s)"));
+        Assert.False(rig.Roster.Knows(rig.Connect(1, steam: 9)));
+    }
+
     [Fact]
     public void AModeSwitchClearsTheTable()
     {
         var tdm = new TeamDeathmatchTests.Rig();
         var rig = new Rig();
+        // As the module composes it: the table registered under its every
+        // interface, and the chain read from the container.
         tdm.Services.AddInstance(rig.Rejoin);
+        tdm.Services.AddFactory<IHooks<IMatchResetHook>>(l => new Hooks<IMatchResetHook>(l, new RecordingLog()));
         var a = rig.Connect(1, steam: 9);
         rig.Score(a, frags: 5, deaths: 0);
         rig.Leave(1);
@@ -235,7 +258,8 @@ public class RejoinScoresTests
         convars.RegisterAll(typeof(GameRules).Assembly);
         var host = Fake().Returns("Host.ActiveSide", Side.Server).Returns("Host.CurrentTime", 1f);
         var rules = new GameRules(new RecordingLog(), convars.Holder<GameRulesConVars>(), host, host,
-                                  Fake(), rig.Board, new PlayerDeathEvent(), rejoin: rig.Rejoin);
+                                  Fake(), rig.Board, new PlayerDeathEvent(),
+                                  matchResets: new ListHooks<IMatchResetHook>(rig.Rejoin));
         var a = rig.Connect(1, steam: 9);
         rig.Score(a, frags: 5, deaths: 0);
         rig.Leave(1);

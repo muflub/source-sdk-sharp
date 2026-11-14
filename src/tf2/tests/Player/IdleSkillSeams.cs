@@ -32,6 +32,8 @@ internal sealed class IdleSkillSpies : ITFSpyState
 
     public bool KnifeReady(int ownerIndex, float now) => true;
 
+    public bool DecreaseKnifeRegenerationTime(int ownerIndex, float value) => false;   // the exists gate (:163)
+
     public void MeltKnife(int ownerIndex, float now, float seconds) { }
 
     public bool Disguise(int playerIndex, TFClass disguiseClass, TFTeam disguiseTeam) => false;

@@ -287,6 +287,11 @@ internal sealed class TFWeaponWorld
     public RecordingBuilderPlacement Builder { get; } = new();
     public RecordingSapperState Sapper { get; } = new();
 
+    /// <summary>The scripted engine the attribute hook asks for the owner's
+    /// health (<c>Returns("Entities.GetHealth", …)</c> sets it for the panic
+    /// arm's facts).</summary>
+    public RecordingEngine Engine { get; } = new();
+
     /// <summary>What the Wrangler's triggers asked, for its facts.</summary>
     public RecordingSentryWrangle Wrangle { get; } = new();
     public RecordingLog Log { get; } = new();
@@ -335,13 +340,16 @@ internal sealed class TFWeaponWorld
     {
         var shipped = files ?? WeaponFixtures.ShippedWithClasses();
         var scripts = new TFWeaponScripts(Log, shipped);
-        var types = new TFWeaponTypes(scripts, new TFClassTable(Log, shipped), new ItemSchema(shipped, Log));
+        var classes = new TFClassTable(Log, shipped);
+        var types = new TFWeaponTypes(scripts, classes, new ItemSchema(shipped, Log));
         var attributes = new AttributeHooks();
-        var chain = TFWeaponHookChain.Of([new TFSwordHook(attributes), new TFAttributeWeaponHook(attributes),
+        var predicted = data ?? new FakePredictedData();
+        var chain = TFWeaponHookChain.Of([new TFSwordHook(attributes),
+                                          new TFAttributeWeaponHook(attributes, Engine, classes, predicted),
                                           new TFCritBoostHook(), new TFKingReloadHook(), .. hooks]);
 
         Parts = new TFWeaponParts(scripts, chain, new TFCritBuckets(), Settings, Owners, effects ?? Effects, Builder,
-                                  data ?? new FakePredictedData(), Round, ChargeRate, fixedSpread ?? Spread,
+                                  predicted, Round, ChargeRate, fixedSpread ?? Spread,
                                   autoReload ?? AutoReload, Burstammo, Medigun, Sapper, Wrangle,
                                   bucket ?? Revenge);
         Catalog = new WeaponCatalog(() => [types], Log);

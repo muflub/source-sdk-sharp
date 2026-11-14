@@ -142,6 +142,8 @@ public sealed class TFPlayerCarrierStalenessTests
         public ParentProbe ParentProbe(EntityHandle entity) => _inner.ParentProbe(entity);
         public bool GetAttachmentFrame(EntityHandle entity, int attachment, out Vector origin, out QAngle angles) => _inner.GetAttachmentFrame(entity, attachment, out origin, out angles);
         public int LookupAttachmentAny(EntityHandle entity, string attachmentName) => _inner.LookupAttachmentAny(entity, attachmentName);
+        public int LookupBone(EntityHandle entity, string boneName) => _inner.LookupBone(entity, boneName);
+        public bool GetBonePosition(EntityHandle entity, int bone, out Vector origin) => _inner.GetBonePosition(entity, bone, out origin);
         public EntityHandle FindBaseByName(string name) => _inner.FindBaseByName(name);
         public Span<byte> GetEngineBlock(EntityHandle entity) => _inner.GetEngineBlock(entity);
         public void DestroyPhysics(EntityHandle entity) => _inner.DestroyPhysics(entity);

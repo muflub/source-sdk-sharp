@@ -263,7 +263,7 @@ public interface IMovementRules
     /// press and the duck never starts. The buttons unchanged is the default
     /// and stock Half-Life.
     /// </summary>
-    int DuckButtons(int playerIndex, int buttons, bool onGround, int waterLevel, float curTime) => buttons;
+    int DuckButtons(int playerIndex, int buttons, bool onGround, int waterLevel, float curTime, bool ducked, bool ducking) => buttons;
 
     /// <summary>
     /// The duck button's release edge: stock's <c>OnUnDuck</c> opening block
@@ -271,6 +271,20 @@ public interface IMovementRules
     /// duck on the airborne release. Nothing by default.
     /// </summary>
     void DuckRelease(int playerIndex, float curTime, bool inAir) { }
+
+    /// <summary>
+    /// The shield charge's clamp of one command's view yaw: while the player
+    /// holds <c>TF_COND_SHIELD_CHARGE</c>, a yaw that has come back toward
+    /// straight ahead by more than the charge cap times 2.5, past the previous
+    /// charge yaw's magnitude, is pulled back to within it — stock's charge
+    /// clamp in <c>SetupMove</c> (server/tf/tf_playermove.cpp:83-106, the targe
+    /// exploit fix), whose cap is <c>CalculateChargeCap</c>'s answer times 2.5
+    /// and whose previous charge yaw an entity member keeps equal to the eye
+    /// angles whenever nobody charges. <c>frametime</c> and <c>tickInterval</c>
+    /// are this command's clock, as the cap scales with the frame size. The
+    /// yaw unchanged is the default and stock Half-Life.
+    /// </summary>
+    float ChargeYawCap(int playerIndex, float yaw, float frametime, float tickInterval) => yaw;
 
     /// <summary>
     /// The parachute's fall trim, asked between the walk's water check and its
@@ -291,6 +305,28 @@ public interface IMovementRules
     /// movement trace, on both sides, so a replay's mask is the server's.
     /// </summary>
     uint PlayerSolidMask(int playerIndex, uint mask, bool brushOnly) => mask;
+
+    /// <summary>
+    /// The air wishspeed cap of one command: stock TF's
+    /// <c>CTFGameMovement::GetAirSpeedCap</c> (tf_gamemovement.cpp:2033-2096)
+    /// answers it per player — the shield charge's convar, the parachute's
+    /// multiplier while the chute is out, the rocket pack's half, then the
+    /// air-control attributes on the player's manager, the blast jump's riding
+    /// the blast-jump condition. The cap passed through is the default and
+    /// stock Half-Life (<c>CGameMovement</c>'s literal 30, asked of nobody).
+    /// </summary>
+    float AirSpeedCap(int playerIndex, float cap) => cap;
+
+    /// <summary>
+    /// The pressed pair raised to the max speed it stands under: stock TF's
+    /// <c>CTFGameMovement::HighMaxSpeedMove</c> (tf_gamemovement.cpp:884-911)
+    /// lifts a forward move standing at the client's forward/back reference
+    /// speed to the max speed with its sign kept, and the side move likewise
+    /// against the side reference. Null — both kept as sent — is the default
+    /// and stock Half-Life. Asked where stock calls it (:326, its return
+    /// ignored), right before <c>PlayerMove</c> (:329).
+    /// </summary>
+    HighMaxSpeedPair? HighMaxSpeed(int playerIndex, float forwardMove, float sideMove, float maxSpeed) => null;
 }
 
 /// <summary>
@@ -397,8 +433,11 @@ public sealed class MovementRulesResolver
                 (i, h) => _rules.ChargeBump(i, h),
                 (i, v) => _rules.ParachuteFallCap(i, v),
                 (i, m, b) => _rules.PlayerSolidMask(i, m, b),
-                (i, b, g, w, t) => _rules.DuckButtons(i, b, g, w, t),
-                (i, t, a) => _rules.DuckRelease(i, t, a));
+                (i, b, g, w, t, d, k) => _rules.DuckButtons(i, b, g, w, t, d, k),
+                (i, t, a) => _rules.DuckRelease(i, t, a),
+                (i, c) => _rules.AirSpeedCap(i, c),
+                (i, f, s, m) => _rules.HighMaxSpeed(i, f, s, m),
+                (i, y, ft, ti) => _rules.ChargeYawCap(i, y, ft, ti));
     }
 
     /// <summary>Whether any mod owns this side's movement.</summary>

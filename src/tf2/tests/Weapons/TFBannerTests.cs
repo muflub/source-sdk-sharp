@@ -239,7 +239,7 @@ public sealed class TFBannerTests
                                                                      new SourceSharp.Server.DamageHitGroups()),
                                                 hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                                 deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                                clock: holder.Engine);
+                                                clock: holder.Engine, equipHooks: new TF2.Tests.Rules.ListHooks<ITFWeaponEquipHook>());
             var mapPlayers = new TFPlayerMapPlayers(holder.Engine, holder.Engine, holder.Carriers, resupply,
                                                     Conditions, holder.Carriers, holder.Items, new AttributeHooks());
             var voice = new TF2.Server.Voice.TFConceptSpeech(new TF2.Tests.Entities.FakeConceptRules(), holder.Carriers,

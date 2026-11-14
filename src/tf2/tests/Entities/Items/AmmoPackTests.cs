@@ -137,6 +137,25 @@ public sealed class AmmoPackTests
     }
 
     [Fact]
+    public void AMeltedKnifeMakesAFullStockedSpyTakeThePack()
+    {
+        // entity_ammopack.cpp:91-94 — AddToSpyKnife(100 * ratio): nothing else fits —
+        // ammo full, cloak full — yet the melted Spy-cicle's moved stamp is a pack taken.
+        var rig = new MapItemRig();
+        var pack = rig.Spawn<AmmoPack>(AmmoPackMedium.MediumClass);
+        var p = Soldier(rig, out var player, TFClass.Spy);
+        foreach (var (ammo, max) in p.MaxAmmo)
+            p.Ammo[ammo] = max;
+        p.CloakMeter = 100f;
+        p.KnifeStamp = 100f; p.KnifeWindow = 10f;   // the burn layer's melt (tf_weapon_knife.cpp:129-131's pair)
+
+        rig.Touch(pack, player);
+
+        Assert.True(pack.IsRespawning);             // :94 — the moved stamp is the pack taken
+        Assert.Equal(97.5f, p.KnifeStamp, 4);       // the medium's half of the window's half: 50 * 0.005 * 10
+    }
+
+    [Fact]
     public void A_health_ammo_kit_heals_a_small_kits_share_and_gives_ammo()
     {
         var rig = new MapItemRig();

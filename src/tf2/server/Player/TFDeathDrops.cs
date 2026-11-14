@@ -307,9 +307,10 @@ public sealed class TFDeathDrops(ILog log, Arsenal arsenal, TFWeaponScripts scri
     /// item (<c>info.GetWeapon()</c>, the dynamic_cast arm at :11135-11136), and
     /// any non-zero walked answer stamps <c>TF_COND_CRITBOOSTED_ON_KILL</c> for
     /// the walked seconds plus the perceptual second (:11142-11145). The
-    /// minicrit sibling (:11148-11154, <c>add_onkill_minicritboost_time</c>) and
-    /// the weapon's own <c>OnPlayerKill</c> (:11138) wait with their carriers
-    /// (docs/plans/tf2/deferred.tsv).
+    /// minicrit sibling (:11148-11154, <c>add_onkill_minicritboost_time</c>) is
+    /// the second walk: a non-zero one stamps <c>TF_COND_ENERGY_BUFF</c> the same
+    /// way (:11150-11153). The weapon's own <c>OnPlayerKill</c> (:11138) waits
+    /// with its carrier (docs/plans/tf2/deferred.tsv).
     /// </summary>
     private void AddKillCritBoost(PlayerDeath death)
     {
@@ -323,6 +324,11 @@ public sealed class TFDeathDrops(ILog log, Arsenal arsenal, TFWeaponScripts scri
                               owners.ItemOf(death.Attacker.EntryIndex, wound.WeaponName));
         if (boost != 0) // :11142
             conditions.Add(death.Attacker, TFCond.CritboostedOnKill, boost + 1f); // :11145
+
+        int miniBoost = hooks.Int(0, "add_onkill_minicritboost_time",
+                                  owners.ItemOf(death.Attacker.EntryIndex, wound.WeaponName)); // :11149
+        if (miniBoost != 0) // :11150
+            conditions.Add(death.Attacker, TFCond.EnergyBuff, miniBoost + 1f); // :11153
     }
 
     /// <summary>

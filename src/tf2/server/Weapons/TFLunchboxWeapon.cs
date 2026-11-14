@@ -9,10 +9,13 @@ using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
 
+using TF2.Server.Entities.Ctf;
 using TF2.Server.Entities.Items;
 using TF2.Server.Player;
+using TF2.Server.Rules;
 using TF2.Shared;
 using TF2.Shared.Econ;
+using TF2.Shared.Rules;
 
 namespace TF2.Server.Weapons;
 
@@ -38,7 +41,8 @@ public sealed class TFLunchboxWeapon(ITFMapPlayers players, ITFPlayerResupply re
                                      TFTauntCommand taunts, IEngineEntities entities, IEnginePlayers enginePlayers,
                                      IEngineEntityRender render, IEntityDirectory directory,
                                      TFScoutEnergydrinkConsumeRateConVar convar,
-                                     Arsenal arsenal) : ITFLunchboxEffects
+                                     Arsenal arsenal, ICtfRules rules,
+                                     ITeamRoundState rounds) : ITFLunchboxEffects
 {
     /// <summary>The Dalokos buff, thirty seconds of it (:387, :392).</summary>
     public const float MaxHealthBuff = 50f;
@@ -151,7 +155,7 @@ public sealed class TFLunchboxWeapon(ITFMapPlayers players, ITFPlayerResupply re
             // Crit-a-Cola: minicrits, no phase (:18647-18649).
             players.AddCond(player, TFCond.EnergyBuff, seconds);
         }
-        else
+        else if (CanPhase(player))
         {
             // Bonk!: the phase (:18651-18653) — no harm lands while it holds
             // (tf_player.cpp:9330, the arm the damage rules keep).
@@ -159,6 +163,23 @@ public sealed class TFLunchboxWeapon(ITFMapPlayers players, ITFPlayerResupply re
         }
 
         arsenal.SwitchLast(enginePlayers.GetHandle(playerIndex));
+    }
+
+    /// <summary>
+    /// <c>CTFPlayer::CanStartPhase</c> (shared/tf/tf_player_shared.cpp:12703-
+    /// 12721), the gate Bonk's phase asks: no phase while the player carries
+    /// the intel (:12705-12709), none for the losing team through the
+    /// winners' round (:12715-12718). The hint (<c>HINT_CANNOT_PHASE_WITH_FLAG</c>)
+    /// has no route in this build — no speak/hint seam carries it — so the
+    /// refusal lands silent; the passtime-ball half of the flag arm (:12705)
+    /// is not ported, no passtime mode (docs/plans/tf2/deferred.tsv).
+    /// </summary>
+    private bool CanPhase(EntityHandle player)
+    {
+        if (rules.CarriedBy(player) is not null)
+            return false;
+
+        return rounds.State != RoundState.TeamWin || (int)rounds.WinningTeam == players.Team(player);
     }
 
     /// <summary>Stock's fall-back dead time (:18644): <c>(100 / rate) + 1</c>.</summary>

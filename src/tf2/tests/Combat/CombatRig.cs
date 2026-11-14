@@ -346,6 +346,7 @@ internal sealed class CombatRig
         AttackerState = Players.Add(Attacker.EntryIndex, TFClass.Sniper);
 
         Engine.Returns("Entities.IsValid", true)
+              .Returns("Entities.GetHealth", 500)   // every hit reads the victim's prior health for the crit meter (tf_player.cpp:10770); ample so the kill cap stays off a fact's numbers unless it names its own
               .ReturnsEachCall("Entities.IsPlayer", () => Arg() is EntityHandle h && (h == Victim || h == Attacker || h == Third))
               .ReturnsEachCall("Entities.GetWorldSpaceCenter", () => Arg() is EntityHandle h && h == Attacker ? AttackerAt : default(Vector))
               .ReturnsEachCall("Entities.GetOrigin", () => Arg() is EntityHandle h && h == Attacker ? AttackerAt : default(Vector))

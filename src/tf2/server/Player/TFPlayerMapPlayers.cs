@@ -32,7 +32,8 @@ namespace TF2.Server.Player;
 public sealed class TFPlayerMapPlayers(IEngineEntities entities, IEnginePlayers players, ITFPlayerClasses classes,
                                        ITFPlayerResupply resupply, ITFPlayerConditions conditions,
                                        TFPlayerCarriers carriers,
-                                       TFPlayerItems items, AttributeHooks attributes) : ITFMapPlayers
+                                       TFPlayerItems items, AttributeHooks attributes,
+                                       IServiceLocator? services = null) : ITFMapPlayers
 {
     private readonly TFPlayerItems _items = items;
     private readonly AttributeHooks _attributes = attributes;
@@ -107,6 +108,20 @@ public sealed class TFPlayerMapPlayers(IEngineEntities entities, IEnginePlayers 
         state.CloakMeter = Math.Clamp(state.CloakMeter + amount, 0f, 100f); // :9755
         return result;
     }
+
+    /// <summary>
+    /// <c>CTFPlayer::AddToSpyKnife</c> (<c>tf_player.cpp:5092-5098</c>), the
+    /// pack's ask (<c>entity_ammopack.cpp:91-94</c>): the held knife's
+    /// <c>DecreaseRegenerationTime</c>
+    /// (<c>tf_weapon_knife.cpp:160-169</c>) — the spy slice answers it, the
+    /// stock gate and the stamp pull being the knife's own; a player with no
+    /// slice or no melted knife takes nothing. The slice is looked up on the
+    /// ask: the spy lane builds after the map players in the chain that starts
+    /// at the class skill effects, so an eager constructor hop would close a
+    /// cycle the locator's first-call answer never enters.
+    /// </summary>
+    public bool AddToSpyKnife(EntityHandle player, float amount)
+        => services?.Resolve<ITFSpyState>()?.DecreaseKnifeRegenerationTime(player.EntryIndex, amount) ?? false;
 
     /// <summary>
     /// <c>entity_ammopack.cpp:96-110</c>: the Persuader's

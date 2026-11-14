@@ -968,6 +968,54 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
     }
 
     /// <inheritdoc/>
+    public int LookupBone(EntityHandle entity, string name)
+    {
+        if (string.IsNullOrEmpty(name) || !Read(_blocks.Block(entity), out EngineBlock block))
+        {
+            return -1;
+        }
+
+        // Stock's LookupBone spelling: the ZERO-based index, or the -1 of a
+        // name the model does not carry.
+        return BoneSetupQuery.BoneIndexByName(Hdr(block), name);
+    }
+
+    /// <inheritdoc/>
+    public bool GetBonePosition(EntityHandle entity, int bone, out Vector origin)
+    {
+        origin = default;
+
+        if (!Find(entity, out EngineBlock block, out BoneEntityState state))
+        {
+            return false;
+        }
+
+        if (Hdr(block) is null)
+        {
+            return false;
+        }
+
+        BeginManagedAsk(state);
+        _merging = entity;
+
+        BoneCacheKey before = state.CacheKey;
+        long started = Stopwatch.GetTimestamp();
+        bool built = _driver.EnsureBones(state, PoseOf(block, FrameCount), BoneLibrary.BoneUsedByAnything, Now,
+                                         ConVars);
+        Count(state, started, before);
+
+        if (!built || bone < 0 || bone >= state.CachedBones.Length)
+        {
+            return false;
+        }
+
+        // Stock's GetBonePosition: the bone-to-world matrix's origin.
+        NVector position = state.CachedBones[bone].Position;
+        origin = new Vector(position.X, position.Y, position.Z);
+        return true;
+    }
+
+    /// <inheritdoc/>
     public int CachedBoneCount(EntityHandle entity) =>
         _states.TryGet(entity, out BoneEntityState? state) && state is not null ? state.CachedBones.Length : 0;
 

@@ -904,6 +904,59 @@ public class MovementTests
         Assert.Equal(2f, mine.Rules.Jump(default));
     }
 
+    /// <summary>
+    /// The loop asks the cap once per airborne command, where <c>AirAccelerate</c>
+    /// takes it: stock answers the constants' cap itself, so HL2MP's player caps
+    /// the air wish at the constants' 30 with nobody owning the question
+    /// (Movement's <c>GetAirSpeedCap</c>, asked since Phase 6).
+    /// </summary>
+    [Fact]
+    public void TheLoopAsksTheAirCapAndStockEchoesTheConstant()
+    {
+        int asked = 0;
+        var pressed = new GameMovement(new ScriptedWorld(), MoveConstantDefaults.Stock)
+        {
+            Rules = MovementRules.Stock with
+            {
+                AirSpeedCap = (i, c) => { asked++; return MovementRules.Stock.AirSpeedCap(i, c); },
+            },
+        };
+        MoveState airborne = Airborne(0);
+
+        Assert.True(pressed.ProcessMovement(airborne));
+
+        Assert.Equal(1, asked);
+        Assert.Equal(30f, MovementRules.Stock.AirSpeedCap(0, 30f));
+    }
+
+    /// <summary>
+    /// The loop asks the high-max-speed rewrite once per command, where stock
+    /// calls <c>HighMaxSpeedMove</c> (tf_gamemovement.cpp:326): a walking
+    /// command reaches the hook, and stock's identity keeps both moves as
+    /// sent — nobody owning the rewrite answers like Half-Life.
+    /// </summary>
+    [Fact]
+    public void TheLoopAsksTheHighSpeedRewriteAndStockKeepsBothMoves()
+    {
+        int asked = 0;
+        var pressed = new GameMovement(new ScriptedWorld(), MoveConstantDefaults.Stock)
+        {
+            Rules = MovementRules.Stock with
+            {
+                HighMaxSpeed = (i, f, s, m) => { asked++; return MovementRules.Stock.HighMaxSpeed(i, f, s, m); },
+            },
+        };
+        MoveState walking = BaselineState();
+        walking.ForwardMove = 450f;
+        walking.SideMove = 0f;
+        walking.MaxSpeed = 520f;
+
+        Assert.True(pressed.ProcessMovement(walking));
+
+        Assert.Equal(1, asked);
+        Assert.Null(MovementRules.Stock.HighMaxSpeed(0, 450f, 0f, 520f));
+    }
+
     //=========================================================================
     // The airborne jump decision (tf2 stage 1 core): a jump pressed in the air
     // is the rules' to grant, applied with CTFGameMovement::AirDash's
@@ -1700,12 +1753,12 @@ public class MovementTests
     public void TheMaskedDuckButtonNeverStartsTheDuckWhereAPassedOneDoes()
     {
         // Refused arm: the mask drops IN_DUCK before the edges.
-        MoveState refused = DuckMaskedCommand(static (_, b, _, _, _) => b & ~GameMovement.InDuck);
+        MoveState refused = DuckMaskedCommand(static (_, b, _, _, _, _, _) => b & ~GameMovement.InDuck);
         Assert.False(refused.Ducking);
         Assert.Equal(0f, refused.DuckTime);
 
         // Passing arm (positive control): the identity answer ducks on the press.
-        MoveState passed = DuckMaskedCommand(static (_, b, _, _, _) => b);
+        MoveState passed = DuckMaskedCommand(static (_, b, _, _, _, _, _) => b);
         Assert.True(passed.Ducking);
         Assert.True(passed.DuckTime > 0f, "the press opened its easing window");
     }
@@ -1714,7 +1767,7 @@ public class MovementTests
     /// One grounded command that presses the duck button (the old word up),
     /// under one answer for the duck-button mask ask.
     /// </summary>
-    private static MoveState DuckMaskedCommand(Func<int, int, bool, int, float, int> mask)
+    private static MoveState DuckMaskedCommand(Func<int, int, bool, int, float, bool, bool, int> mask)
     {
         var world = new ScriptedWorld { OnTrace = (st, en, _, _, _, _) => ScriptedWorld.Floor(st, en) };
         var movement = new GameMovement(world, MoveConstantDefaults.Stock);

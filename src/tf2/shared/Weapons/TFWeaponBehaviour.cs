@@ -459,8 +459,8 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks attributes) :
     /// item's <c>mult_spread_scale</c> (Tomislav, the Back Scatter), stock's
     /// <c>CALL_ATTRIB_HOOK_FLOAT</c> over the loaded spread — then its third arm
     /// (<c>:874-882</c>), <c>mult_spread_scales_consecutive</c> widening the cone
-    /// by the streak behind the shot's own counter. The rune and panic arms of the
-    /// function wait with their carriers. Stock scales the cone's sine and hands it
+    /// by the streak behind the shot's own counter. The rune arm of the function
+    /// waits with its carrier. Stock scales the cone's sine and hands it
     /// to the shot; the row keeps its cone as degrees, so the walks land on the
     /// sine and the answer converts back through the pair the row was dressed with
     /// (<see cref="ShotSpread.SpreadOf"/>, <see cref="TFWeaponTypes.SpreadDegrees"/>).
@@ -472,6 +472,11 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks attributes) :
 
         var context = Context(in attack, script);
         float sine = Parts.Hooks.ModifySpread(context, ShotSpread.SpreadOf(attack.Type.Spread));
+
+        // panic_attack_negative (:866-872): the second arm, between the item's
+        // scale and the streak — a hurt owner's cone tightens toward the
+        // attribute's floor and a near-full one keeps the sine as it stands.
+        sine = Parts.Hooks.ModifyPanicAttack(context, sine);
 
         // mult_spread_scales_consecutive (:874-882): stock walks the hook over a
         // zeroed scaler and, when that walk answers non-zero and the weapon has a

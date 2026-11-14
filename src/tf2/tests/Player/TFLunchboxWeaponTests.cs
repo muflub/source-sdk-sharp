@@ -49,7 +49,7 @@ public sealed class TFLunchboxWeaponTests
                                                                  new DamageHitGroups()),
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: rig.Engine);
+                                            clock: rig.Engine, equipHooks: new TF2.Tests.Rules.ListHooks<ITFWeaponEquipHook>());
         var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items, new AttributeHooks());
         var taunts = new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, rig.Carriers,
                                         new TF2.Server.Voice.TFConceptSpeech(new TF2.Tests.Entities.FakeConceptRules(), rig.Carriers,
@@ -65,7 +65,8 @@ public sealed class TFLunchboxWeaponTests
                                             DeclaredConVars.Fresh<TFScoutEnergydrinkConsumeRateConVar>(),
                                             new Arsenal(new RecordingLog(), rig.Engine, rig.Engine, rig.Engine,
                                                         rig.Engine, rig.Engine, rig.Engine, rig.Engine, rig.Engine,
-                                                        entities, rig.Engine, new DamageHitGroups()));
+                                                        entities, rig.Engine, new DamageHitGroups()),
+                                            new TF2.Tests.Medigun.TFHealingCtf(), new TF2.Tests.Entities.FakeRoundState());
 
         if (item is not null)
             rig.Items.Set(PlayerRig.Index, new Dictionary<string, IAttributeProvider> { [Lunchbox] = item });

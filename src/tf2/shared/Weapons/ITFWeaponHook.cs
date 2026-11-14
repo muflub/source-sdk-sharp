@@ -94,6 +94,17 @@ public interface ITFWeaponHook : IOrderedHook
     float ModifySpread(in TFWeaponHookContext weapon, float spread) => spread;
 
     /// <summary>
+    /// The reduced-health cone of <c>GetWeaponSpread</c>
+    /// (<c>panic_attack_negative</c>, <c>tf_weaponbase_gun.cpp:866-872</c>):
+    /// asked after <see cref="ModifySpread"/>, with the cone sine so far. The
+    /// held item's value scales the sine by the owner's health fraction
+    /// between 20 and 90 percent — hurt fires tighter, near-full keeps the
+    /// cone as it stands (<c>RemapValClamped</c>, so a fraction outside the
+    /// band clamps to its ends).
+    /// </summary>
+    float ModifyPanicAttack(in TFWeaponHookContext weapon, float spread) => spread;
+
+    /// <summary>
     /// The consecutive-shot gate of <c>GetWeaponSpread</c>
     /// (<c>mult_spread_scales_consecutive</c>, <c>tf_weaponbase_gun.cpp:874-882</c>):
     /// stock asks it over a zero scaler, so a hook answers the attribute's walk
@@ -454,6 +465,13 @@ public sealed class TFWeaponHookChain(IHooks<ITFWeaponHook>? hooks = null, ILog?
     {
         foreach (var hook in All)
             spread = Guard(hook, nameof(ITFWeaponHook.ModifySpread), spread, weapon, static (h, w, v) => h.ModifySpread(in w, v));
+        return spread;
+    }
+
+    public float ModifyPanicAttack(in TFWeaponHookContext weapon, float spread)
+    {
+        foreach (var hook in All)
+            spread = Guard(hook, nameof(ITFWeaponHook.ModifyPanicAttack), spread, weapon, static (h, w, v) => h.ModifyPanicAttack(in w, v));
         return spread;
     }
 

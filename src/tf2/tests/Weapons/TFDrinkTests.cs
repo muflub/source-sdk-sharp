@@ -5,13 +5,16 @@ using SourceSharp.Tests;
 
 using TF2.Server.Combat;
 using TF2.Server.Player;
+using TF2.Server.Projectiles;
 using TF2.Server.Weapons;
 using TF2.Shared;
 using TF2.Shared.Combat;
 using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
 using TF2.Shared.Player;
+using TF2.Shared.Rules;
 using TF2.Tests.Player;
+using TF2.Tests.Projectiles;
 using TF2.Tests.Rules;
 
 using Xunit;
@@ -37,7 +40,8 @@ public sealed class TFDrinkTests
     /// writer with the effect arms, the stun stack as the player's part, and
     /// an empty hand unless a fact sets an item.</summary>
     private static (PlayerRig Rig, TFLunchboxWeapon Lunchbox, TFPlayerConditions Conditions, TFStunStack Stack)
-        DrinkRig(AttributeContainer? item = null, Arsenal? arsenal = null)
+        DrinkRig(AttributeContainer? item = null, Arsenal? arsenal = null,
+                 TF2.Server.Entities.Ctf.ICtfRules? rules = null, TF2.Server.Rules.ITeamRoundState? rounds = null)
     {
         var rig = new PlayerRig();
         rig.Engine.Returns("Entities.GetClassName", "player"); // the hurt checks name the plain player
@@ -53,7 +57,7 @@ public sealed class TFDrinkTests
                                                                  new DamageHitGroups()),
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: rig.Engine);
+                                            clock: rig.Engine, equipHooks: new TF2.Tests.Rules.ListHooks<ITFWeaponEquipHook>());
         var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items, new AttributeHooks());
         var stack = new TFStunStack(rig.Carriers, players, rig.Engine);
         rig.Extra.Add(stack);
@@ -74,7 +78,9 @@ public sealed class TFDrinkTests
                                                 new TF2.Server.Voice.TFSceneImage(TF2.Tests.Voice.TFSceneImageTests.Files())),
                                             rig.Engine, rig.Engine, rig.Engine, new NoEntities(),
                                             DeclaredConVars.Fresh<TFScoutEnergydrinkConsumeRateConVar>(),
-                                            arsenal ?? CarriedDrink());
+                                            arsenal ?? CarriedDrink(),
+                                            rules ?? new TF2.Tests.Medigun.TFHealingCtf(),
+                                            rounds ?? new TF2.Tests.Entities.FakeRoundState());
         return (rig, lunchbox, conditions, stack);
     }
 
@@ -119,6 +125,69 @@ public sealed class TFDrinkTests
         // dodged amount stands tallied for the slow the phase's end pays.
         Assert.Equal(Decision.No, rules.Decide(in hit));
         Assert.Equal(40, rig.Carriers.ConditionsOf(PlayerRig.Index)!.PreventedDamage(TFCond.Phase));
+    }
+
+    /// <summary>
+    /// The flag arm of <c>CanStartPhase</c>
+    /// (shared/tf/tf_player_shared.cpp:12705-12709): a carrier's Bonk never
+    /// opens the phase; the hint (<c>HINT_CANNOT_PHASE_WITH_FLAG</c>) has no
+    /// route here, so the refusal lands silent — and the hand still goes back
+    /// (:18672), the drink's tail outside the gate.
+    /// </summary>
+    [Fact]
+    public void AFlagCarrierDrinksWithoutPhasing()
+    {
+        // The carrier's own bit stands on the rules seam: CarriedBy answers the
+        // index, the way the healing's CTF fake holds it.
+        var ctf = new TF2.Tests.Medigun.TFHealingCtf();
+        ctf.Carriers.Add(PlayerRig.Index);
+        var arsenal = CarriedDrink();
+        var (rig, lunchbox, _, _) = DrinkRig(arsenal: arsenal, rules: ctf);
+
+        lunchbox.Drink(PlayerRig.Index);
+
+        Assert.False(rig.State.InCond(TFCond.Phase));
+        Assert.Equal("tf_weapon_scattergun", Held(arsenal));
+    }
+
+    /// <summary>
+    /// The round arm of <c>CanStartPhase</c> (:12715-12718): through the
+    /// winners' round the losing team drinks without phasing, the winning one
+    /// phases as ever — the rig's scout is Red (<c>Players.GetTeam</c> of
+    /// PlayerRig), so the same round states split by the winner's team alone.
+    /// </summary>
+    [Fact]
+    public void TheWinnersRoundPhasesOnlyItsWinners()
+    {
+        var rounds = new TF2.Tests.Entities.FakeRoundState { State = RoundState.TeamWin, WinningTeam = TFTeam.Blue };
+        var (rig, lunchbox, _, _) = DrinkRig(rounds: rounds);
+
+        // Blue won; the Red scout is the loser: the phase is refused.
+        lunchbox.Drink(PlayerRig.Index);
+        Assert.False(rig.State.InCond(TFCond.Phase));
+
+        // The same round under its winners: the phase lands as under no win.
+        rounds.WinningTeam = TFTeam.Red;
+        lunchbox.Drink(PlayerRig.Index);
+        Assert.True(rig.State.InCond(TFCond.Phase));
+    }
+
+    /// <summary>
+    /// The gate's otherwise-arm beside the two refusals: outside the winners'
+    /// round the plain drink phases — the standing
+    /// <see cref="ABonkDrinkMakesTheScoutImmune"/> walks it with the default
+    /// running-round fake, so here only the win-state half is held to it: an
+    /// <see cref="RoundState.Unassigned"/>-style idle round is no refusal.
+    /// </summary>
+    [Fact]
+    public void AnIdleRoundStillPhasesTheDrink()
+    {
+        var rounds = new TF2.Tests.Entities.FakeRoundState { State = RoundState.RoundRunning, WinningTeam = TFTeam.Blue };
+        var (rig, lunchbox, _, _) = DrinkRig(rounds: rounds);
+
+        lunchbox.Drink(PlayerRig.Index);
+
+        Assert.True(rig.State.InCond(TFCond.Phase));
     }
 
     [Fact]
@@ -169,7 +238,7 @@ public sealed class TFDrinkTests
                                                                  new DamageHitGroups()),
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: rig.Engine);
+                                            clock: rig.Engine, equipHooks: new TF2.Tests.Rules.ListHooks<ITFWeaponEquipHook>());
         var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items, new AttributeHooks());
 
         // The voice of the press: the rules answer the taunt concept, as the
@@ -188,12 +257,19 @@ public sealed class TFDrinkTests
                                         TF2.Tests.Entities.ObjectiveRig.ConceptSceneImage());
         var lunchbox = new TFLunchboxWeapon(players, resupply, rig.Carriers, new FakeOwners(), new AttributeHooks(),
                                             taunts, rig.Engine, rig.Engine, rig.Engine, new NoEntities(),
-                                            DeclaredConVars.Fresh<TFScoutEnergydrinkConsumeRateConVar>(), arsenal);
+                                            DeclaredConVars.Fresh<TFScoutEnergydrinkConsumeRateConVar>(), arsenal,
+                                            new TF2.Tests.Medigun.TFHealingCtf(), new TF2.Tests.Entities.FakeRoundState());
 
         var scripts = new TFWeaponScripts(new RecordingLog(), WeaponFixtures.WithExtras(WeaponFixtures.Shipped()));
         var attack = new TFTauntAttack(rig.Carriers, players, rig.Engine, rig.Engine, rig.Engine, rig.Engine,
                                        rig.Engine, scripts, new TFDamageScopes(), new NoEntities(), lunchbox,
-                                       new NoTFWeaponOwners(), new AttributeHooks(), new TFTauntAttackTests.FixedRandom(), rig.Engine);
+                                       new NoTFWeaponOwners(), new AttributeHooks(), new TFTauntAttackTests.FixedRandom(), rig.Engine, rig.Engine, rig.Engine,
+                                       new TFBlastApplier(rig.Engine, rig.Engine, rig.Engine, new TFDamageScopes(), new DamageHitGroups(),
+                                                          new DamageInflictors(), rig.Carriers, new RecordingLog(), rig.Engine,
+                                                          new NoTFWeaponOwners(), new AttributeHooks(),
+                                                          new ProjectileRig.Resupply(), rig.Engine, rig.Engine,
+                                                          new ProjectileRig.DirectoryView(), rig.Carriers,
+                                                          DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>()), new RecordingEffectDispatch(), new TFTauntAttackTests.ChargeMeter(), new FakeStats(), new TFTauntAttackTests.RecordingProjectile());
         attack.Attach(Player);
 
         var world = new TFWeaponWorld(files: WeaponFixtures.WithExtras(WeaponFixtures.Shipped()));
@@ -244,7 +320,7 @@ public sealed class TFDrinkTests
                                                                  new DamageHitGroups()),
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: rig.Engine);
+                                            clock: rig.Engine, equipHooks: new TF2.Tests.Rules.ListHooks<ITFWeaponEquipHook>());
         var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items, new AttributeHooks());
 
         var rules = new TF2.Tests.Entities.FakeConceptRules
@@ -266,12 +342,19 @@ public sealed class TFDrinkTests
                                         new NoTFWeaponOwners(), new AttributeHooks(), gestureless);
         var lunchbox = new TFLunchboxWeapon(players, resupply, rig.Carriers, new FakeOwners(), new AttributeHooks(),
                                             taunts, rig.Engine, rig.Engine, rig.Engine, new NoEntities(),
-                                            DeclaredConVars.Fresh<TFScoutEnergydrinkConsumeRateConVar>(), arsenal);
+                                            DeclaredConVars.Fresh<TFScoutEnergydrinkConsumeRateConVar>(), arsenal,
+                                            new TF2.Tests.Medigun.TFHealingCtf(), new TF2.Tests.Entities.FakeRoundState());
 
         var scripts = new TFWeaponScripts(new RecordingLog(), WeaponFixtures.WithExtras(WeaponFixtures.Shipped()));
         var attack = new TFTauntAttack(rig.Carriers, players, rig.Engine, rig.Engine, rig.Engine, rig.Engine,
                                        rig.Engine, scripts, new TFDamageScopes(), new NoEntities(), lunchbox,
-                                       new NoTFWeaponOwners(), new AttributeHooks(), new TFTauntAttackTests.FixedRandom(), rig.Engine);
+                                       new NoTFWeaponOwners(), new AttributeHooks(), new TFTauntAttackTests.FixedRandom(), rig.Engine, rig.Engine, rig.Engine,
+                                       new TFBlastApplier(rig.Engine, rig.Engine, rig.Engine, new TFDamageScopes(), new DamageHitGroups(),
+                                                          new DamageInflictors(), rig.Carriers, new RecordingLog(), rig.Engine,
+                                                          new NoTFWeaponOwners(), new AttributeHooks(),
+                                                          new ProjectileRig.Resupply(), rig.Engine, rig.Engine,
+                                                          new ProjectileRig.DirectoryView(), rig.Carriers,
+                                                          DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>()), new RecordingEffectDispatch(), new TFTauntAttackTests.ChargeMeter(), new FakeStats(), new TFTauntAttackTests.RecordingProjectile());
         attack.Attach(Player);
 
         var world = new TFWeaponWorld(files: WeaponFixtures.WithExtras(WeaponFixtures.Shipped()));

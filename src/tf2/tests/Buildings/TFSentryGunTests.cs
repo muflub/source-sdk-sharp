@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
+using SourceSharp.Shared.Bones;
+using SourceSharp.Tests;
 using TF2.Server;
 using TF2.Server.Buildings;
 using TF2.Server.Player;
@@ -1131,5 +1133,75 @@ public class TFSentryGunTests
         BuildingsRig.Hit(sentry, EntityHandle.None, 5000f, DamageType.Bullet);
 
         Assert.Equal(0, rig.Revenge.Of(builder.EntryIndex));
+    }
+
+    /// <summary>
+    /// The mini's light group (tf_obj_sentrygun.cpp:343-346, :398-401): the digit of
+    /// <c>mini_sentry_light</c> comes on when construction starts and comes on again as
+    /// the turret goes active — the write the entity keeps composing on its own body value.
+    /// </summary>
+    [Fact]
+    public void TheMiniLightsItsBodyAtStartBuildingAndOnGoingActive()
+    {
+        var rig = new BuildingsRig();
+        rig.StubWorld();
+        rig.Services.AddInstance<IBoneModels>(new MiniHdrModels());
+        EntityHandle builder = AGunslinger(rig);
+        var sentry = (TFSentryGun)rig.Builder()
+                                     .Build(builder, TFObjectType.Sentrygun, 0, Vector.Zero, Vector.Zero)
+                                     .Building!;
+        Assert.True(sentry.IsMiniBuilding);
+
+        var skins = (RecordingServerSkins)rig.Registry.Services!.Resolve(typeof(IServerSkins))!;
+        Assert.Single(skins.Bodies);                 // the StartBuilding guard wrote once
+        Assert.Equal(1, skins.Bodies[0].Body);       // group 0's digit, light on
+
+        rig.Clock.Now += TFObjectInfo.Of(TFObjectType.Sentrygun)!.BuildTime;
+        sentry.OnThink();                            // the last construction tick: goes active
+
+        Assert.Equal(2, skins.Bodies.Count);         // the OnGoActive guard wrote again
+        Assert.Equal(1, skins.Bodies[^1].Body);      // the same digit, recomposed
+    }
+
+    /// <summary>Stock's two calls both stand under the <c>IsMiniBuilding</c> guard
+    /// (:344, :399): a full gun writes no body at all.</summary>
+    [Fact]
+    public void TheFullSentryKeepsTheBodyItsModelCameWith()
+    {
+        var rig = new BuildingsRig();
+        rig.StubWorld();
+        rig.Services.AddInstance<IBoneModels>(new MiniHdrModels());
+        EntityHandle builder = rig.AddBuilder(TFTeam.Red);
+        rig.Purse.Pockets[TFAmmoNames.Name(TFAmmo.Metal)] = 500;   // the build's pay
+        var sentry = (TFSentryGun)rig.Builder()
+                                     .Build(builder, TFObjectType.Sentrygun, 0, Vector.Zero, Vector.Zero)
+                                     .Building!;
+        Assert.False(sentry.IsMiniBuilding);
+
+        rig.Clock.Now += TFObjectInfo.Of(TFObjectType.Sentrygun)!.BuildTime;
+        sentry.OnThink();
+
+        var skins = (RecordingServerSkins)rig.Registry.Services!.Resolve(typeof(IServerSkins))!;
+        Assert.Empty(skins.Bodies);                  // neither guard fires for a full gun
+    }
+
+    /// <summary>The sentry model's hdr, as the bones' builder lays it: one group of
+    /// two models over the root bone the image seam needs (<see cref="StudioHdr.TryCreate"/>).</summary>
+    private sealed class MiniHdrModels : IBoneModels
+    {
+        private readonly StudioHdr _hdr = Build();
+
+        private static StudioHdr Build()
+        {
+            StudioHdrBuilder b = new();
+            b.Bones.Add(new StudioHdrBuilder.BoneDef { Name = "root", Parent = -1 });
+            b.BodyParts.Add(new StudioHdrBuilder.BodyPartDef { Name = "mini_sentry_light", NumModels = 2 });
+            Assert.True(StudioHdr.TryCreate(b.Build(), null, out StudioHdr? hdr) && hdr is not null, "image rejected");
+            return hdr!;
+        }
+
+        public bool HasStudioModel(int modelIndex) => true;
+
+        public StudioHdr? OpenStudioHdr(int modelIndex) => _hdr;
     }
 }

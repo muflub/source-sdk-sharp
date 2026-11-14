@@ -137,7 +137,7 @@ public sealed class ClientMovementCompositionTests
         // The convar publish, when the module has published by now (it precedes
         // the composition, in ComposeEngineAreas): the graph below names the mod's
         // convars by concrete type, so those are the instances the publish
-        // leaves — the spy cloak's four and the movement rules' thirteen, through
+        // leaves — the spy cloak's four and the movement rules' fourteen, through
         // the real registry.
         int publish = source.IndexOf("_convars.PublishTo(_services)", StringComparison.Ordinal);
         if (publish >= 0 && publish < create)
@@ -165,7 +165,9 @@ public sealed class ClientMovementCompositionTests
                 typeof(TF2.Shared.TFParachuteMaxSpeedXYConVar),
                 typeof(TF2.Shared.TFParachuteMaxSpeedZConVar),
                 typeof(TF2.Shared.TFParachuteMaxSpeedOnfireZConVar),
+                typeof(TF2.Shared.TFParachuteAirControlConVar),
                 typeof(TF2.Shared.TFClampAirducksConVar),
+                typeof(TF2.Shared.TFDemomanChargeFrametimeScalingConVar),
                 typeof(TF2.Shared.TFDemomanChargeDrainTimeConVar),
                 typeof(TF2.Shared.TFDemomanChargeRegenRateConVar),
                 typeof(TF2.Shared.TFScoutEnergydrinkConsumeRateConVar),

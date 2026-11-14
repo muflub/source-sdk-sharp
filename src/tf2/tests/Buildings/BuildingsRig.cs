@@ -1,6 +1,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
+using SourceSharp.Shared.Bones;
 using SourceSharp.Tests;
 using TF2.Server;
 using TF2.Server.Buildings;
@@ -17,6 +18,7 @@ using TF2.Shared.Movement;
 using TF2.Tests.Entities.Items;
 using TF2.Tests.Medigun;
 using TF2.Tests.Rules;
+using Xunit;
 
 namespace TF2.Tests.Buildings;
 
@@ -27,6 +29,30 @@ internal sealed class FakeAnnouncer : ITFObjectAnnouncer
 
     public void Built(EntityHandle builder, TFObjectType type, int mode) => Said.Add($"built {type} {mode}");
     public void Destroyed(EntityHandle builder, TFObjectType type, int mode) => Said.Add($"destroyed {type} {mode}");
+}
+
+/// <summary>
+/// The buildings' model hdr: the <c>teleporter_direction</c> group the entrance's
+/// arrow asks about (<see cref="StudioHdrBuilder"/>'s one-bone image seam, with the
+/// group on top of it). A fact may register a richer double over this one after the
+/// rig is built and before it spawns anything.
+/// </summary>
+internal sealed class StudioHdrModels : IBoneModels
+{
+    private readonly StudioHdr _hdr = Build();
+
+    private static StudioHdr Build()
+    {
+        StudioHdrBuilder b = new();
+        b.Bones.Add(new StudioHdrBuilder.BoneDef { Name = "root", Parent = -1 });
+        b.BodyParts.Add(new StudioHdrBuilder.BodyPartDef { Name = "teleporter_direction", NumModels = 2 });
+        Assert.True(StudioHdr.TryCreate(b.Build(), null, out StudioHdr? hdr) && hdr is not null, "image rejected");
+        return hdr!;
+    }
+
+    public bool HasStudioModel(int modelIndex) => true;
+
+    public StudioHdr? OpenStudioHdr(int modelIndex) => _hdr;
 }
 
 /// <summary>
@@ -140,6 +166,11 @@ internal sealed partial class BuildingsRig
                                          "EntityRender.LookupSequence", "EntityRender.LookupSequenceByActivity",
                                          "EntityRender.GetModelName", "EntityRender.LookupPoseParameter",
                                          "EntityRender.SetPoseParameter", "Precache.PrecacheModel");
+        // The hdr the buildings' arrow and light read, held by the rig so the
+        // harness's spawns see the group digits without each fact carrying its
+        // own double. One two-model group: the arrow digit is then the value
+        // itself, as stock's single-group entrance model lays it out.
+        Services.AddInstance<IBoneModels>(new StudioHdrModels());
         Engine = (RecordingEngine)Services.Resolve<IEngineEntities>()!;
         Engine.Returns("Entities.GetSpawnFlags", 0)
               .Returns("Entities.IsPlayer", true)

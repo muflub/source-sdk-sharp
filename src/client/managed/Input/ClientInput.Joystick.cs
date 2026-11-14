@@ -588,6 +588,18 @@ public sealed partial class ClientInput
         _host.SetViewAngles(viewAngles);
     }
 
-    /// <summary>CInput::JoyStickAdjustYaw: a hook for mods; stock's base answers its argument.</summary>
-    private static float JoyStickAdjustYaw(float speed) => speed;
+    /// <summary>
+    /// <c>CInput::JoyStickAdjustYaw</c> (tf_input_main.cpp:132-150): the
+    /// stick's yaw speed through the mods' charge cap, while the stick moves
+    /// and the player is not strafing (:135); stock's base answers its
+    /// argument (:149).
+    /// </summary>
+    private float JoyStickAdjustYaw(float speed)
+    {
+        // Make sure we're not strafing (:135).
+        if (speed != 0f && (Buttons.Strafe.State & 1) == 0)
+            return CamCapYaw(speed);
+
+        return speed;
+    }
 }

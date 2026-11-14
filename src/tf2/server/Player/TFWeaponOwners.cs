@@ -64,6 +64,15 @@ public sealed class TFServerWeaponOwners(TFPlayerCarriers carriers, TFRoundWinne
         return name.Length > 0 ? items.Of(playerIndex, name) : null;
     }
 
+    /// <summary>Stock's <c>curtime - pTFActiveWeapon->GetLastDeployTime()</c>
+    /// (<c>tf_player_shared.cpp:12870</c>), read off the held weapon's entity through
+    /// the door <see cref="RocketPackRefireOf"/>'s walk takes: the held clock under
+    /// the hour, or the hour itself so the Atomizer's hold refuses nowhere.</summary>
+    public float ActiveWeaponDeployAge(int playerIndex, float now)
+        => directory.Get(players.GetActiveWeaponEntity(players.GetHandle(playerIndex))) is SsWeapon { State: { } live }
+            ? now - live.LastDeployTime
+            : now;
+
     public IAttributeProvider? ManagerOf(int playerIndex) => items.ManagerOf(playerIndex);
 
     /// <summary>

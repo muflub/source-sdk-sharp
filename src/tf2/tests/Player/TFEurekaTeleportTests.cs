@@ -141,7 +141,7 @@ public sealed class TFEurekaTeleportTests
                                                                      new DamageHitGroups()),
                                                 hpMin: DeclaredConVars.Holding<TFMaxHealthDrainHpMinConVar>(null),
                                                 deployCost: DeclaredConVars.Holding<TFMaxHealthDrainDeployCostConVar>(null),
-                                                clock: rig.Engine);
+                                                clock: rig.Engine, equipHooks: new ListHooks<ITFWeaponEquipHook>());
             var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, Conditions, rig.Carriers, rig.Items, new AttributeHooks());
             var owners = new FakeOwners();
             if (teleportAttrib)

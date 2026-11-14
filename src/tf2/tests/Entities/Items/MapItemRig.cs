@@ -36,6 +36,11 @@ internal sealed class FakeMapPlayer
     public float CloakMeter { get; set; }
     public float ChargeMeter { get; set; }
 
+    /// <summary>The Spy-cicle's melt pair (<see cref="FakeMapPlayers.AddToSpyKnife"/>):
+    /// the stamp and window a fact stamps the way the burn layer melts.</summary>
+    public float KnifeStamp { get; set; }
+    public float KnifeWindow { get; set; }
+
     /// <summary>The wearer of <c>ammo_gives_charge</c>, as the seam's own gate holds it; the attr facts are the seam's.</summary>
     public bool WearsCharge { get; set; }
 }
@@ -116,6 +121,21 @@ internal sealed class FakeMapPlayers : ITFMapPlayers
         bool moved = amount > 0f && p.CloakMeter < 100f;
         p.CloakMeter = Math.Clamp(p.CloakMeter + amount, 0f, 100f);
         return moved;
+    }
+
+    /// <summary>
+    /// <c>AddToSpyKnife</c> as the seam answers it (<c>entity_ammopack.cpp:91-94</c>):
+    /// the existing knife takes nothing, a melted one (the fact's stamp and window)
+    /// has its stamp pulled earlier by half the pack's share of the window. The
+    /// melt's own facts are the seam's (TFPlayerMapPlayersTests); this carries the pair.
+    /// </summary>
+    public bool AddToSpyKnife(EntityHandle player, float amount)
+    {
+        var p = P(player);
+        if (p.KnifeWindow <= 0f)
+            return false; // :163-164 — the exists gate
+        p.KnifeStamp -= amount * 0.005f * p.KnifeWindow; // :166-167
+        return true;                                      // :168
     }
 
     /// <summary>The seam's answer: the attr gate is the wearer's <see cref="FakeMapPlayer.WearsCharge"/>, whose facts are the seam's (TFPlayerMapPlayersTests); this carries the meter.</summary>

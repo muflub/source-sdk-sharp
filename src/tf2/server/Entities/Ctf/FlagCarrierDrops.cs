@@ -8,6 +8,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Server;
 
+using TF2.Server.Player;
 using TF2.Shared;
 
 namespace TF2.Server.Entities.Ctf;
@@ -29,10 +30,8 @@ namespace TF2.Server.Entities.Ctf;
 ///
 /// <para>
 /// Not here (docs/plans/tf2/deferred.tsv): the feign-death drop
-/// (tf_player.cpp:15704-15707 — Dead Ringer is not ported), the
-/// Weapon_Equip reactive drop of a weapon that forbids carrying (:20588-20599
-/// — ground weapon pickup is not ported), and the defend's sniper and stats
-/// arms.
+/// (tf_player.cpp:15704-15707 — Dead Ringer is not ported) and the defend's
+/// sniper and stats arms.
 /// </para>
 /// </summary>
 [SideService(Side.Server)]
@@ -127,4 +126,28 @@ public sealed class FlagRespawnDrops(ICtfRules rules) : IPlayerSpawnHook, IOrder
         => rules.CarriedBy(player)?.DropFlag(player);
 
     public void OnSpawned(EntityHandle player, float now) { }
+}
+
+/// <summary>
+/// The reactive arm of <c>CTFPlayer::Weapon_Equip</c>
+/// (tf_player.cpp:20588-20599): after a give, a carrier whose held weapon now
+/// forbids carrying — the Rocket Jumper's and Sticky Jumper's
+/// <c>cannot_pick_up_intelligence</c>, the same gate the flag's own pick-up
+/// asks (<see cref="ICtfPlayers.AllowedToPickUpFlag"/>) — lets go of the flag.
+/// Stock runs the check at the equip itself; the port's equips are the kit's
+/// gives (<see cref="SourceSharp.Server.GameRules.OnPlayerSpawned"/>'s kit loop
+/// and <c>TFPlayerResupply.GiveKit</c>) and the pickup's swap, so the check
+/// stands on the hook every equip pass ends by asking: the kit or the picked-up
+/// weapon lands, then the answer to the give decides here.
+/// </summary>
+[SideService(Side.Server)]
+public sealed class FlagEquipDrop(ICtfRules rules, ICtfPlayers players) : ITFWeaponEquipHook, IOrderedHook
+{
+    public int HookOrder => CtfOrders.WeaponEquipDrop;
+
+    public void OnEquipped(EntityHandle player)
+    {
+        if (!players.AllowedToPickUpFlag(player) && rules.CarriedBy(player) is { } flag)
+            flag.DropFlag(player);
+    }
 }

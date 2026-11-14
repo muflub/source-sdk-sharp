@@ -168,4 +168,7 @@ public static class TFPlayerOrders
     /// the death walk after the gib's, whose marks the same body carries, on +108.
     /// </summary>
     public const int RagdollTeam = Band + 108;
+
+    /// <summary>A death on TF's scoreboard: the victim's death, the attacker's kill (<see cref="TFKillStats"/>), on +109.</summary>
+    public const int KillStats = Band + 109;
 }

@@ -61,11 +61,14 @@ internal static class TFMovementFixtures
             typeof(TFParachuteMaxSpeedXYConVar),
             typeof(TFParachuteMaxSpeedZConVar),
             typeof(TFParachuteMaxSpeedOnfireZConVar),
+            typeof(TFParachuteAirControlConVar),
+            typeof(TFClampAirducksConVar),
+            typeof(TFDemomanChargeFrametimeScalingConVar),
         ]);
         return convars;
     }
 
-    /// <summary>The client compilation's own copies of the same twelve.</summary>
+    /// <summary>The client compilation's own copies of the same fourteen.</summary>
     public static client::SourceSharp.Abi.ConVarRegistry ClientConVars()
     {
         var convars = new client::SourceSharp.Abi.ConVarRegistry(new ClientClampVars());
@@ -83,6 +86,9 @@ internal static class TFMovementFixtures
             typeof(client::TF2.Shared.TFParachuteMaxSpeedXYConVar),
             typeof(client::TF2.Shared.TFParachuteMaxSpeedZConVar),
             typeof(client::TF2.Shared.TFParachuteMaxSpeedOnfireZConVar),
+            typeof(client::TF2.Shared.TFParachuteAirControlConVar),
+            typeof(client::TF2.Shared.TFClampAirducksConVar),
+            typeof(client::TF2.Shared.TFDemomanChargeFrametimeScalingConVar),
         ]);
         return convars;
     }
@@ -244,7 +250,10 @@ internal static class TFMovementFixtures
                    vars.Declared<TFParachuteMaxSpeedXYConVar>(),
                    vars.Declared<TFParachuteMaxSpeedZConVar>(),
                    vars.Declared<TFParachuteMaxSpeedOnfireZConVar>(),
-                   teams ?? new Teamless());
+                   teams ?? new Teamless(),
+                   vars.Declared<TFClampAirducksConVar>(),
+                   vars.Declared<TFParachuteAirControlConVar>(),
+                   vars.Declared<TFDemomanChargeFrametimeScalingConVar>());
     }
 
     private sealed class ClientFiles(TFClassTableTests.Files files) : ClientEngineFiles
@@ -855,6 +864,42 @@ public sealed class TFJumpTests
         Assert.False(TFJump.CanAirDash(TFClass.Scout, default, airDash: 2, dashCount: 2, null, JumpHooks, null));
     }
 
+    // ---- the Atomizer's third-dash hold (tf_player_shared.cpp:12867-12873) ---
+
+    /// <summary>The held weapon's answer needs only a non-null item; the hold
+    /// reads no attribute.</summary>
+    private static AttributeContainer HeldWeapon() => new();
+
+    /// <summary>The dash that would be the third is held while the weapon has been
+    /// in the hands less than seven-tenths of a second (:12871).</summary>
+    [Fact]
+    public void A_freshly_held_weapon_holds_the_third_dash()
+    {
+        Assert.False(TFJump.CanAirDash(TFClass.Scout, default, airDash: 1, dashCount: 2, HeldWeapon(),
+                                       JumpHooks, null, secondsSinceDeploy: 0.5f));
+    }
+
+    /// <summary>Past the seven-tenths the same press dashes again (:12871's
+    /// comparison): the hold is the weapon's age, not a permanent lock.</summary>
+    [Fact]
+    public void A_settled_weapon_gives_the_third_dash_back()
+    {
+        Assert.True(TFJump.CanAirDash(TFClass.Scout, default, airDash: 1, dashCount: 2, HeldWeapon(),
+                                      JumpHooks, null, secondsSinceDeploy: 0.8f));
+    }
+
+    /// <summary>The earlier dashes are never held (:12871, the count of dashes so
+    /// far): the first dash answers at once however fresh the hands are, and so does
+    /// a hand with no weapon — stock's null <c>pTFActiveWeapon</c> skips the arm.</summary>
+    [Fact]
+    public void The_first_dash_never_meets_the_hold()
+    {
+        Assert.True(TFJump.CanAirDash(TFClass.Scout, default, airDash: 0, dashCount: 2, HeldWeapon(),
+                                      JumpHooks, null, secondsSinceDeploy: 0f));
+        Assert.True(TFJump.CanAirDash(TFClass.Scout, default, airDash: 1, dashCount: 2, null,
+                                      JumpHooks, null, secondsSinceDeploy: 0f));
+    }
+
     [Fact]
     public void The_soda_poppers_hype_allows_five()
     {
@@ -1059,6 +1104,201 @@ public sealed class TFMovementRulesTests
 
         Assert.Equal(0.2f, rules.DuckSeconds(Index, 0.4f));
         Assert.Equal(0.2f, rules.DuckSeconds(Index, 0.2f));
+    }
+
+    /// <summary>
+    /// The water's own duck mask (<c>DuckOverrides</c>, tf_gamemovement.cpp:3183-3188):
+    /// feet-deep and off the ground, or eyes-deep anywhere, hides IN_DUCK; dry or
+    /// feet-deep with feet down, the held duck answers.
+    /// </summary>
+    [Fact]
+    public void The_water_depth_hides_the_duck_when_the_feet_are_not_down()
+    {
+        var rules = (IMovementRules)Make().Rules;
+
+        // Eyes-deep: ducked even standing in it (:3184-3185's second half).
+        Assert.Equal(0, rules.DuckButtons(Index, GameMovement.InDuck, true, GameMovement.WlEyes, 0f, false, false));
+
+        // Feet-deep, airborne: the crouch hides.
+        Assert.Equal(0, rules.DuckButtons(Index, GameMovement.InDuck, false, GameMovement.WlFeet, 0f, false, false));
+
+        // Feet-deep on the ground, and dry: nothing to hide.
+        Assert.Equal(GameMovement.InDuck, rules.DuckButtons(Index, GameMovement.InDuck, true, GameMovement.WlFeet, 0f, false, false));
+        Assert.Equal(GameMovement.InDuck, rules.DuckButtons(Index, GameMovement.InDuck, true, GameMovement.WlNotInWater, 0f, false, false));
+    }
+
+    /// <summary>
+    /// The duck timer's cooldown (stock's <c>OnUnDuck</c> stamp :3295-3296 and the
+    /// clamp's timer arm :3194-3197): the release stamps TF_TIME_TO_DUCK 0.3 on
+    /// the loop's clock, a grounded press inside the stamp waits, one made after
+    /// it answers, and the same press airborne ignores the stamp.
+    /// </summary>
+    [Fact]
+    public void A_grounded_press_waits_while_the_duck_cooldown_runs()
+    {
+        var players = new TFMovementFixtures.Players();
+        _ = players.Add(Index, TFClass.Scout);
+        var rules = (IMovementRules)TFMovementFixtures.Rules(players);
+
+        rules.DuckRelease(Index, 5f, false);
+        Assert.Equal(5.3f, players.Predicted(Index)!.DuckTimer, 2);
+
+        // Inside the stamp, on the ground: refused. After it: answered.
+        Assert.Equal(0, rules.DuckButtons(Index, GameMovement.InDuck, true, GameMovement.WlNotInWater, 5.25f, false, false));
+        Assert.Equal(GameMovement.InDuck, rules.DuckButtons(Index, GameMovement.InDuck, true, GameMovement.WlNotInWater, 5.4f, false, false));
+
+        // The same stamp, airborne: the timer arm never reaches (:3194 wants ground).
+        Assert.Equal(GameMovement.InDuck, rules.DuckButtons(Index, GameMovement.InDuck, false, GameMovement.WlNotInWater, 5.25f, false, false));
+    }
+
+    /// <summary>
+    /// The quantum-crouch hold (<c>DuckOverrides</c>, tf_gamemovement.cpp:3213-3216):
+    /// only a duck already down AND easing hides its own held button — one flag
+    /// alone lets the press through.
+    /// </summary>
+    [Fact]
+    public void The_quantum_hold_needs_both_duck_flags()
+    {
+        var rules = (IMovementRules)Make().Rules;
+
+        Assert.Equal(0, rules.DuckButtons(Index, GameMovement.InDuck, true, GameMovement.WlNotInWater, 0f, true, true));
+        Assert.Equal(GameMovement.InDuck, rules.DuckButtons(Index, GameMovement.InDuck, true, GameMovement.WlNotInWater, 0f, true, false));
+        Assert.Equal(GameMovement.InDuck, rules.DuckButtons(Index, GameMovement.InDuck, true, GameMovement.WlNotInWater, 0f, false, false));
+    }
+
+    /// <summary>
+    /// The charge clamp of <c>SetupMove</c> (server/tf/tf_playermove.cpp:83-106,
+    /// the targe exploit fix): the first charging command stores its yaw, a
+    /// return within the cap — the charge cap (0.4625 at a tick frame) times
+    /// 2.5 (:85-86) — answers as sent (:87), and past it the yaw lands one cap
+    /// in from the stored one (:88-94), which the next command stores (:96).
+    /// </summary>
+    [Fact]
+    public void The_charge_clamp_pulls_the_return_into_the_cap()
+    {
+        var players = new TFMovementFixtures.Players();
+        TFPlayerNetState state = players.Add(Index, TFClass.Demoman);
+        state.SetConditions(TFCondMask.Of(TFCond.ShieldCharge));
+        var rules = (IMovementRules)TFMovementFixtures.Rules(players);
+
+        // Nothing held yet: the first charge command keeps its own yaw (:87-88).
+        Assert.Equal(-20f, rules.ChargeYawCap(Index, -20f, 0.015f, 0.015f), 4);
+
+        // One degree back, inside the cap of 1.15625: as sent (:87).
+        Assert.Equal(-19f, rules.ChargeYawCap(Index, -19f, 0.015f, 0.015f), 4);
+
+        // Past it from the stored −19: −19 + the cap, not the command's −17 (:88-94).
+        Assert.Equal(-17.84375f, rules.ChargeYawCap(Index, -17f, 0.015f, 0.015f), 4);
+    }
+
+    /// <summary>
+    /// The else arm (:104): nobody charging, the yaw of the moment is the whole
+    /// answer — stored, and never clamped against what the last command left.
+    /// </summary>
+    [Fact]
+    public void Nobody_charging_answers_the_yaws_as_sent()
+    {
+        var players = new TFMovementFixtures.Players();
+        _ = players.Add(Index, TFClass.Demoman);
+        var rules = (IMovementRules)TFMovementFixtures.Rules(players);
+
+        Assert.Equal(-20f, rules.ChargeYawCap(Index, -20f, 0.015f, 0.015f), 4);
+        Assert.Equal(-5f, rules.ChargeYawCap(Index, -5f, 0.015f, 0.015f), 4);
+    }
+
+    /// <summary>
+    /// The scaling convar carries into the clamp (:85): off, the cap is the
+    /// plain base times 2.5 (0.45 → 1.125), so the same return from −20 lands
+    /// at −18.875 where a tick-frame cap lands at −18.84375.
+    /// </summary>
+    [Fact]
+    public void The_scaling_off_lands_the_clamp_on_the_plain_cap()
+    {
+        var players = new TFMovementFixtures.Players();
+        TFPlayerNetState state = players.Add(Index, TFClass.Demoman);
+        state.SetConditions(TFCondMask.Of(TFCond.ShieldCharge));
+        ConVarRegistry vars = TFMovementFixtures.ConVars();
+        vars.Declared<TFDemomanChargeFrametimeScalingConVar>().SetValue(false);
+        var rules = (IMovementRules)TFMovementFixtures.Rules(players, convars: vars);
+
+        Assert.Equal(-20f, rules.ChargeYawCap(Index, -20f, 0.015f, 0.015f), 4);
+
+        // −18 sits 2 past the stored −20, past the plain cap of 1.125.
+        Assert.Equal(-18.875f, rules.ChargeYawCap(Index, -18f, 0.015f, 0.015f), 4);
+    }
+
+    /// <summary>
+    /// One duck per air event past the count (<c>DuckOverrides</c> :3219-3222 on
+    /// TF_AIRDUCKED_COUNT 2 (:90), counted by airborne releases :3299-3301): the
+    /// third airborne press after two air ducks is ignored, while a grounded
+    /// press under the same count answers.
+    /// </summary>
+    [Fact]
+    public void A_third_air_duck_in_one_jump_is_ignored()
+    {
+        var players = new TFMovementFixtures.Players();
+        _ = players.Add(Index, TFClass.Scout);
+        var rules = (IMovementRules)TFMovementFixtures.Rules(players);
+
+        // Two airborne releases: each stamps and counts (:3295-3301).
+        rules.DuckRelease(Index, 1f, true);
+        rules.DuckRelease(Index, 2f, true);
+        Assert.Equal(2, players.Predicted(Index)!.AirDuckedCount);
+        Assert.Equal(2.3f, players.Predicted(Index)!.DuckTimer, 2);
+
+        // The cap reached: airborne the duck hides, grounded it answers.
+        Assert.Equal(0, rules.DuckButtons(Index, GameMovement.InDuck, false, GameMovement.WlNotInWater, 9f, false, false));
+        Assert.Equal(GameMovement.InDuck, rules.DuckButtons(Index, GameMovement.InDuck, true, GameMovement.WlNotInWater, 9f, false, false));
+    }
+
+    /// <summary>
+    /// The landing frees the air event (stock's SetAirDash/SetAirDucked pair at
+    /// landing, tf_gamemovement.cpp:2958-2959): the count clears with the dash,
+    /// and the next air event ducks afresh.
+    /// </summary>
+    [Fact]
+    public void The_landing_clears_the_air_duck_count()
+    {
+        var players = new TFMovementFixtures.Players();
+        _ = players.Add(Index, TFClass.Scout);
+        var rules = (IMovementRules)TFMovementFixtures.Rules(players);
+
+        rules.DuckRelease(Index, 1f, true);
+        rules.DuckRelease(Index, 2f, true);
+        Assert.Equal(2, players.Predicted(Index)!.AirDuckedCount);
+
+        rules.Grounded(Index);
+
+        Assert.Equal(0, players.Predicted(Index)!.AirDuckedCount);
+        Assert.Equal(GameMovement.InDuck, rules.DuckButtons(Index, GameMovement.InDuck, false, GameMovement.WlNotInWater, 9f, false, false));
+    }
+
+    /// <summary>
+    /// <c>tf_clamp_airducks</c> gates the clamp's arms, not the water
+    /// (tf_gamemovement.cpp:3190-3191): with the convar on a cooldown press is
+    /// refused, off it answers — and eyes-deep water still hides the duck while
+    /// the convar is off, because the water masks ahead of the gate.
+    /// </summary>
+    [Fact]
+    public void The_clamp_convar_gates_the_three_arms_not_the_water()
+    {
+        var players = new TFMovementFixtures.Players();
+        _ = players.Add(Index, TFClass.Scout);
+        var convars = TFMovementFixtures.ConVars();
+        var rules = (IMovementRules)TFMovementFixtures.Rules(players, convars: convars);
+
+        rules.DuckRelease(Index, 5f, true);
+
+        // On (the declared default): inside the airborne stamp, grounded press waits.
+        Assert.Equal(0, rules.DuckButtons(Index, GameMovement.InDuck, true, GameMovement.WlNotInWater, 5.25f, false, false));
+
+        convars.Declared<TFClampAirducksConVar>().SetValue(false);
+
+        // Off: the same press answers.
+        Assert.Equal(GameMovement.InDuck, rules.DuckButtons(Index, GameMovement.InDuck, true, GameMovement.WlNotInWater, 5.25f, false, false));
+
+        // And the water still masks ahead of the gate (:3183).
+        Assert.Equal(0, rules.DuckButtons(Index, GameMovement.InDuck, true, GameMovement.WlEyes, 9f, false, false));
     }
 
     [Fact]
@@ -1769,9 +2009,11 @@ public sealed class TFMovementRulesTests
     }
 
     /// <summary>
-    /// The Mantreads' air-control scale rides the blast-jump condition alone
-    /// (tf_gamemovement.cpp:2081-2094): the attribute on the player's manager
-    /// moves the cap only while the condition stands.
+    /// The Mantreads' air-control scale rides the blast-jump condition alone and its
+    /// home is the air cap, where stock reads both attributes
+    /// (<c>CTFGameMovement::GetAirSpeedCap</c>, tf_gamemovement.cpp:2081-2094): the
+    /// attribute on the player's manager lifts the cap only while the condition
+    /// stands, the max speed no longer changes with it, and landing ends it.
     /// </summary>
     [Fact]
     public void The_blast_jump_scale_sits_behind_the_condition_and_landing_ends_it()
@@ -1784,21 +2026,109 @@ public sealed class TFMovementRulesTests
         var manager = new AttributeContainer();
         manager.Set(AttributeValue.OfFloat(new AttributeDefinition(5008, "attr 5008", "mod_air_control_blast_jump",
             AttributeDescriptionFormat.Percentage, AttributeEffectType.Neutral, false, false,
-            AttributeValueType.Default, MergedKeys.Block("x")), 1.25f));
+            AttributeValueType.Default, MergedKeys.Block("x")), 1.5f));
         items.SetManager(Index, manager);
 
-        // No condition: the walk never asks, the cap stands (:2081's gate).
+        // No condition: neither attribute answers, the base cap stands (:2081's gate),
+        // and the walk's speed answer is unchanged beside it (:2081).
+        Assert.Equal(30f, rules.AirSpeedCap(Index, 30f));
         Assert.Equal(400f, rules.MaxSpeedScale(Index, 400f, false, 0));
 
-        // The blast-jump condition on: the same attribute now scales (:2083).
+        // The blast-jump condition on: the attribute scales the cap (:2083-2087)
+        // and no longer the max speed, whose answer the blast-jump arm left.
         var blast = default(TFCondMask);
         blast.Set(TFCond.Blastjumping);
         state.SetConditions(in blast);
-        Assert.Equal(500f, rules.MaxSpeedScale(Index, 400f, false, 0));
-
-        // Landing clears it (TFBlastJump.cs's clear): the cap stands again.
-        state.SetConditions(default);
+        Assert.Equal(45f, rules.AirSpeedCap(Index, 30f));
         Assert.Equal(400f, rules.MaxSpeedScale(Index, 400f, false, 0));
+
+        // Landing clears the condition (TFBlastJump.cs's clear): the cap stands again.
+        state.SetConditions(default);
+        Assert.Equal(30f, rules.AirSpeedCap(Index, 30f));
+    }
+
+    /// <summary>
+    /// The chute lifts the air cap by its multiplier while it is out, and the base
+    /// cap answers without it (<c>CTFGameMovement::GetAirSpeedCap</c>
+    /// tf_gamemovement.cpp:2067-2070): 30 outside the chute, and the stock default's
+    /// multiplier times the base — 30 × 2.5 — while the condition stands.
+    /// </summary>
+    [Fact]
+    public void The_chute_multiplies_the_air_cap_while_it_is_out()
+    {
+        var players = new TFMovementFixtures.Players();
+        var state = players.Add(Index, TFClass.Scout);
+        var rules = TFMovementFixtures.Rules(players);
+
+        Assert.Equal(30f, rules.AirSpeedCap(Index, 30f));
+
+        var chute = default(TFCondMask);
+        chute.Set(TFCond.ParachuteActive);
+        state.SetConditions(in chute);
+        Assert.Equal(75f, rules.AirSpeedCap(Index, 30f));
+    }
+
+    /// <summary>
+    /// The shield charge answers the charge's own convar outright, before every
+    /// other arm (:2051-2054): the cap is <c>tf_max_charge_speed</c>'s default,
+    /// the base cap never entering the answer.
+    /// </summary>
+    [Fact]
+    public void The_shield_charge_answers_the_charge_speed_to_the_air_cap()
+    {
+        var players = new TFMovementFixtures.Players();
+        var state = players.Add(Index, TFClass.Scout);
+        var rules = TFMovementFixtures.Rules(players);
+
+        var charged = default(TFCondMask);
+        charged.Set(TFCond.ShieldCharge);
+        state.SetConditions(in charged);
+        Assert.Equal(750f, rules.AirSpeedCap(Index, 30f));
+    }
+
+    /// <summary>
+    /// The scout's full press is raised to the max speed it stands under
+    /// (<c>HighMaxSpeedMove</c>, tf_gamemovement.cpp:886-895): forward held at
+    /// the client's reference speed under the 520 max walks at 520, the side
+    /// move kept beside it.
+    /// </summary>
+    [Fact]
+    public void The_full_press_is_raised_to_the_max_speed_under_it()
+    {
+        var players = new TFMovementFixtures.Players();
+        players.Add(Index, TFClass.Scout);
+        var rules = TFMovementFixtures.Rules(players);
+
+        Assert.Equal(new HighMaxSpeedPair(520f, 0f), rules.HighMaxSpeed(Index, 450f, 0f, 520f));
+    }
+
+    /// <summary>
+    /// A press that already stands over the max speed is kept as sent (:886's
+    /// gate): 450 forward against a 400 max asks nothing of the pair.
+    /// </summary>
+    [Fact]
+    public void A_press_over_the_max_speed_is_kept_as_sent()
+    {
+        var players = new TFMovementFixtures.Players();
+        players.Add(Index, TFClass.Scout);
+        var rules = TFMovementFixtures.Rules(players);
+
+        Assert.Null(rules.HighMaxSpeed(Index, 450f, 0f, 400f));
+    }
+
+    /// <summary>
+    /// Half a press matches neither reference speed and is kept (:888-894):
+    /// 225 forward under a 520 max walks at 225, the raise only ever meeting a
+    /// full press.
+    /// </summary>
+    [Fact]
+    public void The_half_press_matches_no_reference_and_is_kept()
+    {
+        var players = new TFMovementFixtures.Players();
+        players.Add(Index, TFClass.Scout);
+        var rules = TFMovementFixtures.Rules(players);
+
+        Assert.Null(rules.HighMaxSpeed(Index, 225f, 0f, 520f));
     }
 
     /// <summary>
@@ -2269,5 +2599,92 @@ public sealed class TFMovementRulesTests
 
         state.SetConditions(TFCondMask.Of([TFCond.ParachuteActive, TFCond.Burning]));
         Assert.Equal(-50f, rules.ParachuteFallCap(Index, new Vector(0f, 0f, -500f)).Z, 3);
+    }
+}
+
+/// <summary>
+/// <see cref="TFChargeCap"/>: <c>CTFPlayerShared::CalculateChargeCap</c>
+/// (tf_player_shared.cpp:6100-6115) — the base 0.45 degrees (:6102) through the
+/// wearer's <c>charge_turn_control</c> hook (:6104), times the frametime scale
+/// while <c>tf_demoman_charge_frametime_scaling</c> is on (:6107-6112): the
+/// remap of the frame time over [<c>TICK_INTERVAL</c> × 0.2, × 2] onto
+/// [0.25, 2] with the constants of :107-108. One arm per fact.
+/// </summary>
+public sealed class TFChargeCapTests
+{
+    private static readonly AttributeHooks Hooks = new();
+
+    /// <summary>
+    /// The scale's band is anchored on the tick, not on one second: a frame of
+    /// exactly one tick sits inside the band at (tick − 0.2·tick) / (2·tick −
+    /// 0.2·tick), and the remap answers 0.25 + that × 1.75 — for one tick
+    /// itself 1.0277…, so the cap is 0.45 × it ≈ 0.4625 (:6110). No attribute:
+    /// a player with no manager leaves the hook value untouched (:6104).
+    /// </summary>
+    [Fact]
+    public void One_ticks_frametime_lifts_the_cap_above_the_base()
+    {
+        float cap = TFChargeCap.Calculate(0.015f, 0.015f, true, Hooks, null);
+        Assert.Equal(0.4625f, cap, 4);
+    }
+
+    /// <summary>
+    /// <c>CALL_ATTRIB_HOOK_FLOAT_ON_OTHER</c> (:6104): the multiplier format
+    /// multiplies, so a wearer's ×2 <c>charge_turn_control</c> doubles the
+    /// base before any frametime scale — the scale off answers 0.45 × 2 = 0.9.
+    /// </summary>
+    [Fact]
+    public void The_charge_turn_control_hook_scales_the_cap()
+    {
+        var manager = new AttributeContainer();
+        manager.Set(AttributeValue.OfFloat(new AttributeDefinition(584, "attr 584", "charge_turn_control",
+            AttributeDescriptionFormat.Percentage, AttributeEffectType.Neutral, false, false,
+            AttributeValueType.Default, MergedKeys.Block("x")), 2f));
+
+        float cap = TFChargeCap.Calculate(0.015f, 0.015f, false, Hooks, manager);
+        Assert.Equal(0.9f, cap, 4);
+    }
+
+    /// <summary>
+    /// The convar gates the multiplier (:6107): at its stock declared default
+    /// the scale runs and a tick's frame lifts the cap above the base, and with
+    /// the holder flipped off the answer is the plain hook value, 0.45 exactly.
+    /// </summary>
+    [Fact]
+    public void The_scaling_convar_gates_the_frametime_multiplier()
+    {
+        var convars = new ConVarRegistry(new NamedConVars(new Dictionary<string, string>()));
+        convars.RegisterTypes([typeof(TFDemomanChargeFrametimeScalingConVar)]);
+        var scaling = convars.Declared<TFDemomanChargeFrametimeScalingConVar>();
+
+        Assert.True(scaling.Value, "stock declares the default 1");
+        Assert.Equal(0.4625f, TFChargeCap.Calculate(0.015f, 0.015f, scaling.Value, Hooks, null), 4);
+
+        scaling.SetValue(false);
+        Assert.Equal(0.45f, TFChargeCap.Calculate(0.015f, 0.015f, scaling.Value, Hooks, null));
+    }
+
+    /// <summary>
+    /// Below the band's low input the remap clamps to its floor (mathlib's
+    /// clamped lerp): a half-tick frame of 0.0015 s sits under 0.2 × tick, so
+    /// the scale sticks at 0.25 and the cap at 0.45 × it (:6110).
+    /// </summary>
+    [Fact]
+    public void A_frame_under_the_low_bound_lands_on_the_scale_floor()
+    {
+        float cap = TFChargeCap.Calculate(0.0015f, 0.015f, true, Hooks, null);
+        Assert.Equal(0.1125f, cap, 4);
+    }
+
+    /// <summary>
+    /// Above the band's high input the remap clamps to its ceiling: a two-tick
+    /// frame sits at the high end, so the scale answers 2 and the cap doubles
+    /// the hook value to 0.9 (:6110).
+    /// </summary>
+    [Fact]
+    public void A_frame_over_the_high_bound_lands_on_the_scale_ceiling()
+    {
+        float cap = TFChargeCap.Calculate(0.06f, 0.015f, true, Hooks, null);
+        Assert.Equal(0.9f, cap, 4);
     }
 }

@@ -102,6 +102,17 @@ public interface ITFSpyState
     bool KnifeReady(int ownerIndex, float now);
 
     /// <summary>
+    /// <c>CTFKnife::DecreaseRegenerationTime</c>
+    /// (<c>tf_weapon_knife.cpp:160-169</c>) through
+    /// <c>CTFPlayer::AddToSpyKnife</c> (<c>tf_player.cpp:5092-5098</c>,
+    /// <c>bForce == false</c>, the item's ask): an existing knife takes
+    /// nothing (:163-164); a melted one has its melt stamp pulled earlier by
+    /// <c>value * 0.005</c> of the regen window and answers taken (:166-168).
+    /// The gate reads the slice's own clock.
+    /// </summary>
+    bool DecreaseKnifeRegenerationTime(int ownerIndex, float value);
+
+    /// <summary>
     /// <c>CTFKnife::ApplyOnInjuredAttributes</c>
     /// (<c>tf_weapon_knife.cpp:118-157</c>): the holder's own item answering
     /// <c>melts_in_fire</c> one and up, burned or ignited, melts the knife for

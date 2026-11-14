@@ -432,7 +432,7 @@ public class TeamDeathmatchTests
     public void AWantedTeamTheLimitRefusesFallsBackToTheAutoAssign()
     {
         var rig = new Rig().Tdm();
-        rig.ConVars.Declared<TeamsUnbalanceLimitConVar>().Bind(-1, "cs_sv_teams_unbalance_limit", "1");
+        rig.ConVars.Declared<TeamsUnbalanceLimitConVar>().Bind(-1, "mp_teams_unbalance_limit", "1");
         rig.Teams[Fresh] = 0;
         rig.WantedTeams.Teams[Fresh] = TeamDeathmatchMode.TeamCombine;   // 3 to 1 is two over
         rig.Host.Returns("Entities.FindAllByClassname", Array.Empty<EntityHandle>());

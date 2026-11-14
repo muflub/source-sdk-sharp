@@ -91,7 +91,7 @@ public sealed class GameVoteOptions(IEngineFiles files, IEngineConsole console, 
     [
         new("mp_tdm_teams", ("2", "2"), ("3", "3"), ("4", "4")),
         new("mp_teammates_collide", ("0", "#SS_UI_Vote_Off"), ("1", "#SS_UI_Vote_On")),
-        new("cs_sv_teams_unbalance_limit", ("0", "#SS_UI_Vote_Off"), ("1", "1"), ("2", "2")),
+        new("mp_teams_unbalance_limit", ("0", "#SS_UI_Vote_Off"), ("1", "1"), ("2", "2")),
     ];
 
     /// <summary>

@@ -141,6 +141,7 @@ public sealed class TFPlayerClassTests
             c => Assert.IsType<TFScattergunKnockback>(c),
             c => Assert.IsType<TFStunStack>(c),
             c => Assert.IsType<TFDonkVictims>(c),
+            c => Assert.IsType<TFCritMultTicker>(c),                                      // the crit meter between the donk list (33) and the respawn override (40)
             c => Assert.IsType<TFRespawnOverride>(c),
             c => Assert.IsType<TFBuffRageTicker>(c),
             c => Assert.IsType<TFHypeDrain>(c),

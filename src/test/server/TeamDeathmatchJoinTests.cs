@@ -42,7 +42,7 @@ public class TeamDeathmatchJoinTests
                                                   ConVars.Declared<TeamsUnbalanceLimitConVar>(), new Random(seed), () => teams);
         }
 
-        public void Limit(int n) => ConVars.Declared<TeamsUnbalanceLimitConVar>().Bind(-1, "cs_sv_teams_unbalance_limit", n.ToString());
+        public void Limit(int n) => ConVars.Declared<TeamsUnbalanceLimitConVar>().Bind(-1, "mp_teams_unbalance_limit", n.ToString());
     }
 
     //-------------------------------------------------------------------------

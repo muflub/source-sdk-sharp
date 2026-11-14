@@ -29,8 +29,9 @@ public static class TFAmmoPackRules
 
     /// <summary>
     /// Gives a pack of <paramref name="ratio"/>; true when anything was
-    /// taken. The spy's knife meter is not ported
-    /// (docs/plans/tf2/deferred.tsv).
+    /// taken — the cloak, the melted Spy-cicle's regen wait and the
+    /// Persuader's charge all ride the pack's share
+    /// (<c>entity_ammopack.cpp:86-110</c>).
     /// </summary>
     public static bool Give(ITFMapPlayers players, EntityHandle player, float ratio)
     {
@@ -42,6 +43,9 @@ public static class TFAmmoPackRules
         // :86-89 — a spy riding by gets cloak by the pack's own fraction, and
         // a cloak that moved is a pack taken even from a fully stocked player.
         success |= players.AddToSpyCloakMeter(player, 100f * ratio);
+
+        // :91-94 — and a melted Spy-cicle's wait shrinks by the pack's own fraction.
+        success |= players.AddToSpyKnife(player, 100f * ratio);
 
         // :96-110 — and the Persuader's wearer charge by the same fraction.
         success |= players.AddToDemoChargeMeterFromAmmo(player, ratio);

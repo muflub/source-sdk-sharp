@@ -399,6 +399,54 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
     }
 
     /// <inheritdoc/>
+    public int LookupBone(EntityHandle entity, string name)
+    {
+        if (string.IsNullOrEmpty(name) || !Read(_blocks.Block(entity), out EngineBlock block))
+        {
+            return -1;
+        }
+
+        // Stock's LookupBone spelling: the ZERO-based index, or the -1 of a
+        // name the model does not carry.
+        return BoneSetupQuery.BoneIndexByName(_models.OpenStudioHdr(block.Head.ModelIndex), name);
+    }
+
+    /// <inheritdoc/>
+    public bool GetBonePosition(EntityHandle entity, int bone, out Vector origin)
+    {
+        origin = default;
+
+        if (!Find(entity, out EngineBlock block, out BoneEntityState state))
+        {
+            return false;
+        }
+
+        ServerBonePose pose = PoseOf(block);
+        StudioHdr? hdr = _models.OpenStudioHdr(pose.ModelIndex);
+
+        if (hdr is null)
+        {
+            return false;
+        }
+
+        // The same build BoneMatrices makes and GetAttachment reads through:
+        // everything a renderer would ask, at the clock's now.
+        long started = Begin(state, out BoneCacheKey before);
+        bool built = _driver.EnsureBones(state, pose, BoneLibrary.BoneUsedByAnything, _clock.Now, ConVars);
+        End(state, started, before);
+
+        if (!built || bone < 0 || bone >= state.CachedBones.Length)
+        {
+            return false;
+        }
+
+        // Stock's GetBonePosition: the bone-to-world matrix's origin.
+        NVector position = state.CachedBones[bone].Position;
+        origin = new Vector(position.X, position.Y, position.Z);
+        return true;
+    }
+
+    /// <inheritdoc/>
     public int CachedBoneCount(EntityHandle entity) =>
         _states.TryGet(entity, out BoneEntityState? state) && state is not null ? state.CachedBones.Length : 0;
 

@@ -244,6 +244,15 @@ public static partial class TestServices
         services.AddInstance<IServerDecals>(decals);
         services.AddInstance(new BloodDecals(engine, decals, engine, convars.Declared<ViolenceHBloodConVar>(), convars.Declared<ViolenceABloodConVar>()));
         services.AddInstance<IServerSkins>(new RecordingServerSkins());
+        // The studio header the buildings' bodygroup helpers read, as the
+        // engine answers when its model cache holds none: the hdr-null arms of
+        // FindBodygroupByName and SetBodygroup (animation.cpp:929, :865). A
+        // fact that cares about groups registers its own double over this one.
+        services.AddInstance<SourceSharp.Shared.Bones.IBoneModels>(new NoStudioHdrModels());
+        // The bodygroup pair the buildings and the ammo pack share, built on
+        // its first ask: a fact registers its own hdr double or skins recorder
+        // before it resolves an entity that takes it.
+        services.Add<SourceSharp.Server.ServerBodygroups>();
 
         // Every model entity's flames (AnimatingEntity), as the server module
         // registers them: over no entities, so nothing is burning until a
@@ -492,4 +501,13 @@ public sealed class FixedStress : SourceSharp.Server.IObjectStressQuery
 {
     public float Kilograms;
     public float StressOf(EntityHandle entity) => Kilograms;
+}
+
+/// <summary>A model cache with nothing in it: the hdr-null arms answer, as an
+/// entity whose model never loaded sees it.</summary>
+public sealed class NoStudioHdrModels : SourceSharp.Shared.Bones.IBoneModels
+{
+    public bool HasStudioModel(int modelIndex) => false;
+
+    public SourceSharp.Shared.Bones.StudioHdr? OpenStudioHdr(int modelIndex) => null;
 }

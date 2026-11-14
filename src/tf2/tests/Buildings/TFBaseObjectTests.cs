@@ -24,8 +24,9 @@ public sealed class TestBuilding : TFBaseObject
     public TestBuilding(ITFMapPlayers players, ITFObjectAnnouncer announcer, IEnginePrecache precache,
                         IEngineEntityRender render, ITFAmmoPurse purse, TFPlayerCarriers carriers,
                         TF2.Server.Voice.TFConceptSpeech speech, ITFWeaponOwners owners,
-                        AttributeHooks hooks, TFDamageScopes scopes, ITFRevengeCrits crits)
-        : base(players, announcer, precache, render, purse, carriers, speech, owners, hooks, scopes, crits) { }
+                        AttributeHooks hooks, TFDamageScopes scopes, ITFRevengeCrits crits,
+                        ServerBodygroups bodygroups)
+        : base(players, announcer, precache, render, purse, carriers, speech, owners, hooks, scopes, crits, bodygroups) { }
 
     public override TFObjectType Type => TFObjectType.Sentrygun;
 }

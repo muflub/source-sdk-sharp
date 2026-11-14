@@ -121,7 +121,6 @@ public sealed class TFConVarsTests
         { "mp_capdeteriorate_time", RoundRules, StockSide.Both },
         { "mp_tournament", RoundRules, StockSide.Both },
         { "mp_highlander", RoundRules, StockSide.Both },
-        { "mp_teams_unbalance_limit", RoundRules, StockSide.Both },
         { "mp_maxrounds", RoundRules, StockSide.Both },
         { "mp_winlimit", RoundRules, StockSide.Both },
         // tf_gamerules.cpp:810-811 (shared): the lead that ends the map, and its floor.
@@ -174,6 +173,8 @@ public sealed class TFConVarsTests
         { "tf_fall_damage_disablespread", TFRules, StockSide.Server },
         { "tf_damage_range", TFPlayer, StockSide.Server },
         { "tf_debug_damage", TFPlayer, StockSide.Server },
+        // the crit meter's event life: tf_player_shared.cpp:156, inside the file's GAME_DLL arm (:135), FCVAR_DEVELOPMENTONLY, no help.
+        { "tf_damage_events_track_for", PlayerShared, StockSide.Server },
         // the thruster's landing push: tf_weapon_rocketpack.cpp:69-70 (shared), read by the fall's impact ring (:8997).
         { "tf_rocketpack_impact_push_min", RocketPack, StockSide.Both },
         { "tf_rocketpack_impact_push_max", RocketPack, StockSide.Both },
@@ -216,6 +217,9 @@ public sealed class TFConVarsTests
         // refill and the seconds a full charge lasts (UpdateChargeMeter).
         { "tf_demoman_charge_regen_rate", PlayerShared, StockSide.Both },
         { "tf_demoman_charge_drain_time", PlayerShared, StockSide.Both },
+        // tf_player_shared.cpp:106, outside any #if: the charge yaw cap's frametime
+        // scale, "1" REPLICATED | CHEAT with help — CalculateChargeCap (:6100-6115) reads it.
+        { "tf_demoman_charge_frametime_scaling", PlayerShared, StockSide.Both },
         // tf_weapon_medigun.cpp:76, outside any #if: the meter's build, read by the
         // server's charge arm and the client's predicted replay alike.
         { "weapon_medigun_charge_rate", Medigun, StockSide.Both },

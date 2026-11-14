@@ -813,6 +813,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // A mod's own totals kept across a rejoin (plan_bots_teams_tf2 A.6,
         // TF2's stats): a chain, every mod's state its own.
         _services.AddFactory<IHooks<IRejoinScoreHook>>(locator => new Hooks<IRejoinScoreHook>(locator, log));
+        // A new match on the same level (plan A.6): every reset of the
+        // players' scores the rules make (mp_restartgame, a mode switch, a
+        // mod's own game restart) tells this chain; the rejoin table forgets.
+        _services.AddFactory<IHooks<IMatchResetHook>>(locator => new Hooks<IMatchResetHook>(locator, log));
         // tf2 stage 0.7: the mode selector is a chain (first non-null answer
         // names the mode; the core's "null" answers last inside GameModes,
         // not as a registered selector). Lazy, so a selector may take the
@@ -1122,6 +1126,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // The skin a server entity is drawn with, sent as m_nSkin (2026-10-19).
         // Before the arsenal, whose attachment dressing writes through it.
         _services.AddInstance<IServerSkins>(ServerSkins.For(_engine));
+
+        // The bodygroup pair the entities share (m_nBody), built on its first
+        // ask over the skins seam above and the model cache registered later.
+        _services.Add<ServerBodygroups>();
 
         // The animation layer chain's composition (phase 0.10): the mods'
         // IAnimStateLayer services, asked lazily on the first player's chain,
@@ -1864,8 +1872,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // Create resolves constructor arguments eagerly, and a registration
         // that comes after the Create throws at server startup.
         _services.AddInstance<IPlayerDirectory>(_players);
-        // A leaving human's score, kept for their rejoin (plan A.6): before
-        // the rules, whose restart clears it.
+        // A leaving human's score, kept for their rejoin (plan A.6); a member
+        // of the match-reset chain the rules' restart raises.
         _services.AddInstance(_services.Create<RejoinScores>());
         _rules = _services.Create<GameRules>();
         modes.Attach(_rules);
@@ -2047,11 +2055,15 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // posed in managed code from the engine's model cache, copied as bytes.
         // A lifecycle participant (level shutdown drops every skeleton and
         // image), so registered before the driver below.
+        StudioModels studioModels = new(_services.Require<IStudioMemory>());
         _skeletons = new ServerSkeletons(new EngineStandaloneBlocks(_services.Require<IEngineEntities>()),
-                                         new StudioModels(_services.Require<IStudioMemory>()),
+                                         studioModels,
                                          _services.Require<IGameClock>(), Log,
                                          _surfaceProps, _services.Require<AnimThreeWayBlendConVar>());
         _services.AddInstance(_skeletons);
+        // The buildings' bodygroup helpers read the model's body parts through
+        // the same cache the skeletons pose from (animation.cpp:863's hdr).
+        _services.AddInstance<IBoneModels>(studioModels);
         _arsenal.Attachments = _skeletons;
 
         // THE LAG COMPENSATION (player_lagcompensation.cpp's CLagCompensationManager):
@@ -4531,9 +4543,15 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
     public float GetDuckSeconds(int playerIndex, float seconds) => _movementRules.Rules.DuckSeconds(playerIndex, seconds);
 
-    public int GetDuckButtons(int playerIndex, int buttons, bool onGround, int waterLevel, float curTime) => _movementRules.Rules.DuckButtons(playerIndex, buttons, onGround, waterLevel, curTime);
+    public int GetDuckButtons(int playerIndex, int buttons, bool onGround, int waterLevel, float curTime, bool ducked, bool ducking) => _movementRules.Rules.DuckButtons(playerIndex, buttons, onGround, waterLevel, curTime, ducked, ducking);
+
+    public float GetAirSpeedCap(int playerIndex, float cap) => _movementRules.Rules.AirSpeedCap(playerIndex, cap);
+
+    public HighMaxSpeedPair? GetHighMaxSpeed(int playerIndex, float forwardMove, float sideMove, float maxSpeed) => _movementRules.Rules.HighMaxSpeed(playerIndex, forwardMove, sideMove, maxSpeed);
 
     public void GetDuckRelease(int playerIndex, float curTime, bool inAir) => _movementRules.Rules.DuckRelease(playerIndex, curTime, inAir);
+
+    public float GetChargeYawCap(int playerIndex, float yaw, float frametime, float tickInterval) => _movementRules.Rules.ChargeYawCap(playerIndex, yaw, frametime, tickInterval);
 
     public Vector GetParachuteFallCap(int playerIndex, Vector velocity) => _movementRules.Rules.ParachuteFallCap(playerIndex, velocity);
 

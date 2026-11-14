@@ -49,7 +49,7 @@ public sealed class TFPlayerResourceTests
                                                                                     new SourceSharp.Server.DamageHitGroups()),
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: rig.Engine);
+                                            clock: rig.Engine, equipHooks: new TF2.Tests.Rules.ListHooks<ITFWeaponEquipHook>());
         var state = new TFPlayerResourceNetState();
         state.BindLocal();
         return (rig, stats, new TFPlayerResourceRows(rig.Carriers, resupply, stats, rig.Engine, new Waves(),

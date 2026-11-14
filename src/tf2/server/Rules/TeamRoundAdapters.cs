@@ -44,7 +44,7 @@ public sealed class ConVarTeamRoundSettings(
     MpRestartGameConVar restartGame,
     MpRestartGameImmediateConVar restartGameImmediate,
     MpMatchEndAtTimeLimitConVar matchEndAtTimeLimit,
-    MpTeamsUnbalanceLimitConVar teamsUnbalanceLimit,
+    TeamsUnbalanceLimitConVar teamsUnbalanceLimit,
     MpSpectatorsRestrictedConVar spectatorsRestricted,
     MpAutoTeamBalanceConVar autoTeamBalance,
     MpForceAutoTeamConVar forceAutoTeam,

@@ -62,8 +62,8 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
                                  TFPlayerCarriers carriers, TFConceptSpeech speech,
                                  ITFWeaponOwners owners, AttributeHooks hooks,
                                  TFDamageScopes scopes, ITFRevengeCrits crits,
-                                 TFRevengeCrits revenge)
-    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks, scopes, crits)
+                                 TFRevengeCrits revenge, ServerBodygroups bodygroups)
+    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks, scopes, crits, bodygroups)
 {
     private readonly TFRevengeCrits _revenge = revenge;
 
@@ -211,6 +211,16 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
     private bool _wrangled, _fireNextFrame, _rocketNextFrame;
     private Vector _laserAim;
 
+    // The brief auto-aim (m_hAutoAimTarget and m_flAutoAimStartTime, the
+    // networked pair at tf_obj_sentrygun.h:124): the player the holder's dot
+    // lasered, remembered beside the stamp the find measures its window
+    // against (:882, AUTOAIM < 0.2 s).
+    [SaveField] private EntityHandle _autoAimTarget = EntityHandle.None;
+    [SaveField] private float _autoAimStartTime;
+
+    /// <summary>The window a lased player holds the target (<c>flAutoAimTime &lt; 0.2f</c>, tf_obj_sentrygun.cpp:882).</summary>
+    public const float AutoAimWindow = 0.2f;
+
     // The pose parameters against the model worn — stock re-derives them
     // after every model change (tf_obj_sentrygun.cpp:2130-2131), so they are
     // not carried; the lazy cache re-derives on the model's name.
@@ -280,8 +290,51 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
     }
 
     /// <summary>
+    /// <c>SetAutoAimTarget</c> (tf_obj_sentrygun.cpp:2263-2282, spoken from the
+    /// pointer's dot trace at tf_weapon_laser_pointer.cpp:317-323): the lased
+    /// player is remembered with the stamp, and the find prefers them over the
+    /// dot while the window holds and the eye's line reaches (:881-904). No
+    /// hit at all is no word (:2265-2266); the dummy refusal of :2268-2278 has
+    /// no arm here — this build carries no target dummy entity.
+    /// </summary>
+    public void SetAutoAimTarget(EntityHandle player)
+    {
+        if (player == EntityHandle.None)
+            return;
+
+        _autoAimTarget = player;
+        _autoAimStartTime = GameTime;
+    }
+
+    /// <summary>
+    /// The wrangled line: the dot's stand, or the centre of the lased player
+    /// while the brief auto-aim holds them as the held one (the aim read of
+    /// the held's <c>GetEnemyAimPosition</c>, tf_obj_sentrygun.cpp:1531).
+    /// </summary>
+    private Vector LaserAimPoint =>
+        _playerControlled && _target == EntityHandle.None
+            ? _laserAim
+            : Entities.GetWorldSpaceCenter(_target);
+
+    /// <summary>
+    /// <c>CObjectSentrygun::StartBuilding</c>'s tail (tf_obj_sentrygun.cpp:343-346):
+    /// a mini's light group comes on with the construction.
+    /// </summary>
+    public override void StartBuilding(float buildRate = 1f)
+    {
+        base.StartBuilding(buildRate);
+
+        if (IsMiniBuilding)
+        {
+            SetBodygroup(FindBodygroupByName("mini_sentry_light"), 1);
+        }
+    }
+
+    /// <summary>
     /// <c>CTFSentryGun::OnGoActive</c>: state SEARCHING, loaded, and the
     /// turret booked on its fast think; bounds close around the way it stood.
+    /// The mini's light rides the same guard stock puts after the model
+    /// (:398-401).
     /// </summary>
     protected override void OnGoActive()
     {
@@ -301,6 +354,11 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
         _leftBound = MathF.Max(right, left);
 
         SetContextThink(SentryThink, SentryThinkDelay);
+
+        if (IsMiniBuilding)
+        {
+            SetBodygroup(FindBodygroupByName("mini_sentry_light"), 1);
+        }
     }
 
     protected override void OnDestroyed() => StopThinking(SentryThink);
@@ -517,9 +575,33 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
             _shieldLevel = ShieldNormal;
             _shieldFadeTime = GameTime + WranglerShieldFade;
 
+            // The brief auto-aim period (:881-904): while the window holds and
+            // the eye's line reaches them, the lased player takes the dot's
+            // place as the target; a blocked line or an expired window hands
+            // the word back to the dot (:896-904's clears).
+            EntityHandle lased = _autoAimTarget;
+            Vector stand = _laserAim;
+            if (lased != EntityHandle.None && GameTime - _autoAimStartTime < AutoAimWindow)
+            {
+                TraceResult reach = _world.TraceLine(EyePosition, Entities.GetWorldSpaceCenter(lased),
+                                                     TraceMask.SentrySight, Handle);
+                if (reach.Hit && reach.Entity == lased)
+                    stand = Entities.GetOrigin(lased);
+                else
+                    lased = EntityHandle.None;
+            }
+            else
+            {
+                lased = EntityHandle.None;
+            }
+
+            _autoAimTarget = lased;
+
             // The dot nearer than its standoff is no target (:907-918): the
-            // turret stands to the shield gate, controlled and sweeping.
-            if ((_laserAim - Origin).Length > WranglerMinAimDistance)
+            // turret stands to the shield gate, controlled and sweeping. A
+            // lased player is measured from their own origin, as the held one
+            // of :907 is.
+            if ((stand - Origin).Length > WranglerMinAimDistance)
             {
                 // The engage's FoundTarget (:911): a beat before the first
                 // shell, the same find keeping the turret.
@@ -527,7 +609,7 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
                     _nextAttackTime = GameTime + FoundAttackDelay;
 
                 _attacking = true;
-                _target = EntityHandle.None;
+                _target = lased;
                 return true;
             }
         }
@@ -735,7 +817,7 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
     /// </summary>
     private void AimAndFire()
     {
-        Vector to = (_playerControlled ? _laserAim : Entities.GetWorldSpaceCenter(_target)) - EyePosition;
+        Vector to = LaserAimPoint - EyePosition;
         _goalYaw = Normalize(MathF.Atan2(to.Y, to.X) * (180f / MathF.PI));
         float horizontal = MathF.Sqrt(to.X * to.X + to.Y * to.Y);
         _goalPitch = Math.Clamp(MathF.Atan2(-to.Z, horizontal) * (180f / MathF.PI), MinPitch, MaxPitch);
@@ -853,7 +935,7 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
 
         // The aim: the target's centre, or the wrangled dot's own position
         // (GetEnemyAimPosition of a non-player, tf_obj_sentrygun.cpp:240).
-        Vector aim = _playerControlled ? _laserAim : Entities.GetWorldSpaceCenter(_target);
+        Vector aim = LaserAimPoint;
 
         // The shot's direction, cone-spread under the Wrangler's control and
         // straight otherwise (info.m_vecSpread, tf_obj_sentrygun.cpp:1531-1538):

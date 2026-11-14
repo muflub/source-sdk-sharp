@@ -6,6 +6,7 @@ using TF2.Server.Combat;
 using TF2.Server.Econ;
 using TF2.Server.Entities.Items;
 using TF2.Server.Medigun;
+using TF2.Server.Projectiles;
 using TF2.Server.Weapons;
 using TF2.Shared;
 using TF2.Shared.Conditions;
@@ -162,8 +163,12 @@ public sealed class TFPlayerComponents(IEngineEntities entities, IEntityDirector
                                        TF2.Shared.TFDoubleDonkWindowConVar donkWindow,
                                        TFScoutEnergydrinkConsumeRateConVar drink,
                                        TFScoutEnergydrinkRegenRateConVar drinkRegen,
+                                       TFDamageEventsTrackForConVar trackFor,
                                        TFEurekaTeleport eureka,
-                                       IUniformRandom random)
+                                       IUniformRandom random,
+                                       IEngineEffects effects, IEnginePrecache precache, TFBlastApplier blast,
+                                       ITempEnts temps, ITFMedigunWeapons mediguns, ITFPlayerStats stats,
+                                       ITFProjectileEffects projectiles)
     : IPlayerComponentSource, IOrderedHook
 {
     public int HookOrder => TFPlayerOrders.Components;
@@ -178,12 +183,13 @@ public sealed class TFPlayerComponents(IEngineEntities entities, IEntityDirector
         yield return new TFBlastJumpState(carriers, conditions, networking, directory, enginePlayers, events);
         yield return new TFTauntThink(conditions, directory);
         yield return new TFTauntAttack(carriers, players, entities, world, damage, enginePlayers, networking, weaponScripts, damageScopes, directory, lunchbox,
-                                       owners, hooks, random, events);
+                                       owners, hooks, random, events, effects, precache, blast, temps, mediguns, stats, projectiles);
         yield return new TFEurekaTauntWatch(eureka, conditions);
         yield return new TFTauntHeal(carriers, conditions, enginePlayers, entities, world, owners, hooks, healing);
         yield return new TFScattergunKnockback(carriers, entities, damageLayer);
         yield return new TFStunStack(carriers, players, clock);
         yield return new TFDonkVictims(carriers, clock, donkWindow);
+        yield return new TFCritMultTicker(carriers, trackFor);
         yield return new TFRespawnOverride(carriers, clock);
         yield return new TFBuffRageTicker(carriers, buffs, enginePlayers);
         yield return new TFHypeDrain(carriers, conditions, drink, drinkRegen);

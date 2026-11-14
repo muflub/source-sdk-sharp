@@ -5,6 +5,8 @@
 //
 //=============================================================================//
 
+using SourceSharp.Shared;
+
 namespace SourceSharp.Client.Input;
 
 /// <summary>CameraThirdData_t: a third-person camera a mod sets (pitch, yaw, distance, lag).</summary>
@@ -39,7 +41,18 @@ public sealed partial class ClientInput
 
     private void InitCamera() => _cameraIsOrthographic = false;
 
-    private static float CamCapYaw(float value) => value;
+    /// <summary>
+    /// <c>CTFInput::CAM_CapYaw</c> (tf_input_main.cpp:48-65): the mods' charge
+    /// cap folded over the yaw amount. Each registered <see cref="IChargeYawCap"/>
+    /// answers the previous one's amount; with no rule registered the amount is
+    /// unchanged, stock's base answer (:64).
+    /// </summary>
+    private float CamCapYaw(float value)
+    {
+        foreach (var rule in _chargeCap?.All ?? [])
+            value = rule.CapYaw(value);
+        return value;
+    }
 
     private static float CamCapPitch(float value) => value;
 

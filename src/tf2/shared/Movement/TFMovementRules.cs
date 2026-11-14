@@ -83,6 +83,9 @@ public sealed class TFMovementRules : IMovementRules
     private readonly TFParachuteMaxSpeedZConVar _parachuteZ;
     private readonly TFParachuteMaxSpeedOnfireZConVar _parachuteOnfireZ;
     private readonly Rules.ITFPlayerTeam _teams;
+    private readonly TFClampAirducksConVar _clampAirducks;
+    private readonly TFParachuteAirControlConVar _parachuteAirControl;
+    private readonly TFDemomanChargeFrametimeScalingConVar _chargeScaling;
 
     /// <summary>
     /// Every dependency is injected: both sides' registrations hold each one
@@ -108,7 +111,10 @@ public sealed class TFMovementRules : IMovementRules
                            TFParachuteMaxSpeedXYConVar parachuteXY,
                            TFParachuteMaxSpeedZConVar parachuteZ,
                            TFParachuteMaxSpeedOnfireZConVar parachuteOnfireZ,
-                           Rules.ITFPlayerTeam teams)
+                           Rules.ITFPlayerTeam teams,
+                           TFClampAirducksConVar clampAirducks,
+                           TFParachuteAirControlConVar parachuteAirControl,
+                           TFDemomanChargeFrametimeScalingConVar scaling)
     {
         _classes = classes;
         _players = players;
@@ -131,6 +137,9 @@ public sealed class TFMovementRules : IMovementRules
         _parachuteZ = parachuteZ;
         _parachuteOnfireZ = parachuteOnfireZ;
         _teams = teams;
+        _clampAirducks = clampAirducks;
+        _parachuteAirControl = parachuteAirControl;
+        _chargeScaling = scaling;
     }
 
     /// <summary><c>tf_max_charge_speed</c> (tf_gamemovement.cpp:52; the declaration carries the default).</summary>
@@ -144,6 +153,12 @@ public sealed class TFMovementRules : IMovementRules
 
     /// <summary><c>tf_parachute_maxspeed_onfire_z</c> (:56).</summary>
     private float ParachuteOnfireZ => _parachuteOnfireZ.Value;
+
+    /// <summary><c>tf_clamp_airducks</c> (tf_gamemovement.cpp:65; gates the three duck-clamp arms).</summary>
+    private bool ClampAirDucks => _clampAirducks.Value;
+
+    /// <summary><c>tf_parachute_aircontrol</c> (:57; the chute's cap multiplier, below).</summary>
+    private float ParachuteAirControl => _parachuteAirControl.Value;
 
     /// <summary><c>tf_scout_air_dash_count</c>.</summary>
     private int DashCount => _dashCount.Value;
@@ -200,27 +215,137 @@ public sealed class TFMovementRules : IMovementRules
             return 1f;
 
         // The player's own attribute manager roots the speed hooks
-        // (CALL_ATTRIB_HOOK_FLOAT on the player). Outside a blast jump the
-        // walk's answer is the whole answer; the Mantreads' arm beside it
-        // scales the same call (below), so both bindings feed the rules the
-        // same call the same way.
-        if (!state.InCond(TFCond.Blastjumping))
-            return TFMaxSpeed.Calculate(_classes, Inputs(playerIndex, state), CloakedCap,
-                                        _hooks, _owners.ManagerOf(playerIndex),
-                                        PeerInputs, playerIndex, _owners.ActiveItemOf(playerIndex));
+        // (CALL_ATTRIB_HOOK_FLOAT on the player): the walk's answer is the
+        // whole answer, blast jump or not — the Mantreads' blast-jump scale
+        // is stock's air-cap answer, not this one (below).
+        return TFMaxSpeed.Calculate(_classes, Inputs(playerIndex, state), CloakedCap,
+                                    _hooks, _owners.ManagerOf(playerIndex),
+                                    PeerInputs, playerIndex, _owners.ActiveItemOf(playerIndex));
+    }
 
-        // The Mantreads' air control (tf_gamemovement.cpp:2081-2094): the blast
-        // jump's condition alone gates the scale — stock asks it inside
-        // GetAirAcceleration, which runs in the air, and the condition stands
-        // only behind a blast until landing (TFBlastJump arms it at :8701,
-        // clears it at :8710), so this answer carries the loop's air wishspeed
-        // cap exactly while blast-jumping and the ground cap outside it. The
-        // scale is stock's CALL_ATTRIB_HOOK_FLOAT_ON_OTHER over the player: the
-        // manager is the root, as for the speed hooks above.
-        float speed = TFMaxSpeed.Calculate(_classes, Inputs(playerIndex, state), CloakedCap,
-                                           _hooks, _owners.ManagerOf(playerIndex),
-                                           PeerInputs, playerIndex, _owners.ActiveItemOf(playerIndex));
-        return _hooks.Float(speed, "mod_air_control_blast_jump", _owners.ManagerOf(playerIndex));
+    /// <summary>
+    /// TF's answer to the air wishspeed cap
+    /// (<c>CTFGameMovement::GetAirSpeedCap</c>, tf_gamemovement.cpp:2033-2096):
+    /// the shield charge answers the charge's convar alone (:2051-2054); else
+    /// the base cap takes the chute's multiplier while the chute is out
+    /// (:2067-2070) and the rocket pack's half (:2089-2092), and the whole is
+    /// times the air-control attributes of the player's manager (:2081-2094):
+    /// <c>mod_air_control</c> always, and beside it
+    /// <c>mod_air_control_blast_jump</c> only while the blast jump's condition
+    /// stands — the condition stands behind a blast until landing
+    /// (TFBlastJump arms it at :8701, clears it at :8710). The grappling
+    /// hook's, the agility rune's and the kart's arms (:2035-2049,
+    /// :2072-2079) are not here: this game has no such items or modes.
+    /// </summary>
+    public float AirSpeedCap(int playerIndex, float cap)
+    {
+        if (_players.Predicted(playerIndex) is not { } state)
+            return cap;
+
+        // The charge answers its own convar outright (:2051-2054).
+        if (state.InCond(TFCond.ShieldCharge))
+            return ChargeSpeed;
+
+        float flCap = cap;
+
+        // The chute's multiplier stands while the chute is out (:2067-2070).
+        if (state.InCond(TFCond.ParachuteActive))
+            flCap *= ParachuteAirControl;
+
+        // The attribute hooks, rooted at 1 on the player's manager
+        // (:2081-2082), the blast jump's riding the condition alone (:2084-2087).
+        float increased = _hooks.Float(1f, "mod_air_control", _owners.ManagerOf(playerIndex));
+        if (state.InCond(TFCond.Blastjumping))
+            increased = _hooks.Float(increased, "mod_air_control_blast_jump", _owners.ManagerOf(playerIndex));
+
+        // The rocket pack halves the cap (:2089-2092).
+        if (state.InCond(TFCond.Rocketpack))
+            flCap *= 0.5f;
+
+        // The hooks multiply the whole (:2094).
+        return flCap * increased;
+    }
+
+    /// <summary>
+    /// The high-max-speed rewrite of the pressed pair
+    /// (<c>CTFGameMovement::HighMaxSpeedMove</c>, tf_gamemovement.cpp:884-911):
+    /// a forward move standing at the client's forward/back reference speed but
+    /// sitting below the max speed is raised to it with its sign kept
+    /// (:886-895), and the side move likewise against the side reference
+    /// (:898-908). The reference speeds are the stock-declared 450 defaults of
+    /// <c>cl_forwardspeed</c>, <c>cl_backspeed</c> and <c>cl_sidespeed</c>,
+    /// declared the same way here (<c>src/client/managed/Input/InputConVars.cs</c>).
+    /// Null — both kept as sent — is the untouched case (:886 and :898's gates
+    /// and the half-pressed move that matches neither reference speed). Asked
+    /// where stock calls it: right before <c>PlayerMove</c> (:326, :329).
+    /// </summary>
+    public HighMaxSpeedPair? HighMaxSpeed(int playerIndex, float forwardMove, float sideMove, float maxSpeed)
+    {
+        if (_players.Predicted(playerIndex) is null)
+            return null;
+
+        float forward = forwardMove;
+        float side = sideMove;
+
+        // The forward arm: at the reference and under the max, raised with its
+        // sign (:886-895).
+        if (MathF.Abs(forwardMove) < maxSpeed)
+        {
+            if (AlmostEqual(forwardMove, ClientReferenceSpeed))
+            {
+                forward = maxSpeed;
+            }
+            else if (AlmostEqual(forwardMove, -ClientReferenceSpeed))
+            {
+                forward = -maxSpeed;
+            }
+        }
+
+        // The side arm likewise (:898-908).
+        if (MathF.Abs(sideMove) < maxSpeed)
+        {
+            if (AlmostEqual(sideMove, ClientReferenceSpeed))
+            {
+                side = maxSpeed;
+            }
+            else if (AlmostEqual(sideMove, -ClientReferenceSpeed))
+            {
+                side = -maxSpeed;
+            }
+        }
+
+        if (forward == forwardMove && side == sideMove)
+            return null;
+        return new HighMaxSpeedPair(forward, side);
+    }
+
+    /// <summary>
+    /// Mathlib's <c>AlmostEqual</c> (<c>src/mathlib/almostequal.cpp:45-95</c>,
+    /// the ULP comparison behind the reference-speed checks): the two values
+    /// are close when at most <c>maxUlps</c> representable floats lie between
+    /// them, read by comparing the bits as lexicographically ordered integers.
+    /// Infinities answer only to themselves, a NAN to nobody, and a pair of
+    /// differing signs is equal only when exactly equal.
+    /// </summary>
+    private static bool AlmostEqual(float a, float b, int maxUlps = 10)
+    {
+        if (float.IsInfinity(a) || float.IsInfinity(b))
+            return a == b;
+        if (float.IsNaN(a) || float.IsNaN(b))
+            return false;
+        if (MathF.Sign(a) != MathF.Sign(b))
+            return a == b;
+
+        // The bits as ordered integers, negatives flipped into order
+        // (almostequal.cpp:80-87).
+        int aBits = BitConverter.SingleToInt32Bits(a);
+        int bBits = BitConverter.SingleToInt32Bits(b);
+        if (aBits < 0)
+            aBits = (int)(0x80000000 - (uint)aBits);
+        if (bBits < 0)
+            bBits = (int)(0x80000000 - (uint)bBits);
+
+        return Math.Abs(aBits - bBits) <= maxUlps;
     }
 
     /// <summary>
@@ -355,9 +480,13 @@ public sealed class TFMovementRules : IMovementRules
         // The no-dash attribute walks the player's own manager, the dash count
         // and the weapon jump height the active weapon's item (the ON_OTHER
         // roots).
+        // The dash decision, with the held weapon's age beside it (stock asks
+        // curtime minus the weapon's own deploy stamp, :12870, inside the same
+        // CanAirDash — the Atomizer's hold on the third dash).
         float dash = TFJump.AirDash(state.Class(), state.Conditions(), state.AirDash, DashCount,
                                     _owners.ActiveItemOf(request.PlayerIndex),
-                                    _hooks, _owners.ManagerOf(request.PlayerIndex));
+                                    _hooks, _owners.ManagerOf(request.PlayerIndex),
+                                    _owners.ActiveWeaponDeployAge(request.PlayerIndex, request.CurrentTime));
         if (dash > 0f)
         {
             state.AirDash++;
@@ -386,6 +515,11 @@ public sealed class TFMovementRules : IMovementRules
                 state.AirDash = 0;
             state.ScattergunJump = false;
             state.WeaponKnockback = false;
+
+            // The air-duck count rides the same landing reset as the dash
+            // (SetAirDash/SetAirDucked together at tf_gamemovement.cpp:2958-2959),
+            // so the next airtime allows its ducks afresh.
+            state.AirDuckedCount = 0;
         }
     }
 
@@ -595,6 +729,12 @@ public sealed class TFMovementRules : IMovementRules
     /// </summary>
     private const float BunnyJumpMaxSpeedFactor = 1.2f;
 
+    // The client's movement reference speeds, stock's cl_forwardspeed,
+    // cl_backspeed and cl_sidespeed defaults — each declared "450" by stock
+    // and declared the same way here (src/client/managed/Input/
+    // InputConVars.cs). The high-max-speed rewrite compares against them.
+    private const float ClientReferenceSpeed = 450f;
+
     /// <summary>
     /// The bunny-jump cap is 1.2 times the speed the loop arrived at — stock
     /// reads the player's <c>m_flMaxspeed</c>, already scaled by the
@@ -640,6 +780,84 @@ public sealed class TFMovementRules : IMovementRules
 
     /// <summary>Stock's TIME_TO_DUCK/TIME_TO_UNDUCK pair under TF_DLL.</summary>
     private const float TFTimeToDuck = 0.2f;
+
+    /// <summary>Stock's TF_TIME_TO_DUCK, the release cooldown of the duck timer (tf_gamemovement.cpp:89).</summary>
+    private const float TFTimeToDuckTimer = 0.3f;
+
+    /// <summary>Stock's TF_AIRDUCKED_COUNT, ducks one air event allows (tf_gamemovement.cpp:90).</summary>
+    private const int TFAirDuckedCountLimit = 2;
+
+    /// <summary>
+    /// TF's duck-button mask (<c>CTFGameMovement::DuckOverrides</c>,
+    /// tf_gamemovement.cpp:3176-3222), asked at the top of the loop's duck so
+    /// the masked word feeds the button edges as stock's masked
+    /// <c>mv->m_nButtons</c> does (called at :3392). Stock's order: the water
+    /// mask first and ungated (:3183-3188, feet-deep off the ground, eyes-deep
+    /// anywhere); then the <c>tf_clamp_airducks</c> gate (:3190-3191) over the
+    /// timer arm — a press while the duck timer runs and the feet are down
+    /// (:3194-3197) — the quantum-crouch hold on a duck already standing back
+    /// up (:3213-3216), and one duck per air event once the count is at
+    /// <see cref="TFAirDuckedCountLimit"/> in the air (:3219-3222).
+    /// </summary>
+    public int DuckButtons(int playerIndex, int buttons, bool onGround, int waterLevel, float curTime,
+                           bool ducked, bool ducking)
+    {
+        if ((waterLevel >= GameMovement.WlFeet && !onGround) || waterLevel >= GameMovement.WlEyes)
+        {
+            // :3183-3188 — the water's own mask, ahead of the convar gate.
+            buttons &= ~GameMovement.InDuck;
+        }
+
+        if (!ClampAirDucks)
+        {
+            // :3190-3191 — the convar off stops the clamp's arms, water included.
+            return buttons;
+        }
+
+        if (_players.Predicted(playerIndex) is { } state
+            && curTime < state.DuckTimer && onGround)
+        {
+            // :3194-3197 — while the cooldown runs, a grounded press waits.
+            buttons &= ~GameMovement.InDuck;
+        }
+
+        if (ducked && ducking)
+        {
+            // :3213-3216 — the quantum crouch: already down and easing,
+            // the held button re-reading must not re-duck the same press.
+            // Stock reads only mv's own flags here, so no carrier is asked.
+            buttons &= ~GameMovement.InDuck;
+        }
+
+        if (_players.Predicted(playerIndex) is { } airState
+            && !onGround && airState.AirDuckedCount >= TFAirDuckedCountLimit)
+        {
+            // :3219-3222 — one air event ducks twice, no more.
+            buttons &= ~GameMovement.InDuck;
+        }
+
+        return buttons;
+    }
+
+    /// <summary>
+    /// The duck release stamp (<c>OnUnDuck</c>'s opening block, stock's override
+    /// at tf_gamemovement.cpp:3293-3302): the timer re-arms a TF_TIME_TO_DUCK
+    /// from the loop's clock (:3295), and a release made airborne counts one
+    /// duck for the air event (:3299-3301).
+    /// </summary>
+    public void DuckRelease(int playerIndex, float curTime, bool inAir)
+    {
+        if (_players.Predicted(playerIndex) is not { } state)
+        {
+            return;
+        }
+
+        state.DuckTimer = curTime + TFTimeToDuckTimer;
+        if (inAir)
+        {
+            state.AirDuckedCount = state.AirDuckedCount + 1;
+        }
+    }
 
     /// <summary>
     /// The fade trio of one player (<c>CTFPlayerShared</c>'s
@@ -795,6 +1013,50 @@ public sealed class TFMovementRules : IMovementRules
             rewritten |= GameMovement.InAttack;
 
         return new MovementCharge(ChargeSpeed, rewritten, ChargeSpeed, 0f, 0f);
+    }
+
+    /// <summary>Stock's <c>m_qPreviousChargeEyeAngle</c>
+    /// (server/tf/tf_playermove.cpp:83-106): the yaw the charge clamp of the
+    /// last command settled at, held here per player — the pair of stock's
+    /// charge-readiness members an entity carries outside every table, so a
+    /// replayed command mutates it alike.</summary>
+    private readonly Dictionary<int, float> _chargeYaws = [];
+
+    /// <summary>
+    /// The charge clamp of <c>SetupMove</c> (server/tf/tf_playermove.cpp:83-106,
+    /// the targe exploit fix): while the shield charge holds, the eye may come
+    /// back toward straight ahead only within the charge cap times 2.5
+    /// (:85-86) of the previous charge yaw — past it the yaw lands one cap in
+    /// from the previous, on the command's own side of it (:88-94) — and every
+    /// charging command stores the yaw it settled at (:96). Not charging, the
+    /// yaw of the moment becomes the next command's previous (:104). The cap
+    /// is <see cref="TFChargeCap"/>'s answer — the same one the client's input
+    /// cap takes — through this side's hook, manager and scaling convar.
+    /// </summary>
+    public float ChargeYawCap(int playerIndex, float yaw, float frametime, float tickInterval)
+    {
+        if (_players.Predicted(playerIndex) is not { } state || !state.InCond(TFCond.ShieldCharge))
+        {
+            // The else arm (:104): what the eyes answer now is what the next
+            // command compares against.
+            _chargeYaws[playerIndex] = yaw;
+            return yaw;
+        }
+
+        float cap = TFChargeCap.Calculate(frametime, tickInterval, _chargeScaling.Value,
+                                          _hooks, _owners.ManagerOf(playerIndex)) * 2.5f;   // :85-86
+
+        float prev = _chargeYaws.TryGetValue(playerIndex, out var last) ? last : yaw;
+        float diff = MathF.Abs(prev) - MathF.Abs(yaw);                                       // :87
+        if (diff > cap)
+        {
+            // The pull back to within the cap, on the command's own side
+            // (:88-94).
+            yaw = yaw > prev ? prev + cap : prev - cap;
+        }
+
+        _chargeYaws[playerIndex] = yaw;                                                      // :96
+        return yaw;
     }
 
     /// <summary>

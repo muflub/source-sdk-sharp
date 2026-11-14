@@ -9,6 +9,7 @@ using SourceSharp.Abi;
 
 using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
+using TF2.Shared.Player;
 
 namespace TF2.Shared;
 
@@ -33,7 +34,9 @@ namespace TF2.Shared;
 /// </summary>
 [SideService(Side.Server)]
 [SideService(Side.Client)]
-public sealed class TFAttributeWeaponHook(AttributeHooks attributes) : ITFWeaponHook
+public sealed class TFAttributeWeaponHook(AttributeHooks attributes,
+                                          IEngineEntities? entities = null, TFClassTable? classes = null,
+                                          ITFPlayerData? players = null) : ITFWeaponHook
 {
     /// <summary>TF2's weapon band, +200..+299 (the rules own +100..+199: TeamRoundOrders).</summary>
     public const int Order = 1_000_000 - 1_000 + 200;
@@ -114,6 +117,48 @@ public sealed class TFAttributeWeaponHook(AttributeHooks attributes) : ITFWeapon
     /// </summary>
     public float ModifySpread(in TFWeaponHookContext weapon, float spread) =>
         attributes.Float(spread, "mult_spread_scale", weapon.Item);
+
+    /// <summary>
+    /// <c>CTFWeaponBaseGun::GetWeaponSpread</c>' second arm
+    /// (<c>tf_weaponbase_gun.cpp:866-872</c>): the item's
+    /// <c>panic_attack_negative</c> walks over one; when it differs, the cone's
+    /// sine scales by the owner's health fraction through
+    /// <c>RemapValClamped(fraction, 0.2, 0.9, value, 1)</c> — hurt at the
+    /// bottom, near-full at the top, the band's ends clamped. The fraction is
+    /// the carrier's own health over its class's maximum, stock's
+    /// <c>HealthFraction</c> read as the movement rules read it.
+    /// </summary>
+    public float ModifyPanicAttack(in TFWeaponHookContext weapon, float spread)
+    {
+        float bonus = attributes.Float(1f, "panic_attack_negative", weapon.Item);   // :867
+        if (bonus == 1f)                                                             // :868
+            return spread;
+        bonus = RemapHealth(bonus, HealthFraction(weapon.OwnerIndex));               // :870
+        return spread * bonus;                                                       // :871
+    }
+
+    /// <summary>Stock's <c>RemapValClamped(fraction, 0.2f, 0.9f, bonus, 1.0f)</c> (<c>:870</c>).</summary>
+    private static float RemapHealth(float bonus, float fraction)
+    {
+        float t = (fraction - 0.2f) / 0.7f;
+        if (t < 0f)
+            t = 0f;
+        else if (t > 1f)
+            t = 1f;
+        return bonus + t * (1f - bonus);
+    }
+
+    /// <summary>The carrier's own health ratio (:396-401's shape): predicted
+    /// state's class opens the table's maximum, a missing layer leaves the
+    /// fraction full so the remap lands on the top end — no scale.</summary>
+    private float HealthFraction(int ownerIndex)
+    {
+        if (classes is null || entities is null || players?.Predicted(ownerIndex) is not { } state)
+            return 1f;
+        int maxHealth = classes[state.Class()].MaxHealth;
+        float health = entities.GetHealth(new EntityHandle((uint)ownerIndex));
+        return maxHealth > 0 ? health / maxHealth : 1f;
+    }
 
     /// <summary>
     /// <c>CTFWeaponBaseGun::GetWeaponSpread</c>' third arm

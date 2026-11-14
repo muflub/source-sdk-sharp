@@ -257,6 +257,12 @@ public sealed class ServerPlayerCommands
 
         Vector viewAngles = ServerCommandRules.SaneViewAngles(new Vector(cmd.Pitch, cmd.Yaw, cmd.Roll));
 
+        // Stock's SetupMove charge clamp (server/tf/tf_playermove.cpp:83-106):
+        // while the shield charge holds, the command's yaw is pulled in to the
+        // charge cap of the previous charge yaw, and everything after reads the
+        // clamped angles — the command angles, the write-back, the move state.
+        viewAngles.Y = Rules.ChargeYawCap(_facts.EntIndex, viewAngles.Y, g.FrameTime, tick);
+
         Vector velocity = s.Velocity, baseVelocity = s.BaseVelocity;
         int flags = s.Flags;
         ServerCommandRules.FoldBaseVelocity(ref velocity, ref baseVelocity, ref flags, tick);

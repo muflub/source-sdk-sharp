@@ -37,7 +37,7 @@ public sealed class TFTauntCommandTests
                                                                                     new SourceSharp.Server.DamageHitGroups()),
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: rig.Engine);
+                                            clock: rig.Engine, equipHooks: new TF2.Tests.Rules.ListHooks<ITFWeaponEquipHook>());
         var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items, new AttributeHooks());
         var scenes = new TF2.Server.Voice.TFSceneImage(TF2.Tests.Voice.TFSceneImageTests.Files(
             ("scenes/scenes.image", TF2.Tests.Voice.TFSceneImageTests.Image(("vo/concept.ogg", 2800, ["vo/concept.ogg"])))));
@@ -74,7 +74,7 @@ public sealed class TFTauntCommandTests
                                                                                     new SourceSharp.Server.DamageHitGroups()),
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: rig.Engine);
+                                            clock: rig.Engine, equipHooks: new TF2.Tests.Rules.ListHooks<ITFWeaponEquipHook>());
         var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items, new AttributeHooks());
         var command = new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, rig.Carriers, Voice(rig, rules),
                                          new NoTFWeaponOwners(), new AttributeHooks(),
@@ -109,7 +109,7 @@ public sealed class TFTauntCommandTests
                                                                                     new SourceSharp.Server.DamageHitGroups()),
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: rig.Engine);
+                                            clock: rig.Engine, equipHooks: new TF2.Tests.Rules.ListHooks<ITFWeaponEquipHook>());
         var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items, new AttributeHooks());
         var voice = new TF2.Server.Voice.TFConceptSpeech(rules, rig.Carriers, new TF2.Tests.Entities.FakeConceptTeams(), rig.Engine,
             TF2.Tests.Entities.ObjectiveRig.ConceptSceneImage(), rig.Engine, new TF2.Tests.Entities.FakeRandom(),
@@ -141,7 +141,7 @@ public sealed class TFTauntCommandTests
                                                                                     new SourceSharp.Server.DamageHitGroups()),
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: rig.Engine);
+                                            clock: rig.Engine, equipHooks: new TF2.Tests.Rules.ListHooks<ITFWeaponEquipHook>());
         var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items, new AttributeHooks());
         var command = new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, rig.Carriers, Voice(rig, rules),
                                          new NoTFWeaponOwners(), new AttributeHooks(),
@@ -189,7 +189,7 @@ public sealed class TFTauntCommandTests
                                                                                     new SourceSharp.Server.DamageHitGroups()),
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: rig.Engine);
+                                            clock: rig.Engine, equipHooks: new TF2.Tests.Rules.ListHooks<ITFWeaponEquipHook>());
         var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items, new AttributeHooks());
         var image = new TF2.Server.Voice.TFSceneImage(TF2.Tests.Voice.TFSceneImageTests.Files(
             ("scenes/scenes.image", TF2.Tests.Voice.TFSceneImageTests.Image((Scene, 4200, ["vo/taunt.ogg"])))));

@@ -213,7 +213,7 @@ public sealed class TFJarSpawnFacts
                                             catalog: Weapons.Catalog, arsenal: Arsenal,
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: Engine);
+                                            clock: Engine, equipHooks: new ListHooks<ITFWeaponEquipHook>());
         }
 
         private Queue<EntityHandle> Created { get; }

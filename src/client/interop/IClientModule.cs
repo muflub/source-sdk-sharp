@@ -190,7 +190,20 @@ public interface IClientModule
     /// buttons unchanged, stock HL2MP). Runs on both sides; see
     /// <c>IMovementRules.DuckButtons</c>.
     /// </summary>
-    int GetDuckButtons(int playerIndex, int buttons, bool onGround, int waterLevel, float curTime) => buttons;
+    int GetDuckButtons(int playerIndex, int buttons, bool onGround, int waterLevel, float curTime, bool ducked, bool ducking) => buttons;
+
+    /// <summary>
+    /// The air wishspeed cap of one command (the cap passed through, stock
+    /// HL2MP). Runs on both sides; see <c>IMovementRules.AirSpeedCap</c>.
+    /// </summary>
+    float GetAirSpeedCap(int playerIndex, float cap) => cap;
+
+    /// <summary>
+    /// The high-max-speed rewrite of a walk's command (null, stock, keeps both
+    /// moves as sent). Runs on both sides; see
+    /// <c>IMovementRules.HighMaxSpeed</c>.
+    /// </summary>
+    HighMaxSpeedPair? GetHighMaxSpeed(int playerIndex, float forwardMove, float sideMove, float maxSpeed) => null;
 
     /// <summary>
     /// The duck button's release edge: the timer stamp and the air-duck count.
@@ -198,6 +211,13 @@ public interface IClientModule
     /// default.
     /// </summary>
     void GetDuckRelease(int playerIndex, float curTime, bool inAir) { }
+
+    /// <summary>
+    /// The shield charge's clamp of a command's view yaw (the yaw unchanged,
+    /// stock HL2MP). Runs where the command's angles are prepared; see
+    /// <c>IMovementRules.ChargeYawCap</c>.
+    /// </summary>
+    float GetChargeYawCap(int playerIndex, float yaw, float frametime, float tickInterval) => yaw;
 
     /// <summary>
     /// The parachute's fall trim on the walk's first beat (the velocity

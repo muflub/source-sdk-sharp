@@ -102,6 +102,21 @@ public interface ITFConditionHook
 }
 
 /// <summary>
+/// The arm a weapon-equip pass ends: stock's <c>CTFPlayer::Weapon_Equip</c>
+/// (tf_player.cpp:20588-20599) answers its gate on every equip, not only the
+/// spawn's. The port's equips are the kit's gives
+/// (<see cref="TFPlayerResupply.GiveKit"/>, the spawn's kit and the locker's
+/// regen alike) and the dropped weapon's picked-up swap
+/// (<see cref="TFDroppedWeaponPickup.TryPickup"/>); each asks this chain once
+/// at the end of its pass, with the player who equipped.
+/// </summary>
+public interface ITFWeaponEquipHook
+{
+    /// <summary>A weapon stands in the player's hands: the equip pass ended.</summary>
+    void OnEquipped(EntityHandle player);
+}
+
+/// <summary>
 /// The weapon entity a player carries: the core's one carried <c>ss_weapon</c>
 /// per player, whose entity index a weapon's crit bucket is keyed by
 /// (<c>WeaponCommand.WeaponIndex</c>). The engine's

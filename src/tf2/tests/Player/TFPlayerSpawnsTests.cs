@@ -69,7 +69,7 @@ public sealed class TFPlayerSpawnsTests
                                                                  new ScriptedEntityRegistry(TestEngines.Server()), engine, new DamageHitGroups()),
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: engine);
+                                            clock: engine, equipHooks: new TF2.Tests.Rules.ListHooks<ITFWeaponEquipHook>());
             Lunchbox = new();
             Spawns = new TFPlayerSpawns(Player.Carriers, Player.Classes, engine, engine, engine, Conditions, Buckets,
                                         directory, Observers, new Carried(Weapon), Resupply, Lunchbox,
@@ -396,7 +396,7 @@ public sealed class TFPlayerSpawnsTests
                                                              catalog: new PlayerRig().Catalog, arsenal: LockerArsenal(log, engine, registry),
                                                              hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                                              deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                                             clock: engine),
+                                                             clock: engine, equipHooks: new TF2.Tests.Rules.ListHooks<ITFWeaponEquipHook>()),
                                         new LunchboxRecorder(),
                                         convars.Declared<TFSpawnGlowsDurationConVar>(), log);
 

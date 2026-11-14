@@ -585,6 +585,8 @@ public sealed class TFVoiceMenuCommandTests
         public ParentProbe ParentProbe(EntityHandle entity) => inner.ParentProbe(entity);
         public bool GetAttachmentFrame(EntityHandle entity, int attachment, out Vector origin, out QAngle angles) => inner.GetAttachmentFrame(entity, attachment, out origin, out angles);
         public int LookupAttachmentAny(EntityHandle entity, string attachmentName) => inner.LookupAttachmentAny(entity, attachmentName);
+        public int LookupBone(EntityHandle entity, string boneName) => inner.LookupBone(entity, boneName);
+        public bool GetBonePosition(EntityHandle entity, int bone, out Vector origin) => inner.GetBonePosition(entity, bone, out origin);
         public EntityHandle FindBaseByName(string name) => inner.FindBaseByName(name);
         public Span<byte> GetEngineBlock(EntityHandle entity) => inner.GetEngineBlock(entity);
         public void DestroyPhysics(EntityHandle entity) => inner.DestroyPhysics(entity);

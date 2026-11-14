@@ -876,6 +876,25 @@ public sealed class TFSpyComponent(
     /// (:77), whose formula holds with a zero stamp and window.</summary>
     public bool KnifeReady(float now) => now - _knifeMeltStamp > _knifeMeltWindow;
 
+    /// <summary><c>CTFKnife::DecreaseRegenerationTime</c> (<c>tf_weapon_knife.cpp:160-169</c>): an existing
+    /// knife takes nothing (:163-164, <see cref="KnifeReady"/>); a melted one pulls its stamp earlier by
+    /// <c>value * 0.005 * m_flKnifeRegenerateDuration</c> and answers taken (:166-168). The carrier's mirror
+    /// rides with the slice, as the melt stamps both (:895-899), so the client's <c>CanDeploy</c> (:523)
+    /// reads the same shortened wait.</summary>
+    public bool DecreaseRegenerationTime(float value, float now)
+    {
+        if (KnifeReady(now))
+            return false; // :163-164 — the exists gate
+
+        float flTime = value * 0.005f * _knifeMeltWindow; // :166
+        _knifeMeltStamp -= flTime;                        // :167
+
+        if (_players.Predicted(_index) is { } carrier)
+            carrier.KnifeMeltTimestamp -= flTime;
+
+        return true; // :168
+    }
+
     /// <summary><c>CTFKnife::ApplyOnInjuredAttributes</c> (<c>tf_weapon_knife.cpp:118-157</c>):
     /// burned or ignited with the knife in hand, the holder's item answering
     /// <c>melts_in_fire</c> melts the knife for its seconds (:129-131) — only while it exists (:126) —
@@ -1001,6 +1020,8 @@ public sealed class TFSpy(ITFPlayerData players, ITFPlayerConditions conditions,
     public bool DisguiseOnKill(int ownerIndex) => Of(ownerIndex)?.DisguiseOnKill(clock.Now) ?? false;
 
     public bool KnifeReady(int ownerIndex, float now) => Of(ownerIndex)?.KnifeReady(now) ?? true;
+
+    public bool DecreaseKnifeRegenerationTime(int ownerIndex, float value) => Of(ownerIndex)?.DecreaseRegenerationTime(value, clock.Now) ?? false;
 
     public void MeltKnife(int ownerIndex, float now, float seconds) => Of(ownerIndex)?.MeltKnife(now, seconds);
 

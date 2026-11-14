@@ -50,6 +50,14 @@ public interface ITFWeaponOwners
     /// </summary>
     IAttributeProvider? ActiveItemOf(int playerIndex) => null;
 
+    /// <summary>Seconds the player's ACTIVE weapon has been in the hands — stock's
+    /// <c>curtime - pTFActiveWeapon->GetLastDeployTime()</c>
+    /// (<c>tf_player_shared.cpp:12870</c>), asked at the Atomizer's hold on the
+    /// dash that would be the third (:12867-12873). The side with no held weapon's
+    /// clock answers an age past the hold — held since before the round began —
+    /// so the hold refuses nowhere on that side, whatever the press's time.</summary>
+    float ActiveWeaponDeployAge(int playerIndex, float now) => float.PositiveInfinity;
+
     /// <summary>
     /// The player's own attributes — stock's <c>CTFPlayer::m_AttributeManager</c>
     /// (<c>server/tf/tf_player.h:637-642</c>: <c>GetAttributeManager</c> hands

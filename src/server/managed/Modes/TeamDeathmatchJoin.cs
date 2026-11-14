@@ -11,14 +11,17 @@ using SourceSharp.Shared;
 namespace SourceSharp.Server;
 
 /// <summary>
-/// How far apart team deathmatch lets the teams grow before it refuses a join
-/// (plan_bots_teams_tf2 A.3 item 3, Q11: off by default). Stock HL2DM has no
-/// such limit; the rule is stock TF2's <c>mp_teams_unbalance_limit</c>
-/// (teamplayroundbased_gamerules.cpp:219), under the core's own name because
-/// the TF2 mod declares that name itself and one name has one declaration.
+/// How far apart the teams may grow before a join is refused: stock TF2's
+/// <c>mp_teams_unbalance_limit</c> (teamplayroundbased_gamerules.cpp:219),
+/// declared once here for every mode that plays with teams. Team deathmatch
+/// reads it for its join rule (plan_bots_teams_tf2 A.3 item 3, Q11: off by
+/// default, so the core's number is 0; stock HL2DM has no such limit), and the
+/// TF2 mod injects this one for its round rules and restores stock's 1 with a
+/// <c>ConVarDefault</c> row. Replicated, as stock declares it; the client's
+/// half is the core client's.
 /// </summary>
-[ConVar("cs_sv_teams_unbalance_limit", "0", Min = 0, Max = 30,
-        Help = "Team deathmatch: teams are unbalanced when one team has this many more players than the other team. (0 disables check)")]
+[ConVar("mp_teams_unbalance_limit", "0", Flags = ConVarFlags.Replicated, Min = 0, Max = 30,
+        Help = "Teams are unbalanced when one team has this many more players than the other team. (0 disables check)")]
 public sealed class TeamsUnbalanceLimitConVar : IntConVar { }
 
 /// <summary>

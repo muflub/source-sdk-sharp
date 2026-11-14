@@ -348,7 +348,7 @@ public sealed class GameModes : IGameLifecycle, IFrameLifecycle
         }
 
         // A mode switch is a new match: no departed player's score is brought into it.
-        _services.Resolve<RejoinScores>()?.Clear("mode switch");
+        _services.Resolve<IHooks<IMatchResetHook>>()?.Raise("mode switch");
 
         _log.Msg($"[SourceSharp/Modes] switched to '{next.Id}'\n");
         Setup(next);

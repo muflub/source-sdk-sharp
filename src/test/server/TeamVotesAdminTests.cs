@@ -37,7 +37,7 @@ public class TeamVotesAdminTests
     private static readonly Func<string, string?> Current = c => c switch
     {
         "mp_tdm_teams" => "2",
-        "cs_sv_teams_unbalance_limit" => "0",
+        "mp_teams_unbalance_limit" => "0",
         "mp_friendlyfire" => "0",
         _ => null,
     };
@@ -48,7 +48,7 @@ public class TeamVotesAdminTests
         var options = GameVoteOptions.Of([], [], null, false, false, false, GameVoteOptions.CoreSettings(), Current);
 
         Assert.Equal("mp_tdm_teams 4", VoteOptionWords.Find(options, ["setting", "mp_tdm_teams=4"])!.Command);
-        Assert.Equal("cs_sv_teams_unbalance_limit 1", VoteOptionWords.Find(options, ["setting", "cs_sv_teams_unbalance_limit=1"])!.Command);
+        Assert.Equal("mp_teams_unbalance_limit 1", VoteOptionWords.Find(options, ["setting", "mp_teams_unbalance_limit=1"])!.Command);
         Assert.Null(VoteOptionWords.Find(options, ["setting", "mp_tdm_teams=2"]));
     }
 

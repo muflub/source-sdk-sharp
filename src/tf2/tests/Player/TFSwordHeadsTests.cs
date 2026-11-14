@@ -53,7 +53,7 @@ public sealed class TFSwordHeadsTests
                                                                  new DamageHitGroups()),
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: Player.Engine);
+                                            clock: Player.Engine, equipHooks: new TF2.Tests.Rules.ListHooks<ITFWeaponEquipHook>());
             Heads = new TFSwordHeads(Player.Carriers, Owners, Hooks, Records, Resupply,
                                      new FixedHealing(), Player.Engine);
         }

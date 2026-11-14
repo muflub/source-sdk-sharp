@@ -160,6 +160,8 @@ public class WeaponSwitchTests
         public ParentProbe ParentProbe(EntityHandle entity) => _engine.ParentProbe(entity);
         public bool GetAttachmentFrame(EntityHandle entity, int attachment, out Vector origin, out QAngle angles) => _engine.GetAttachmentFrame(entity, attachment, out origin, out angles);
         public int LookupAttachmentAny(EntityHandle entity, string attachmentName) => _engine.LookupAttachmentAny(entity, attachmentName);
+        public int LookupBone(EntityHandle entity, string boneName) => _engine.LookupBone(entity, boneName);
+        public bool GetBonePosition(EntityHandle entity, int bone, out Vector origin) => _engine.GetBonePosition(entity, bone, out origin);
         public EntityHandle FindBaseByName(string name) => _engine.FindBaseByName(name);
         public Span<byte> GetEngineBlock(EntityHandle entity) => _engine.GetEngineBlock(entity);
         public void DestroyPhysics(EntityHandle entity) => _engine.DestroyPhysics(entity);

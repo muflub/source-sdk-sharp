@@ -32,6 +32,8 @@ public class SkeletonRouteTests
         }
 
         public int LookupAttachment(EntityHandle entity, string name) { Calls.Add("lookup"); return 7; }
+        public int LookupBone(EntityHandle entity, string name) { Calls.Add("bonelook"); return 3; }
+        public bool GetBonePosition(EntityHandle entity, int bone, out Vector origin) { Calls.Add("bonepos"); origin = new Vector(7f, 8f, 9f); return true; }
         public int CachedBoneCount(EntityHandle entity) { Calls.Add("count"); return 9; }
         public StandaloneBones? BoneMatrices(EntityHandle entity) { Calls.Add("matrices"); return null; }
         public bool IsPoseable(EntityHandle entity) { Calls.Add("poseable"); return true; }
@@ -175,6 +177,32 @@ public class SkeletonRouteTests
         var (_, entities, fake, _) = Rig(filled: false);
 
         Assert.Equal(0, entities.LookupAttachmentAny(Brush, "x"));
+        Assert.Empty(fake.Calls);
+    }
+
+    /// <summary>Stock's LookupBone/GetBonePosition pair: the bone NAME and the
+    /// bone's world position are the skeleton's answers over the entities
+    /// area, zero-based index included.</summary>
+    [Fact]
+    public void ABoneLookUpIsTheSkeletonsToo()
+    {
+        var (_, entities, fake, _) = Rig(filled: true);
+
+        Assert.Equal(3, entities.LookupBone(Brush, "bip_hand_r"));
+        Assert.True(entities.GetBonePosition(Brush, 3, out Vector origin));
+        Assert.Equal((7f, 8f, 9f), (origin.X, origin.Y, origin.Z));
+        Assert.Equal(new[] { "bonelook", "bonepos" }, fake.Calls);
+    }
+
+    /// <summary>With no route the bone answers are the engine's own: stock's
+    /// missing-bone -1, and no position.</summary>
+    [Fact]
+    public void AnEmptyRouteLooksUpNoBone()
+    {
+        var (_, entities, fake, _) = Rig(filled: false);
+
+        Assert.Equal(-1, entities.LookupBone(Brush, "bip_hand_r"));
+        Assert.False(entities.GetBonePosition(Brush, 3, out _));
         Assert.Empty(fake.Calls);
     }
 

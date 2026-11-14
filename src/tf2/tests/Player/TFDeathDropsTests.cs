@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
+using SourceSharp.Shared.Bones;
 using SourceSharp.Tests;
 
 using TF2.Server;
@@ -94,6 +95,9 @@ public sealed class TFDeathDropsTests
 
         /// <summary>The kit entity's own engine: the container's recording engine.</summary>
         public readonly RecordingEngine KitEngine;
+
+        /// <summary>The side's container the registry and the hand-built kits share.</summary>
+        public readonly ServiceContainer Container;
         public readonly FakeMedigun Medigun = new();
         public readonly TFWeaponScripts Scripts;
         public readonly Arsenal Arsenal;
@@ -117,6 +121,7 @@ public sealed class TFDeathDropsTests
             // The health kit is a map item: its spawn reads the players seam and
             // announces through the notices, so the container answers both.
             var container = Services(out _);
+            Container = container;
             container.AddInstance<ITFMapPlayers>(Map);
             container.AddInstance<ITFPickupNotices>(Notices);
 
@@ -137,7 +142,12 @@ public sealed class TFDeathDropsTests
             KitEngine.Returns("Entities.GetSpawnFlags", 0)
                      .Returns("EntityPhysics.InitPhysics", false)
                      .Returns("Entities.GetHealth", 1)
-                     .Returns("Files.GameFileSize", -1);
+                     .Returns("Files.GameFileSize", -1)
+                     // The bodygroup helper's hdr walk: the pack's model name
+                     // and its precache index, so Init's SetBodygroup opens a
+                     // hdr through the container's seams.
+                     .Returns("EntityRender.GetModelName", TFAmmoPack.Model)
+                     .Returns("Precache.PrecacheModel", 0);
             container.AddInstance(new TFClassTable(Log, KitEngine));
 
             Dead = Map.Add();
@@ -202,7 +212,8 @@ public sealed class TFDeathDropsTests
                                       ConVars.Declared<TFWeaponRagdollMaxSpeedConVar>(),
                                       ConVars.Declared<TFObjGibVelocityMinConVar>(),
                                       ConVars.Declared<TFObjGibVelocityMaxConVar>(),
-                                      ConVars.Declared<TFObjGibMaxSpeedConVar>(), Seeds, engine, Stats);
+                                      ConVars.Declared<TFObjGibMaxSpeedConVar>(), Seeds, engine, Stats,
+                                      Container.Resolve<ServerBodygroups>()!);
             pack.BindEngine(engine);
             pack.BindAreas(TestServices.Areas(engine));
             pack.RegisteredKind = ScriptedEntityKind.Prop;
@@ -932,6 +943,69 @@ public sealed class TFDeathDropsTests
         Assert.Equal(205f, movedEngine.Last("Entities.SetVelocity").ArgAs<Vector>(1).Length, 3);
     }
 
+    /// <summary>
+    /// <c>InitAmmoPack</c> ends with <c>SetBodygroup(1, 1)</c>
+    /// (<c>tf_ammo_pack.cpp:188</c>): the death drop sends its body with the
+    /// second group at its second model, through the shared helper. With two
+    /// groups the write lands: the box look digit is <c>1</c>.
+    /// </summary>
+    [Fact]
+    public void The_death_drop_sends_its_body_group_one_at_one()
+    {
+        var rig = new Rig();
+        rig.Container.AddInstance<IBoneModels>(new PackHdrModels(groups: 2));
+        var (pack, _) = rig.BuildPack(10f);
+
+        pack.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier, 5, 5, 5);
+
+        var skins = (RecordingServerSkins)rig.Container.Resolve<IServerSkins>()!;
+        Assert.NotEmpty(skins.Bodies);                      // the call reached the seam
+        Assert.Equal(pack.Handle, skins.Bodies[^1].Entity); // sent for THIS pack
+        Assert.Equal(1, skins.Bodies[^1].Body);             // :188 — group 1 at value 1
+    }
+
+    /// <summary>
+    /// Stock's guard (<c>CBaseAnimating::SetBodygroup</c>, baseanimating.cpp:2294):
+    /// a group index the model does not have leaves the body unchanged — a
+    /// one-group pack model rides out of <c>Init</c> at the body it came with.
+    /// </summary>
+    [Fact]
+    public void A_one_group_model_leaves_the_dropped_body_unchanged()
+    {
+        var rig = new Rig();
+        rig.Container.AddInstance<IBoneModels>(new PackHdrModels(groups: 1));
+        var (pack, _) = rig.BuildPack(10f);
+
+        pack.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier, 5, 5, 5);
+
+        var skins = (RecordingServerSkins)rig.Container.Resolve<IServerSkins>()!;
+        Assert.Single(skins.Bodies);                        // the call reached the seam once
+        Assert.Equal(0, skins.Bodies[^1].Body);             // the guard: one group, nothing to write
+    }
+
+    /// <summary>The pack model's hdr, as the bones' builder lays it: one named
+    /// group, or two with the second holding two models — what a value of 1
+    /// needs to fit (<see cref="StudioHdr.TryCreate"/>).</summary>
+    private sealed class PackHdrModels : IBoneModels
+    {
+        private readonly StudioHdr _hdr;
+
+        public PackHdrModels(int groups)
+        {
+            StudioHdrBuilder b = new();
+            b.Bones.Add(new StudioHdrBuilder.BoneDef { Name = "root", Parent = -1 });
+            b.BodyParts.Add(new StudioHdrBuilder.BodyPartDef { Name = "level" });
+            if (groups > 1)
+                b.BodyParts.Add(new StudioHdrBuilder.BodyPartDef { Name = "box", NumModels = 2 });
+            Assert.True(StudioHdr.TryCreate(b.Build(), null, out StudioHdr? hdr) && hdr is not null, "image rejected");
+            _hdr = hdr!;
+        }
+
+        public bool HasStudioModel(int modelIndex) => true;
+
+        public StudioHdr? OpenStudioHdr(int modelIndex) => _hdr;
+    }
+
     [Fact]
     public void The_owner_cannot_take_its_own_pack_until_it_lands()
     {
@@ -1369,6 +1443,42 @@ public sealed class TFDeathDropsTests
            .OnPlayerDied(rig.Death with { Attacker = attacker });
 
         Assert.Empty(conditions.Added);
+    }
+
+    /// <summary>
+    /// The minicrit sibling of the crit arm (:11148-11154): the killing
+    /// weapon's item walks <c>add_onkill_minicritboost_time</c>, and a
+    /// non-zero answer stamps <c>TF_COND_ENERGY_BUFF</c> for the walked
+    /// seconds plus the perceptual one (:11153). A plain killing weapon
+    /// stays the empty item above: neither arm stamps, and this fact's
+    /// walk answers nothing beyond its own attribute.
+    /// </summary>
+    [Fact]
+    public void A_kill_with_the_minicrit_watch_buffs_the_killer_for_the_walked_plus_one_second()
+    {
+        var attacker = new EntityHandle(0x0001_0003u);   // EntryIndex 3, the hit record's killer
+        var rig = new Rig();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.None, "tf_weapon_gloves_boxing", 1f),
+                     damager: true);
+        var owners = new FakeOwners();
+        owners.Held[3] = "tf_weapon_gloves_boxing";
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(30052, "minicrit boost", "add_onkill_minicritboost_time",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("c")), 4f));
+        owners.Items[3] = item;
+        var conditions = new KillConditions();
+
+        rig.Hook(new AttributeHooks(), owners, conditions, records)
+           .OnPlayerDied(rig.Death with { Attacker = attacker });
+
+        var (who, cond, seconds) = Assert.Single(conditions.Added);
+        Assert.Equal(attacker, who);
+        Assert.Equal(TFCond.EnergyBuff, cond);
+        Assert.Equal(5f, seconds);                       // :11153, the walked four plus the perceptual one
     }
 
     // ---- the sniper's kill rage (rage_on_kill; tf_player.cpp:11364-11376) ----
@@ -1873,6 +1983,8 @@ public sealed class TFDeathDropsTests
         public ParentProbe ParentProbe(EntityHandle entity) => _engine.ParentProbe(entity);
         public bool GetAttachmentFrame(EntityHandle entity, int attachment, out Vector origin, out QAngle angles) => _engine.GetAttachmentFrame(entity, attachment, out origin, out angles);
         public int LookupAttachmentAny(EntityHandle entity, string attachmentName) => _engine.LookupAttachmentAny(entity, attachmentName);
+        public int LookupBone(EntityHandle entity, string boneName) => _engine.LookupBone(entity, boneName);
+        public bool GetBonePosition(EntityHandle entity, int bone, out Vector origin) => _engine.GetBonePosition(entity, bone, out origin);
         public EntityHandle FindBaseByName(string name) => _engine.FindBaseByName(name);
         public Span<byte> GetEngineBlock(EntityHandle entity) => _engine.GetEngineBlock(entity);
         public void DestroyPhysics(EntityHandle entity) => _engine.DestroyPhysics(entity);

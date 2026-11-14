@@ -8,7 +8,6 @@
 using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
-using SourceSharp.Shared.Bones;
 using TF2.Server.Combat;
 using TF2.Server.Entities.Items;
 using TF2.Server.Player;
@@ -83,7 +82,7 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
                                    ITFAmmoPurse purse, TFPlayerCarriers carriers,
                                    TFConceptSpeech speech, ITFWeaponOwners owners,
                                    AttributeHooks hooks, TFDamageScopes scopes,
-                                   ITFRevengeCrits crits) : ScriptedEntity
+                                   ITFRevengeCrits crits, ServerBodygroups bodygroups) : ScriptedEntity
 {
     /// <summary><c>SENTRYGUN_MAX_HEALTH</c> and its dispenser and teleporter kin (tf_obj_sentrygun.h:31 et al.): all three at 150.</summary>
     public const int ObjectMaxHealth = 150;
@@ -184,62 +183,26 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     [SaveField] private int _kills;
     [SaveField] private int _assists;
     [SaveField] private bool _miniBuilding;
-
-    /// <summary><c>m_nBody</c>: the mixed body value, kept so successive
-    /// groups compose — stock's <c>::SetBodygroup</c> reads the old value
-    /// back out of it (animation.cpp:863).</summary>
     [SaveField] private int _body;
 
-    private IServerSkins? _skins;
-    private IBoneModels? _models;
-
-    /// <summary>The two areas the bodygroup helpers ask, beside the
-    /// constructor's list: the skins write that carries <c>m_nBody</c>, and
-    /// the model cache the groups are read from.</summary>
-    private protected override void BindOwnAreas(IServiceLocator engine)
-    {
-        _skins = engine.Resolve(typeof(IServerSkins)) as IServerSkins;
-        _models = engine.Require<IBoneModels>();
-    }
-
-    private IServerSkins Skins => _skins ?? throw MissingArea(nameof(IServerSkins));
-    private IBoneModels Models => _models ?? throw MissingArea(nameof(IBoneModels));
-
-    private InvalidOperationException MissingArea(string area)
-        => new($"{GetType().Name} has no {area}: it was not built by a registry that holds one");
+    /// <summary>The bodygroup pair the side registers (<see cref="ServerBodygroups"/>);
+    /// the body it composes is this building's own <c>_body</c>.</summary>
+    protected readonly ServerBodygroups Bodygroups = bodygroups;
 
     /// <summary>
     /// <c>FindBodygroupByName</c> (animation.cpp:927): the group of this
     /// model named <paramref name="name"/>, or the stock -1 — no model hdr
     /// answers the -1 arm too (animation.cpp:929).
     /// </summary>
-    protected int FindBodygroupByName(string name)
-    {
-        StudioHdr? hdr = StudioHdrNow();
-        return hdr is null ? -1 : hdr.FindBodygroupByName(name);
-    }
+    protected int FindBodygroupByName(string name) => Bodygroups.FindBodygroupByName(Handle, name);
 
     /// <summary>
     /// <c>CBaseAnimating::SetBodygroup</c> (baseanimating.cpp:2294-2302):
-    /// compose one group's digit into <see cref="_body"/> over the model's
-    /// own groups (animation.cpp:863-879) and write the mixed value through
-    /// the skins seam — stock's <c>m_nBody</c> write is ours at
-    /// <see cref="IServerSkins.SetBody"/>. A model with no hdr leaves the
-    /// body as it stands, the stock early-return arm.
+    /// compose one group's digit into this building's body over the model's
+    /// own groups (animation.cpp:863-879) and send it as <c>m_nBody</c>. A
+    /// model with no hdr leaves the body as it stands, the stock early-return arm.
     /// </summary>
-    protected void SetBodygroup(int iGroup, int iValue)
-    {
-        StudioHdr? hdr = StudioHdrNow();
-        if (hdr is not null)
-            _body = hdr.SetBodygroup(_body, iGroup, iValue);
-
-        Skins.SetBody(Handle, _body);
-    }
-
-    /// <summary>The entity's own hdr, as the skeletons read it
-    /// (<c>SkeletonCommands</c>): name, precache index, header.</summary>
-    private StudioHdr? StudioHdrNow()
-        => Models.OpenStudioHdr(Precache.PrecacheModel(Render.GetModelName(Handle)));
+    protected void SetBodygroup(int iGroup, int iValue) => _body = Bodygroups.SetBodygroup(Handle, _body, iGroup, iValue);
 
     /// <summary>The build state the client's shadow arm reads; <see cref="SetPlacing"/> keeps it with <see cref="_placing"/>.</summary>
     [NetState] public TFObjectNetState State = new();
@@ -293,7 +256,8 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     /// <c>SetBuildingSize</c> needs nothing besides (:2146-2150) — and the base's placement
     /// tail sets the team skin (tf_obj.cpp:1469-1473): red's second skin, blu's third,
     /// never the dispenser's. The bodygroup (<c>mini_sentry_light</c>, tf_obj_sentrygun.cpp:343-346,
-    /// :398-401) has no engine seam: a deferred row.
+    /// :398-401) rides the body-parts read: <see cref="SetBodygroup"/> answers it on the
+    /// sentry's <see cref="StartBuilding"/> and <c>OnGoActive</c> arms.
     /// </summary>
     public void MakeMiniBuilding()
     {
@@ -607,7 +571,7 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     /// <paramref name="buildRate"/> (stock's build-speed multiplier,
     /// tf_player.cpp:8237: the redeploy's +2 sentry, +3 the others).
     /// </summary>
-    public void StartBuilding(float buildRate = 1f)
+    public virtual void StartBuilding(float buildRate = 1f)
     {
         SetPlacing(false);
         _building = true;

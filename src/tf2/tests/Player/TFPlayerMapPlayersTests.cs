@@ -39,7 +39,7 @@ public sealed class TFPlayerMapPlayersTests
                                                                                     new SourceSharp.Server.DamageHitGroups()),
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: rig.Engine);
+                                            clock: rig.Engine, equipHooks: new ListHooks<ITFWeaponEquipHook>());
         return (rig, new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items, new AttributeHooks()), hook);
     }
 
@@ -60,7 +60,7 @@ public sealed class TFPlayerMapPlayersTests
                                                                                     new SourceSharp.Server.DamageHitGroups()),
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: rig.Engine);
+                                            clock: rig.Engine, equipHooks: new ListHooks<ITFWeaponEquipHook>());
         var table = items ?? rig.Items;
         return (rig, new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, table, new AttributeHooks()), table, conditions);
     }
@@ -257,5 +257,70 @@ public sealed class TFPlayerMapPlayersTests
 
         Assert.False(players.AddToDemoChargeMeterFromAmmo(PlayerRig.Player, 0.5f));
         Assert.Equal(30f, rig.State.ChargeMeter);
+    }
+
+    // ---- the spy's melted knife (entity_ammopack.cpp:91-94) ----
+
+    /// <summary>One spy over the real spy lane: the map-players arm answers
+    /// through the spy's own slice, as the server registers it.</summary>
+    private static (TF2.Tests.Spy.SpyRig Rig, TFPlayerMapPlayers Players) MakeKnife()
+    {
+        var rig = new TF2.Tests.Spy.SpyRig();
+        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, rig.Resupply, rig.Conditions,
+                                             rig.Carriers, new TFPlayerItems(), new AttributeHooks(),
+                                             new SpyServices(rig));
+        return (rig, players);
+    }
+
+    /// <summary>The container the knife facts run under: only the spy's slice,
+    /// which is what the map players looks up on the ask.</summary>
+    private sealed class SpyServices(TF2.Tests.Spy.SpyRig rig) : IServiceLocator
+    {
+        public object? Resolve(Type serviceType) => serviceType == typeof(ITFSpyState) ? rig.Spies : null;
+        public object? ResolveNamed(string name) => null;
+        public bool IsRegistered(Type serviceType) => serviceType == typeof(ITFSpyState);
+        public IReadOnlyCollection<Type> ServiceTypes => [typeof(ITFSpyState)];
+        public IReadOnlyCollection<string> Names => [];
+    }
+
+    [Fact]
+    public void APackShrinksTheMeltedKnifesWaitByItsShare()
+    {
+        // entity_ammopack.cpp:91-94 — AddToSpyKnife(100 * ratio, false): the half pack's
+        // 50 pulls the melt stamp earlier by 50 * 0.005 of the window
+        // (tf_weapon_knife.cpp:166-167), half a window's worth: ready at 107.5, not 110.
+        var (rig, players) = MakeKnife();
+        rig.Spies.MeltKnife(TF2.Tests.Spy.SpyRig.Spy.EntryIndex, now: rig.Clock.Now, seconds: 10f);
+
+        Assert.False(rig.Spies.KnifeReady(TF2.Tests.Spy.SpyRig.Spy.EntryIndex, now: 107f));   // :523 — mid-window without a pack
+        Assert.True(players.AddToSpyKnife(TF2.Tests.Spy.SpyRig.Spy, amount: 50f));             // :168 — the stamp moved
+        Assert.True(rig.Spies.KnifeReady(TF2.Tests.Spy.SpyRig.Spy.EntryIndex, now: 107.6f));   // two and a half seconds earlier
+        Assert.Equal(97.5f, rig.State.KnifeMeltTimestamp, 4);                                  // :167 — and the carrier mirror rides along (:523)
+    }
+
+    [Fact]
+    public void AFullPackEndsTheRemainingWaitOfAMeltedKnife()
+    {
+        // :166-168 at the touch: half the 10 seconds are gone by 105.1, and the full pack's
+        // 100 * 0.005 * the window takes the rest — the knife is ready on the press itself.
+        var (rig, players) = MakeKnife();
+        rig.Spies.MeltKnife(TF2.Tests.Spy.SpyRig.Spy.EntryIndex, now: rig.Clock.Now, seconds: 10f);
+        rig.Clock.Now = 105.1f;
+
+        Assert.False(rig.Spies.KnifeReady(TF2.Tests.Spy.SpyRig.Spy.EntryIndex, now: 105.1f)); // without the pack, still melting
+        Assert.True(players.AddToSpyKnife(TF2.Tests.Spy.SpyRig.Spy, amount: 100f));
+        Assert.True(rig.Spies.KnifeReady(TF2.Tests.Spy.SpyRig.Spy.EntryIndex, now: 105.1f));   // the pack ends it
+        Assert.Equal(95f, rig.State.KnifeMeltTimestamp, 4);
+    }
+
+    [Fact]
+    public void AKnifeThatExistsTakesNothingFromThePack()
+    {
+        // :163-164 — the exists gate: an unmelted knife refuses the stamp pull and
+        // answers no, so the pack on its own is not taken (:94); the stamp never moves.
+        var (rig, players) = MakeKnife();
+
+        Assert.False(players.AddToSpyKnife(TF2.Tests.Spy.SpyRig.Spy, amount: 100f));
+        Assert.Equal(0f, rig.State.KnifeMeltTimestamp, 4);                                     // the untouched initial (:77)
     }
 }

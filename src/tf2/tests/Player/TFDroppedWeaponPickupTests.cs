@@ -113,11 +113,13 @@ public sealed class TFDroppedWeaponPickupTests
         public EntityHandle Player => Me.Handle;
 
         /// <summary>The pickup over this rig, with the seams a fact names.</summary>
-        public TFDroppedWeaponPickup Pickup(ITFRespawnRooms? rooms = null, ITeamRoundState? rounds = null)
+        public TFDroppedWeaponPickup Pickup(ITFRespawnRooms? rooms = null, ITeamRoundState? rounds = null,
+                                            IHooks<ITFWeaponEquipHook>? equipHooks = null)
             => new(Arsenal, Map, World, Engine, Engine, Lies, Engine, Meter, Scripts, Schema,
                    Classes,
                    rooms ?? new TF2.Tests.Ctf.FakeRespawnRooms(),
-                   rounds ?? new TF2.Tests.Entities.FakeRoundState());
+                   rounds ?? new TF2.Tests.Entities.FakeRoundState(),
+                   equipHooks ?? new TF2.Tests.Rules.ListHooks<ITFWeaponEquipHook>());
 
         /// <summary>A lie on the floor before the eye, its handle the one the ray ends on.</summary>
         public (TFDroppedWeapon Dropped, EntityHandle Handle) Drop(string weapon, float clock = 40f)
@@ -519,6 +521,86 @@ public sealed class TFDroppedWeaponPickupTests
         Assert.Equal(2, asks());
     }
 
+    /// <summary>
+    /// The pickup's swap is an equip pass: a successful <c>TryPickup</c> ends
+    /// by asking the equip chain once, with the player who equipped; a refused
+    /// pickup asks nobody. Stock's arm stands in <c>Weapon_Equip</c> itself
+    /// (tf_player.cpp:20590-20598), which the swap runs as its closing equip.
+    /// </summary>
+    [Fact]
+    public void A_successful_pickup_asks_the_equip_hook_once()
+    {
+        var asked = new List<EntityHandle>();
+        var rig = new Rig();
+        rig.Give(Rocket);
+        var (_, handle) = rig.Drop(Rocket);
+        rig.AimAt(handle);
+
+        Assert.True(rig.Pickup(equipHooks: new EquipChain(new Recorder(asked))).TryPickup(rig.Player));
+
+        Assert.Single(asked);
+        Assert.Equal(rig.Player, asked[0]);
+    }
+
+    /// <summary>The refusal arm: no swap, no ask.</summary>
+    [Fact]
+    public void A_refused_pickup_asks_no_equip_hook()
+    {
+        var asked = new List<EntityHandle>();
+        var rig = new Rig(); // no weapon granted: the hands are empty, the swap refuses
+        var (_, handle) = rig.Drop(Rocket);
+        rig.AimAt(handle);
+
+        Assert.False(rig.Pickup(equipHooks: new EquipChain(new Recorder(asked))).TryPickup(rig.Player));
+
+        Assert.Empty(asked);
+    }
+
+    /// <summary>
+    /// The swap's closing equip asks the chain, and the chain's real hook
+    /// answers it: a carrier whose picked-up weapon forbids carrying — the
+    /// Rocket Jumper's <c>cannot_pick_up_intelligence</c> — lets go of the flag
+    /// (stock's arm inside Weapon_Equip, tf_player.cpp:20590-20598). The hands'
+    /// refusal stands for that attribute: the gate reads it off the player's
+    /// manager, as <see cref="TFDroppedWeaponPickup"/> does.
+    /// </summary>
+    [Fact]
+    public void The_pickup_of_a_dropped_rocket_jumper_drops_the_carried_flag()
+    {
+        var rig = new Rig();
+        rig.Give(Rocket);
+        var (_, handle) = rig.Drop(Rocket);
+        rig.AimAt(handle);
+
+        // The CTF side on the same handle the pickup answers for: the carrier
+        // stole the red flag, and the jumper's gate refuses the carrying.
+        var ctf = new TF2.Tests.Ctf.CtfRig();
+        var red = ctf.Flag(TFTeam.Red);
+        ctf.Players.All[rig.Player] = new TF2.Tests.Ctf.FakeCtfPlayers.Player { Team = TFTeam.Blue };
+        ctf.Registry.Touch(red.Handle, rig.Player);
+        Assert.True(red.IsStolen);
+        ctf.Players[rig.Player].AllowedToPickUp = false; // the jumper's cannot_pick_up_intelligence
+
+        Assert.True(rig.Pickup(equipHooks: new EquipChain(
+                            new TF2.Server.Entities.Ctf.FlagEquipDrop(ctf.Rules, ctf.Players)))
+                            .TryPickup(rig.Player));
+
+        Assert.True(red.IsDropped);
+    }
+
+    /// <summary>The equip chain of its hooks, in the shape every TF test's <c>ListHooks</c> has.</summary>
+    private sealed class EquipChain(params ITFWeaponEquipHook[] hooks) : IHooks<ITFWeaponEquipHook>
+    {
+        public IReadOnlyList<ITFWeaponEquipHook> All => hooks;
+        public void Each(string what, Action<ITFWeaponEquipHook> call) { foreach (var h in hooks) call(h); }
+    }
+
+    /// <summary>The equip hook, as the facts' record: every ask's player.</summary>
+    private sealed class Recorder(List<EntityHandle> asked) : ITFWeaponEquipHook
+    {
+        public void OnEquipped(EntityHandle player) => asked.Add(player);
+    }
+
     /// <summary>The pickup seam, as the verb's record.</summary>
     private sealed class VerbSpy(List<EntityHandle> presses, List<EntityHandle> releases)
         : ITFDroppedWeaponPickup
@@ -631,6 +713,8 @@ public sealed class TFDroppedWeaponPickupTests
         public ParentProbe ParentProbe(EntityHandle entity) => _engine.ParentProbe(entity);
         public bool GetAttachmentFrame(EntityHandle entity, int attachment, out Vector origin, out QAngle angles) => _engine.GetAttachmentFrame(entity, attachment, out origin, out angles);
         public int LookupAttachmentAny(EntityHandle entity, string attachmentName) => _engine.LookupAttachmentAny(entity, attachmentName);
+        public int LookupBone(EntityHandle entity, string boneName) => _engine.LookupBone(entity, boneName);
+        public bool GetBonePosition(EntityHandle entity, int bone, out Vector origin) => _engine.GetBonePosition(entity, bone, out origin);
         public EntityHandle FindBaseByName(string name) => _engine.FindBaseByName(name);
         public Span<byte> GetEngineBlock(EntityHandle entity) => _engine.GetEngineBlock(entity);
         public void DestroyPhysics(EntityHandle entity) => _engine.DestroyPhysics(entity);

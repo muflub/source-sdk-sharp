@@ -175,7 +175,7 @@ public sealed class TFHolsterAnimFacts
                                             catalog: Weapons.Catalog, arsenal: Arsenal,
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: Engine);
+                                            clock: Engine, equipHooks: new TF2.Tests.Rules.ListHooks<ITFWeaponEquipHook>());
         }
 
         /// <summary>The shipped schema, the kit's items.</summary>

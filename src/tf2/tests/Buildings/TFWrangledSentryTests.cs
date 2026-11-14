@@ -259,7 +259,7 @@ public class TFWrangledSentryTests
         // index names the builder, the eye traces along the view, and the
         // wall the trace ends on is the dot the turret holds.
         var (rig, sentry, builder) = AStandingSentry();
-        var wrangle = new TFSentryWrangle(rig.Buildings(), rig.Engine, rig.Engine, rig.Engine);
+        var wrangle = new TFSentryWrangle(rig.Buildings(), rig.Engine, rig.Engine, rig.Engine, rig.Registry);
         Vector eye = new(0f, 0f, TFSentryGun.EyeHeightForLevel(1));
         Vector wall = new(400f, 0f, TFSentryGun.EyeHeightForLevel(1));
         rig.Engine.Returns("Players.GetHandle", builder);
@@ -282,6 +282,73 @@ public class TFWrangledSentryTests
         wrangle.Release(1);
         sentry.OnThink("SentryThink");
         Assert.False(sentry.IsPlayerControlled);
+    }
+
+    /// <summary>The brief auto-aim (:881-904): the player the holder's dot
+    /// lasered holds the controlled turret's target while the window holds,
+    /// and the dot's word is back once it passes.</summary>
+    [Fact]
+    public void TheLasedEnemyHoldsTheTargetForTheBriefWindow()
+    {
+        var (rig, sentry, builder) = AStandingSentry();
+        EntityHandle enemy = rig.AddBuilder(TFTeam.Blue);
+        Vector eye = new(0f, 0f, TFSentryGun.EyeHeightForLevel(1));
+        Vector wall = new(400f, 0f, eye.Z);
+        rig.Centers[enemy] = new Vector(300f, 0f, eye.Z);
+        rig.Origins[enemy] = new Vector(300f, 0f, eye.Z);
+        rig.Engine.Returns("Players.GetHandle", builder);
+        rig.Engine.Returns("Entities.GetIndex", 3);
+        rig.Engine.Returns("Entities.GetEyePosition", eye);
+        rig.Engine.Returns("Entities.GetEyeAngles", Vector.Zero);
+        rig.Engine.Returns("WorldQuery.TraceLine", new TraceResult(true, 1f, wall, new Vector(0f, 1f, 0f), enemy));
+
+        var wrangle = new TFSentryWrangle(rig.Buildings(), rig.Engine, rig.Engine, rig.Engine, rig.Registry);
+        wrangle.Aim(1);
+        sentry.OnThink("SentryThink");
+
+        // The lased player, not the dot, while the reach line meets them.
+        Assert.Equal(enemy, sentry.Target);
+        Assert.True(sentry.IsAttacking);
+
+        // Past the window the dot's word comes back (:901-904's clear).
+        rig.Clock.Now += TFSentryGun.AutoAimWindow + 0.1f;
+        sentry.OnThink("SentryThink");
+
+        Assert.Equal(EntityHandle.None, sentry.Target);
+        Assert.True(sentry.IsAttacking);
+    }
+
+    /// <summary>A wall between clears the assist (:896-899): the reach line's
+    /// own end has to be the player.</summary>
+    [Fact]
+    public void AWallBetweenClearsTheLasedTarget()
+    {
+        var (rig, sentry, builder) = AStandingSentry();
+        EntityHandle enemy = rig.AddBuilder(TFTeam.Blue);
+        Vector eye = new(0f, 0f, TFSentryGun.EyeHeightForLevel(1));
+        Vector wall = new(400f, 0f, eye.Z);
+        rig.Centers[enemy] = new Vector(300f, 0f, eye.Z);
+        rig.Origins[enemy] = new Vector(300f, 0f, eye.Z);
+        rig.Engine.Returns("Players.GetHandle", builder);
+        rig.Engine.Returns("Entities.GetIndex", 3);
+        rig.Engine.Returns("Entities.GetEyePosition", eye);
+        rig.Engine.Returns("Entities.GetEyeAngles", Vector.Zero);
+        rig.Engine.Returns("WorldQuery.TraceLine", new TraceResult(true, 1f, wall, new Vector(0f, 1f, 0f), enemy));
+
+        var wrangle = new TFSentryWrangle(rig.Buildings(), rig.Engine, rig.Engine, rig.Engine, rig.Registry);
+        wrangle.Aim(1);
+        sentry.OnThink("SentryThink");
+        Assert.Equal(enemy, sentry.Target);
+
+        // The next ask stops on a world face instead: the line no longer
+        // meets the player, the assist clears and the dot carries the aim.
+        rig.Engine.Returns("WorldQuery.TraceLine",
+                           new TraceResult(true, 1f, wall, new Vector(0f, 0f, 1f), EntityHandle.None));
+        wrangle.Aim(1);
+        sentry.OnThink("SentryThink");
+
+        Assert.Equal(EntityHandle.None, sentry.Target);
+        Assert.True(sentry.IsAttacking);
     }
 
     /// <summary>The wrangled shell's custom (<c>ModifyFireBulletsDamage</c>,

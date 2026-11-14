@@ -270,6 +270,21 @@ public interface IEngineEntities
     int LookupAttachmentAny(EntityHandle entity, string attachmentName);
 
     /// <summary>
+    /// A bone NAME to its ZERO-based index, stock's own spelling: -1 for a name
+    /// the model does not carry. The server's managed skeletons answer it on the
+    /// same route <see cref="LookupAttachmentAny"/> walks, from the entity's
+    /// model header.
+    /// </summary>
+    int LookupBone(EntityHandle entity, string boneName);
+
+    /// <summary>
+    /// The world position of a ZERO-based bone from the skeleton's bone build —
+    /// stock's <c>GetBonePosition</c>: the bone-to-world matrix's origin. False
+    /// when the entity has no skeleton or the index names no bone.
+    /// </summary>
+    bool GetBonePosition(EntityHandle entity, int bone, out Vector origin);
+
+    /// <summary>
     /// THE SDK'S FIND-BY-NAME, which <see cref="FindEntityByName"/> is not: that
     /// one walks the shim's own vector and answers only the parallel hierarchy.
     /// Resolving a map's <c>parentname</c> has to reach both.

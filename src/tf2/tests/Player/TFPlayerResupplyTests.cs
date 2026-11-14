@@ -31,7 +31,7 @@ public sealed class TFPlayerResupplyTests
                                            catalog: rig.Catalog, arsenal: LockerlessArsenal(rig),
                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                           clock: rig.Engine),
+                                           clock: rig.Engine, equipHooks: new ListHooks<ITFWeaponEquipHook>()),
                 conditions);
     }
 
@@ -115,7 +115,7 @@ public sealed class TFPlayerResupplyTests
                                             catalog: rig.Catalog, arsenal: LockerlessArsenal(rig),
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: rig.Engine);
+                                            clock: rig.Engine, equipHooks: new ListHooks<ITFWeaponEquipHook>());
 
         resupply.Regenerate(PlayerRig.Player);
 
@@ -176,7 +176,7 @@ public sealed class TFPlayerResupplyTests
                                             catalog: rig.Catalog, arsenal: LockerlessArsenal(rig),
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: rig.Engine);
+                                            clock: rig.Engine, equipHooks: new ListHooks<ITFWeaponEquipHook>());
         Assert.Equal(105, resupply.MaxHealth(PlayerRig.Player));
 
         rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_scattergun");
@@ -210,7 +210,7 @@ public sealed class TFPlayerResupplyTests
                                             catalog: rig.Catalog, arsenal: LockerlessArsenal(rig),
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: rig.Engine);
+                                            clock: rig.Engine, equipHooks: new ListHooks<ITFWeaponEquipHook>());
 
         // The deploy's first ask: the full cost at once — 125 down to 105 —
         // and the health by its percentage: 100 * (20 / 125) = 16 gone.
@@ -252,7 +252,7 @@ public sealed class TFPlayerResupplyTests
                                             catalog: rig.Catalog, arsenal: LockerlessArsenal(rig),
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: rig.Engine);
+                                            clock: rig.Engine, equipHooks: new ListHooks<ITFWeaponEquipHook>());
 
         Assert.Equal(105, resupply.MaxHealth(PlayerRig.Player));   // the deploy's cost
         Assert.Equal(84, HealthSet(rig));
@@ -303,7 +303,7 @@ public sealed class TFPlayerResupplyTests
                                             catalog: rig.Catalog, arsenal: LockerlessArsenal(rig),
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: rig.Engine);
+                                            clock: rig.Engine, equipHooks: new ListHooks<ITFWeaponEquipHook>());
 
         // The held first glove: the deploy's twenty at once, then two a second
         // — ninety seconds on the clock take the bucket across its cap of
@@ -353,7 +353,7 @@ public sealed class TFPlayerResupplyTests
                                     catalog: rig.Catalog, arsenal: LockerlessArsenal(rig),
                                     hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                     deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                    clock: rig.Engine);
+                                    clock: rig.Engine, equipHooks: new ListHooks<ITFWeaponEquipHook>());
     }
 
     private static IAttributeProvider Arm(string name, float value, AttributeDescriptionFormat format, int defindex)
@@ -450,7 +450,7 @@ public sealed class TFPlayerResupplyTests
                                             catalog: rig.Catalog, arsenal: LockerlessArsenal(rig),
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: rig.Engine);
+                                            clock: rig.Engine, equipHooks: new ListHooks<ITFWeaponEquipHook>());
 
         Assert.Equal(72, resupply.MaxAmmo(PlayerRig.Player, TFAmmo.Secondary));
 
@@ -497,7 +497,7 @@ public sealed class TFPlayerResupplyTests
                                             catalog: rig.Catalog, arsenal: LockerlessArsenal(rig),
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: rig.Engine);
+                                            clock: rig.Engine, equipHooks: new ListHooks<ITFWeaponEquipHook>());
         rig.Engine.Returns("Players.GiveAmmo", 50);
 
         Assert.Equal(50, resupply.GiveAmmo(PlayerRig.Player, 100, TFAmmo.Metal));
@@ -525,7 +525,7 @@ public sealed class TFPlayerResupplyTests
                                             catalog: rig.Catalog, arsenal: LockerlessArsenal(rig),
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: rig.Engine);
+                                            clock: rig.Engine, equipHooks: new ListHooks<ITFWeaponEquipHook>());
         rig.Engine.Returns("Players.GiveAmmo", 50);
 
         Assert.Equal(0, resupply.GiveAmmo(PlayerRig.Player, 1, TFAmmo.Grenades1));
@@ -692,7 +692,7 @@ public sealed class TFPlayerResupplyTests
                                             catalog: Weapons.Catalog, arsenal: Arsenal,
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: Engine);
+                                            clock: Engine, equipHooks: new ListHooks<ITFWeaponEquipHook>());
         }
 
         /// <summary>The rocket's clip, as the carry holds it.</summary>

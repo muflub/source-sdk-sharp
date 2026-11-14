@@ -105,6 +105,9 @@ public static class TFClientConditionOrders
 
     /// <summary>The wearables' disguise re-skin (the wearables arm).</summary>
     public const int WearableSkins = Band + 8;
+
+    /// <summary>The Spy's disguise puff and sound (the disguise arm).</summary>
+    public const int DisguiseEffects = Band + 9;
 }
 
 /// <summary>The TF2 client's condition seam: the driver's chain, which only a registrar can name.</summary>

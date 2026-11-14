@@ -56,6 +56,13 @@ public sealed class TFParachuteMaxSpeedZConVar : FloatConVar { }
         Help = "Max Z Speed when on Fire and Parachute is deployed")]
 public sealed class TFParachuteMaxSpeedOnfireZConVar : FloatConVar { }
 
+// tf_gamemovement.cpp:57, the chute's air-control multiplier, read by TF's
+// GetAirSpeedCap (:2067-2070): the air cap is times this while the chute is
+// out. Stock's default carries the trailing f, quoted here byte for byte.
+[ConVar("tf_parachute_aircontrol", "2.5f", Flags = ConVarFlags.DevelopmentOnly | ConVarFlags.Replicated,
+        Help = "Multiplier for how much air control players have when Parachute is deployed")]
+public sealed class TFParachuteAirControlConVar : FloatConVar { }
+
 [ConVar("tf_clamp_airducks", "1", Flags = ConVarFlags.Replicated)]
 public sealed class TFClampAirducksConVar : BoolConVar { }
 
@@ -79,6 +86,12 @@ public sealed class TFMovementLostFootingRestickConVar : FloatConVar { }
 public sealed class TFMovementLostFootingFrictionConVar : FloatConVar { }
 
 // ---- shared/tf/tf_player_shared.cpp -----------------------------------------
+
+// tf_player_shared.cpp:106, outside any #if: the charge yaw cap's frametime
+// scale, read by CalculateChargeCap (:6100-6115).
+[ConVar("tf_demoman_charge_frametime_scaling", "1", Flags = ConVarFlags.Replicated | ConVarFlags.Cheat,
+        Help = "When enabled, scale yaw limiting based on client performance (frametime).")]
+public sealed class TFDemomanChargeFrametimeScalingConVar : BoolConVar { }
 
 // tf_player_shared.cpp:176-177, the charge meter's refill and spend: the
 // regen per second off the meter and the seconds a full meter drains across
@@ -146,10 +159,14 @@ public sealed class MpTournamentConVar : BoolConVar { }
         Help = "Allow only 1 of each player class type.")]
 public sealed class MpHighlanderConVar : BoolConVar { }
 
-[ConVar("mp_teams_unbalance_limit", "1", Flags = ConVarFlags.Replicated,
-        Help = "Teams are unbalanced when one team has this many more players than the other team. (0 disables check)",
-        Min = 0, Max = 30)]
-public sealed class MpTeamsUnbalanceLimitConVar : IntConVar { }
+/// <summary>
+/// Stock's <c>mp_teams_unbalance_limit</c> default, 1 (teamplayroundbased_gamerules.cpp:219).
+/// The core declares the name on both sides for team deathmatch, whose
+/// number is 0 (off); TF's row restores stock's 1 on each side, so the
+/// replicated pair agrees.
+/// </summary>
+[ConVarDefault("mp_teams_unbalance_limit", "1")]
+public sealed class TFTeamsUnbalanceLimitDefault { }
 
 [ConVar("mp_maxrounds", "0", Flags = ConVarFlags.Replicated | ConVarFlags.Notify,
         Help = "max number of rounds to play before server changes maps", Min = 0)]

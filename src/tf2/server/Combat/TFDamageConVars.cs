@@ -38,3 +38,7 @@ public sealed class TFFallDamageDisableSpreadConVar : BoolConVar { }
 /// <summary>The cloaked spy's damage scale (<c>tf_gamerules.cpp:690</c>, a GAME_DLL arm; no help in stock).</summary>
 [ConVar("tf_stealth_damage_reduction", "0.8", Flags = ConVarFlags.Cheat | ConVarFlags.DevelopmentOnly)]
 public sealed class TFStealthDamageReductionConVar : FloatConVar { }
+
+/// <summary><c>tf_damage_events_track_for</c> (<c>shared/tf/tf_player_shared.cpp:156</c>): the seconds a damage event lives on the crit multiplier's list — stock's declaration sits inside the file's GAME_DLL arm (:135), so only the server DLL carries it. <c>UpdateCritMult</c>'s walk (:9539-9543) drops what is older than this.</summary>
+[ConVar("tf_damage_events_track_for", "30", Flags = ConVarFlags.DevelopmentOnly)]
+public sealed class TFDamageEventsTrackForConVar : FloatConVar { }

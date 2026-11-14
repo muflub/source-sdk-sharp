@@ -48,7 +48,7 @@ public sealed class TFRestoreOnKillTests
                                                                  new ScriptedEntityRegistry(TestEngines.Server()), Player.Engine, new DamageHitGroups()),
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
-                                            clock: Player.Engine);
+                                            clock: Player.Engine, equipHooks: new TF2.Tests.Rules.ListHooks<ITFWeaponEquipHook>());
             Restore = new TFRestoreOnKill(Owners, Hooks, Records, Resupply, Player.Engine);
         }
 

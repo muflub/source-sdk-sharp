@@ -45,7 +45,7 @@ public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices,
                                TFObjGibVelocityMinConVar gibVelocityMin, TFObjGibVelocityMaxConVar gibVelocityMax,
                                TFObjGibMaxSpeedConVar gibMaxSpeed,
                                IUniformRandom random, IEngineEntityRender render,
-                               ITFPlayerStats stats) : ScriptedEntity
+                               ITFPlayerStats stats, ServerBodygroups bodygroups) : ScriptedEntity
 {
     public const string Class = "tf_ammo_pack";
 
@@ -98,6 +98,7 @@ public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices,
     // deferred (docs/plans/tf2/deferred.tsv); the flag is kept as stock's
     // member is kept, for the achievement row to pick up.
     [SaveField] private bool _objGib;
+    [SaveField] private int _body;
 
     // m_PackType (tf_ammo_pack.h:31): the ctor's AP_NORMAL is the field's own
     // default; the holiday draw (:123-134) that would raise it is deferred.
@@ -294,7 +295,8 @@ public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices,
         render.SetSkin(Handle, skin);
 
         Health = 900; // :186, "so that trains can destroy it"
-        // SetBodygroup(1, 1) (:188) needs the bodygroup seam — deferred.
+
+        _body = bodygroups.SetBodygroup(Handle, _body, 1, 1); // :188, the box look group at its one model
     }
 
     /// <summary>

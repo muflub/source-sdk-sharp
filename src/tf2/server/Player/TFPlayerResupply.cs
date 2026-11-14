@@ -43,7 +43,8 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
                                      TFWeaponScripts scripts, WeaponCatalog catalog,
                                      Arsenal arsenal, TFMaxHealthDrainHpMinConVar hpMin,
                                      TFMaxHealthDrainDeployCostConVar deployCost,
-                                     IGameClock clock) : ITFPlayerResupply, IPlayerSpawnHook, IOrderedHook
+                                     IGameClock clock, IHooks<ITFWeaponEquipHook> equipHooks)
+    : ITFPlayerResupply, IPlayerSpawnHook, IOrderedHook
 {
     private readonly TFPlayerItems _items = items;
     private readonly AttributeHooks _attributes = attributes;
@@ -53,6 +54,7 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
     private readonly TFMaxHealthDrainHpMinConVar _hpMin = hpMin;
     private readonly TFMaxHealthDrainDeployCostConVar _deployCost = deployCost;
     private readonly IGameClock _clock = clock;
+    private readonly IHooks<ITFWeaponEquipHook> _equipHooks = equipHooks;
 
     /// <summary>The drain bookkeeping of one player, the five members of stock's
     /// <c>ResetMaxHealthDrain</c> (tf_player.cpp:14254-14261), held per index
@@ -178,6 +180,11 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
 
         foreach (var (ammo, count) in loadout.Ammo(player))
             players.GiveAmmo(player, count, ammo);
+
+        // Stock's arm runs inside Weapon_Equip, so every equip pass ends by
+        // asking the chain (tf_player.cpp:20590-20598) — the kit's gives are
+        // the spawn's and the locker's alike.
+        _equipHooks.Each(nameof(ITFWeaponEquipHook.OnEquipped), h => h.OnEquipped(player));
     }
 
     /// <summary>

@@ -506,6 +506,18 @@ public readonly record struct FootingAnswer(
     float AirFrictionScale);
 
 /// <summary>
+/// The high-max-speed rewrite of the command about to be walked: the two writes
+/// <c>CTFGameMovement::HighMaxSpeedMove</c> leaves behind
+/// (<c>tf_gamemovement.cpp:884-911</c>) — a fully pressed forward or side move
+/// below the max speed is raised to the max speed with its sign kept. Null —
+/// no rewrite — is stock's answer for everyone the hook does not speak for.
+/// Asked where stock calls <c>HighMaxSpeedMove()</c> (:326, its return ignored)
+/// before <c>PlayerMove()</c> (:329).
+/// </summary>
+public readonly record struct HighMaxSpeedPair(
+    float ForwardMove, float SideMove);
+
+/// <summary>
 /// The managed DECISIONS over how movement feels, as one immutable value a run
 /// hands its loop (statics to zero): how much of a jump the player gets (1 is
 /// the ordinary jump), the friction the loop computed, scaled, the speed it
@@ -524,7 +536,10 @@ public readonly record struct FootingAnswer(
 /// duck or unduck eases across (the passed constant back), the charge's
 /// rewrite of the command (null, stock Half-Life, walks as sent), the charge
 /// end the command's slow walk names, and the charge end the blocked step's
-/// player names.
+/// player names, the air cap an airborne player's wish is cut to (the passed
+/// constant back), the high-max-speed rewrite of the pressed pair (null,
+/// keeps both as sent), and the charge's clamp of a command's view yaw
+/// (unchanged, stock Half-Life).
 /// <see cref="Stock"/> is the identity, so
 /// a loop nobody hands rules to moves exactly like Half-Life: no jump is ever
 /// taken in the air, no walk is clamped for backing away, nobody is ever
@@ -554,8 +569,11 @@ public readonly record struct MovementRules(
     Action<int, EntityHandle> ChargeBump,
     Func<int, Vector, Vector> ParachuteFallCap,
     Func<int, uint, bool, uint> SolidMask,
-    Func<int, int, bool, int, float, int> DuckButtons,
-    Action<int, float, bool> DuckRelease)
+    Func<int, int, bool, int, float, bool, bool, int> DuckButtons,
+    Action<int, float, bool> DuckRelease,
+    Func<int, float, float> AirSpeedCap,
+    Func<int, float, float, float, HighMaxSpeedPair?> HighMaxSpeed,
+    Func<int, float, float, float, float> ChargeYawCap)
 {
     /// <summary>Stock: no scale on anything, no jump in the air, nobody told of the ground, the table's eye, no jump cap, no backpedal clamp, no stun, no taunt slide, HL2MP's arms.</summary>
     public static readonly MovementRules Stock = new(
@@ -582,8 +600,11 @@ public readonly record struct MovementRules(
         static (_, _) => { },
         static (_, v) => v,
         static (_, mask, _) => mask,
-        static (_, buttons, _, _, _) => buttons,
-        static (_, _, _) => { });
+        static (_, buttons, _, _, _, _, _) => buttons,
+        static (_, _, _) => { },
+        static (_, cap) => cap,
+        static (_, _, _, _) => null,
+        static (_, yaw, _, _) => yaw);
 }
 
 /// <summary>
@@ -996,6 +1017,18 @@ public sealed partial class GameMovement
             _s.MaxSpeed = taunt.MaxSpeed;
             _s.ForwardMove = taunt.ForwardMove;
             _s.ClientMaxSpeed = taunt.ClientMaxSpeed;
+        }
+
+        // The high-max-speed rewrite, asked where stock calls HighMaxSpeedMove
+        // (tf_gamemovement.cpp:326, return ignored, right before PlayerMove at
+        // :329): a forward move that stands at the client's reference speed but
+        // sits below the max speed is raised to it, sign kept, and the side
+        // move likewise (:884-911). The rewritten pair then drives the walk's
+        // wish direction like the charge's, stun's and taunt's rewrites do.
+        if (Rules.HighMaxSpeed(_s.EntIndex, _s.ForwardMove, _s.SideMove, _s.MaxSpeed) is { } high)
+        {
+            _s.ForwardMove = high.ForwardMove;
+            _s.SideMove = high.SideMove;
         }
 
         PlayerMove();
@@ -1461,8 +1494,12 @@ public sealed partial class GameMovement
         => MoveMath.Accelerate(ref _s.Velocity, wishDir, wishSpeed, accel,
                                _s.FrameTime, _s.SurfaceFriction, CanAccelerate());
 
-    /// <summary><c>GetAirSpeedCap</c> — a parameter since Phase 6, not a literal 30.</summary>
-    private float GetAirSpeedCap() => _c.AirSpeedCap;
+    /// <summary>
+    /// <c>GetAirSpeedCap</c> — a parameter since Phase 6, not a literal 30, and
+    /// asked of the rules like stock's virtual, whose TF answer scales it per
+    /// player (<c>CTFGameMovement::GetAirSpeedCap</c>, tf_gamemovement.cpp:2033-2096).
+    /// </summary>
+    private float GetAirSpeedCap() => Rules.AirSpeedCap(_s.EntIndex, _c.AirSpeedCap);
 
     /// <summary><c>AirAccelerate</c> (gamemovement.cpp:1935).</summary>
     private void AirAccelerate(in Vector wishDir, float wishSpeed, float accel)
@@ -3856,7 +3893,7 @@ public sealed partial class GameMovement
         // command BEFORE the button edges are computed, so a masked press is
         // no press at all and a masked release keeps the held bit in the old
         // word as stock's masked m_nButtons does.
-        _s.Buttons = Rules.DuckButtons(_s.EntIndex, _s.Buttons, _s.HasGround, _s.WaterLevel, _s.CurTime);
+        _s.Buttons = Rules.DuckButtons(_s.EntIndex, _s.Buttons, _s.HasGround, _s.WaterLevel, _s.CurTime, _s.Ducked, _s.Ducking);
 
         int buttonsChanged = _s.OldButtons ^ _s.Buttons;
         int buttonsPressed = buttonsChanged & _s.Buttons;

@@ -90,6 +90,20 @@ public interface ITFMapPlayers
     bool AddToSpyCloakMeter(EntityHandle player, float amount);
 
     /// <summary>
+    /// <c>CTFPlayer::AddToSpyKnife</c> (<c>tf_player.cpp:5092-5098</c>) as the
+    /// pack asks it (<c>entity_ammopack.cpp:91-94</c>, after the cloak):
+    /// <c>AddToSpyKnife(100 * pack ratio, false)</c> hands the held knife's
+    /// <c>DecreaseRegenerationTime</c> (<c>tf_weapon_knife.cpp:160-169</c>) the
+    /// amount — an existing knife takes nothing and the pack is not taken by
+    /// it alone; a melted Spy-cicle pulls its melt stamp earlier by
+    /// <c>amount * 0.005</c> of the regen window, and the moved stamp counts
+    /// the pack as taken. The spy lane answers it over the slice
+    /// (<see cref="TF2.Shared.ITFSpyState.DecreaseKnifeRegenerationTime"/>);
+    /// the default is the untouched no.
+    /// </summary>
+    bool AddToSpyKnife(EntityHandle player, float amount) => false;
+
+    /// <summary>
     /// The demoman's half of the same touch (<c>entity_ammopack.cpp:96-110</c>,
     /// <c>tf_ammo_pack.cpp:378</c>): a wearer of <c>ammo_gives_charge</c> under a
     /// full meter takes <c>100 * pack ratio</c> of charge, and a meter that

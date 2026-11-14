@@ -39,15 +39,17 @@ public interface IRejoinScoreHook
 /// per person (leaving again replaces it), in memory only. Keyed by SteamID64;
 /// a client without one (a LAN game's <c>-hushsteam</c>) by its name, and a
 /// restore by name says so on the console. Bots are never kept: the roster
-/// owns them. A new match clears the table — a map change, a mode switch and
-/// an <c>mp_restartgame</c> restart — so no score is brought into a game that
-/// began after it.
+/// owns them. A new match clears the table — a map change
+/// (<see cref="IGameLifecycle.OnLevelInit"/>), and every reset of the players'
+/// scores the rules raise as <see cref="IMatchResetHook"/>: a mode switch, an
+/// <c>mp_restartgame</c> restart, TF2's game restart — so no score is brought
+/// into a game that began after it.
 /// </para>
 /// </summary>
 public sealed class RejoinScores(IConnectedClients clients, IEnginePlayers players, IPlayerDirectory roster,
                                  IScoreboard scoreboard, IBotPlayers bots, ILog log,
                                  IHooks<IRejoinScoreHook>? hooks = null)
-    : IClientLifecycle, IGameLifecycle
+    : IClientLifecycle, IGameLifecycle, IMatchResetHook, IOrderedHook
 {
     /// <summary>How many departures are remembered.</summary>
     public const int Capacity = 128;
@@ -64,11 +66,17 @@ public sealed class RejoinScores(IConnectedClients clients, IEnginePlayers playe
 
     int IGameLifecycle.LifecycleOrder => (int)LifecycleStage.RejoinScores;
 
+    /// <summary>Its place in <see cref="IMatchResetHook"/>'s chain: its lifecycle stage.</summary>
+    int IOrderedHook.HookOrder => (int)LifecycleStage.RejoinScores;
+
     /// <summary>A map change is a new match.</summary>
     void IGameLifecycle.OnLevelInit(string mapName) => Clear("map change");
 
+    /// <summary>The rules reset the players' scores: a new match.</summary>
+    void IMatchResetHook.OnMatchReset(string why) => Clear(why);
+
     /// <summary>Forgets every departure (a new match began).</summary>
-    public void Clear(string why)
+    private void Clear(string why)
     {
         if (_kept.Count > 0)
             log.Msg($"[SourceSharp/Rejoin] {why}: forgot {_kept.Count} departed player score(s)\n");

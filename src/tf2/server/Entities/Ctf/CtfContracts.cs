@@ -46,6 +46,12 @@ public static class CtfOrders
 
     /// <summary><see cref="FlagCarrierEffects"/>' per-level reset (stock's rules ctor's <c>SetCTFCaptureBonusTime(-1)</c>, tf_gamerules.cpp:3338).</summary>
     public const int CaptureBonusTime = Band + 6;
+
+    /// <summary><see cref="FlagEquipDrop"/>: the reactive drop after the kit's gives.</summary>
+    public const int WeaponEquipDrop = Band + 7;
+
+    /// <summary><see cref="Rules.TFGlowTransmit"/>: the teammate glow's force-transmit.</summary>
+    public const int GlowTransmit = Band + 8;
 }
 
 /// <summary>

@@ -160,7 +160,7 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     private readonly IPlayerDirectory? _roster;
     private readonly IUserMessageSender? _messages;
     private readonly IEngineGameEvents? _events;
-    private readonly RejoinScores? _rejoin;
+    private readonly IHooks<IMatchResetHook>? _matchResets;
 
     /// <summary>
     /// The mode the proxy is answering for, or null — before any proxy,
@@ -183,10 +183,11 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
                      IHooks<IPlayerSpawnHook>? spawnHooks = null,
                      IHooks<IKitGate>? kitGates = null,
                      IPlayerDirectory? roster = null, IUserMessageSender? messages = null,
-                     IEngineGameEvents? events = null, RejoinScores? rejoin = null)
+                     IEngineGameEvents? events = null, IHooks<IMatchResetHook>? matchResets = null)
     {
-        // The departed players' scores (plan A.6): a restart is a new match.
-        _rejoin = rejoin;
+        // Who forgets the match a restart ends (plan A.6: the departed
+        // players' scores). Null is a game with nobody listening.
+        _matchResets = matchResets;
         _spawnWeapon = spawnWeapon;
         // The mods' arms around the kit (tf2 stage 2.3). Null is the game
         // before them: the kit alone.
@@ -1058,7 +1059,7 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
         _restartGameTime = 0f;
 
         // A restart is a new match: no departed player's score is brought into it.
-        _rejoin?.Clear("match restart");
+        _matchResets?.Raise("match restart");
 
         // Stock also clears m_flIntermissionEndTime here. There is nothing to
         // clear: this only runs from Think's walk, which returns before it

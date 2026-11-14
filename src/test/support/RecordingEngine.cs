@@ -688,6 +688,19 @@ public sealed class RecordingEngine :
         return Value<int>("Entities.LookupAttachmentAny");
     }
 
+    int IEngineEntities.LookupBone(EntityHandle entity, string boneName)
+    {
+        RecordVoid("Entities.LookupBone", entity, boneName);
+        return Value<int>("Entities.LookupBone");
+    }
+
+    bool IEngineEntities.GetBonePosition(EntityHandle entity, int bone, out Vector origin)
+    {
+        origin = Value<Vector>("Entities.GetBonePosition.origin");
+        RecordVoid("Entities.GetBonePosition", entity, bone);
+        return Value<bool>("Entities.GetBonePosition");
+    }
+
     EntityHandle IEngineEntities.FindBaseByName(string name)
     {
         RecordVoid("Entities.FindBaseByName", name);

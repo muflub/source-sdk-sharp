@@ -7,6 +7,7 @@ using TF2.Server.Weapons;
 using TF2.Shared;
 using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
+using TF2.Shared.Player;
 
 using Xunit;
 
@@ -156,6 +157,16 @@ public sealed class TFWeaponBehaviourTests
         Assert.Equal(12, world.Behaviour(Scattergun).ModifyClipSize(world.Row(Scattergun), world.Row(Scattergun).ClipSize, TFWeaponWorld.Owner));
     }
 
+    /// <summary>The predicted carrier a panic fact hands the hook: bound so the
+    /// class read answers, with the class the table holds the maximum for.</summary>
+    private static TFPlayerNetState HealthCarrier(TFClass playerClass)
+    {
+        var state = new TFPlayerNetState();
+        state.BindLocal();
+        state.SetClass(playerClass);
+        return state;
+    }
+
     /// <summary>
     /// <c>CTFWeaponBase::ApplyFireDelay</c> (<c>tf_weaponbase.cpp:1895-1898</c>)
     /// scales the fire delay by the item's <c>mult_postfiredelay</c>: the machine
@@ -281,6 +292,68 @@ public sealed class TFWeaponBehaviourTests
 
         var shot = Assert.Single(world.Arms.Bullets);
         Assert.Equal(TFWeaponTypes.SpreadDegrees(0.0675f), shot.Spread, 4);
+    }
+
+    /// <summary>
+    /// <c>CTFWeaponBaseGun::GetWeaponSpread</c>' second arm
+    /// (<c>tf_weaponbase_gun.cpp:866-872</c>, the Panic Attack): the item's
+    /// <c>panic_attack_negative</c> scales the cone by the owner's health
+    /// fraction between 20 and 90 percent. At the band's bottom (the scout's
+    /// 25 of its 125) the remap sits on the attribute itself, so the sine is
+    /// the plain cone's times the value (<c>asin(0.0675 × 0.4)</c>).
+    /// </summary>
+    [Fact]
+    public void AHurtOwnersPanicAttackScalesTheConeToTheItemsValue()
+    {
+        var world = new TFWeaponWorld(new FakePredictedData { Carrier = HealthCarrier(TFClass.Scout) });
+        world.Engine.Returns("Entities.GetHealth", 25);
+        world.Owners.Items[TFWeaponWorld.Owner] = PercentageItem(9107, "panic_attack_negative", 0.4f);
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+
+        world.Run(w, vm, Attack, now: 10f, seed: TFWeaponWorld.GunSeed(200, 10000));
+
+        var shot = Assert.Single(world.Arms.Bullets);
+        Assert.Equal(TFWeaponTypes.SpreadDegrees(0.027f), shot.Spread, 4);
+    }
+
+    /// <summary>
+    /// The same arm at the band's top (<c>:870</c>'s clamp): a scout at 113 of
+    /// its 125 sits past the 90 percent end, so the remap answers one and the
+    /// cone stays the plain script cone the row was dressed with.
+    /// </summary>
+    [Fact]
+    public void AnAlmostFullPanicOwnerKeepsThePlainCone()
+    {
+        var world = new TFWeaponWorld(new FakePredictedData { Carrier = HealthCarrier(TFClass.Scout) });
+        world.Engine.Returns("Entities.GetHealth", 113);
+        world.Owners.Items[TFWeaponWorld.Owner] = PercentageItem(9108, "panic_attack_negative", 0.4f);
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+
+        world.Run(w, vm, Attack, now: 10f, seed: TFWeaponWorld.GunSeed(200, 10000));
+
+        var shot = Assert.Single(world.Arms.Bullets);
+        Assert.Equal(TFWeaponTypes.SpreadDegrees(0.0675f), shot.Spread, 4);
+    }
+
+    /// <summary>
+    /// Halfway through the band (<c>:870</c>, the soldier at 110 of its 200):
+    /// the remap lands halfway between the attribute and one, so the cone
+    /// tightens to the plain sine's 0.7 — the scale a wrong band or an
+    /// unclamped walk would move.
+    /// </summary>
+    [Fact]
+    public void AHalfHurtPanicOwnerGetsTheHalfwayCone()
+    {
+        var world = new TFWeaponWorld(new FakePredictedData { Carrier = HealthCarrier(TFClass.Soldier) });
+        world.Owners.Classes[TFWeaponWorld.Owner] = TFClass.Soldier;
+        world.Engine.Returns("Entities.GetHealth", 110);
+        world.Owners.Items[TFWeaponWorld.Owner] = PercentageItem(9109, "panic_attack_negative", 0.4f);
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+
+        world.Run(w, vm, Attack, now: 10f, seed: TFWeaponWorld.GunSeed(200, 10000));
+
+        var shot = Assert.Single(world.Arms.Bullets);
+        Assert.Equal(TFWeaponTypes.SpreadDegrees(0.04725f), shot.Spread, 4);
     }
 
     [Fact]

@@ -2366,8 +2366,12 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         Input.IInputMailbox? inputMailbox = Input.InputMailbox.Open(_engine, out string whyNoMailbox);
         if (inputMailbox is null)
             Log.Warning($"[SourceSharp/Client] input: no input mailbox ({whyNoMailbox}); every input call crosses\n");
+        // The charge cap the input folds over its yaw amounts: the TF side's
+        // registrar owns the chain (its AddHooks<IChargeYawCap>), and a side
+        // with no mod leaves the fold's chain empty, every yaw unchanged.
         var input = new Input.ClientInput(inputHost, inputDevices, inputCvars, _services.Require<SvCheatsConVar>(), _services.Require<JoyXControllerFoundConVar>(), new Input.UiMenuInputGate(() => _uiLoader?.Current),
-                                          mailbox: inputMailbox, hud: _weaponSelection);
+                                          mailbox: inputMailbox, hud: _weaponSelection,
+                                          chargeCap: _services.Resolve<IHooks<IChargeYawCap>>());
 
         // The rumble mixer (c_rumble.cpp's CRumbleEffects), stepped once a frame
         // below; its random amplitude is the engine's own stream.
@@ -3399,13 +3403,19 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
     public float GetDuckSeconds(int playerIndex, float seconds) => _movementRules.Rules.DuckSeconds(playerIndex, seconds);
 
-    public int GetDuckButtons(int playerIndex, int buttons, bool onGround, int waterLevel, float curTime) => _movementRules.Rules.DuckButtons(playerIndex, buttons, onGround, waterLevel, curTime);
+    public int GetDuckButtons(int playerIndex, int buttons, bool onGround, int waterLevel, float curTime, bool ducked, bool ducking) => _movementRules.Rules.DuckButtons(playerIndex, buttons, onGround, waterLevel, curTime, ducked, ducking);
+
+    public float GetAirSpeedCap(int playerIndex, float cap) => _movementRules.Rules.AirSpeedCap(playerIndex, cap);
+
+    public HighMaxSpeedPair? GetHighMaxSpeed(int playerIndex, float forwardMove, float sideMove, float maxSpeed) => _movementRules.Rules.HighMaxSpeed(playerIndex, forwardMove, sideMove, maxSpeed);
 
     public void GetDuckRelease(int playerIndex, float curTime, bool inAir) => _movementRules.Rules.DuckRelease(playerIndex, curTime, inAir);
 
     public Vector GetParachuteFallCap(int playerIndex, Vector velocity) => _movementRules.Rules.ParachuteFallCap(playerIndex, velocity);
 
     public uint GetPlayerSolidMask(int playerIndex, uint mask, bool brushOnly) => _movementRules.Rules.SolidMask(playerIndex, mask, brushOnly);
+
+    public float GetChargeYawCap(int playerIndex, float yaw, float frametime, float tickInterval) => _movementRules.Rules.ChargeYawCap(playerIndex, yaw, frametime, tickInterval);
 
     //-------------------------------------------------------------------------
     // The client half of the standalone entity hierarchy.

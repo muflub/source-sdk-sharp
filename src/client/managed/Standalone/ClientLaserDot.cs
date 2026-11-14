@@ -49,6 +49,15 @@ public sealed class ClientLaserDot : ClientStandaloneEntity
     /// <summary>RPG_LASER_SPRITE, as OnDataChanged's m_hSpriteMaterial.Init binds it.</summary>
     internal const string SpriteMaterial = "sprites/redglow1";
 
+    /// <summary>
+    /// SNIPER_DOT_SPRITE_RED and _BLUE (<c>tf_weapon_laser_pointer.cpp:41-42</c>):
+    /// the team sprites a TF2 holder's dot wears — the blue sprite for a BLUE
+    /// holder (team 3), the red sprite for anybody else on a team (RED is 2),
+    /// the plain RPG sprite for a holder with no team byte at all (an RPG's).
+    /// </summary>
+    internal const string TeamSpriteRed = "effects/sniperdot_red.vmt";
+    internal const string TeamSpriteBlue = "effects/sniperdot_blue.vmt";
+
     /// <summary>MAX_TRACE_LENGTH.</summary>
     private const float MaxTrace = 56756f;
 
@@ -72,7 +81,7 @@ public sealed class ClientLaserDot : ClientStandaloneEntity
     public override void OnDataChanged(ReadOnlySpan<byte> blob, DataUpdateType updateType)
     {
         if (_material == 0)
-            _material = _fx.MaterialFind(SpriteMaterial);
+            _material = _fx.MaterialFind(SpriteFor(State.Team));
 
         Render.SetCustomDraw(Handle, new Vector(-CullHalf, -CullHalf, -CullHalf), new Vector(CullHalf, CullHalf, CullHalf));
         Render.SetBlending(Handle, translucent: true, ignoreZ: false, alpha: 255);
@@ -84,6 +93,17 @@ public sealed class ClientLaserDot : ClientStandaloneEntity
             _fx.MaterialRelease(_material);
         _material = 0;
     }
+
+    /// <summary>
+    /// The sprite the owner's team byte picks — stock's
+    /// <c>CLaserDot::OnDataChanged</c> team arms
+    /// (<c>tf_weapon_laser_pointer.cpp:256</c>, via the two sprite names at
+    /// :41-42): blue for BLUE, red for any other team, and the plain RPG sprite
+    /// when the holder carries no team byte at all (every RPG dot, stock's own
+    /// <c>weapon_rpg.cpp</c> arm).
+    /// </summary>
+    internal static string SpriteFor(byte team) =>
+        team == 0 ? SpriteMaterial : team == 3 ? TeamSpriteBlue : TeamSpriteRed;
 
     /// <summary>DrawModel: the dot where the owner's aim ends, and the flutter.</summary>
     public override int OnDraw()
