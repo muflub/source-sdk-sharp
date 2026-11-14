@@ -23,6 +23,8 @@ public sealed class TFSearchTests
 
     private static TFField Bot(int slot = 2, float searchSeconds = 12f) => new(slot: slot, tune: p => p with { SearchSeconds = searchSeconds });
 
+    private static TFField Defender(float searchSeconds = 12f) => TFField.Defender(p => p with { SearchSeconds = searchSeconds });
+
     /// <summary>With nothing on its HUD the bot only roams: a sound is the better thing to do.</summary>
     [Fact]
     public void ABotWithNothingBetterToDoGoesToTheSoundItHeard()
@@ -50,16 +52,16 @@ public sealed class TFSearchTests
     [Fact]
     public void ADefenderLooksIntoASoundByItsFlag()
     {
-        TFField f = Bot(slot: 3);
-        Assert.Equal(TFTeamRole.Defend, f.Decider.Role);
+        TFField f = Defender();
         f.StepHearing(TFField.Self(TFField.RedFlag), TFField.Ctf(), [Heard(f, TFField.RedFlag + new AiVector(700f, 0f, 0f))]);
+        Assert.Equal(TFTeamRole.Defend, f.Decider.Role);
         Assert.Equal(TFDecider.Search, Branch(f));
     }
 
     [Fact]
     public void ADefenderStaysAtItsFlagForASoundFarOff()
     {
-        TFField f = Bot(slot: 3);
+        TFField f = Defender();
         f.StepHearing(TFField.Self(TFField.RedFlag), TFField.Ctf(), [Heard(f, TFField.RedFlag + new AiVector(2000f, 0f, 0f))]);
         Assert.Equal(TFDecider.Defend, Branch(f));
     }

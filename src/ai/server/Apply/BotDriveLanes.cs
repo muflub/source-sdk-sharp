@@ -27,7 +27,8 @@ public readonly record struct DriveInput(
     IReadOnlyList<AiVector> Ladders,
     IReadOnlyList<NearbyPlayer> Players,
     bool Breakables,
-    BreakableSight Sight);
+    BreakableSight Sight,
+    bool Frozen = false);
 
 /// <summary>What a bot's drive has done so far, by the lane's own count: read from the step's result, never from the driver.</summary>
 public readonly record struct DriveCounters(long Breaks, long BreaksGivenUp, long Mounts, long Climbs, long Stucks, long Yields, long Builds, long BuildsOnMain)
@@ -357,7 +358,7 @@ public sealed class BotDriveLanes(Func<IAiTransport> transport, int slots)
                 _aim.Set(input.Sight);
                 Driver.Breakables = input.Breakables ? _aim : null;
                 IntentCommand brain = input.Brain;
-                IntentCommand command = Driver.Drive(in brain, input.Origin, input.Tick, 0, input.Graph, _obstacles, input.OnLadder, input.View, input.Shooter);
+                IntentCommand command = Driver.Drive(in brain, input.Origin, input.Tick, 0, input.Graph, _obstacles, input.OnLadder, input.View, input.Shooter, input.Frozen);
                 _output = new DriveOutput(command, Driver.TakeUnreachable(slot), Driver.TakeStuckLine(slot), _aim.Wanted, Driver.CountersOf(_tally));
                 _fault = null;
                 if (_routeAsked)

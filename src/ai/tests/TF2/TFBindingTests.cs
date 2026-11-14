@@ -53,6 +53,29 @@ public sealed class TFBindingTests
     }
 
     /// <summary>
+    /// The frame and the level sequences on a TF2 server, as the tf2 mod's list registers them: no
+    /// two members at one order in the mods' range. Two at one order throw as the server side loads
+    /// (StageCollisionException), which no fact saw: live, a tap of this binding given the
+    /// experience feed's frame order stopped the game at its first map (plan_bots_teams_tf2_part_g G2).
+    /// </summary>
+    [Theory]
+    [InlineData(typeof(IFrameLifecycle), nameof(IFrameLifecycle.FrameOrder))]
+    [InlineData(typeof(IGameLifecycle), nameof(IGameLifecycle.LifecycleOrder))]
+    public void NoTwoServicesOfTheTF2ListShareAnOrderInTheModsRange(Type sequence, string order)
+    {
+        var services = new ServiceContainer();
+        IReadOnlyList<Type> registered = SideServices.Register(services, Side.Server,
+            [.. typeof(global::TF2.Server.Player.TFServerActorFacts).Assembly.GetTypes(), .. typeof(SourceSharp.Ai.Store.SqliteExperienceStores).Assembly.GetTypes(),
+             .. typeof(VisionPass).Assembly.GetTypes(), .. Binding.GetTypes()]);
+        PropertyInfo read = sequence.GetProperty(order)!;
+        var members = registered.Where(t => t.IsClass && !t.IsAbstract && sequence.IsAssignableFrom(t)).Distinct()
+                                .Select(t => (Type: t, Order: (int)read.GetValue(System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(t))!))
+                                .Where(m => m.Order >= ModStages.First).ToArray();
+        Assert.Contains(members, m => m.Type == typeof(SourceSharp.Ai.TF2.Senses.TFNemesisTap));
+        Assert.Empty(members.GroupBy(m => m.Order).Where(g => g.Count() > 1).Select(g => $"{g.Key - ModStages.First}: {string.Join(", ", g.Select(m => m.Type.Name))}"));
+    }
+
+    /// <summary>
     /// Each hook chain the AI's services join on a TF2 server, as the tf2 mod's list registers it:
     /// no two members at one <see cref="IOrderedHook.HookOrder"/> (an unordered one is 0). Two at one
     /// order throw only at the chain's first call (StageUniqueness), so the boot passes and the

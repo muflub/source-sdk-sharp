@@ -46,10 +46,12 @@ public sealed class BrainDriver
     /// <summary>
     /// This tick's intent for a bot whose brain last said <paramref name="brain"/>:
     /// the follower's move toward the brain's goal, or the brain's own move;
-    /// on a ladder, the climb's, whatever the brain said.
+    /// on a ladder, the climb's, whatever the brain said. A bot the game holds still
+    /// (<paramref name="frozen"/>, TF2's pre-round freeze) is not stuck: its stalls are not
+    /// watched, so it neither routes round nor hops at nothing.
     /// </summary>
     public IntentCommand Drive(in IntentCommand brain, AiVector origin, Tick tick, int seq, NavGraph? graph, NavObstacleState? obstacles,
-                               bool onLadder = false, AiAngles view = default, EntityHandle shooter = default)
+                               bool onLadder = false, AiAngles view = default, EntityHandle shooter = default, bool frozen = false)
     {
         int slot = brain.Bot.Slot;
         MoveIntent move = brain.Move;
@@ -76,7 +78,7 @@ public sealed class BrainDriver
         else if (d is not null && !onLadder)
         {
             _giveWay.Step(slot, d.Follower, origin, tick, Players, ref move);
-            if (_giveWay.Waiting)
+            if (_giveWay.Waiting || frozen)
             {
                 _progress.Remove(slot);
                 _body.Remove(slot);
@@ -613,8 +615,15 @@ public sealed class BrainDriver
             }
         }
 
+        // No place for the goal (a flag left hanging in the air, a spot inside a wall): straight at
+        // it, as a player would try, and the last goal's follower let go, or the watch would go on
+        // reading the bot's place from it (live, ctf_2fort: a bot in its spawn reported stuck by
+        // where it had died).
         if (!cell.IsValid)
+        {
+            _driven.Remove(slot);
             return move;
+        }
 
         bool have = _driven.TryGetValue(slot, out Driven? d);
         if (!have || (d!.Follower.Objective != cell && d.Instead != cell && tick.Value - d.Built >= RegoalTicks))

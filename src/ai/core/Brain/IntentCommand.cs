@@ -144,6 +144,15 @@ public enum CalloutKind : byte
 
     /// <summary>"Going around": the speaker takes the other route to the enemy (Crossfire).</summary>
     GoingAround,
+
+    /// <summary>
+    /// "Help!": the speaker wants a teammate by them (plan_bots_teams_tf2_part_g G.2.4: a game's
+    /// voice line, heard as its clients hear it). A count of 1 says it is a healer they ask for ("Medic!").
+    /// </summary>
+    Help,
+
+    /// <summary>"Sentry ahead!": something to keep away from stands near the speaker; the place is the speaker's own.</summary>
+    Hazard,
 }
 
 /// <summary>

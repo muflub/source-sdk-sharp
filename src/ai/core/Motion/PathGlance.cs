@@ -24,6 +24,9 @@ public sealed class PathGlance(AiRandom random)
     /// <summary>Glances begun.</summary>
     public int Taken { get; private set; }
 
+    /// <summary>Whether a glance begun is still held at <paramref name="now"/>: the look is off the way.</summary>
+    public bool Holding(Tick now) => now < _until;
+
     /// <summary>
     /// One decide on the way from <paramref name="self"/> to <paramref name="goal"/> with nobody in
     /// sight. True while the look is a glance, at <paramref name="at"/>: a point

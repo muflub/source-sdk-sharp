@@ -54,6 +54,19 @@
 #         ai_record start <tree>/bin/<config>/ai-cost/<name>.airec <map>   (before the bots are added)
 #         ai_bot_add (x12) ... ai_record stop
 #       and a missing one is an error, not an empty table.
+#   tools/ai-replay navsize <map> [--mod test|tf2] [--hull] [--stop open|leaves|derive|sight|cache] [--no-sight] [--config ..]
+#       what the map's navigation costs a server to load: the file opened (the mod's
+#       maps/<map>.nav3d, or with --hull its .navhull), read as leaves, the graph
+#       derived by the mod's numbers, the sight table built, the graph cache encoded;
+#       each step in seconds of thread CPU and wall time, with the managed heap after it
+#       and the process's peak memory. --stop names the last step to run and --no-sight
+#       leaves the sight table out, for a map too big for a step. The files are per-tree
+#       build output (tools/ai-nav-build).
+#   tools/ai-replay navrooms <map> [--mod tf2|test] [--largest N] [--derive REGION [--stop STEP] [--no-sight]] [--config ..]
+#       the regions of connected free space in the map's .navhull and which hold its
+#       spawns, teleports, teleport destinations, cabinets and capture areas (the N
+#       largest listed too; 20); with --derive, what that one region costs to derive
+#       alone, step by step as navsize says it (open|regions|region|derive|sight|cache).
 #
 # Builds src/ai/replay (SkiaSharp, a tool: never in the game's managed dir).
 set -euo pipefail
@@ -99,7 +112,60 @@ if [[ "$verb" == style ]]; then
   "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c Debug -v q --nologo >/dev/null
   exec "$dotnet" "$root/bin/debug/tools/ai-replay/SourceSharp.Ai.Replay.dll" style "$skills"
 fi
-[[ ( "$verb" =~ ^(nav|metrics|jank|threat|chokes)$ && -n "${2:-}" ) || ( "$verb" =~ ^(heat|verify|tactics|cost)$ && -n "${3:-}" ) ]] || { sed -n '2,56p' "$0"; exit 2; }
+[[ ( "$verb" =~ ^(nav|metrics|jank|threat|chokes|navsize|navrooms)$ && -n "${2:-}" ) || ( "$verb" =~ ^(heat|verify|tactics|cost)$ && -n "${3:-}" ) ]] || { sed -n '2,69p' "$0"; exit 2; }
+if [[ "$verb" == navsize ]]; then
+  map="$2"; shift 2
+  config=debug; mod=test; ext=nav3d; stop=cache; sight=sight
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --config) config="$2"; shift 2 ;;
+      --mod) mod="$2"; shift 2 ;;
+      --hull) ext=navhull; shift ;;
+      --stop) stop="$2"; shift 2 ;;
+      --no-sight) sight=no-sight; shift ;;
+      *) echo "ai-replay navsize: what is $1?" >&2; exit 2 ;;
+    esac
+  done
+  case "$mod" in
+    test) game=hl2mp; dirs=("$root/bin/$config/mods/test/maps") ;;
+    tf2) game=tf2; dirs=("$root/bin/$config/mods/tf2/maps" "$root/bin/$config/content/tf/maps" "$root/bin/$config/content/tf/download/maps") ;;
+    *) echo "ai-replay navsize: no numbers for the mod $mod (test or tf2)" >&2; exit 2 ;;
+  esac
+  nav="$root/bin/$config/mods/$mod/maps/$map.$ext"; bsp=""
+  for d in "${dirs[@]}"; do [[ -z "$bsp" && -f "$d/$map.bsp" ]] && bsp="$d/$map.bsp"; done
+  [[ -f "$nav" ]] || { echo "ai-replay: no $nav: build it with tools/ai-nav-build $map --mod $mod$([[ $ext == navhull ]] && echo ' --hull')" >&2; exit 1; }
+  [[ -n "$bsp" ]] || { echo "ai-replay: no $map.bsp in ${dirs[*]}" >&2; exit 1; }
+  cfg=Debug; [[ "$config" == release ]] && cfg=Release
+  "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c "$cfg" -v q --nologo >/dev/null
+  exec "$dotnet" "$root/bin/$config/tools/ai-replay/SourceSharp.Ai.Replay.dll" navsize "$game" "$nav" "$bsp" "$stop" "$sight"
+fi
+if [[ "$verb" == navrooms ]]; then
+  map="$2"; shift 2
+  config=debug; mod=tf2; what=(rooms)
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --config) config="$2"; shift 2 ;;
+      --mod) mod="$2"; shift 2 ;;
+      --largest) what=(rooms "$2"); shift 2 ;;
+      --derive) what=(derive "$2" cache sight); shift 2 ;;
+      --stop) what[2]="$2"; shift 2 ;;
+      --no-sight) what[3]=no-sight; shift ;;
+      *) echo "ai-replay navrooms: what is $1?" >&2; exit 2 ;;
+    esac
+  done
+  case "$mod" in
+    test) game=hl2mp; dirs=("$root/bin/$config/mods/test/maps") ;;
+    tf2) game=tf2; dirs=("$root/bin/$config/mods/tf2/maps" "$root/bin/$config/content/tf/maps" "$root/bin/$config/content/tf/download/maps") ;;
+    *) echo "ai-replay navrooms: no numbers for the mod $mod (test or tf2)" >&2; exit 2 ;;
+  esac
+  nav="$root/bin/$config/mods/$mod/maps/$map.navhull"; bsp=""
+  for d in "${dirs[@]}"; do [[ -z "$bsp" && -f "$d/$map.bsp" ]] && bsp="$d/$map.bsp"; done
+  [[ -f "$nav" ]] || { echo "ai-replay: no $nav: build it with tools/ai-nav-build $map --mod $mod --hull" >&2; exit 1; }
+  [[ -n "$bsp" ]] || { echo "ai-replay: no $map.bsp in ${dirs[*]}" >&2; exit 1; }
+  cfg=Debug; [[ "$config" == release ]] && cfg=Release
+  "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c "$cfg" -v q --nologo >/dev/null
+  exec "$dotnet" "$root/bin/$config/tools/ai-replay/SourceSharp.Ai.Replay.dll" navrooms "$game" "$nav" "$bsp" "${what[@]}"
+fi
 if [[ "$verb" == cost ]]; then
   map="$2"; recording="$3"; shift 3
   config=debug; mod=test; bodies=-; passes=2

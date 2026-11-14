@@ -16,6 +16,109 @@ public enum AbilityRun : byte
     /// look down, jump and duck, fire at the ground). The applier runs them; the game only writes the data.
     /// </summary>
     Sequence,
+
+    /// <summary>
+    /// A program (plan_bots_teams_tf2_part_g G.5 step 2): the applier steps it a command at a time
+    /// (<see cref="IAbilityRun"/>), telling it the bot's own state and taking that command's view, move
+    /// and buttons from it, until it says it is over, the bot dies, or <see cref="AbilityRow.HoldTicks"/>
+    /// commands have gone. The game's binding supplies it by the row's name (<see cref="IAbilityPrograms"/>).
+    /// </summary>
+    Program,
+}
+
+/// <summary>
+/// What an <see cref="ActionKind.Ability"/> one-shot's <see cref="ActionIntent.WeaponSlot"/> holds: the
+/// row of the table in its low <see cref="RowBits"/> bits, and over them an argument the row's program
+/// is begun with (0, none: a one-shot that names only a row reads as it always did).
+/// </summary>
+public static class AbilityCall
+{
+    public const int RowBits = 8;
+
+    /// <summary>The highest row and the highest argument a one-shot can name.</summary>
+    public const int MaxRow = (1 << RowBits) - 1, MaxArgument = (1 << (31 - RowBits)) - 1;
+
+    /// <summary>The slot that names <paramref name="row"/> with <paramref name="argument"/>.</summary>
+    public static int Pack(int row, int argument)
+    {
+        if ((uint)row > MaxRow || (uint)argument > MaxArgument)
+            throw new ArgumentOutOfRangeException(nameof(row), $"row {row} with argument {argument}: a one-shot names a row to {MaxRow} and an argument to {MaxArgument}");
+        return row | (argument << RowBits);
+    }
+
+    /// <summary>The row <paramref name="slot"/> names, or -1 for a slot that names none.</summary>
+    public static int Row(int slot) => slot < 0 ? -1 : slot & MaxRow;
+
+    /// <summary>The argument <paramref name="slot"/> carries, 0 for none.</summary>
+    public static int Argument(int slot) => slot < 0 ? 0 : slot >> RowBits;
+}
+
+/// <summary>
+/// What a program is told of its bot each command: where it is, how it moves, the view its last
+/// command sent, and whether it stands on something. The bot's own state, as its client has it.
+/// </summary>
+public readonly record struct AbilityBody(AiVector Origin, AiVector Velocity, AiAngles View, bool OnGround);
+
+/// <summary>
+/// One command of a program. <paramref name="View"/> is where the view is to come to, not this
+/// command's view: the applier turns the view there through the bot's own motion
+/// (<see cref="HumanMotion"/>: a reaction, then a flick), and <paramref name="Look"/> numbers the
+/// look, a new number a new thing to react to. <paramref name="Wish"/> is the move in the world's
+/// frame, its length the move a key sends: the applier makes of it the forward and side moves of the
+/// view it does send. <paramref name="Over"/>: the program is done and this command is not sent;
+/// the bot's intent has the command back.
+/// </summary>
+public readonly record struct AbilityCommand(AiAngles View, int Look, AiVector Wish, int Buttons, bool Over = false)
+{
+    /// <summary>The command that ends a program.</summary>
+    public static AbilityCommand Done => new(default, 0, default, 0, Over: true);
+}
+
+/// <summary>How a program's run ended.</summary>
+public enum AbilityEnd : byte
+{
+    /// <summary>It said so itself (<see cref="AbilityCommand.Over"/>).</summary>
+    Over = 0,
+
+    /// <summary>The bot died, or left the game or the level.</summary>
+    Died,
+
+    /// <summary>Its row's commands ran out first.</summary>
+    TimedOut,
+}
+
+/// <summary>
+/// One run of a program for one bot (plan_bots_teams_tf2_part_g G.5 step 2): stepped once a command
+/// on the game's thread, by the applier alone.
+/// </summary>
+public interface IAbilityRun
+{
+    /// <summary>This command, for the bot as <paramref name="body"/> has it.</summary>
+    AbilityCommand Step(in AbilityBody body);
+
+    /// <summary>The run is over, for <paramref name="why"/>, with the bot as <paramref name="body"/> has it: called once.</summary>
+    void Ended(AbilityEnd why, in AbilityBody body);
+}
+
+/// <summary>
+/// A program a game's binding supplies for an <see cref="AbilityRun.Program"/> row: it begins a run
+/// for a bot, or refuses.
+/// </summary>
+public interface IAbilityProgram
+{
+    /// <summary>
+    /// A run begun for the bot as <paramref name="body"/> has it, with the one-shot's
+    /// <paramref name="argument"/>, the numbers its view moves by and a command's length; null when
+    /// the argument names nothing it can run.
+    /// </summary>
+    IAbilityRun? Begin(int argument, in AbilityBody body, in MotionParams motion, float tickSeconds);
+}
+
+/// <summary>The programs of a game's binding, by the name of the row each runs.</summary>
+public interface IAbilityPrograms
+{
+    /// <summary>The program for the row called <paramref name="ability"/>, or null.</summary>
+    IAbilityProgram? Named(string ability);
 }
 
 /// <summary>
@@ -38,7 +141,7 @@ public readonly record struct AbilityStep(int Buttons, int Ticks, float Pitch = 
 /// <param name="Run">How it is run.</param>
 /// <param name="Command">The client command, for <see cref="AbilityRun.Command"/>.</param>
 /// <param name="Buttons">The buttons, for <see cref="AbilityRun.Buttons"/> (the engine's <c>IN_*</c> bits).</param>
-/// <param name="HoldTicks">How many ticks the buttons are held.</param>
+/// <param name="HoldTicks">How many ticks the buttons are held; for <see cref="AbilityRun.Program"/>, the most commands a run may take.</param>
 /// <param name="Steps">The steps, for <see cref="AbilityRun.Sequence"/>.</param>
 public readonly record struct AbilityRow(string Name, AbilityRun Run, string Command = "", int Buttons = 0, int HoldTicks = 1,
                                          ImmutableArray<AbilityStep> Steps = default)

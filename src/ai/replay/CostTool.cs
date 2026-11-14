@@ -81,8 +81,9 @@ public static class CostTool
 
     /// <summary>The navigation a game's binding loads for <paramref name="map"/>, by its own numbers.</summary>
     public static NavLoadResult LoadNav(string game, string map, string navPath, string bspPath)
-        => NavLoader.Load(map, p => p.EndsWith(".nav3d", StringComparison.Ordinal) ? File.ReadAllBytes(navPath)
-                                    : File.Exists(bspPath) ? File.ReadAllBytes(bspPath) : null, null, game == TF2 ? new TF2Profile() : null);
+        => NavLoader.Load(map, p => p.EndsWith(Path.GetExtension(navPath), StringComparison.Ordinal) ? File.ReadAllBytes(navPath)
+                                    : p.EndsWith(".bsp", StringComparison.Ordinal) && File.Exists(bspPath) ? File.ReadAllBytes(bspPath) : null, null,
+                          game == TF2 ? new TF2Profile() : null);
 
     /// <summary>A game's decider for a replayed bot: its tree of this build.</summary>
     public static Func<BrainSetup, IDecider?> Deciders(string game) => game switch
@@ -178,7 +179,7 @@ public static class CostTool
             return 1;
         }
 
-        NavSight sight = NavSight.Build(nav.Nav.Graph, new Nav3dVoxelSpace(nav.Reader));
+        NavSight sight = NavSight.Build(nav.Nav.Graph, nav.File.Space);
         byte[] bytes = File.ReadAllBytes(rec);
         BodyKnowledge? bodies = Bodies(bodiesText);
         CostReport? report = null;

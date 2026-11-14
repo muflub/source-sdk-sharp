@@ -8,7 +8,9 @@ namespace SourceSharp.Ai.TF2.Trees;
 /// on chasing the enemy who carries the team's, Discipline on defending it and on guarding it
 /// dropped, Teamwork on going with the carrier, Nerve (falling) on leaving for health. The
 /// numbers are the skill curves' (<see cref="SkillCurves.Drives"/>, tf2_skills.json); curves
-/// without them weigh nothing, and a score is then exactly what the tree gave.
+/// without them weigh nothing, and a score is then exactly what the tree gave. The bot's team
+/// role has its say on the same score (<see cref="RoleWeight"/>), and so has a sentry it
+/// remembers by where the branch would take it (<see cref="SentryWeight"/>).
 /// </summary>
 public sealed partial class TFDecider
 {
@@ -30,7 +32,7 @@ public sealed partial class TFDecider
         if (!(score > 0f) || branch == Deliver)
             return score;
         (float drive, int number) = Lean(branch);
-        return MathF.Min(score * drive * ScoreNoise.Factor(_scoreSeed, number, _now, _tick, _p.ScoreNoise), ScoreCeiling);
+        return MathF.Min(score * drive * RoleWeight(branch) * SentryWeight(branch) * ScoreNoise.Factor(_scoreSeed, number, _now, _tick, _p.ScoreNoise), ScoreCeiling);
     }
 
     /// <summary>The trait's factor on a branch, and the branch's number for its noise.</summary>

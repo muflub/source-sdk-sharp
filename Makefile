@@ -257,7 +257,8 @@ help:
 	@echo "  make ai-maps                        build the AI's test maps (LINKED_MAPS: ss_ai_nav, ss_ai_sight, ss_ai_hearing, ss_ai_duel, ss_ai_routes, ss_ai_range, ss_ai_tdm) in this tree"
 	@echo "  make ai-maps-tf                     build the TF2 AI's test maps (TF_LINKED_MAPS: ss_ai_tf_jump) into the tf2 mod's maps"
 	@echo "  make ai-nav                         build the AI's .nav3d of NAV_MAPS (dm_lockdown) in this tree, stamped"
-	@echo "  make ai-nav-tf [MAP=ctf_2fort]      build a TF2 map's .nav3d into the tf2 mod's maps (MAPTOOLS_DIR= another map-tools tree)"
+	@echo "  make ai-nav-tf [MAP=ctf_2fort]      build a TF2 map's .nav3d into the tf2 mod's maps (MAPTOOLS_DIR= another map-tools tree;"
+	@echo "                                      HULL=1 its .navhull instead, which a map too tall for a .nav3d needs)"
 	@echo "  make ai-jank [MINUTES=5]            the jank score's standard run: dm_lockdown, four bots, a scripted client, recorded and scored"
 	@echo "  make mapformats-pack                pack SourceSharp.MapFormats + MapTools (the AI's .nav3d reader and builder) in MAPTOOLS_DIR at maptools.lock"
 	@echo "  make dedicated [DEDICATED_MOD=tf2_descent] [HOSTED=1]   a dedicated server (unhosted unless HOSTED=1)"
@@ -689,11 +690,14 @@ ai-nav:
 # map-tools' compressed-map reader (main 3cec3d7) and, for maps whose skybox
 # makes them too tall (pl_badwater, koth_viaduct), its play-space clip
 # (claude/nav-tf-maps): until maptools.lock carries them, MAPTOOLS_DIR=/path/to/that tree.
+# HULL=1 builds the map's hull navigation, maps/MAP.navhull, instead (plan_bots_teams_tf2_part_g
+# G.7): the one a map too tall for a .nav3d has (a jump map, found in content/tf/download/maps
+# too), and the one the loader prefers when a map has both.
 TF_NAV_MAPS := ctf_2fort
 
 ai-nav-tf:
 	$(call require-setup,$(CONFIG))
-	@tools/ai-nav-build $(if $(filter command line environment,$(origin MAP)),$(MAP),$(TF_NAV_MAPS)) --mod tf2 --config $(CONFIG) $(NAV_TREE)
+	@tools/ai-nav-build $(if $(filter command line environment,$(origin MAP)),$(MAP),$(TF_NAV_MAPS)) --mod tf2 --config $(CONFIG) $(NAV_TREE) $(if $(HULL),--hull)
 
 # The Descent room libraries (plan_descent_mine_levels.md tasks A13, E2):
 # `make descent-rooms DEPTH=n` has MapGen's `descent-rooms` write depth n's

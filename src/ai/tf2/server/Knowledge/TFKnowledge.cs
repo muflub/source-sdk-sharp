@@ -172,4 +172,29 @@ public static class TFKnowledge
 
     /// <summary>A splash aimed this far over the feet lands on the floor beside them, not past them.</summary>
     public const float FeetAim = 4f;
+
+    /// <summary>
+    /// How far from where it bursts a projectile a client draws hurts a body (plan_bots_teams_tf2_part_g
+    /// G.2.3), by the binding's own kind for it: a rocket's blast, and a grenade's (a pipe, a sticky)
+    /// as the mod has it before a launcher's own attributes. 0 for a kind that has no blast.
+    /// </summary>
+    public static float BlastRadius(Senses.TFThingType thing) => thing switch
+    {
+        Senses.TFThingType.Rocket => TFProjectileDefs.RocketRadius,
+        Senses.TFThingType.Pipe or Senses.TFThingType.Sticky => TFProjectileDefs.GrenadeJumpRadius,
+        _ => 0f,
+    };
+
+    /// <summary>How hard a projectile a client draws falls, units/s²: a pipe and a sticky by the mod's scale, a rocket not at all.</summary>
+    public static float FallOf(Senses.TFThingType thing) => thing switch
+    {
+        Senses.TFThingType.Pipe or Senses.TFThingType.Sticky => ProjectileGravity(TFProjectile.Pipebomb),
+        _ => 0f,
+    };
+
+    /// <summary>How far off a sentry gun finds a target, whatever its level: inside this of one that sees the bot, it is being shot.</summary>
+    public static float SentryRange => TFSentryGun.SentryMaxRange;
+
+    /// <summary>Half a TF2 body's width: a blast that reaches this near its middle reaches it.</summary>
+    public static float BodyHalfWidth => TFViewVectors.Params.HullMax.X;
 }

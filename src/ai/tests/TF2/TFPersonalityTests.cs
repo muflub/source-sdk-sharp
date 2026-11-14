@@ -85,6 +85,81 @@ public sealed class TFPersonalityTests
         Assert.Equal(0.5f, Weighed(f, TFDecider.Fight));
     }
 
+    private static readonly ActorId Enemy = new(5, 0x4000_0001);
+    private static readonly AiVector Mid = new(2048f, 256f, 0f);
+
+    /// <summary>Eight bots of varied skills: two aggressive, two tenacious, two timid, a disciplined one and a team player, attackers all.</summary>
+    private static readonly (string Skill, int Level, int Slot, ulong Seed)[] Eight =
+    [
+        ("aggression", 10, 1, 11), ("aggression", 9, 2, 12), ("tenacity", 10, 4, 13), ("tenacity", 9, 5, 14),
+        ("nerve", 0, 7, 15), ("nerve", 1, 8, 16), ("discipline", 10, 10, 17), ("teamwork", 10, 11, 18),
+    ];
+
+    /// <summary>
+    /// One view for all: at mid field on half its health, an enemy 400 u off who is in sight, its own flag
+    /// carried 300 u away and the enemy's at home. The tree scores chasing the carrier 0.85, leaving for
+    /// health 0.82 (if the bot wants it), the fight 0.8 and the fetch 0.78: the branch each bot takes.
+    /// </summary>
+    private static string[] Branches(Func<DecisionParams, DecisionParams>? tune)
+        => [.. Eight.Select(b =>
+        {
+            var f = new TFField(slot: b.Slot, seed: b.Seed, profile: TFSkillCurvesTests.Profile(b.Skill, b.Level), curves: TFSkillCurvesTests.ShippedCurves(), tune: tune);
+            f.Step(TFField.Self(Mid, health: 100), TFField.Ctf(red: ObjectiveState.Carried, redAt: Mid + new AiVector(300f, 0f, 0f), redCarrier: Enemy.Slot),
+                   (Enemy, Mid + new AiVector(400f, 0f, 0f), AiVector.Zero, TFField.Blue));
+            return f.Branch;
+        })];
+
+    /// <summary>
+    /// Eight bots of varied skills given one view split across three branches at least (G.2.2's fact), by
+    /// their traits alone: the noise is off in both arms, so it is not luck that parts them. The control is
+    /// the same eight with their traits ignored, as every bot was before: one branch.
+    /// </summary>
+    [Fact]
+    public void EightBotsOfVariedSkillsGivenOneViewSplitAcrossThreeBranches()
+    {
+        string[] alike = Branches(p => p with { FightDrive = 1f, ChaseDrive = 1f, HoldDrive = 1f, EscortDrive = 1f, SurviveDrive = 1f, ScoreNoise = 0f });
+        string[] own = Branches(p => p with { ScoreNoise = 0f });
+        Assert.Equal([TFDecider.ChaseCarrier], alike.Distinct());
+        Assert.True(own.Distinct().Count() >= 3, $"the eight took {string.Join(", ", own)}");
+    }
+
+    /// <summary>Each of the eight goes where its trait leans: the aggressive to the fight or the flag, the tenacious after the carrier, the timid for health.</summary>
+    [Fact]
+    public void EachBotGoesWhereItsTraitLeans()
+    {
+        string[] own = Branches(null);
+        Assert.All(own[..2], b => Assert.Contains(b, new[] { TFDecider.Fight, TFDecider.Fetch }));
+        Assert.All(own[2..4], b => Assert.Equal(TFDecider.ChaseCarrier, b));
+        Assert.All(own[4..6], b => Assert.Equal(TFDecider.Survive, b));
+    }
+
+    /// <summary>Two bots of the same skills and seed, shown the same two hundred views, take the same branch at every one.</summary>
+    [Fact]
+    public void TwoBotsOfTheSameSkillsAndSeedDecideAlike()
+    {
+        string[] Play()
+        {
+            var f = new TFField(seed: 21, profile: TFSkillCurvesTests.Profile("aggression", 7), curves: TFSkillCurvesTests.ShippedCurves());
+            var took = new string[200];
+            for (int i = 0; i < took.Length; i++)
+            {
+                // The enemy's flag at home, then in a teammate's hands: something to fetch, then someone to go with.
+                ObjectiveKnowledge hud = i % 50 < 25 ? TFField.Ctf() : TFField.Ctf(blue: ObjectiveState.Carried, blueAt: Mid + new AiVector(-600f, 0f, 0f), blueCarrier: 4);
+                if (i % 40 < 20)
+                    f.Step(TFField.Self(Mid, health: 100), hud, (Enemy, Mid + new AiVector(400f + i, 0f, 0f), AiVector.Zero, TFField.Blue));
+                else
+                    f.Step(TFField.Self(Mid, health: 100), hud);
+                took[i] = f.Branch;
+            }
+
+            return took;
+        }
+
+        string[] first = Play();
+        Assert.Equal(first, Play());
+        Assert.True(first.Distinct().Count() >= 2, "the control: the views move the bot between branches");
+    }
+
     [Fact]
     public void TwoBotsOfTheSameSkillsAndSeedWeighAlike()
     {

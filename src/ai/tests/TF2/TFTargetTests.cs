@@ -100,6 +100,29 @@ public sealed class TFTargetTests
         Assert.Equal(B, Target(f, null, Seen(A, 700f), Seen(B, 760f)));
     }
 
+    /// <summary>
+    /// Dominations as grudges (plan_bots_teams_tf2_part_g G.2.5): a grudge too light to take the bot off an enemy 160 u nearer
+    /// does take it once its HUD marks the killer as its nemesis, and no longer after the revenge that takes the mark off.
+    /// </summary>
+    [Fact]
+    public void ANemesisIsTheTargetOverAnEnemyNearerUntilTheMarkIsOff()
+    {
+        var f = new TFField(tune: p => p with { GrudgeWeight = 0.04f });
+        f.StepDrawn(TFField.Self(Mid) with { Flags = SelfFlags.None }, TFField.Ctf());
+        f.Memory.Apply(AiEvent.Killed(f.Bot, new Tick(f.Tick), B));
+        f.Memory.Apply(AiEvent.Killed(f.Bot, new Tick(f.Tick), B));
+        f.StepDrawn(TFField.Self(Mid) with { Flags = SelfFlags.None }, TFField.Ctf());
+        Assert.Equal(A, Target(f, null, Seen(A, 600f), Seen(B, 760f)));
+
+        f.Memory.Apply(AiEvent.Nemesis(f.Bot, new Tick(f.Tick), B, true));
+        f.StepDrawn(TFField.Self(Mid) with { Flags = SelfFlags.None }, TFField.Ctf());
+        Assert.Equal(B, Target(f, null, Seen(A, 600f), Seen(B, 760f)));
+
+        f.Memory.Apply(AiEvent.Nemesis(f.Bot, new Tick(f.Tick), B, false));
+        f.StepDrawn(TFField.Self(Mid) with { Flags = SelfFlags.None }, TFField.Ctf());
+        Assert.Equal(A, Target(f, null, Seen(A, 600f), Seen(B, 760f)));
+    }
+
     /// <summary>The control: at Tenacity's zero the same kills change nothing.</summary>
     [Fact]
     public void WithNoGrudgeWeightTheKillerIsNoOneSpecial()

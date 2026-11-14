@@ -81,6 +81,14 @@ public enum AiEventKind : byte
     /// <summary>A teammate's order read in team chat (B.5, Q5): Other the one who said it, Code the <see cref="OrderKind"/>.</summary>
     Order = 56,
 
+    /// <summary>
+    /// The bot's HUD marks Other as its nemesis (Code 1), or no longer (Code 0): a game's own
+    /// standing mark on someone who keeps killing the bot unanswered (plan_bots_teams_tf2_part_g
+    /// G.2.5: TF2's domination, which its scoreboard and the icon over the dominator show the
+    /// dominated player).
+    /// </summary>
+    Nemesis = 57,
+
     // recorded only, as Observed records (§3.4.4's hit rate): no brain is told
     /// <summary>The actor fired: Code the weapon's kind, Amount the rounds the fire took. A trigger pull, however many pellets it throws.</summary>
     ShotFired = 50,
@@ -213,6 +221,10 @@ public readonly record struct AiEvent(
 
     public static AiEvent Order(ActorId bot, Tick tick, ActorId from, OrderKind order)
         => new(AiEventKind.Order, bot, tick, from, default, default, 0f, (int)order, 0);
+
+    /// <summary>The bot's HUD began (<paramref name="marked"/>) or stopped marking <paramref name="actor"/> as its nemesis.</summary>
+    public static AiEvent Nemesis(ActorId bot, Tick tick, ActorId actor, bool marked)
+        => new(AiEventKind.Nemesis, bot, tick, actor, default, default, 0f, marked ? 1 : 0, 0);
 
     public static AiEvent FriendlyFireSet(ActorId bot, Tick tick, bool on)
         => new(AiEventKind.FriendlyFireSet, bot, tick, ActorId.None, default, default, 0f, on ? 1 : 0, 0);

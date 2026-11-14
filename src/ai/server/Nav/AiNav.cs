@@ -51,7 +51,8 @@ public sealed record NavBuildProgress(string Map, string Phase, int Percent, dou
 
 /// <summary>
 /// The level's navigation (plan_hl2mp_ai §6): loaded at level start from
-/// <c>maps/&lt;map&gt;.nav3d</c> through the engine's file seam, derived (or
+/// <c>maps/&lt;map&gt;.nav3d</c>, or without one <c>maps/&lt;map&gt;.navhull</c>
+/// (<see cref="NavLoader"/>), through the engine's file seam, derived (or
 /// read from the cache in <c>maps/ai-nav/</c>), with its sight
 /// table and its obstacles matched to their entities. When no file binds (the
 /// one beside the map, then the server's own build in <c>maps/ai-nav/</c>),
@@ -350,7 +351,7 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
         if (nav.Entities.Unread is { } unread)
             log.Warning($"[SourceSharp/Ai] {mapName}'s entities are not read ({unread}): the bots know none of its spawns, pickups, hurt volumes or team solids\n");
         long start = System.Diagnostics.Stopwatch.GetTimestamp();
-        NavSight sight = NavSight.Build(nav.Nav.Graph, new Nav3dVoxelSpace(nav.Reader));
+        NavSight sight = NavSight.Build(nav.Nav.Graph, nav.File.Space);
         Install(nav, sight, System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds, cache, built: false);
     }
 
@@ -455,7 +456,7 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
         _obstacles.Resolve();
         _field = new NavObstacleField(nav.Nav.Graph, new EngineObstacleWorld(entities, render is null ? null : render.GetModelName), new EnginePvsSight(players), nav.Nav.Obstacles, _obstacles.State);
         _field.OnLevelStart();
-        _teamBlockers = NavTeamBlockers.From(nav.Nav.Graph, profile.TeamSolids(nav.Entities), profile.Numbers(nav.Reader.JumpHeight));
+        _teamBlockers = NavTeamBlockers.From(nav.Nav.Graph, profile.TeamSolids(nav.Entities), profile.Numbers(nav.File.JumpHeight));
         Breakables = new EngineBreakableAim(_field, traces);
         StartChokes(nav, cache);
         Current = nav;
@@ -466,7 +467,8 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
             $"[SourceSharp/Ai] navigation for {mapName}: {g.CellCount} cells, {g.EdgeCount} edges, {g.ObstacleCount} obstacles "
             + $"({_obstacles.Matched} matched, {_obstacles.Blocking} blocking){(built ? " (built)" : nav.Built ? " (cached)" : "")}; {(nav.FromCache ? "read from the cache" : "derived")} in {nav.DeriveMs:F0} ms; "
             + $"sight {Sight.NodeCount} nodes, {Sight.Pairs} pairs in {sightMs:F0} ms; "
-            + $"{_field.Bodies} solid entities take {_field.TruthCells.Blocked} cells and cost {_field.TruthCells.Costly}, {_field.BreakableBodies} a gun can break{TeamBlockersText()}\n"));
+            + $"{_field.Bodies} solid entities take {_field.TruthCells.Blocked} cells and cost {_field.TruthCells.Costly}, {_field.BreakableBodies} a gun can break{TeamBlockersText()}; "
+            + $"from {nav.File.Name}\n"));
     }
 }
 
@@ -486,7 +488,7 @@ public sealed class AiNavStatusCommand(AiNav nav, ILog log)
 
         log.Msg(string.Create(CultureInfo.InvariantCulture,
             $"[SourceSharp/Ai] navigation for {n.Map}: {n.Nav.Graph.CellCount} cells, {n.Nav.Graph.EdgeCount} edges, bsp {n.BspSha256[..12]}, nav {n.NavSha256[..12]}, "
-            + $"{(n.Built ? "the server's build" : "shipped")}, MapFormats {NavReaderVersion.Package}, MapTools {MapToolsVersion.Package}\n"));
+            + $"{(n.Built ? "the server's build" : "shipped")}, MapFormats {NavReaderVersion.Package}, MapTools {MapToolsVersion.Package}, from {n.File.Name}\n"));
     }
 }
 
@@ -528,7 +530,7 @@ public sealed class AiNavValidateCommand(AiNav nav, ITraceQueries traces, IEngin
             count = 200;
         ulong seedValue = ulong.TryParse(seed, NumberStyles.Integer, CultureInfo.InvariantCulture, out ulong s) ? s : 1UL;
         long start = System.Diagnostics.Stopwatch.GetTimestamp();
-        NavValidation v = NavValidator.Run(n.Nav, new Nav3dNavSource(n.Reader), new Nav3dVoxelSpace(n.Reader), new EngineWorldProbe(traces, entities), count, seedValue, width);
+        NavValidation v = NavValidator.Run(n.Nav, n.File.Source, n.File.Space, new EngineWorldProbe(traces, entities), count, seedValue, width);
         double ms = System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds;
         log.Msg(string.Create(CultureInfo.InvariantCulture,
             $"[SourceSharp/Ai] ai_nav_validate {n.Map} n={count} seed={seedValue} width={width:F0}: {Arm(v.Standing)}; {Arm(v.Floor)}; {Arm(v.Solid)}; "

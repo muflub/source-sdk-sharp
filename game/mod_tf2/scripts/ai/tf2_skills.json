@@ -931,6 +931,60 @@
     0.046,
     0.04
    ]
+  },
+  "dodgeChance": {
+   "skill": "agility",
+   "direction": "up",
+   "note": "the share of the rockets and pipes coming its way that the bot gets out of the way of (plan_bots_teams_tf2_part_g G.2.3): drawn once for each",
+   "levels": [
+    0.05,
+    0.14,
+    0.23,
+    0.32,
+    0.41,
+    0.5,
+    0.59,
+    0.68,
+    0.77,
+    0.86,
+    0.95
+   ]
+  },
+  "dodgeLateMs": {
+   "skill": "agility",
+   "direction": "down",
+   "note": "how long after its reaction the bot starts to get out of a blast's way, ms: a clumsy bot's sidestep comes late",
+   "levels": [
+    500.0,
+    450.0,
+    400.0,
+    350.0,
+    300.0,
+    250.0,
+    200.0,
+    150.0,
+    100.0,
+    50.0,
+    0.0
+   ]
+  },
+  "voiceEverySeconds": {
+   "skill": "teamwork",
+   "direction": "down",
+   "note": "the least time between two of the bot's lines on the voice menu, seconds (G.2.4)",
+   "levels": [
+    45.0,
+    41.3,
+    37.6,
+    33.9,
+    30.2,
+    26.5,
+    22.8,
+    19.1,
+    15.4,
+    11.7,
+    8.0
+   ]
   }
  },
  "styleNote": "A parameter that reads 'style' is read at a skill's height above the bot's own mean (SkillCurves.StyleLevel, \u00a710, ruling 2026-11-02), not its level, so a bot's favourite shows at any difficulty; the rest read the level itself, so difficulty still means skill."

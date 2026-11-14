@@ -146,6 +146,19 @@ public static class JumpPilot
         return new Vector(from.X + pitch * share, WrapDegrees(from.Y + yaw * share), 0f);
     }
 
+    /// <summary>
+    /// Where the view of a pilot in <paramref name="state"/> is turning to: the shot's until the
+    /// trigger has been let go, then the way it goes. A caller that turns the view by a motion of
+    /// its own (a live bot's) hands that motion this, where <see cref="Step"/>'s own command has
+    /// one command's turn toward it.
+    /// </summary>
+    public static Vector LooksTo(in JumpRecipe recipe, in JumpPilotState state)
+    {
+        bool shot = state.Phase == JumpPhase.Approach
+                    || (state.Phase == JumpPhase.Launch && state.Count < Math.Max(0, recipe.ShotDelay) + TriggerCommands);
+        return shot ? recipe.ShotView : new Vector(0f, recipe.TravelYaw, 0f);
+    }
+
     /// <summary>One command: see the class.</summary>
     public static JumpPilotStep Step(in JumpRecipe recipe, in JumpPilotState state, in JumpBody body, in JumpPilotLimits limits)
     {
@@ -187,8 +200,7 @@ public static class JumpPilot
         bool felt = next.Felt || (n > 0 && n != jumpAt + 1 && (body.Velocity - state.LastVelocity).Length > BlastFeltSpeed);
         int buttons = (n == jumpAt ? InJump : 0) | (recipe.Ducked && n >= jumpAt ? InDuck : 0)
                       | (n >= shotAt && n < shotAt + TriggerCommands ? InAttack : 0);
-        bool triggerDone = n >= shotAt + TriggerCommands;
-        Vector look = Turn(body.View, triggerDone ? new Vector(0f, travelYaw, 0f) : shotView, turn);
+        Vector look = Turn(body.View, LooksTo(recipe, next), turn);
         Vector wish = Vector.Zero;
         if (body.OnGround && n <= jumpAt)
         {

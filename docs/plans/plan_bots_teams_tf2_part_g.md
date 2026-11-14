@@ -534,7 +534,7 @@ item G.7 names.
 starts in the floor: the map carries a flag pair and a capture zone, and its
 spawns stand 16 u up.
 
-## G.14 Where each phase stands, and what the lanes found (2026-11-10)
+## G.14 Where each phase stands, and what the lanes found (2026-11-10; the table's last rows 2026-11-11)
 
 | phase | state | on main at | notes |
 |---|---|---|---|
@@ -544,9 +544,10 @@ spawns stand 16 u up.
 | G5 step 3 | landed | `67177cd88` (8 commits) | the simulator and its flights fixture |
 | G5 steps 2 and 4, the pure half | landed | `05b70a850` (9 commits) | the recipe, the pilot, the search, the place-finding pass; nothing in the game calls them yet |
 | G1p | landed | `2bb63c854` (6 commits) | a decide's cost found and cut to about a sixth, with a cost fact |
-| G2 | running | branch `tf2ai-G2` | personality, roles, things, voice, dominations; its call sites in `TFDecider.cs` last |
-| G5c-1 (the jump in the game, without the graph), the recording format 7 → 8, the `.navhull` adapter | next | | each announced to the TF2 AI session before it starts |
-| G4, G5 steps 5–7 (edges in the graph), G6, G7 | not started | | the graph edges wait for that session's p6e and its lock bump |
+| G2 | landed 2026-11-11 | `f9cfd3a9e`, call sites `dc5a59665` | G.15 |
+| G5c-1 (the jump in the game, without the graph), the `.navhull` adapter | landed 2026-11-11 | `2b1e7bff0` (20 commits), `d30d0c343` (5 commits) | G.15; the fizzles are lane G5d's |
+| the recording format 7 → 8 | next | | announced to the TF2 AI session before it starts |
+| G4, G5 steps 5–7 (edges in the graph, G5c-2), G6, G7 | not started | | G7's graph has to be a room's (G.15) |
 
 **G1, the feel layer.** Lifted: `BodyKnowledge` (an unseen actor's believed
 speed is its class's run; HL2MP's stays exactly `190f`), `AimHeightHold.Hold`,
@@ -693,9 +694,9 @@ again.
 | the pool's main cost is now the drive steps (`ai.drive.us` 116 to 158 µs, 66 a second a bot) | `src/ai/server/Apply/` | measure before the next cost work |
 | the two facts that run the whole place-finding pass take over 2 s in debug | `tools/test-tiers.tsv` | `tools/test-tiers measure --write` |
 | `tools/ai-tf-jump sim` deletes every json under `bin/<config>/ai-jump/` | `tools/ai-tf-jump` | the pass's reports come back when its facts run; narrow the delete |
-| the Descent session makes a memory's predictors lazy (one made when a foe is first known) | `src/ai/core/Memory/BotMemory.cs` | agreed 2026-11-10; it keeps the teammate rule and the cost fact green |
-| a bot's own blast ends its commitment | `src/ai/server/Senses/CombatTap.cs` | unclaimed by either session; announce, then G2 |
-| "not while glancing" in the jump's rule | `JumpPays`, the TF2 AI session's until G5 reworks it | the glance holds off before a jump meanwhile |
+| the Descent session makes a memory's predictors lazy (one made when a foe is first known) | `src/ai/core/Memory/BotMemory.cs` | done, `fc5a752f2` |
+| a bot's own blast ends its commitment | `src/ai/server/Senses/CombatTap.cs` | done with G2 (`7a60bf4d9`, call site `fd7d9d717`) |
+| "not while glancing" in the jump's rule | `JumpPays`, the TF2 AI session's until G5 reworks it | done with G5c-1 (`JumpAllowed` in `TFDecider.Jump.cs`) |
 | the package carries `e_sqlite3` for 22 platforms, 33 MB | `bin/<config>/bin/managed/runtimes/` | trim to the two the game runs on |
 | the store's native library on Windows | the load fact in the Windows CI | written, unverified |
 | CLAUDE.md's launch paragraph does not name `-toolgame` | CLAUDE.md | the user's to allow |
@@ -704,6 +705,159 @@ again.
 | HL2MP's `SurviveUtility` reads a never-hurt tick 0 as a hit at tick 0 | `Hl2mpDecider.cs` | a fix changes replays; left |
 | the believed class comes only from sight | `CombatTap`'s scoreboard row has no class | P7's enemy-class learning will want it |
 | a brief's test command | lane briefs said `make managed-test`; AI facts are `make ai-test FILTER=...` | fixed in later briefs |
+
+## G.15 What landed on 2026-11-11, and what it found
+
+Everything below is on local main; nothing is pushed.
+
+| what | on main at | notes |
+|---|---|---|
+| the simulator under the TF2 hull | `4dd689e38` | F231's physics, the flights fixture recorded again, one rule fixed |
+| the feel switches | `0ea7e4ec0` | six cheat convars, for A/B runs |
+| G2 | `f9cfd3a9e`, call sites `dc5a59665` | personality, roles, things in view, voice, dominations |
+| the `.navhull` adapter | `d30d0c343` (5 commits) | a map's `.nav3d` first; `jump_academy2` does not fit (below) |
+| G5c-1, the jump in the game | `2b1e7bff0` (20 commits) | the pilot flies it; faster than the walk; three in ten fizzle on ctf_2fort |
+| the jump map by room, measured (lane Groom) | `681473095` (3 commits) | a region source the derivation runs on unchanged; `tools/ai-replay navrooms`; nothing in the game calls it |
+| G5d, the fizzles | `065ad9fac` (2 commits) | the cause is the mod's rocket, not the AI; the jump's record and tally say when a blast was felt |
+
+**The physics changed under the jump (F231, the TF2 port's lane).** A TF2
+player now carries TF2's hull (48 × 48 × 82, 62 ducked), not HL2's box, so a
+crouched Soldier's own blast pushes at about 650 u/s and no longer at the
+1,000 u/s cap. A jump peaks near 462 u where G.13 measured 928; the reach the
+simulator states is a rise of 580 u and a range of 1,040 u. The flights
+fixture was recorded again and showed one wrong rule in the simulator: the
+muzzle used the command before's duck (`BlastJumpSim.Fire()` now reads the
+mover's duck after the move). The differential agrees to 0.0001 u again.
+G.13's and G.14's jump numbers are the old physics'.
+
+**The feel switches.** `ai_tf_feel_carrier`, `_search`, `_aim`, `_retreat`,
+`_friendgate` and `_glance` (cheats, default 1, read when a bot's decider is
+made) turn one feel part off for a run. Two arms on ctf_2fort (carrier-first
+targeting off, the Search branch off) each took 3 captures in 560 s, as the
+all-on runs do. **Withdrawn:** this plan's coordinator had told the TF2 AI
+session that carrier-first targeting cost captures; that session's all-on runs
+took 3, 3 and 1, and the cause of the drop was the old HL2 hull wedging bots
+after their jumps.
+
+**G2.** Personality (leanings that weigh the root's scores), the role
+allocator (`RoleSplit` → `RoleCounts`, dealt by the TF2 AI session's
+`CtfRoleSplit`), the things in view (projectiles and buildings), voice lines
+as ability one-shots, a nemesis from the HUD's domination mark, and a bot's
+own blast no longer ending its commitment. Proof runs with the call sites in,
+ctf_2fort, 560 s, debug: captures 3, 3, 4 at 6v6 and 5, 3, 4 at 4v4, against
+5, 3, 4 and 4, 4, 4 before them. Voice in for a caller who is not the carrier
+waits for a "go to a teammate" branch. With it the Descent session made a
+memory's predictors lazy (`fc5a752f2`), keeping G1p's cost fact green.
+
+**The `.navhull` adapter.** map-tools writes a `.navhull` (boxes with a
+ceiling per built width; PR #152, MapFormats 1.0.7), which holds a map too
+tall for a practical `.nav3d`. `NavHullNavSource` answers the derivation's
+questions from it, with no change to the derivation; `NavLoader.Order` takes a
+map's `.nav3d` first and its `.navhull` only when no `.nav3d` binds;
+`tools/ai-nav-build --hull`, `make ai-nav-tf HULL=1`; `NavHullDifferentialTests`
+compares the two graphs on the maps a tree has both of; `tools/ai-replay
+navsize` says what a load costs step by step. Found on the way and fixed in
+map-tools PR #153 (not merged at this writing; navhull v2, MapFormats 1.0.8):
+`FitsAt` on sloped brushes. When it merges the lock bump is the TF2 AI
+session's, v1 files are refused, and the differential is run again on
+ctf_2fort before the order is switched to prefer `.navhull`.
+
+**`jump_academy2_rc9a` does not load as one graph.** Its `.navhull` builds in
+84 s and 2.5 GB (26.9 MB; 3.9 M boxes). Read through the adapter it is 12.7 M
+pseudo-leaves; derived, 6.9 M cells and 55.7 M edges in 7,594 connected parts
+(the largest 793,849 cells; ctf_2fort is 164,799 in all), 62 to 65 s of CPU
+and 11.9 GB at the peak in release, a 1.1 GB cache file, and 51 s more for the
+sight table (`tools/ai-replay navsize`, `d30d0c343`). The derivation runs on
+the game's thread at level load. So G.7's nav row is not met by a file format
+alone: the graph has to be a room's, made off the game's thread when a bot
+gets there. That is a proposal of its own (measured first: how many rooms,
+how big), since it reaches the derivation's callers, which are the TF2 AI
+session's.
+
+**Measured (lane Groom, `tools/ai-replay navrooms`, release, at
+`4f3041e73`).** A room is a region of connected free space in the `.navhull`
+(`NavHullRegions`, 0.36 s). The map has 369; 28 hold a spawn, a teleport, a
+destination, a cabinet or a capture area: a hub, 20 courses, 6 small chambers
+and a closet. **A region is a course of 4 to 15 jumps, not one jump**: of 264
+teleports, 188 land in their own region (a jump's reset) and 66 in another (a
+course's end). `NavRegionSource` shows one region of a source and
+`NavGraphFromNav3d.Derive` runs on it unchanged. The first three courses and
+the hub derive in 0.09 to 2.5 s of CPU and are each at or below ctf_2fort's
+size; pogo takes 11.1 s and 3.8 GB at the peak, hard sync 21.5 s and 2.4 GB.
+On ctf_2fort one region holds every spawn. The proposal that follows from it
+(the level holds one room's graph and swaps it when a teleport carries the
+bot) is `docs/plans/plan_bots_teams_tf2_part_g_rooms.md`, awaiting the user's
+review: nothing of it is started.
+
+**G5c-1, the jump in the game.** A third way to run an ability, a
+**program** (`AbilityRun.Program`: the applier steps it a command at a time
+with the bot's own state, and the view still goes through `HumanMotion`).
+TF2's is `RocketJumpProgram`, which flies a recipe with `JumpPilot.Step`: it
+runs up, turns the view to the shot's line, stands for a view that is late or
+calls the jump off, and launches. Where a recipe comes from: `JumpDesk` works
+on a worker thread, never in a decide; `JumpBook` is what the decider asks
+(`TFDecider.Jump.cs`: nobody in sight, health over the floor after the jump's
+cost, a rocket to spare, not carrying, not mid-glance, the stretch ahead along
+the route long and straight enough with the headroom, and the simulator's
+recipe faster than the walk). `/ai/jumps` and `ai.jump.*` in `/ai/counters`
+say what each try did.
+
+- On `ss_ai_tf_jump`, today's physics, debug: the jump leg 3.93 s against the
+  walk's 5.11 s (77 %), 14 of 14 jumps landed, the simulator's landing within
+  0.1 u of the game's. Forward jumps are planned at `ReachShare` 0.7 of the
+  reach; 0.9 would give about 60 % of the walk at an apex of 385 u for 40.5
+  health. Left at 0.7: a ruling.
+- On ctf_2fort, 560 s, debug, at `4c6cb719c` (one run each): 4v4 5 captures,
+  113 stuck reports; 6v6 4 captures, 138. No collapse and nobody wedged after
+  a takeoff, which was the TF2 AI session's gate.
+- **Only one stretch of ctf_2fort gets a plan** (takeoff near
+  (-794, -1476, 256), 1.23 s in the air against 3.07 s walked). The refusals
+  in a 6v6 run: the route turns 2,752, too short 2,038, no route 799, no
+  recipe 86, a ceiling 6. Jumps up to a ledge wait for the graph's jump edges
+  (G5c-2).
+- **Three in ten fizzle there.** Of 28 jumps in the two runs: 19 landed within
+  0.2 u of the prediction, 1 landed 484 u off, 8 fizzled, nearly all with a
+  rise of exactly 72.2 u against the plan's 158, which is a crouch jump with
+  no blast. The program is not told whether the launcher can fire. Lane G5d
+  has it.
+- **That reading was wrong (lane G5d).** The bot fires on the command the
+  recipe asks for every time. In the TF2 mod a rocket explodes on the first
+  teammate it touches; stock passes teammates for a rocket's first 0.25 s
+  (`tf_weaponbase_rocket.cpp:354-369`, `tf_player.cpp:10159-10178`,
+  `baseprojectile.cpp:212-230`), and the port's `TFRocket` has no team rule
+  (its pipebomb and stickybomb do). Every jump on ctf_2fort is a BLU Soldier
+  leaving its spawn with a teammate behind it, where the recipe fires the
+  rocket: it goes off 26 to 37 u from the eye, the push is level, and only
+  the crouch jump lifts the bot. A fizzle costs 31 to 81 health against a
+  jump's 27. ctf_2fort, debug, 4v4, 1,500 s with a round restart every 40 s,
+  at `932dae47c`: 15 of 47 launched jumps fizzled, each with a blast felt 1
+  or 2 commands after the trigger; with stock's rule patched into the mod
+  (not committed), 0 of 39. The three older runs hold 11 fizzles in 33 jumps
+  (the 8 of 28 above is two of them). Reported to the TF2 port's session;
+  nothing is fixed on the AI's side, because nothing there is wrong. What
+  landed is evidence: a jump's record carries the command its blast was felt
+  on and the leap it made (`felt_after_shot`, `leap` in `/ai/jumps`), and
+  `ai.jump.fizzled.felt` counts the fizzles that felt one.
+
+**Two things the landings taught about the lanes' own facts.** A voice line
+and a rocket jump are both ability one-shots, so a fact that counts
+`ActionKind.Ability` counts either (`TFField.BeginsJump` reads the row's
+name); and a game launch runs `make debug`, so a branch that stops compiling
+after a rebase starts no game, which reads as a failed run and not as a build
+error.
+
+**Still to do, in order:** G5c-2 in two lanes (a: blast links a route search
+can take, found for a whole map off the game's thread and cached, running
+since `065ad9fac`; b: the follower, the decider's rule, the applier telling
+the decider a program runs); the recording format 7 → 8, after the user's
+ruling on the rooms proposal, since a room change would be a record of its
+own; G4 (the experience's cost field on the pathfinder); G6; the jump map's
+rooms, when approved; the prefire lift.
+
+**Ownership, from 2026-11-11.** The TF2 AI session has not run since 07:18
+that day. G.9's serialised files have no second session to be serialised
+against: this part's edits to them are announced to the user and named in
+their commits.
 
 ## G.12 What could not be verified this session
 

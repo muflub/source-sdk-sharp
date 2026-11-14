@@ -7,9 +7,11 @@ namespace SourceSharp.Ai.Server;
 /// <summary>
 /// What a bot knows about itself, as a client does from its own HUD and view
 /// (plan_hl2mp_ai §2.4): whether it is alive or watching, where its eye is,
-/// which way it looks, where recoil has its crosshair, and what a weapon slot holds.
+/// which way it looks, where recoil has its crosshair, what a weapon slot holds, and, for an
+/// ability's program (plan_bots_teams_tf2_part_g G.5 step 2), how it moves and whether it stands on something.
 /// </summary>
-public readonly record struct BotSelfFacts(bool Alive, bool Observer, AiVector Origin, AiVector Eye, AiAngles View, bool OnLadder = false, AiAngles Punch = default);
+public readonly record struct BotSelfFacts(bool Alive, bool Observer, AiVector Origin, AiVector Eye, AiAngles View, bool OnLadder = false, AiAngles Punch = default,
+                                           AiVector Velocity = default, bool OnGround = false);
 
 /// <summary>The applier's reads of its own bot (§2.4): the bot's own state, never another actor's.</summary>
 public interface IBotSelf
@@ -44,7 +46,7 @@ public sealed class ArsenalBotInventory(Arsenal arsenal) : IBotInventory
 
 /// <summary><see cref="IBotSelf"/> over the engine's player and entity reads.</summary>
 public sealed class EngineBotSelf(IEnginePlayers players, IEngineEntities entities, WeaponCatalog weapons, IBotInventory inventory,
-                                  IEngineNetworking? networking = null) : IBotSelf
+                                  IEngineNetworking? networking = null, IPlayerStances? stances = null) : IBotSelf
 {
     public BotSelfFacts Read(EntityHandle player)
     {
@@ -52,6 +54,7 @@ public sealed class EngineBotSelf(IEnginePlayers players, IEngineEntities entiti
         Vector eye = entities.GetEyePosition(player);
         Vector view = entities.GetEyeAngles(player);
         Vector punch = players.GetPunch(player);
+        Vector velocity = entities.GetVelocity(player);
         return new BotSelfFacts(
             players.IsAlive(player),
             players.GetObserverMode(player) != ObserverMode.None,
@@ -59,7 +62,9 @@ public sealed class EngineBotSelf(IEnginePlayers players, IEngineEntities entiti
             new AiVector(eye.X, eye.Y, eye.Z),
             new AiAngles(view.X, view.Y, view.Z),
             OnLadder(player),
-            new AiAngles(punch.X, punch.Y, punch.Z));
+            new AiAngles(punch.X, punch.Y, punch.Z),
+            new AiVector(velocity.X, velocity.Y, velocity.Z),
+            stances?.OnGround(player) ?? false);
     }
 
     /// <summary>A slot from this up asks for a weapon by catalog kind (the slot less this), as a player picks one off the HUD's list.</summary>

@@ -19,14 +19,20 @@ namespace SourceSharp.Ai.TF2;
 /// </summary>
 [SideService(Side.Server, As = [typeof(IBotGame)])]
 public sealed class TFBotGame(WeaponCatalog catalog, TFWeaponScripts scripts, TFClassTable classes, TFPlacedEntities placed, TFBotGameView view,
-                              TFFeelSwitchConVars feel) : IBotGame
+                              TFFeelSwitchConVars feel, Jump.TFJumps? jumps = null) : IBotGame
 {
     private readonly AbilityTable _abilities = TFAbilities.Table();
 
-    /// <summary>A bot's decider has the feel layer's parts as the <c>ai_tf_feel_*</c> convars stand when it is added, for its life.</summary>
-    public IDecider Decider(BrainSetup setup) => new Trees.TFDecider(setup, Classes()) { Feel = feel.Read() };
+    /// <summary>
+    /// TF2's tree. A bot's decider has the feel layer's parts as the <c>ai_tf_feel_*</c> convars stand when it is added, for its
+    /// life, and reads the level's rocket jumps from the binding's book (plan_bots_teams_tf2_part_g G.5 step 6).
+    /// </summary>
+    public IDecider Decider(BrainSetup setup) => new Trees.TFDecider(setup, Classes()) { Feel = feel.Read(), Jumps = jumps?.Book };
 
     public AbilityTable Abilities => _abilities;
+
+    /// <summary>The rocket jump's program (<see cref="Jump.RocketJumpProgram"/>).</summary>
+    public IAbilityPrograms? Programs => jumps;
 
     public WeaponKnowledge Weapons() => TFKnowledge.Weapons(catalog, scripts.GetQuiet);
 

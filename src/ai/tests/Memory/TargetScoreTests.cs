@@ -116,6 +116,30 @@ public sealed class TargetScoreTests
         Assert.Equal(0.4f, TargetScore.Grudge(m.Board.Actor(2), new Tick(3), Dt, 0.4f), 4);
     }
 
+    /// <summary>Against the one its HUD marks as its nemesis (plan_bots_teams_tf2_part_g G.2.5) the grudge counts <see cref="TargetScore.NemesisGrudge"/> times, and as before once the mark is off.</summary>
+    [Fact]
+    public void TheGrudgeAgainstANemesisIsMultipliedWhileTheHudMarksIt()
+    {
+        BotMemory m = Memory(0, (2, 0, 1), (4, 0, 2));
+        var killer = new ActorId(2, 1);
+        m.Apply(AiEvent.Killed(Bot, new Tick(2), killer));
+        m.Apply(AiEvent.Killed(Bot, new Tick(2), killer));
+        float plain = TargetScore.Grudge(m.Board.Actor(2), new Tick(2), Dt, 0.4f);
+        m.Apply(AiEvent.Nemesis(Bot, new Tick(2), killer, true));
+        float marked = TargetScore.Grudge(m.Board.Actor(2), new Tick(2), Dt, 0.4f);
+        m.Apply(AiEvent.Nemesis(Bot, new Tick(2), killer, false));
+        Assert.Equal((0.4f, 0.4f * TargetScore.NemesisGrudge, 0.4f), (plain, marked, TargetScore.Grudge(m.Board.Actor(2), new Tick(2), Dt, 0.4f)));
+    }
+
+    /// <summary>The mark multiplies a grudge: with none held (a mark on someone who never killed the bot) there is nothing to multiply.</summary>
+    [Fact]
+    public void ANemesisTheBotHoldsNoGrudgeAgainstIsWorthNothingMore()
+    {
+        BotMemory m = Memory(0, (2, 0, 1));
+        m.Apply(AiEvent.Nemesis(Bot, new Tick(2), new ActorId(2, 1), true));
+        Assert.Equal(0f, TargetScore.Grudge(m.Board.Actor(2), new Tick(2), Dt, 0.4f));
+    }
+
     [Fact]
     public void ThePickIsTheBestPriority()
     {

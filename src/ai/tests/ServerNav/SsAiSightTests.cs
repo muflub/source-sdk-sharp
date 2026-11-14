@@ -18,7 +18,7 @@ public sealed class SsAiSightTests
         NavLoadResult r = NavLoader.Load(Map, p => File.Exists(Path.Combine(PerTreeNav.MapsDir, Path.GetFileName(p)))
                                               ? File.ReadAllBytes(Path.Combine(PerTreeNav.MapsDir, Path.GetFileName(p))) : null, null);
         Assert.True(r.Nav is not null, r.Refusal);
-        return (r.Nav!, NavSight.Build(r.Nav!.Nav.Graph, new Nav3dVoxelSpace(r.Nav.Reader)));
+        return (r.Nav!, NavSight.Build(r.Nav!.Nav.Graph, r.Nav.File.Space));
     });
 
     [PerTreeNavFact(Map)]

@@ -6,8 +6,10 @@ namespace SourceSharp.Ai.TF2.Trees;
 /// The hands and the Soldier's own (plan_bots_teams_tf2 C.3, C.3.2, P6 step 6): fire at what is in
 /// sight, a rocket at a grounded target's feet so a miss still lands its blast by them, the
 /// launcher kept loaded in a lull, the shotgun when the launcher is dry up close, and the rocket
-/// jump (<see cref="Knowledge.TFAbilities.RocketJump"/>) on a long run with nobody in sight, where
-/// the nav says the way ahead is clear and the bot's health pays the jump's cost.
+/// jump (<see cref="Knowledge.TFAbilities.RocketJump"/>, a program that flies a planned recipe):
+/// begun where the level's jump book has a plan for the stretch ahead that beats the walk
+/// (TFDecider.Jump.cs), with nobody in sight, nothing carried, and the bot's health over its floor
+/// after the blast's cost.
 /// </summary>
 public sealed partial class TFDecider
 {
@@ -15,14 +17,13 @@ public sealed partial class TFDecider
     public const string SoldierLauncher = "tf_weapon_rocketlauncher", SoldierShotgun = "tf_weapon_shotgun_soldier";
 
     /// <summary>
-    /// A rocket jump pays on a run to a goal at least this far (C.3.2's <c>blastRouteUnits</c>), with
-    /// health at least <see cref="RocketJumpHealthFloor"/> (C.3.2's Soldier floor: a jump costs some
-    /// 40-60), moving at least <see cref="RocketJumpSpeed"/>, and the nav walkable straight ahead for
-    /// <see cref="RocketJumpClear"/>, where it lands.
+    /// A rocket jump is begun by a bot moving at least <see cref="RocketJumpSpeed"/> whose health
+    /// after the jump's blast (the simulator's cost for the recipe) is at least
+    /// <see cref="RocketJumpHealthFloor"/>: over the share at which it would leave for a health pack.
     /// </summary>
-    public const float RocketJumpRoute = 1200f, RocketJumpHealthFloor = 90f, RocketJumpSpeed = 150f, RocketJumpClear = 512f;
+    public const float RocketJumpHealthFloor = 90f, RocketJumpSpeed = 150f;
 
-    /// <summary>The least time between two rocket jumps, and how long one's sequence keeps the hands off the trigger.</summary>
+    /// <summary>The least time between two rocket jumps, and how long from the one-shot a jump's approach keeps the hands off the trigger before the bot's own feet say whether it flew.</summary>
     public const float RocketJumpEverySeconds = 6f, RocketJumpBusySeconds = 1.3f;
 
     /// <summary>A target moving up or down slower than this stands on something: its feet are where a blast goes.</summary>
@@ -83,8 +84,8 @@ public sealed partial class TFDecider
 
     /// <summary>
     /// The hands on a target in sight: look at it with the bot's error, a rocket at the feet of one
-    /// on the ground and ahead of it by its flight, and hold the trigger in reach. Not while a jump's
-    /// sequence has the view, nor a rocket so near the blast would take the bot too.
+    /// on the ground and ahead of it by its flight, and hold the trigger in reach. Not while a rocket
+    /// jump's program has the view, nor a rocket so near the blast would take the bot too.
     /// </summary>
     private void Engage()
     {
@@ -152,45 +153,32 @@ public sealed partial class TFDecider
     }
 
     /// <summary>
-    /// The Soldier's rocket jump (C.3.2): only a Soldier, with its launcher loaded in hand, on the
-    /// ground, nobody in sight and not carrying the flag, health over the floor, on a run of at
-    /// least <see cref="RocketJumpRoute"/> to its goal, moving, and the nav walkable straight along
-    /// its way for <see cref="RocketJumpClear"/>. One ability one-shot, then the hands stay off for
-    /// the sequence and the next waits <see cref="RocketJumpEverySeconds"/>.
+    /// The Soldier's rocket jump (C.3.2, plan_bots_teams_tf2_part_g G.5 step 6): where
+    /// <see cref="JumpPays"/> has a jump for the stretch ahead, one ability one-shot that carries
+    /// the plan's number to the program that flies it; the hands stay off while the jump has the bot
+    /// (<see cref="JumpUnderWay"/>) and the next waits <see cref="RocketJumpEverySeconds"/>.
     /// </summary>
     private void RocketJump()
     {
-        if (!JumpPays())
+        if (JumpUnderWay() || !JumpPays(out Jump.JumpPlan? plan))
             return;
-        _action = new ActionIntent(ActionKind.Ability, FireStyle.Tap, _rocketJumpRow, ++_oneShot);
+        _action = new ActionIntent(ActionKind.Ability, FireStyle.Tap, AbilityCall.Pack(_rocketJumpRow, plan.Id), ++_oneShot);
         _jumpUntil = _now + (int)(RocketJumpBusySeconds / _tick);
         _nextJumpAt = _now + (int)(RocketJumpEverySeconds / _tick);
         RocketJumps++;
+        JumpBegun(plan);
         _verdict = "rocket jump";
     }
 
-    /// <summary>Whether a rocket jump pays now (<see cref="RocketJump"/>'s rule).</summary>
-    private bool JumpPays()
+    /// <summary>
+    /// Whether a rocket jump pays now, and which (<see cref="RocketJump"/>'s rule): the tree allows
+    /// one (<see cref="JumpAllowed"/>) and the level's book of jumps has one for the stretch ahead
+    /// that the bot's health covers (<see cref="JumpAdvised"/>). The book's jumps are the ones the
+    /// simulator says beat the walk; nothing is flown or searched for here.
+    /// </summary>
+    private bool JumpPays([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Jump.JumpPlan? plan)
     {
-        if (_class != TFClass.Soldier || _rocketJumpRow < 0 || !HoldingLauncher || _self.Clip <= 0 || _now < _nextJumpAt
-            || (_self.Flags & SelfFlags.Grounded) == 0 || _targetSighted || Carrying || _self.Health < RocketJumpHealthFloor
-            || !_hasGoal || _move.Kind != MoveKind.Follow || _self.Origin.DistanceTo(_goal) < RocketJumpRoute || _graph is null)
-            return false;
-        var way = new AiVector(_self.Velocity.X, _self.Velocity.Y, 0f);
-        if (way.Length < RocketJumpSpeed)
-            return false;
-        // Along its way, toward the goal, not off to a side of it.
-        AiVector dir = way.Normalised();
-        AiVector toGoal = new AiVector(_goal.X - _self.Origin.X, _goal.Y - _self.Origin.Y, 0f).Normalised();
-        if (dir.Dot(toGoal) < 0.5f)
-            return false;
-        CellId at = _graph.FindCell(_self.Origin);
-        if (!at.IsValid)
-            return false;
-        AiVector land = _self.Origin + dir * RocketJumpClear;
-        _clear ??= new NavObstacleState(_graph.ObstacleCount);
-        return _graph.WalkableLine(at.Index, _self.Origin, new AiVector(land.X, land.Y, _graph.Cell(at).FloorZ), ClearanceClass.Stand, _clear);
+        plan = null;
+        return JumpAllowed && JumpAdvised(out plan);
     }
-
-    private NavObstacleState? _clear;
 }

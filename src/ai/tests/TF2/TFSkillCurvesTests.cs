@@ -60,6 +60,40 @@ public sealed class TFSkillCurvesTests
         Assert.Empty(SkillCurves.Drives.Except(have));
     }
 
+    [Fact]
+    public void TheShippedCurvesCarryTheReactionParameters()
+    {
+        string[] have = [.. ShippedCurves().All.Select(c => c.Parameter)];
+        Assert.Empty(SkillCurves.Reactions.Except(have));
+    }
+
+    /// <summary>Agility is what gets a bot out of a blast's way (plan_bots_teams_tf2_part_g G.2.3): a clumsy bot seldom and late, a nimble one nearly always and at once.</summary>
+    [Fact]
+    public void AgilityMakesTheDodgeLikelierAndSooner()
+    {
+        SkillCurves curves = ShippedCurves();
+        DecisionParams clumsy = curves.For(Profile("agility", 0)), nimble = curves.For(Profile("agility", 10));
+        Assert.True(clumsy.DodgeChance < 0.2f && nimble.DodgeChance > 0.8f && clumsy.DodgeLateMs > nimble.DodgeLateMs + 200f,
+                    $"dodge {clumsy.DodgeChance} late {clumsy.DodgeLateMs} ms at Agility 0, {nimble.DodgeChance} late {nimble.DodgeLateMs} ms at 10");
+    }
+
+    /// <summary>Teamwork is what makes a bot talk (G.2.4): a lone wolf leaves far longer between two voice lines.</summary>
+    [Fact]
+    public void TeamworkShortensTheWaitBetweenVoiceLines()
+    {
+        SkillCurves curves = ShippedCurves();
+        (float lone, float glued) = (curves.For(Profile("teamwork", 0)).VoiceEverySeconds, curves.For(Profile("teamwork", 10)).VoiceEverySeconds);
+        Assert.True(glued >= 5f && lone > glued * 3f, $"a voice line every {lone} s at Teamwork 0, {glued} s at 10");
+    }
+
+    /// <summary>Curves without the reaction parameters (HL2MP's) still give a bot its reactions by its skills: they are behaviour, not a weight.</summary>
+    [Fact]
+    public void CurvesWithoutTheReactionParametersReadThemFromTheSkills()
+    {
+        SkillCurves hl2mp = Skills.Curves.Game();
+        Assert.True(hl2mp.For(Profile("agility", 0)).DodgeChance < hl2mp.For(Profile("agility", 10)).DodgeChance);
+    }
+
     /// <summary>Each trait leans the scores it is said to (plan_bots_teams_tf2_part_g G.2.2): its drive is under 1 with the trait at 0 and over 1 at 10, Nerve's the other way.</summary>
     [Theory]
     [InlineData("aggression", nameof(DecisionParams.FightDrive), true)]

@@ -100,9 +100,12 @@ public sealed class Nav3dNavSource(Nav3dReader reader) : INavSource
 
     public int ObstacleCount => reader.ObstacleCount;
 
-    public NavObstacleInfo Obstacle(int obstacle)
+    public NavObstacleInfo Obstacle(int obstacle) => InfoOf(reader.Obstacle(obstacle));
+
+    /// <summary>A file's obstacle record as the derivation names it: an unnamed one by its classname and place.</summary>
+    public static NavObstacleInfo InfoOf(Nav3dObstacle o)
     {
-        Nav3dObstacle o = reader.Obstacle(obstacle);
+        ArgumentNullException.ThrowIfNull(o);
         var mins = new AiVector(o.Mins.X, o.Mins.Y, o.Mins.Z);
         var maxs = new AiVector(o.Maxs.X, o.Maxs.Y, o.Maxs.Z);
         string name = string.IsNullOrEmpty(o.Name) ? UnnamedName(o.ClassName, mins, maxs) : o.Name;

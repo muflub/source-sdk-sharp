@@ -22,6 +22,22 @@ public sealed partial class TFDecider
 
     private Objective? _ownFlag, _enemyFlag, _ownZone;
 
+    /// <summary>
+    /// The CTF team-play policy (P6 step 3), by a team's size: how many of it defend, and how many
+    /// may escort a teammate carrying the enemy's flag; the rest attack. A third defend (none at two a
+    /// side, one at four, two at six, as Part G's <c>RoleSplits.ThirdDefend</c>), and every other bot
+    /// but the carrier escorts. A <see cref="RoleSplit"/> as it is, for Part G's G2 role allocator
+    /// (<see cref="RoleDeal"/>) to take when its call sites land.
+    /// Before it a team's defenders were the bots whose slot was a multiple of three, whichever team
+    /// the slot joined: live at 4v4 on ctf_2fort, red's four were slots 3, 5, 6 and 9, three
+    /// defenders and one attacker, and blue had none.
+    /// </summary>
+    public static RoleCounts CtfRoleSplit(int teamSize)
+    {
+        int defend = Math.Max(0, teamSize) / 3;
+        return new RoleCounts(defend, Math.Max(0, teamSize - defend - 1));
+    }
+
     /// <summary>Picks out this decide's three objectives the CTF branches read: the team's flag, the flag it may take and its own capture zone.</summary>
     private void ReadObjectives()
     {

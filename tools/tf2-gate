@@ -5267,7 +5267,7 @@ def step_bots_ctf(run, state):
             numbers["detail"] = "the server exited during the bots' play"
             return "FAIL", numbers
     counters = run.srv.get("route", "/ai/counters")
-    for key in ("ai.sense.us", "ai.publish.us", "ai.main.us", "ai.main.cpu.us", "ai.apply.ability.sequences", "ai.apply.fire.feet", "bots"):
+    for key in ("ai.sense.us", "ai.publish.us", "ai.main.us", "ai.main.cpu.us", "ai.apply.ability.sequences", "ai.apply.ability.programs", "ai.apply.fire.feet", "bots"):
         numbers[key] = counters.get(key)
     played = run.read_console_since_mark()
     captures = ctf_captures(played)

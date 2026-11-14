@@ -424,6 +424,8 @@ public sealed class BotDriveLaneTests
             "GetOrigin" => V(ByHandle[(EntityHandle)a[0]!].Origin),
             "GetEyePosition" => V(ByHandle[(EntityHandle)a[0]!].Origin + new AiVector(0f, 0f, 64f)),
             "GetEyeAngles" => V(ByHandle[(EntityHandle)a[0]!].View),
+            // The applier's own facts of its bot hold how it moves, for an ability's program: these bodies are placed, never moved.
+            "GetVelocity" => default(Vector),
             _ => throw FakeEngine.Unasked(m),
         });
 

@@ -72,11 +72,18 @@ public static class TargetScore
         return above + 1;
     }
 
-    /// <summary>The grudge's term: <paramref name="grudgeWeight"/> at <see cref="GrudgeFull"/> kills' worth of grudge and over, less in proportion under it.</summary>
+    /// <summary>What the grudge against someone the bot's HUD marks as its nemesis is multiplied by (plan_bots_teams_tf2_part_g G.2.5).</summary>
+    public const float NemesisGrudge = 2f;
+
+    /// <summary>
+    /// The grudge's term: <paramref name="grudgeWeight"/> at <see cref="GrudgeFull"/> kills' worth of grudge and over, less in
+    /// proportion under it; <see cref="NemesisGrudge"/> times that against the bot's nemesis (<see cref="KnownActor.Nemesis"/>).
+    /// </summary>
     public static float Grudge(KnownActor a, Tick now, float tickSeconds, float grudgeWeight)
     {
         ArgumentNullException.ThrowIfNull(a);
-        return grudgeWeight * Math.Min(1f, a.GrudgeAt(now, tickSeconds) / GrudgeFull);
+        float term = grudgeWeight * Math.Min(1f, a.GrudgeAt(now, tickSeconds) / GrudgeFull);
+        return a.Nemesis ? term * NemesisGrudge : term;
     }
 
     /// <summary>

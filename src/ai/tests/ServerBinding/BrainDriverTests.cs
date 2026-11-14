@@ -411,6 +411,56 @@ public sealed class BrainDriverTests
         Assert.Equal(40, BrainDriver.BodyBlockTicks);
     }
 
+    /// <summary>
+    /// A goal the graph has no place at (a flag left hanging in the air, a spot inside a wall) is
+    /// walked at straight, and the follower of the last goal is let go: watched on, its old place
+    /// reported the bot stuck where it no longer was (live, ctf_2fort: a bot in its spawn at
+    /// (1688 1624 256) reported 16 times "next Walk to (424 2984 -192)", its place before it died).
+    /// </summary>
+    [Fact]
+    public void AGoalWithNoPlaceLetsTheLastGoalsFollowerGo()
+    {
+        var (g, ground, _) = Course();
+        var d = new BrainDriver();
+        AiVector start = g.Cell(ground[0]).Centre;
+        d.Drive(Brain(g.Cell(ground[4]).Centre), start, new Tick(2), 2, g, new NavObstacleState(0));
+        Assert.NotNull(d.FollowerOf(Bot.Slot));
+
+        var nowhere = new AiVector(2000f, 2000f, 500f);
+        IntentCommand c = default;
+        for (int t = 3; t < 3 + 2 * BrainDriver.StuckTicks; t++)
+            c = d.Drive(Brain(nowhere), start + new AiVector(0f, 0f, t % 2 * (BrainDriver.BodyBlockUnits + 1f)), new Tick(t), t, g, new NavObstacleState(0));
+
+        Assert.Null(d.FollowerOf(Bot.Slot));
+        Assert.Equal(0L, d.Stucks);
+        Assert.Equal((MoveKind.Follow, nowhere), (c.Move.Kind, c.Move.Corner0));
+    }
+
+    /// <summary>
+    /// A bot the game holds still (TF2's pre-round freeze) is not stuck: however long it stands, no
+    /// stall is reported and it never hops (P6 step 1: 32 reports at 2fort's spawns, each a hop and an
+    /// avoided strip). Let go at the same spot, the same stall is reported at once.
+    /// </summary>
+    [Fact]
+    public void ABotTheGameHoldsStillIsNeverStuckAndNeverHops()
+    {
+        var (g, ground, _) = Course();
+        var d = new BrainDriver();
+        AiVector goal = g.Cell(ground[4]).Centre, at = g.Cell(ground[0]).Centre;
+        int t = 2, jumps = 0;
+        for (; t < 2 + 3 * BrainDriver.StuckTicks; t++)
+        {
+            if (d.Drive(Brain(goal), at, new Tick(t), t, g, new NavObstacleState(0), frozen: true).Move.Kind == MoveKind.Jump)
+                jumps++;
+        }
+
+        Assert.Equal((0L, 0), (d.Stucks, jumps));
+        Assert.Null(d.TakeStuckLine(Bot.Slot));
+        for (int end = t + BrainDriver.BodyBlockTicks + 2; t < end; t++)
+            d.Drive(Brain(goal), at, new Tick(t), t, g, new NavObstacleState(0));
+        Assert.Equal(1L, d.Stucks);
+    }
+
     /// <summary>Stopped at one place again and again, whatever the route says, it tries a different way each time, and a jump every other; moved away, that is over.</summary>
     [Fact]
     public void ABodyWedgedTriesEachWayInTurnAndMovingFreesIt()

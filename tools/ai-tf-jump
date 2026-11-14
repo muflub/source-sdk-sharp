@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Measure the TF2 Soldier bot's blast jump on ss_ai_tf_jump (plan_bots_teams_tf2_part_g G0, G.5).
 
-  tools/ai-tf-jump measure [--seconds 240] [--config debug] [--out FILE.json] [--keep]
+  tools/ai-tf-jump measure [--seconds 240] [--config debug] [--out FILE.json] [--keep] [--walk-health 110]
   tools/ai-tf-jump read FILE.json      an earlier run's numbers again, from its kept track
   tools/ai-tf-jump record [--seconds 300] [--config debug] [--keep]
   tools/ai-tf-jump sim [--config debug|release]   the simulator against the recording: its gaps and its speed
@@ -12,8 +12,11 @@ instance, temp dir, dev-API directory and port), adds one red Soldier, and
 runs two arms of --seconds each with the bot's brain deciding:
 
   jump   its health held at 200 (`ai_aim_tough`), so it may rocket jump
-  walk   its health held at 85, under the jump's health floor and over the
-         share at which it leaves for a health pack: the same walk, no jump
+  walk   its health held at --walk-health (110): a jump must leave the bot 90
+         (TFDecider.RocketJumpHealthFloor) after its blast and no blast costs
+         under 20, so it makes none; and it is over the 40 % at which a bot
+         leaves for a health pack: the same walk, no jump. (Before G5c the floor
+         was on the health before the jump and this arm was held at 85.)
 
 The bot has nobody to fight, so it plays capture the flag alone, round and
 round: east along the run for the blue flag, west along it carrying, east
@@ -33,11 +36,34 @@ lane, that is one traverse of that lane and direction:
 and the applier's count of ability sequences begun in the arm
 (`ai.apply.ability.sequences`). A round's restart puts the bot back on its
 spawn: a step faster than 1,500 u/s is that, and drops the traverse it was in.
-Each flight of more than 200 u up is listed too:
+Each flight is listed too: a time off the floor that rose past half the lowest
+apex of the plans the game holds (`/ai/jumps`, as the game itself tells a
+flight from a hop), or past 200 u for a game that serves none:
 
   air      seconds off the floor
   along    how far it went over the floor in that time, u (a walk covers 240 u a second)
   walked   the same time at the bot's own walking speed, u
+
+Since G5c the jump is a program that flies a planned recipe, and the game
+counts each one (`/ai/jumps`, the TF2 binding's route). Per arm, from that:
+
+  jumps    begun, and how each ended: landed (near the plan's touch, short of
+           it, elsewhere), called off (the view late, astray), fizzled, died,
+           timed out
+  slab     jumps whose takeoff was under the low lane's slab: must be 0
+  flown    each landed jump: seconds in the air, ground covered from its
+           takeoff, how far past the plan's takeoff it launched, how far from
+           the plan's touch it came down, how high it rose, and how many of
+           them stood for a late view and for how long
+  off      each jump that did not land: how it ended, after how long, where
+           against its plan's takeoff, and how long it had stood
+  gap      the differential: how far the game's landing is from where the
+           simulator comes down flying the same recipe from the same launch
+           state (the worker flies it after each jump), median and worst
+  book     stretches asked, planned and refused by reason, and what the
+           worker spent (simulated flights, floods of the graph, CPU)
+
+A game built before G5c serves no `/ai/jumps`; those parts are then empty.
 
 `record` plays the jump arm alone with the AI session recorded (`ai_record`),
 and writes what the blast-jump simulator's differential facts replay
@@ -159,8 +185,15 @@ def teleported(a, b, tick_seconds):
     return ((b[1] - a[1]) ** 2 + (b[2] - a[2]) ** 2) ** 0.5 / seconds > TELEPORT_SPEED
 
 
-def flights(samples, tick_seconds):
-    """Every time off the floor that rose past FLIGHT_UNITS, in samples
+def flight_units(jumps):
+    """The rise that tells a flight from a hop: half the lowest apex of the plans in a read of /ai/jumps (the
+    game's own rule, RocketJumpProgram.FlownShare), and FLIGHT_UNITS at the most or with no plans. PURE."""
+    apexes = [p["apex"] for p in (jumps or {}).get("plans", []) if p.get("apex", 0) > 0]
+    return min(FLIGHT_UNITS, 0.5 * min(apexes)) if apexes else FLIGHT_UNITS
+
+
+def flights(samples, tick_seconds, units=FLIGHT_UNITS):
+    """Every time off the floor that rose past units, in samples
     [(tick, x, y, z)]: [{air, along, walked, peak}], from the last sample on
     the floor to the first back on it. PURE."""
     out = []
@@ -178,7 +211,7 @@ def flights(samples, tick_seconds):
             continue
         peak = max(peak, b[3] - FLOOR_Z)
         if not up:
-            if peak > FLIGHT_UNITS:
+            if peak > units:
                 air = (b[0] - start[0]) * tick_seconds
                 along = ((b[1] - start[1]) ** 2 + (b[2] - start[2]) ** 2) ** 0.5
                 out.append({"air": round(air, 2), "along": round(along, 1), "walked": round(air * WALK_SPEED, 1), "peak": round(peak, 1)})
@@ -230,9 +263,31 @@ def self_test():
     got = flights(fly, tick)
     assert len(got) == 1 and abs(got[0]["air"] - 3.15) < 0.01 and abs(got[0]["along"] - 157.5) < 0.1 and got[0]["walked"] == 756.0, got
     assert flights(hop, tick) == [] and flights(walk, tick) == []
+    # A flight that rises 150 u is one where the game's plans rise 240 (half of it is 120), and none against the 200 u of a game that serves no plans.
+    low = [(i * 10, 300.0 + i * 30.0, 232.0, FLOOR_Z + (0.0 if i in (0, 11) else 150.0 - abs(i - 5.5) * 20.0)) for i in range(12)]
+    assert flight_units({"plans": [{"apex": 240.0}, {"apex": 300.0}]}) == 120.0 and flight_units({"plans": [{"apex": 900.0}]}) == FLIGHT_UNITS
+    assert flight_units(None) == FLIGHT_UNITS and flight_units({"plans": []}) == FLIGHT_UNITS
+    assert flights(low, tick) == [] and len(flights(low, tick, 120.0)) == 1 and flights(hop, tick, 120.0) == []
     # Twice the speed is half the time: the stimulus reaches the number.
     fast = [(i * 7, 300.0 + i * 50.4, 232.0, FLOOR_Z) for i in range(40)]
     assert abs(traverses(fast, tick)[0]["seconds"] - 2.5) < 0.02
+    # The jumps of an arm, from /ai/jumps before and after it: the counters' change, only the jumps the first read had not, one under the slab.
+    def jump(serial, end, takeoff, touch, gap=None, launched=True, stood=0.0):
+        return {"serial": serial, "end": end, "launched": launched, "takeoff": takeoff, "touch": touch, "air_seconds": 1.8, "plan_air_seconds": 1.785, "slid": 20.0,
+                "approach_seconds": 1.0, "stood_seconds": stood, "rise": 210.0, "off_plan": 12.0, "plan_health": 28.7, "gap": gap}
+    b = {"ai.jump.begun": 2, "ai.jump.landed.near": 1, "ai.jump.refused.ceiling": 1, "last": [jump(1, "Landed", [400, 232, 16], [1600, 232, 16], 5.0), jump(2, "ViewLate", [0, 0, 0], [0, 0, 0])]}
+    e = {"ai.jump.begun": 6, "ai.jump.landed.near": 3, "ai.jump.refused.ceiling": 3, "ai.jump.refused.short": 2, "nav_sha256": "abc",
+         "last": b["last"] + [jump(3, "Landed", [400, 232, 16], [1610, 232, 16], 8.0, stood=0.4), jump(4, "Landed", [1400, 632, 16], [900, 632, 16], 30.0, stood=0.6),
+                              jump(5, "Astray", [1500, 632, 16], [1530, 632, 16], launched=False, stood=0.2), jump(6, "Landed", [400, 232, 16], [1590, 232, 16])]}
+    got = jump_summary(b, e)
+    # Of the three landed two stood, for 0.4 and 0.6 s; the one that did not land is listed with where it ended against its plan's takeoff.
+    assert got["landed"]["stood_n"] == 2 and got["landed"]["stood"] == 0.5 and got["landed"]["rise"] == 210.0, got["landed"]
+    assert got["off"] == [{"serial": 5, "end": "Astray", "after": 1.0, "stood": 0.2, "past": 30.0}], got["off"]
+    assert got["counters"]["ai.jump.begun"] == 4 and got["counters"]["ai.jump.landed.near"] == 2 and got["counters"]["ai.jump.died"] == 0, got["counters"]
+    assert got["refused"] == {"ceiling": 2, "short": 2} and got["ends"] == {"Landed": 3, "Astray": 1} and got["under_slab"] == 1, got
+    assert got["landed"]["n"] == 3 and got["landed"]["ground"] == 1190.0 and got["landed"]["gap_n"] == 2 and got["landed"]["gap"] == 19.0 and got["landed"]["gap_worst"] == 30.0, got["landed"]
+    assert jump_summary(None, None) is None and jump_summary(None, e)["counters"]["ai.jump.begun"] == 6
+    assert under_slab([1000, 632, 16]) and not under_slab([400, 632, 16]) and not under_slab([1000, 232, 16])
     s = summary(traverses(walk, tick) + traverses(hop, tick))
     assert s["run-east"]["n"] == 1 and s["low-west"]["hops"] == 1.0 and abs(s["run-east"]["speed"] - 240.0) < 1.5, s
     assert s["run-west"] == {"n": 0} and s["low-east"] == {"n": 0}, s
@@ -274,6 +329,67 @@ def lower(o):
     return o
 
 
+# The low lane's slab (TFAiTestMaps: x 500 to 1800 over the lane, 100 u over the floor).
+SLAB_X = (500.0, 1800.0)
+
+
+def under_slab(at):
+    """Whether a place (x, y, z) is under the low lane's slab. PURE."""
+    lo, hi = LANES["low"]
+    return SLAB_X[0] <= at[0] <= SLAB_X[1] and lo <= at[1] <= hi
+
+
+JUMP_COUNTERS = ("ai.jump.begun", "ai.jump.unknown", "ai.jump.ended", "ai.jump.landed.near", "ai.jump.landed.short", "ai.jump.landed.elsewhere",
+                 "ai.jump.called_off.view", "ai.jump.called_off.astray", "ai.jump.fizzled", "ai.jump.died", "ai.jump.timed_out", "ai.jump.predicted",
+                 "ai.jump.book.advised", "ai.jump.book.asked", "ai.jump.book.dropped", "ai.jump.book.planned", "ai.jump.book.refused",
+                 "ai.jump.work.pieces", "ai.jump.work.flights", "ai.jump.work.floods", "ai.jump.work.cpu.us", "ai.jump.work.faults")
+
+
+def jump_summary(before, after):
+    """What an arm's jumps did, from /ai/jumps read before and after it (None for a game that serves none):
+    the counters' change, the jumps that ended in the arm (those whose serial the first read had not), how many
+    took off under the slab, and of the landed ones the medians of their air time, ground covered, slide, distance
+    from the plan's touch and from the simulator's landing. PURE: the self-test holds it."""
+    if not after:
+        return None
+    before = before or {}
+    seen = {j["serial"] for j in before.get("last", [])}
+    mine = [j for j in after.get("last", []) if j["serial"] not in seen]
+    out = {"counters": {k: after.get(k, 0) - before.get(k, 0) for k in JUMP_COUNTERS},
+           "refused": {k[len("ai.jump.refused."):]: after[k] - before.get(k, 0) for k in after if k.startswith("ai.jump.refused.") and after[k] != before.get(k, 0)},
+           "nav_sha256": after.get("nav_sha256", ""), "state": after.get("state", ""), "near_units": after.get("near_units"),
+           "ends": {}, "under_slab": sum(1 for j in mine if j["launched"] and under_slab(j["takeoff"])), "jumps": mine, "plans": after.get("plans", [])}
+    for j in mine:
+        out["ends"][j["end"]] = out["ends"].get(j["end"], 0) + 1
+    # A jump that did not land: how it ended, after how long an approach, how long it had stood, and how far from its plan's takeoff it was then.
+    out["off"] = [{"serial": j["serial"], "end": j["end"], "after": j["approach_seconds"], "stood": j.get("stood_seconds", 0.0),
+                   "past": round(((j["touch"][0] - j["takeoff"][0]) ** 2 + (j["touch"][1] - j["takeoff"][1]) ** 2) ** 0.5, 1)} for j in mine if j["end"] != "Landed"]
+    landed = [j for j in mine if j["end"] == "Landed"]
+    if landed:
+        ground = [((j["touch"][0] - j["takeoff"][0]) ** 2 + (j["touch"][1] - j["takeoff"][1]) ** 2) ** 0.5 for j in landed]
+        gaps = [j["gap"] for j in landed if j.get("gap") is not None]
+        out["landed"] = {"n": len(landed), "air": round(statistics.median(j["air_seconds"] for j in landed), 3), "ground": round(statistics.median(ground), 1),
+                         "plan_air": round(statistics.median(j["plan_air_seconds"] for j in landed), 3),
+                         "slid": round(statistics.median(j["slid"] for j in landed), 1), "approach": round(statistics.median(j["approach_seconds"] for j in landed), 3),
+                         "off_plan": round(statistics.median(j["off_plan"] for j in landed), 1), "off_plan_worst": round(max(j["off_plan"] for j in landed), 1),
+                         "health": round(statistics.median(j["plan_health"] for j in landed), 1)}
+        stood = [j["stood_seconds"] for j in landed if j.get("stood_seconds", 0.0) > 0.0]
+        out["landed"].update({"stood_n": len(stood), "stood": round(statistics.median(stood), 3) if stood else 0.0,
+                              "rise": round(statistics.median(j.get("rise", 0.0) for j in landed), 1)})
+        if gaps:
+            out["landed"].update({"gap_n": len(gaps), "gap": round(statistics.median(gaps), 1), "gap_worst": round(max(gaps), 1)})
+    return out
+
+
+def jumps_of(game):
+    """The game's /ai/jumps, or None for a build that serves none."""
+    try:
+        got = game.json("/ai/jumps")
+    except (ValueError, OSError):
+        return None
+    return got if isinstance(got, dict) and "ai.jump.begun" in got else None
+
+
 def bot_sample(world, slot):
     """(tick, x, y, z) of the actor in the slot from an /ai/world answer, or None while it is not in the world."""
     for a in world.get("actors") or []:
@@ -286,7 +402,9 @@ def bot_sample(world, slot):
 def arm(game, slot, health, seconds):
     game.cmd("ai_aim_tough %d %d" % (slot, health))
     time.sleep(2.0)
-    before = game.json("/ai/counters").get("ai.apply.ability.sequences", 0)
+    counters = game.json("/ai/counters")
+    before = counters.get("ai.apply.ability.sequences", 0)
+    jumps_before = jumps_of(game)
     samples, tick_seconds, leaves = [], 0.015, {}
     deadline = time.time() + seconds
     while time.time() < deadline:
@@ -300,9 +418,16 @@ def arm(game, slot, health, seconds):
                 leaf = b["going"].get("leaf") or ""
                 leaves[leaf] = leaves.get(leaf, 0) + 1
         time.sleep(0.1)
-    after = game.json("/ai/counters").get("ai.apply.ability.sequences", 0)
+    end = game.json("/ai/counters")
+    after = end.get("ai.apply.ability.sequences", 0)
+    # The worker flies each jump again after it lands: a moment for the last one's.
+    time.sleep(1.0)
     found = traverses(samples, tick_seconds)
-    return {"health": health, "flights": flights(samples, tick_seconds), "samples": len(samples), "sequences": after - before, "leaves": leaves, "lanes": summary(found), "traverses": found,
+    jumps_after = jumps_of(game)
+    units = flight_units(jumps_after)
+    return {"health": health, "flights": flights(samples, tick_seconds, units), "flight_units": units, "samples": len(samples), "sequences": after - before, "leaves": leaves,
+            "lanes": summary(found), "traverses": found, "jumps": jump_summary(jumps_before, jumps_after),
+            "apply_us": {k: end.get(k) for k in ("ai.apply.us", "ai.main.cpu.us", "ai.brain.cpu.us", "ai.run.us")},
             "tick_seconds": tick_seconds, "track": [[t, round(x, 1), round(y, 1), round(z, 1)] for t, x, y, z in samples]}
 
 
@@ -454,12 +579,14 @@ def sim(config):
     return 0
 
 
-def measure(config, seconds, out, keep):
+def measure(config, seconds, out, keep, walk_health=110):
+    nav = os.path.join(ROOT, "bin", config, "mods", "tf2", "maps", MAP + ".nav3d")
     game = start_game(config)
     try:
         slot = add_jumper(game)
-        result = {"map": MAP, "seconds": seconds, "stretch": STRETCH[1] - STRETCH[0],
-                  "jump": arm(game, slot, 200, seconds), "walk": arm(game, slot, 85, seconds)}
+        result = {"map": MAP, "seconds": seconds, "stretch": STRETCH[1] - STRETCH[0], "config": config, "nav_sha256": ai_scenario.sha256(nav),
+                  "commit": subprocess.run(["git", "-C", ROOT, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip(),
+                  "jump": arm(game, slot, 200, seconds), "walk": arm(game, slot, walk_health, seconds)}
     finally:
         game.stop(keep)
     report(result)
@@ -478,9 +605,30 @@ def report(result):
             print("  %-8s %s" % (lane, " ".join("%s=%s" % kv for kv in s.items())))
         f = a["flights"]
         if f:
-            print("  flights n=%d air=%.2f along=%.1f walked=%.1f peak=%.1f (medians)" % (
-                len(f), statistics.median(x["air"] for x in f), statistics.median(x["along"] for x in f),
+            print("  flights (over %.0f u up) n=%d air=%.2f along=%.1f walked=%.1f peak=%.1f (medians)" % (
+                a.get("flight_units", FLIGHT_UNITS), len(f), statistics.median(x["air"] for x in f), statistics.median(x["along"] for x in f),
                 statistics.median(x["walked"] for x in f), statistics.median(x["peak"] for x in f)))
+        j = a.get("jumps")
+        if j:
+            c = j["counters"]
+            print("  jumps begun=%d ended=%d: landed near=%d short=%d elsewhere=%d, called off view=%d astray=%d, fizzled=%d died=%d timed out=%d; under the slab=%d" % (
+                c["ai.jump.begun"], c["ai.jump.ended"], c["ai.jump.landed.near"], c["ai.jump.landed.short"], c["ai.jump.landed.elsewhere"],
+                c["ai.jump.called_off.view"], c["ai.jump.called_off.astray"], c["ai.jump.fizzled"], c["ai.jump.died"], c["ai.jump.timed_out"], j["under_slab"]))
+            if "landed" in j:
+                l = j["landed"]
+                print("  flown n=%d air=%.2f (plan %.2f) ground=%.1f slid=%.1f approach=%.2f off the plan's touch=%.1f (worst %.1f), blast %.1f health (medians)" % (
+                    l["n"], l["air"], l["plan_air"], l["ground"], l["slid"], l["approach"], l["off_plan"], l["off_plan_worst"], l["health"]))
+                if "stood_n" in l:
+                    print("  rose %.1f (median); %d of them stood for a late view, %.2f s (median)" % (l["rise"], l["stood_n"], l["stood"]))
+                if "gap" in l:
+                    print("  gap to the simulator's landing for the same recipe and launch: n=%d median=%.1f worst=%.1f" % (l["gap_n"], l["gap"], l["gap_worst"]))
+            for o in j.get("off", []):
+                print("  off: jump %d %s after %.2f s, %.1f u from its plan's takeoff, having stood %.2f s" % (o["serial"], o["end"], o["after"], o["past"], o["stood"]))
+            print("  book asked=%d planned=%d refused=%d %s; worker flights=%d floods=%d cpu=%.0f ms" % (
+                c["ai.jump.book.asked"], c["ai.jump.book.planned"], c["ai.jump.book.refused"], j["refused"],
+                c["ai.jump.work.flights"], c["ai.jump.work.floods"], c["ai.jump.work.cpu.us"] / 1000.0))
+        if a.get("apply_us"):
+            print("  %s" % " ".join("%s=%s" % kv for kv in a["apply_us"].items()))
 
 
 def read(path):
@@ -491,7 +639,7 @@ def read(path):
         a = result[name]
         samples = [tuple(s) for s in a["track"]]
         found = traverses(samples, a["tick_seconds"])
-        a["traverses"], a["lanes"], a["flights"] = found, summary(found), flights(samples, a["tick_seconds"])
+        a["traverses"], a["lanes"], a["flights"] = found, summary(found), flights(samples, a["tick_seconds"], a.get("flight_units", FLIGHT_UNITS))
     report(result)
     return 0
 
@@ -507,6 +655,7 @@ def main(argv):
     p.add_argument("--config", default="debug")
     p.add_argument("--out")
     p.add_argument("--keep", action="store_true")
+    p.add_argument("--walk-health", type=int, default=110)
     a = p.parse_args(argv)
     if a.what == "read":
         if not a.file:
@@ -518,7 +667,7 @@ def main(argv):
         return sim(a.config)
     if a.what == "record":
         return record(a.config, a.seconds or 300.0, a.keep)
-    return measure(a.config, a.seconds or 240.0, a.out, a.keep)
+    return measure(a.config, a.seconds or 240.0, a.out, a.keep, a.walk_health)
 
 
 if __name__ == "__main__":

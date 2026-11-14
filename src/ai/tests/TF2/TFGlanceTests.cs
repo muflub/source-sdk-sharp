@@ -6,8 +6,8 @@ namespace SourceSharp.Ai.Tests.TF2;
 /// <summary>
 /// A TF2 bot's glances off its route (plan_bots_teams_tf2_part_g G.2.1) on the synthetic field
 /// (<see cref="TFField"/>): on its way with nobody in sight it looks 50 to 100 degrees aside at
-/// about its Alertness's rate a second, from its class's eye; never with an enemy in sight, and
-/// never while a rocket jump's sequence has the view.
+/// about its Alertness's rate a second, from its class's eye; never with an enemy in sight. What a
+/// rocket jump does to its glances is TFJumpRuleTests'.
 /// </summary>
 public sealed class TFGlanceTests
 {
@@ -15,8 +15,8 @@ public sealed class TFGlanceTests
     private static readonly AiVector Mid = new(2048f, 256f, 0f);
     private const float DecideSeconds = DecideSchedule.Period * 0.015f;
 
-    // No graph: no rocket jump, so the run to the enemy's flag is nothing but a run.
-    private static TFField Runner(float glanceRate, bool graph = false) => new(graph: graph, tune: p => p with { GlanceRate = glanceRate });
+    // No book of jumps: no rocket jump, so the run to the enemy's flag is nothing but a run.
+    private static TFField Runner(float glanceRate) => new(graph: false, tune: p => p with { GlanceRate = glanceRate });
 
     [Fact]
     public void OnItsWayWithNobodyInSightTheBotGlancesAtAboutItsRateASecond()
@@ -90,43 +90,5 @@ public sealed class TFGlanceTests
         }
 
         Assert.Equal(0, f.Decider.Glances);
-    }
-
-    /// <summary>
-    /// The jump's sequence pitches the view down and leaves its yaw where it is, so its rocket goes
-    /// where the bot looks: no glance in the second before a jump may begin, nor for the sequence's 1.3 s.
-    /// </summary>
-    [Fact]
-    public void ASoldierWhoseRocketJumpIsDueKeepsItsEyesOnItsWay()
-    {
-        TFField f = Runner(50f, graph: true);
-        SelfState running = TFField.Self(Mid, velocity: new AiVector(240f, 0f, 0f));
-        var looks = new List<(LookKind Look, ActionKind Action)>();
-        for (int i = 0; i < 160; i++)
-        {
-            IntentCommand c = f.Step(running, TFField.Ctf());
-            looks.Add((c.Look.Kind, c.Action.Kind));
-        }
-
-        int[] jumps = [.. Enumerable.Range(0, looks.Count).Where(i => looks[i].Action == ActionKind.Ability)];
-        Assert.True(jumps.Length >= 2, $"the control: the bot rocket-jumps {jumps.Length} times on this run");
-        int busy = (int)(TFDecider.RocketJumpBusySeconds / DecideSeconds), clear = (int)(TFDecider.GlanceClearSeconds / DecideSeconds);
-        foreach (int jump in jumps)
-        {
-            for (int i = Math.Max(0, jump - clear); i < Math.Min(looks.Count, jump + busy); i++)
-                Assert.Equal(LookKind.Path, looks[i].Look);
-        }
-
-        // Between two jumps it glances as anyone does.
-        Assert.Contains(looks.Skip(jumps[0] + busy).Take(jumps[1] - clear - jumps[0] - busy), l => l.Look == LookKind.Glance);
-    }
-
-    /// <summary>The control for the fact above: a class with no jump of its own glances from the first decide of the same run.</summary>
-    [Fact]
-    public void AClassWithNoRocketJumpGlancesOnTheSameRun()
-    {
-        TFField f = Runner(50f, graph: true);
-        SelfState running = TFField.Self(Mid, velocity: new AiVector(240f, 0f, 0f), playerClass: global::TF2.Shared.TFClass.Scout);
-        Assert.Equal(LookKind.Glance, f.Step(running, TFField.Ctf()).Look.Kind);
     }
 }

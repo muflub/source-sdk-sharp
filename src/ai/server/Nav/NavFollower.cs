@@ -723,12 +723,25 @@ public sealed class NavFollower
 
     private static float Flat(AiVector a, AiVector b) => new AiVector(a.X - b.X, a.Y - b.Y, 0f).Length;
 
+    /// <summary>Whether <paramref name="origin"/> is past <paramref name="from"/> on the flat, on the side toward <paramref name="to"/>.</summary>
+    private static bool Beyond(AiVector from, AiVector to, AiVector origin)
+        => (origin.X - from.X) * (to.X - from.X) + (origin.Y - from.Y) * (to.Y - from.Y) > 0f;
+
     private bool Passed(int corner, AiVector origin)
     {
         AiVector point = _corners[corner].Point;
-        if (Flat(point, origin) >= PassedRadius || MathF.Abs(point.Z - origin.Z) > (_swimming ? SwimReach : OnFloorReach))
+        if (MathF.Abs(point.Z - origin.Z) > (_swimming ? SwimReach : OnFloorReach))
             return false;
         bool takeOff = corner + 1 < _corners.Count && _corners[corner + 1].Arrive != NavEdgeType.Walk;
+        // The bot's own cell's centre before a drop, the bot already beyond it toward the
+        // landing: passed, however far (live, ctf_2fort's courtyard lip at (169 864 264): a drop
+        // two columns on, the bot out of reach of the centre turned back to it, set off again
+        // once inside reach, and so on, on the lip, for good).
+        if (takeOff && _corners[corner + 1].Arrive == NavEdgeType.Drop && point == _graph.Cell(At).Centre
+            && Beyond(point, _corners[corner + 1].Point, origin))
+            return true;
+        if (Flat(point, origin) >= PassedRadius)
+            return false;
         if (takeOff)
             return point == _graph.Cell(At).Centre;
         // Afloat there is no wall to see round at the water's floor, and a moat's cells leave

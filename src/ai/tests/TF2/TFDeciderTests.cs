@@ -11,9 +11,9 @@ namespace SourceSharp.Ai.Tests.TF2;
 /// <summary>
 /// The TF2 tree (plan_bots_teams_tf2 C.3, C.6, C.8, P6 step 6) over a synthetic CTF field
 /// (<see cref="TFField"/>): the carrier delivers, an enemy carrier is chased, a defender holds the
-/// home flag while an attacker fetches the enemy's, a grounded target is shot at the feet, a rocket
-/// jump is applied exactly once on a long clear run, and a class with no subtree of its own runs
-/// the Soldier's and says so, without the Soldier's jump.
+/// home flag while an attacker fetches the enemy's, a grounded target is shot at the feet, and a
+/// class with no subtree of its own runs the Soldier's and says so, without the Soldier's jump
+/// (whose own rule is TFJumpRuleTests').
 /// </summary>
 public sealed class TFDeciderTests
 {
@@ -66,17 +66,55 @@ public sealed class TFDeciderTests
         attacker.Step(TFField.Self(far), taken);
         Assert.Equal(TFDecider.Fetch, BranchOf(attacker));
 
-        var defender = new TFField(slot: 3);
+        var defender = TFField.Defender();
         defender.Step(TFField.Self(far), taken);
         Assert.Equal(TFDecider.ChaseCarrier, BranchOf(defender));
+    }
+
+    /// <summary>The CTF policy's split: a third of a team defends, and every other bot but the carrier may escort.</summary>
+    [Fact]
+    public void ATeamsSplitIsAThirdDefendingTheRestAttacking()
+    {
+        RoleSplit split = TFDecider.CtfRoleSplit;
+        Assert.Equal([new RoleCounts(0, 0), new RoleCounts(0, 1), new RoleCounts(1, 1), new RoleCounts(1, 2), new RoleCounts(2, 3), new RoleCounts(2, 5)],
+                     new[] { 1, 2, 3, 4, 6, 8 }.Select(n => split(n)));
+    }
+
+    /// <summary>
+    /// A team's defenders are its last slots on the scoreboard, whatever the slots: live at 4v4 on
+    /// ctf_2fort red was slots 3, 5, 6 and 9 and, a defender every third slot, held its flag with
+    /// three and sent one; blue (2, 4, 7, 8) had no defender.
+    /// </summary>
+    [Fact]
+    public void AFourBotTeamHasOneDefenderItsLastSlot()
+    {
+        int[] red = [3, 5, 6, 9];
+        TFTeamRole[] roles = [.. red.Select(slot =>
+        {
+            var f = new TFField(slot: slot, mates: [.. red.Where(m => m != slot)]);
+            f.Step(TFField.Self(Mid), TFField.Ctf());
+            return f.Decider.Role;
+        })];
+        Assert.Equal([TFTeamRole.Attack, TFTeamRole.Attack, TFTeamRole.Attack, TFTeamRole.Defend], roles);
+    }
+
+    /// <summary>The other team's rows do not count: a bot alone on its team attacks, however many enemies the scoreboard shows.</summary>
+    [Fact]
+    public void ABotAloneOnItsTeamAttacks()
+    {
+        var f = new TFField(slot: 9);
+        foreach (int enemy in new[] { 2, 4, 7 })
+            f.Memory.Apply(AiEvent.ActorTeam(f.Bot, new Tick(1), new ActorId(enemy, 1), TFField.Blue, 0));
+        f.Step(TFField.Self(Mid), TFField.Ctf());
+        Assert.Equal(TFTeamRole.Attack, f.Decider.Role);
     }
 
     [Fact]
     public void ADefenderHoldsItsHomeFlag()
     {
-        var f = new TFField(slot: 3);
-        Assert.Equal(TFTeamRole.Defend, f.Decider.Role);
+        var f = TFField.Defender();
         IntentCommand i = f.Step(TFField.Self(Mid), TFField.Ctf());
+        Assert.Equal(TFTeamRole.Defend, f.Decider.Role);
 
         Assert.Equal(TFDecider.Defend, BranchOf(f));
         Assert.Equal(MoveKind.Follow, i.Move.Kind);
@@ -103,7 +141,7 @@ public sealed class TFDeciderTests
         Assert.Equal(TFDecider.Fetch, BranchOf(attacker));
         Assert.Equal((MoveKind.Follow, ActionKind.Fire), (a.Move.Kind, a.Action.Kind));
 
-        var defender = new TFField(slot: 3);
+        var defender = TFField.Defender();
         IntentCommand d = defender.Step(TFField.Self(Mid), TFField.Ctf(), (Enemy, Mid + new AiVector(700f, 0f, 0f), AiVector.Zero, TFField.Blue));
         Assert.Equal(TFDecider.Fight, BranchOf(defender));
         Assert.Equal(0.8f, d.Reason.Utility);
@@ -253,71 +291,19 @@ public sealed class TFDeciderTests
     private static SelfState Running(TFClass playerClass = TFClass.Soldier, int health = 200, int clip = 4, AiVector? velocity = null)
         => TFField.Self(new AiVector(300f, 256f, 0f), health: health, clip: clip, velocity: velocity ?? new AiVector(240f, 0f, 0f), playerClass: playerClass);
 
+    /// <summary>How many of the decides' intents are the rocket jump's one-shot (a voice line is an ability one-shot too, and is not counted).</summary>
     private static int AbilityIntents(TFField f, Func<SelfState> self, int decides, out List<IntentCommand> intents)
     {
         intents = [.. Enumerable.Range(0, decides).Select(_ => f.Step(self(), TFField.Ctf()))];
-        return intents.Count(i => i.Action.Kind == ActionKind.Ability);
-    }
-
-    [Fact]
-    public void ASoldierOnALongClearRunRocketJumps()
-    {
-        var f = new TFField();
-        Assert.Equal(1, AbilityIntents(f, () => Running(), 20, out List<IntentCommand> intents));
-        IntentCommand jump = intents.Single(i => i.Action.Kind == ActionKind.Ability);
-        Assert.True(f.Memory.World.Map.Abilities.TryGet(jump.Action.WeaponSlot, out AbilityRow row));
-        Assert.Equal(TFAbilities.RocketJump, row.Name);
-        Assert.True(jump.Action.OneShotSeq > 0);
-        Assert.Equal(1, f.Decider.RocketJumps);
-    }
-
-    [Fact]
-    public void ARocketJumpWaitsItsCooldownBeforeTheNext()
-    {
-        var f = new TFField();
-        int decides = (int)(TFDecider.RocketJumpEverySeconds / 0.015f / DecideSchedule.Period);
-        Assert.Equal(1, AbilityIntents(f, () => Running(), decides - 1, out _));
-        Assert.Equal(1, AbilityIntents(f, () => Running(), 3, out _));
-    }
-
-    [Fact]
-    public void NoRocketJumpUnderTheHealthFloor()
-        => Assert.Equal(0, AbilityIntents(new TFField(), () => Running(health: (int)TFDecider.RocketJumpHealthFloor - 1), 20, out _));
-
-    [Fact]
-    public void NoRocketJumpWithAnEmptyLauncher()
-        => Assert.Equal(0, AbilityIntents(new TFField(), () => Running(clip: 0), 20, out _));
-
-    [Fact]
-    public void NoRocketJumpWhereTheNavSaysNothing()
-        => Assert.Equal(0, AbilityIntents(new TFField(graph: false), () => Running(), 20, out _));
-
-    [Fact]
-    public void NoRocketJumpOffTheEdgeOfTheNav()
-        // The floor ends 10 cells east (640 u), a little past the bot: its landing, 512 u on, is no floor.
-        => Assert.Equal(0, AbilityIntents(new TFField(floorLength: 10), () => Running(), 20, out _));
-
-    [Fact]
-    public void NoRocketJumpAwayFromItsGoal()
-        // Moving west (round a corner, say) while the flag is 1,800 u east: the jump would land off its way.
-        => Assert.Equal(0, AbilityIntents(new TFField(), () => TFField.Self(new AiVector(2000f, 256f, 0f), velocity: new AiVector(-240f, 0f, 0f)), 20, out _));
-
-    [Fact]
-    public void NoRocketJumpWithAnEnemyInSight()
-    {
-        // A defender chasing the enemy carrying its flag (a run, which outranks the fight) with another enemy in sight.
-        var f = new TFField(slot: 3);
-        ObjectiveKnowledge carried = TFField.Ctf(red: ObjectiveState.Carried, redAt: new AiVector(3700f, 256f, 0f), redCarrier: 9);
-        List<IntentCommand> intents = [.. Enumerable.Range(0, 20).Select(_ => f.Step(Running(), carried, (Enemy, new AiVector(2500f, 256f, 0f), AiVector.Zero, TFField.Blue)))];
-        Assert.Equal(TFDecider.ChaseCarrier, BranchOf(f));
-        Assert.Equal(MoveKind.Follow, intents[^1].Move.Kind);
-        Assert.Equal(0, intents.Count(i => i.Action.Kind == ActionKind.Ability));
+        return intents.Count(i => f.BeginsJump(i));
     }
 
     [Fact]
     public void AClassWithNoSubtreeRunsTheSoldiersAndSaysSoWithoutItsJump()
     {
-        var f = new TFField();
+        // The control: the book advises a jump for the run, and a Soldier on it takes it (TFJumpRuleTests).
+        var f = new TFField(jumps: new TFJumpAdvice());
+        Assert.Equal(1, AbilityIntents(new TFField(jumps: new TFJumpAdvice()), () => Running(), 20, out _));
         Assert.Equal(0, AbilityIntents(f, () => Running(TFClass.Scout), 20, out List<IntentCommand> intents));
         Assert.Equal((MoveKind.Follow, TFField.BlueFlag), (intents[^1].Move.Kind, intents[^1].Move.Corner0));
         Assert.Equal("Soldier (as Scout)", f.Decider.Subtree);
@@ -331,41 +317,6 @@ public sealed class TFDeciderTests
         f.Step(Running(), TFField.Ctf());
         Assert.Equal("Soldier", f.Decider.Subtree);
         Assert.Equal("Soldier: " + TFDecider.Fetch, f.Decider.Doing.Branch);
-    }
-
-    /// <summary>
-    /// The decider's intents through the applier, with TF2's ability table: on a long clear run the
-    /// rocket jump's sequence runs exactly once (one tick of jump, duck and fire), though the intent
-    /// is resubmitted every decide.
-    /// </summary>
-    [Fact]
-    public void ARocketJumpIsAppliedExactlyOnce()
-    {
-        var f = new TFField();
-        var runner = new Runner();
-        var applier = new BotCommandApplier(runner, new StillSelf(), null, TFAbilities.Table(), new NoCommands());
-        var player = new EntityHandle(0x0001_0002u);
-        applier.Add(f.Bot, player, new MotionParams(200f, 487.5f, 16.2f, 174f), 42);
-        int tick = 0;
-        for (int d = 0; d < 40; d++)
-        {
-            IntentCommand i = f.Step(Running(), TFField.Ctf());
-            applier.Submit(in i);
-            for (; tick < f.Tick; tick++)
-                applier.ApplyTick(new Tick(tick + 1), 0.015f);
-        }
-
-        const int launch = (int)(InputButtons.Jump | InputButtons.Duck | InputButtons.Attack);
-        int starts = 0;
-        for (int c = 1; c < runner.Queued.Count; c++)
-        {
-            if ((runner.Queued[c].Buttons & launch) == launch && (runner.Queued[c - 1].Buttons & launch) != launch)
-                starts++;
-        }
-
-        Assert.Equal(1, f.Decider.RocketJumps);
-        Assert.Equal(1, starts);
-        Assert.Equal(1, applier.AbilitySequences);
     }
 
     /// <summary>The applier counts the commands that fire at a target's feet (the counters' ai.apply.fire.feet): none at the body.</summary>

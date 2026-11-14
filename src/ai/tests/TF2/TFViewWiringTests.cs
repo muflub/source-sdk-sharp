@@ -6,6 +6,7 @@ using SourceSharp.Shared;
 using TF2.Server.Player;
 using TF2.Shared;
 using TF2.Shared.Player;
+using TF2.Shared.Rules;
 using Xunit;
 
 namespace SourceSharp.Ai.Tests.TF2;
@@ -40,14 +41,42 @@ public sealed class TFViewWiringTests
 
     private static readonly EntityHandle Bot = new(0x0001_0002u), Them = new(0x0001_0005u);
 
+    private sealed class Rounds : ITFRoundStateView
+    {
+        public RoundState State { get; set; } = RoundState.RoundRunning;
+
+        public TFTeam Winner => TFTeam.Unassigned;
+    }
+
     private readonly Facts _facts = new();
     private readonly Players _players = new();
+    private readonly Rounds _rounds = new();
     private readonly TFBotGameView _view;
 
-    public TFViewWiringTests()
+    public TFViewWiringTests() => _view = View(freeze: "1");
+
+    private TFBotGameView View(string freeze)
+        => new(_facts, _players, DispatchProxy.Create<IEngineEntities, Unasked>(), DispatchProxy.Create<IEntityDirectory, Unasked>(),
+               new TFDisguiseWeapons(null!, null!, null!, null!, null!, null!), WeaponCatalog.Stock(), null!, _rounds,
+               new ConVarRegistry(new NamedConVars(new Dictionary<string, string> { ["tf_player_movement_restart_freeze"] = freeze }))
+                   .Declare<TFPlayerMovementRestartFreezeConVar>());
+
+    /// <summary>
+    /// The pre-round freeze reaches the bot's HUD as its client knows it: the round restarting, with the
+    /// replicated freeze on. Running, or with the freeze off, the bot is free (P6 step 1: a held bot hopped).
+    /// </summary>
+    [Fact]
+    public void TheBotsHudShowsItFrozenOnlyInThePreroundWithTheFreezeOn()
     {
-        _view = new TFBotGameView(_facts, _players, DispatchProxy.Create<IEngineEntities, Unasked>(), DispatchProxy.Create<IEntityDirectory, Unasked>(),
-                                  new TFDisguiseWeapons(null!, null!, null!, null!, null!, null!), WeaponCatalog.Stock(), null!);
+        _facts.By[2] = Of(TFClass.Soldier, TFTeam.Red);
+        var read = new SelfState(default, default, default, 200, 0, 1, 4, 20, SelfFlags.Alive | SelfFlags.Grounded);
+        Assert.Equal(SelfFlags.None, _view.Hud(Bot, read).Flags & SelfFlags.Frozen);
+        Assert.False(_view.Frozen(Bot));
+
+        _rounds.State = RoundState.Preround;
+        Assert.True(_view.Frozen(Bot));
+        Assert.Equal(SelfFlags.Alive | SelfFlags.Grounded | SelfFlags.Frozen, _view.Hud(Bot, read).Flags);
+        Assert.False(View(freeze: "0").Frozen(Bot));
     }
 
     private static TFActorFacts Of(TFClass c, TFTeam team, bool disguised = false, bool burning = false)
@@ -65,6 +94,25 @@ public sealed class TFViewWiringTests
         SelfState hud = _view.Hud(Bot, new SelfState(default, default, default, 125, 0, 1, 6, 32, SelfFlags.Alive));
         Assert.Equal(((int)TFClass.Engineer, ActorConditions.Burning, 150, 125), (hud.Class, hud.Conditions, hud.Metal, hud.Health));
     }
+
+    /// <summary>Dominations (plan_bots_teams_tf2_part_g G.2.5): the bot's own row for a player, as its scoreboard's nemesis mark reads it, and only its own.</summary>
+    [Fact]
+    public void TheBotsOwnHudSaysWhoDominatesIt()
+    {
+        var own = new TFPlayerNetState();
+        own.BindLocal();
+        own.PlayerDominatingMe[5] = true;
+        _players.By[2] = own;
+        var theirs = new TFPlayerNetState();
+        theirs.BindLocal();
+        theirs.PlayerDominatingMe[9] = true;
+        _players.By[5] = theirs;
+        // Slot 5 dominates the bot; slot 9 dominates slot 5, which is no business of the bot's HUD.
+        Assert.Equal((true, false, false), (_view.DominatedBy(Bot, 5), _view.DominatedBy(Bot, 9), _view.DominatedBy(Bot, 2)));
+    }
+
+    [Fact]
+    public void ABotWithNoStateOfItsOwnIsDominatedByNobody() => Assert.False(_view.DominatedBy(Bot, 5));
 
     [Fact]
     public void ASightedPlayerIsDrawnForTheViewersOwnTeam()

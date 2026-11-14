@@ -756,4 +756,31 @@ public sealed class NavFollowerTests
         Assert.True(move.CornerCount >= 1 && move.Corner(0).Y > 62f, $"the first corner {move.Corner(0)} is ahead, off the edge");
         Assert.True(move.Corner(0).Y > g.Cell(floor).Centre.Y + 8f, $"the first corner {move.Corner(0)} is past the landing, so the body clears the lip");
     }
+
+    /// <summary>
+    /// A drop two columns on from its cell (a wide body's step over the lip): the bot already
+    /// further past its cell's centre than a corner's reach goes on over the edge, not back to the
+    /// centre. Live, ctf_2fort's red courtyard lip at (169 864 264): it turned back to (168 888)
+    /// within reach of it, set off for the landing, and turned back again, on the lip, for good.
+    /// </summary>
+    [Fact]
+    public void FarPastItsCellsCentreTowardADropTheBotGoesOnOverTheEdge()
+    {
+        var b = new NavGraphBuilder();
+        CellId p1 = b.AddCell(new NavCell(0f, 0f, 32f, 32f, 64f, ClearanceClasses.Stand | ClearanceClasses.Crouch, NavCellFlags.None, 1f));
+        CellId p2 = b.AddCell(new NavCell(0f, 32f, 32f, 64f, 64f, ClearanceClasses.Stand | ClearanceClasses.Crouch, NavCellFlags.None, 1f));
+        CellId floor = b.AddCell(new NavCell(0f, 96f, 32f, 128f, 0f, ClearanceClasses.Stand | ClearanceClasses.Crouch, NavCellFlags.None, 1f));
+        CellId far = b.AddCell(new NavCell(0f, 128f, 32f, 160f, 0f, ClearanceClasses.Stand | ClearanceClasses.Crouch, NavCellFlags.None, 1f));
+        b.AddBoth(p1, p2, NavEdgeType.Walk);
+        b.AddEdge(p2, floor, NavEdgeType.Drop);
+        b.AddBoth(floor, far, NavEdgeType.Walk);
+        NavGraph g = b.Build();
+        var follower = new NavFollower(g, far, g.Cell(far).Centre, ClearanceClass.Crouch, new NavObstacleState(0));
+        float past = g.Cell(p2).Centre.Y + NavFollower.PassedRadius + 8f;
+
+        MoveIntent move = follower.Next(new AiVector(16f, past, 64f), out FollowState state);
+
+        Assert.Equal((FollowState.Moving, p2), (state, follower.At));
+        Assert.True(move.CornerCount >= 1 && move.Corner(0).Y > past, $"the first corner {move.Corner(0)} is ahead of the bot at y {past}, off the edge");
+    }
 }

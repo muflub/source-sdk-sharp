@@ -188,6 +188,18 @@ public sealed class BotMemoryTests
         Assert.NotEmpty(IlCallCensus.Callers(m => m.DeclaringType == typeof(OpponentHabits), core));
     }
 
+    /// <summary>The HUD's nemesis mark (plan_bots_teams_tf2_part_g G.2.5) is on someone for as long as the HUD shows it, and on nobody else.</summary>
+    [Fact]
+    public void TheHudsNemesisMarkIsKeptUntilTheHudTakesItOff()
+    {
+        BotMemory m = Memory();
+        m.Apply(AiEvent.ScoreboardRow(Bot, new Tick(1), new ActorId(4, 9), 0, 0, 2));
+        m.Apply(AiEvent.Nemesis(Bot, new Tick(5), Them, true));
+        Assert.Equal((true, false), (m.Board.Actor(Them.Slot).Nemesis, m.Board.Actor(4).Nemesis));
+        m.Apply(AiEvent.Nemesis(Bot, new Tick(9), Them, false));
+        Assert.False(m.Board.Actor(Them.Slot).Nemesis);
+    }
+
     [Fact]
     public void AnothersHitIsAnAttack()
     {

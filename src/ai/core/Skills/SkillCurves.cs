@@ -41,6 +41,14 @@ public sealed class SkillCurves
     public static readonly ImmutableArray<string> Drives = ["fightDrive", "chaseDrive", "holdDrive", "escortDrive", "surviveDrive", "scoreNoise"];
 
     /// <summary>
+    /// What a bot does about what it sees and says (plan_bots_teams_tf2_part_g G.2.3, G.2.4): how
+    /// often it gets out of a blast's way and how late (Agility), and how long it leaves between
+    /// two lines on the voice menu (Teamwork). Read from the file when it has them, else from the
+    /// numbers here.
+    /// </summary>
+    public static readonly ImmutableArray<string> Reactions = ["dodgeChance", "dodgeLateMs", "voiceEverySeconds"];
+
+    /// <summary>
     /// The style level of a skill at its own mean. Spending points on favourites puts
     /// the rest about half a spread under the mean, so a bot's other skills read about
     /// 3.25, where Medium's levels 3 and 4 are: a favourite stands out against a bot
@@ -309,7 +317,9 @@ public sealed class SkillCurves
                                   StandardSkills.TeamworkOf(profile),
                                   FightDrive: Optional("fightDrive", "aggression", 1f, 1f), ChaseDrive: Optional("chaseDrive", "tenacity", 1f, 1f),
                                   HoldDrive: Optional("holdDrive", "discipline", 1f, 1f), EscortDrive: Optional("escortDrive", "teamwork", 1f, 1f),
-                                  SurviveDrive: Optional("surviveDrive", "nerve", 1f, 1f), ScoreNoise: Optional("scoreNoise", "discipline", 0f, 0f));
+                                  SurviveDrive: Optional("surviveDrive", "nerve", 1f, 1f), ScoreNoise: Optional("scoreNoise", "discipline", 0f, 0f),
+                                  DodgeChance: Optional("dodgeChance", "agility", 0.05f, 0.95f), DodgeLateMs: Optional("dodgeLateMs", "agility", 500f, 0f),
+                                  VoiceEverySeconds: Optional("voiceEverySeconds", "teamwork", 45f, 8f));
     }
 }
 
@@ -372,7 +382,12 @@ public readonly record struct DecisionParams(
     float HoldDrive = 1f,
     float EscortDrive = 1f,
     float SurviveDrive = 1f,
-    float ScoreNoise = 0f);
+    float ScoreNoise = 0f,
+    // What it does about a blast coming its way (G.2.3; SkillCurves.Reactions): the share of them it gets out of
+    // the way of, and how long after its reaction it starts to. And the least time between two voice lines (G.2.4).
+    float DodgeChance = 0.5f,
+    float DodgeLateMs = 250f,
+    float VoiceEverySeconds = 26.5f);
 
 /// <summary>What a streak changes while it lasts (§5.5): the aim's error and lead, the reaction, the recognition.</summary>
 public readonly record struct StreakParams(float AimErrorDeg, float LeadQuality, float ReactionMs, float RecognizeSeconds);

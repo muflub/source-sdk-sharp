@@ -26,7 +26,7 @@ public sealed class LiveRecordingTests
     {
         NavLoadResult l = NavLoader.Load(Map, p => File.ReadAllBytes(p.EndsWith(".nav3d", StringComparison.Ordinal) ? PerTreeNav.NavPath(Map) : PerTreeNav.BspPath(Map)), null);
         Assert.True(l.Nav is not null, l.Refusal);
-        return (l.Nav!.Nav.Graph, NavSight.Build(l.Nav.Nav.Graph, new Nav3dVoxelSpace(l.Nav.Reader)));
+        return (l.Nav!.Nav.Graph, NavSight.Build(l.Nav.Nav.Graph, l.Nav.File.Space));
     });
 
     internal static AiReplayResult Replay(IAiTransport transport)

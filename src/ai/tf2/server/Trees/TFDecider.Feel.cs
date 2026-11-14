@@ -42,7 +42,7 @@ public sealed partial class TFDecider
     /// aim's error keeps the aim's stream), so a replay of the same views draws the same and one
     /// part's luck moves no other's. The constructor's, once.
     /// </summary>
-    [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(_aimHeight), nameof(_aimWander), nameof(_glance), nameof(_streaks))]
+    [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(_aimHeight), nameof(_aimWander), nameof(_glance), nameof(_streaks), nameof(_thingRng))]
     private void StartFeel(ulong seed)
     {
         _aimHeight = new AimHeightHold(new AiRandom(seed ^ 0x5446_4148UL));
@@ -50,6 +50,7 @@ public sealed partial class TFDecider
         _glance = new PathGlance(new AiRandom(seed ^ 0x5446_474CUL));
         _streaks = new Streaks(new AiRandom(seed ^ 0x5446_484FUL));
         _scoreSeed = seed ^ 0x5446_5343UL;
+        _thingRng = new AiRandom(seed ^ 0x5446_5448UL);
     }
 
     /// <summary>
@@ -172,31 +173,16 @@ public sealed partial class TFDecider
     /// <summary>Glances taken, for the facts and the counters.</summary>
     public int Glances => _glance.Taken;
 
-    /// <summary>A glance and the view's way back from it are over in this long: no glance begins this near a rocket jump.</summary>
-    public const float GlanceClearSeconds = 1f;
-
-    /// <summary>
-    /// Whether a rocket jump may begin before a glance taken now is over. The jump's sequence
-    /// pitches the view down and leaves its yaw where it is, so its rocket goes where the bot
-    /// looks: a Soldier whose jump is due keeps its eyes on its way. Only what holds for a while
-    /// is asked (the class, the launcher in hand, the health, the long run, the wait since the
-    /// last jump), so a glance is never begun on a guess that the next decide's speed or floor
-    /// will refuse the jump.
-    /// </summary>
-    private bool RocketJumpDue
-        => _class == TFClass.Soldier && _rocketJumpRow >= 0 && _graph is not null && HoldingLauncher && !Carrying
-           && _self.Health >= RocketJumpHealthFloor && _move.Kind == MoveKind.Follow && _self.Origin.DistanceTo(_goal) >= RocketJumpRoute
-           && (_nextJumpAt - _now) * _tick < GlanceClearSeconds;
-
     /// <summary>
     /// A glance off the way while nobody is in sight (<see cref="PathGlance"/>, at Alertness's
     /// <c>glanceRate</c>): the bot checks a doorway in passing, where it stared along its route.
-    /// Not while a rocket jump's sequence has the view or one is due, nor when the look is already
-    /// on something.
+    /// Not while a rocket jump has the bot, nor when the look is already on something. A jump that
+    /// is due does not hold a glance off: the jump's program turns the view itself, and the tree
+    /// begins no jump in the middle of a glance (<see cref="JumpAllowed"/>).
     /// </summary>
     private void Glance()
     {
-        if (!Feel.Glance || _targetSighted || !_hasGoal || _look.Kind != LookKind.Path || Busy || RocketJumpDue)
+        if (!Feel.Glance || _targetSighted || !_hasGoal || _look.Kind != LookKind.Path || Busy)
             return;
         if (_glance.Step(_now, _tick, _p.GlanceRate, _self.Origin, _goal, OwnEye.Z - _self.Origin.Z, out AiVector at))
             _look = new LookIntent(LookKind.Glance, at, ActorId.None, AimPoint.Body, 0f, 0);

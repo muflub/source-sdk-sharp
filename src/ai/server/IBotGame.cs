@@ -25,6 +25,12 @@ public interface IBotGame
     AbilityTable Abilities { get; }
 
     /// <summary>
+    /// The programs behind the table's <see cref="AbilityRun.Program"/> rows, by row name
+    /// (plan_bots_teams_tf2_part_g G.5 step 2); null for a game whose table has no such row.
+    /// </summary>
+    IAbilityPrograms? Programs => null;
+
+    /// <summary>
     /// What the bots know of <paramref name="mapName"/> before playing, from its entity lump:
     /// with the game's <see cref="Abilities"/> and the map's objectives (plan_bots_teams_tf2 C.6).
     /// </summary>

@@ -53,6 +53,8 @@ public sealed class GameViewTests
             facts = drawn;
             return true;
         }
+
+        public bool Frozen(EntityHandle bot) => false;
     }
 
     /// <summary>HL2MP's game with a scripted view.</summary>

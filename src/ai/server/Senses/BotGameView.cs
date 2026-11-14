@@ -36,6 +36,12 @@ public interface IBotGameView
 
     /// <summary>The map's objectives as every HUD shows them now; null for a game with none.</summary>
     ObjectiveKnowledge? Objectives { get; }
+
+    /// <summary>
+    /// Whether the game holds <paramref name="bot"/>'s body still, as its player sees on the HUD and feels on
+    /// the keys (TF2's pre-round freeze): its follower then counts no stall and hops at nothing.
+    /// </summary>
+    bool Frozen(EntityHandle bot);
 }
 
 /// <summary>
@@ -53,4 +59,6 @@ public sealed class PlainBotGameView : IBotGameView
     public bool RenderThing(EntityHandle viewer, ref ThingFacts facts) => true;
 
     public ObjectiveKnowledge? Objectives => null;
+
+    public bool Frozen(EntityHandle bot) => false;
 }

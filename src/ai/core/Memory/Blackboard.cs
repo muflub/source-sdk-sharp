@@ -118,7 +118,16 @@ public sealed class KnownActor
         _grudgeTick = now;
     }
 
-    /// <summary>Where it is now while unseen (§5.3.1), or null with no nav graph.</summary>
+    /// <summary>
+    /// The bot's HUD marks it as the bot's nemesis (<see cref="AiEventKind.Nemesis"/>: TF2's domination,
+    /// plan_bots_teams_tf2_part_g G.2.5): while it does, the bot's grudge against it weighs more (<see cref="TargetScore.Grudge"/>).
+    /// </summary>
+    public bool Nemesis { get; internal set; }
+
+    /// <summary>
+    /// Where it is now while unseen (§5.3.1). Null with no nav graph, for a teammate, and until an
+    /// enemy has a place on the graph to be believed at: the memory makes it then, not before.
+    /// </summary>
     public PositionPredictor? Where { get; internal set; }
 
     /// <summary>
@@ -154,7 +163,7 @@ public sealed class KnownActor
         Spectating = false;
         LastSeenPos = LastSeenVel = LastHeardPos = default;
         LastSeenTick = LastHeardTick = default;
-        EverSeen = EverHeard = InSight = Dead = false;
+        EverSeen = EverHeard = InSight = Dead = Nemesis = false;
         _grudge = 0f;
         LastHeardKind = SoundKind.Unknown;
         Confidence = 0f;

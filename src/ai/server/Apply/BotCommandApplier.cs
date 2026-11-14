@@ -47,7 +47,7 @@ public enum IntentRefusal : byte
 /// </para>
 /// </summary>
 public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self, Func<double>? cpu = null, AbilityTable abilities = default,
-                                     IBotClientCommand? commands = null)
+                                     IBotClientCommand? commands = null, IAbilityPrograms? programs = null)
 {
     /// <summary>A full key's move, as <c>cl_forwardspeed</c> and <c>cl_sidespeed</c> send it; the server's max speed caps it.</summary>
     public const float FullMove = 450f;
@@ -106,8 +106,13 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         _bots.Insert(at < 0 ? _bots.Count : at, bot);
     }
 
-    /// <summary>The bot in <paramref name="slot"/> leaves.</summary>
-    public void Remove(int slot) => _bots.RemoveAll(b => b.Id.Slot == slot);
+    /// <summary>The bot in <paramref name="slot"/> leaves; a program it was running is told it is over.</summary>
+    public void Remove(int slot)
+    {
+        if (Find(slot) is { } b)
+            EndProgram(b, AbilityEnd.Died);
+        _bots.RemoveAll(b => b.Id.Slot == slot);
+    }
 
     /// <summary>A level change put the bot in <paramref name="slot"/> in a new player.</summary>
     public void Rebind(int slot, EntityHandle player)
@@ -118,6 +123,7 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
             b.Spawned = false;
             // What it had queued went with the old player and the old level.
             b.Waiting = 0;
+            EndProgram(b, AbilityEnd.Died);
         }
     }
 
@@ -280,6 +286,7 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
             // An ability does not outlive the life that began it.
             bot.AbilityTicks = 0;
             bot.Sequence = default;
+            EndProgram(bot, AbilityEnd.Died, new AbilityBody(facts.Origin, facts.Velocity, bot.Motion.View, facts.OnGround));
             SetView(ref cmd, facts.View);
             // On a tick of its own, by slot: pressed together, bots respawned in
             // one tick, each before the spawn check could see the other on the
@@ -306,6 +313,10 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
             _refused[(int)IntentRefusal.Expired]++;
             bot.Intent = null;
         }
+
+        // A running program has the command: its view through the motion, its move and its buttons, nothing of the intent's.
+        if (ProgramCommand(bot, ref cmd, in facts, dt))
+            return cmd;
 
         IntentCommand intent = bot.Intent ?? IntentCommand.Hold(bot.Id, tick, 0);
 
@@ -340,7 +351,7 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
                 if (once.Kind == ActionKind.SelectWeapon)
                     cmd.WeaponSelect = self.WeaponSelectFor(bot.Player, once.WeaponSlot);
                 else if (once.Kind == ActionKind.Ability)
-                    StartAbility(bot, once.WeaponSlot);
+                    StartAbility(bot, once.WeaponSlot, in facts, dt);
                 else
                     buttons |= Press(once.Kind);
             }
@@ -705,11 +716,13 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     /// for its ticks from this command on; a command row's word is sent once, now, as the
     /// player's (<see cref="IBotClientCommand"/>); a sequence row's steps run from this command
     /// on, each its buttons for its ticks, turning the view to its pitch while it lasts. A new
-    /// sequence replaces one still running; a row the table lacks does nothing.
+    /// sequence replaces one still running; a row the table lacks does nothing. A program row's
+    /// program (the game's, by the row's name) is begun with the one-shot's argument
+    /// (<see cref="AbilityCall"/>) and has the bot's commands from the next one on.
     /// </summary>
-    private void StartAbility(BotState bot, int row)
+    private void StartAbility(BotState bot, int slot, in BotSelfFacts facts, float dt)
     {
-        if (!abilities.TryGet(row, out AbilityRow a))
+        if (!abilities.TryGet(AbilityCall.Row(slot), out AbilityRow a))
             return;
         switch (a.Run)
         {
@@ -727,8 +740,92 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
                 bot.SequenceStep = 0;
                 bot.SequenceTicks = Math.Max(1, a.Steps[0].Ticks);
                 break;
+            case AbilityRun.Program when programs?.Named(a.Name) is { } program:
+                var body = new AbilityBody(facts.Origin, facts.Velocity, bot.Motion.View, facts.OnGround);
+                if (program.Begin(AbilityCall.Argument(slot), in body, bot.Motion.Parameters, dt) is not { } run)
+                {
+                    AbilityProgramsRefused++;
+                    break;
+                }
+
+                AbilityPrograms++;
+                bot.Program = run;
+                bot.ProgramTicks = Math.Max(1, a.HoldTicks);
+                break;
         }
     }
+
+    /// <summary>
+    /// The command of the bot's running program (plan_bots_teams_tf2_part_g G.5 step 2), or false
+    /// with none running or one that ends here. The program is told the bot's own state and answers
+    /// where the view is to come to, the move in the world's frame and the buttons: the view goes
+    /// there through the bot's motion as a look of the program's own (a new look is reacted to, then
+    /// flicked to), the move becomes the forward and side moves of the view the command does send,
+    /// and the buttons are the program's alone, so the intent's hands press nothing while it runs.
+    /// What the intent queued as one-shots waits for the program to end, another program among them.
+    /// </summary>
+    private bool ProgramCommand(BotState bot, ref UserCmd cmd, in BotSelfFacts facts, float dt)
+    {
+        if (bot.Program is not { } run)
+            return false;
+        var body = new AbilityBody(facts.Origin, facts.Velocity, bot.Motion.View, facts.OnGround);
+        if (bot.ProgramTicks-- <= 0)
+        {
+            EndProgram(bot, AbilityEnd.TimedOut, in body);
+            return false;
+        }
+
+        AbilityCommand step = run.Step(in body);
+        if (step.Over)
+        {
+            EndProgram(bot, AbilityEnd.Over, in body);
+            return false;
+        }
+
+        NotePunch(in facts);
+        AiAngles view = bot.Motion.Step(step.View, ProgramStimulus + step.Look, dt);
+        SetView(ref cmd, view);
+        float yaw = view.Yaw * (MathF.PI / 180f), fx = MathF.Cos(yaw), fy = MathF.Sin(yaw);
+        cmd.ForwardMove = step.Wish.X * fx + step.Wish.Y * fy;
+        cmd.SideMove = step.Wish.X * fy - step.Wish.Y * fx;
+        cmd.Buttons = step.Buttons;
+        bot.LastCorner = null;
+        bot.LastMove = (cmd.ForwardMove, cmd.SideMove);
+        bot.LastButtons = step.Buttons;
+        bot.HeldKeys = step.Buttons & PressKeys;
+        bot.JumpTicks = 0;
+        AbilityProgramCommands++;
+        return true;
+    }
+
+    /// <summary>The bot's running program, if any, is over for <paramref name="why"/>: told once, with the bot as last read.</summary>
+    private static void EndProgram(BotState bot, AbilityEnd why)
+    {
+        BotSelfFacts facts = bot.Facts;
+        EndProgram(bot, why, new AbilityBody(facts.Origin, facts.Velocity, bot.Motion.View, facts.OnGround));
+    }
+
+    private static void EndProgram(BotState bot, AbilityEnd why, in AbilityBody body)
+    {
+        if (bot.Program is not { } run)
+            return;
+        bot.Program = null;
+        bot.ProgramTicks = 0;
+        run.Ended(why, in body);
+    }
+
+    /// <summary>The stimulus a program's looks answer, each its own number over this: apart from a sequence's and from any the brain asks for.</summary>
+    public const int ProgramStimulus = 0x5E0_1000;
+
+    /// <summary>Ability programs begun (plan_bots_teams_tf2_part_g G.5 step 2: a Soldier's rocket jump), those a program refused to begin, and the commands programs have had.</summary>
+    public long AbilityPrograms { get; private set; }
+
+    public long AbilityProgramsRefused { get; private set; }
+
+    public long AbilityProgramCommands { get; private set; }
+
+    /// <summary>Whether the bot's commands are a program's now.</summary>
+    public bool ProgramRunning(ActorId bot) => Find(bot.Slot) is { } b && b.Id == bot && b.Program is not null;
 
     /// <summary>The stimulus a sequence's own look answers: one look, the bot's own, apart from any the brain asks for.</summary>
     public const int SequenceStimulus = 0x5E0_0001;
@@ -833,6 +930,11 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         public int SequenceStep { get; set; }
 
         public int SequenceTicks { get; set; }
+
+        /// <summary>A running ability program, and the commands it may still take (plan_bots_teams_tf2_part_g G.5 step 2).</summary>
+        public IAbilityRun? Program { get; set; }
+
+        public int ProgramTicks { get; set; }
 
         /// <summary>The <see cref="PressKeys"/> its last command held, playing or not.</summary>
         public int HeldKeys { get; set; }

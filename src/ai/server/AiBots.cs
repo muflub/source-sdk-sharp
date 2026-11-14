@@ -57,7 +57,8 @@ public sealed class AiBots : IFrameLifecycle
     public AiBots(IBotPlayers players, IPlayerCommandRunner runner, IEnginePlayers enginePlayers, IEngineEntities entities,
                      WeaponCatalog weapons, IEngineFrame frame, IAiNavigation nav, IBotGame game, IBotInventory inventory,
                      IBotNameSource names, IScoreboardTags tags, ILog log, SourceSharp.Ai.Server.Senses.ServerAiSession? ai = null,
-                     IEngineNetworking? networking = null, AiMainBudget? budget = null, IBotClientCommand? commands = null)
+                     IEngineNetworking? networking = null, AiMainBudget? budget = null, IBotClientCommand? commands = null,
+                     IPlayerStances? stances = null)
     {
         _ai = ai;
         _budget = budget;
@@ -69,9 +70,9 @@ public sealed class AiBots : IFrameLifecycle
         _players = players;
         _frame = frame;
         _log = log;
-        _self = new EngineBotSelf(enginePlayers, entities, weapons, inventory, networking);
+        _self = new EngineBotSelf(enginePlayers, entities, weapons, inventory, networking, stances);
         _inventory = inventory;
-        _applier = new BotCommandApplier(runner, _self, _cpu, game.Abilities, commands);
+        _applier = new BotCommandApplier(runner, _self, _cpu, game.Abilities, commands, game.Programs);
     }
 
     /// <summary>Before the entities think, so a bot's command runs in the same frame stage order every tick.</summary>
@@ -504,7 +505,8 @@ public sealed class AiBots : IFrameLifecycle
             BreakableSight sight = BreakableSight.None;
             if (breakables is not null && _wantedBreakable.TryGetValue(bot.Id.Slot, out int wanted) && wanted >= 0)
                 sight = new BreakableSight(wanted, breakables.TryAim(wanted, self.Origin + new AiVector(0f, 0f, BrainDriver.EyeHeight), player, out AiVector point), point);
-            var input = new DriveInput(brain, self.Origin, tick, graph, _nav.ObstaclesFor(player), self.OnLadder, self.View, player, ladders, Players, breakables is not null, sight);
+            var input = new DriveInput(brain, self.Origin, tick, graph, _nav.ObstaclesFor(player), self.OnLadder, self.View, player, ladders, Players, breakables is not null, sight,
+                                      _game.View.Frozen(player));
             _ai.Drives.Hand(in input, in self);
         }
 
@@ -719,6 +721,8 @@ public sealed class AiBots : IFrameLifecycle
             // On a ladder its climb is the driver's: it has a stall of its own, and the field no cell mid-way.
             if (cost < g.BestCost - 1f || self.OnLadder)
                 _gotos[i] = g = g with { BestCost = self.OnLadder ? float.PositiveInfinity : cost, ProgressTick = tick.Value };
+            else if (_game.View.Frozen(player))
+                _gotos[i] = g = g with { ProgressTick = tick.Value };
             else if (tick.Value - g.ProgressTick > StuckTicks)
             {
                 _log.Msg(string.Create(System.Globalization.CultureInfo.InvariantCulture,

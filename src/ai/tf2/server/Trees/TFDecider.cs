@@ -13,19 +13,17 @@ namespace SourceSharp.Ai.TF2.Trees;
 /// guard its dropped flag, escort its carrier, fetch the enemy's flag, defend its own, go to look
 /// into a sound it cannot explain (Search), and roam toward the enemy. Beside the branch, every decide: the hands fire on what the bot sees, the
 /// Soldier aims a rocket at the feet of a grounded target (<see cref="AimPoint.Feet"/>), keeps its
-/// launcher loaded, swaps to the shotgun when the launcher is dry up close, and rocket-jumps on a
-/// long run where the nav says the way ahead is clear.</para>
+/// launcher loaded, swaps to the shotgun when the launcher is dry up close, and rocket-jumps forward
+/// along its way where the simulator's recipe for the stretch ahead beats the walk (TFDecider.Jump.cs).</para>
 ///
-/// <para>Team roles: a bot is a defender or an attacker for the life of its slot, a third of
-/// the slots defending (<see cref="DefendEvery"/>), which weighs the objective branches. What
+/// <para>Team roles: a bot is a defender or an attacker as its team's allocator deals from its
+/// scoreboard's rows (TFDecider.Roles.cs, by <see cref="CtfRoleSplit"/>: the team's last bots'
+/// slots defending), which weighs the objective branches. What
 /// it knows is its view and memory only; nothing here reads the server. Its own random streams
 /// are drawn from its seed, so a replay of the same views makes the same intents.</para>
 /// </summary>
 public sealed partial class TFDecider : IDecider
 {
-    /// <summary>Every this many slots, one is a defender (the slot's remainder 0); the rest attack.</summary>
-    public const int DefendEvery = 3;
-
     /// <summary>A target out of sight this long ago is still fought (a corner flickers sight on and off).</summary>
     public const float SightGraceSeconds = 0.75f;
 
@@ -86,7 +84,6 @@ public sealed partial class TFDecider : IDecider
     // What outlives a decide.
     private int _oneShot;
     private KnownActor? _lastTarget;
-    private int _lastDamageSeen;
     private int _strafeSign = 1;
     private Tick _strafeUntil;
     private AiVector _roamGoal;
@@ -111,7 +108,7 @@ public sealed partial class TFDecider : IDecider
         _rng = new AiRandom(setup.Seed ^ 0x5446_5452UL);
         _aimRng = new AiRandom(setup.Seed ^ 0x5446_4149UL);
         StartFeel(setup.Seed);
-        Role = _bot.Slot % DefendEvery == 0 ? TFTeamRole.Defend : TFTeamRole.Attack;
+        StartRoles(CtfRoleSplit);
         _launcher = KindNamed(SoldierLauncher);
         _shotgun = KindNamed(SoldierShotgun);
         _rocketJumpRow = AbilityRow(Knowledge.TFAbilities.RocketJump);
@@ -133,8 +130,8 @@ public sealed partial class TFDecider : IDecider
 
     public IReadOnlyList<int> NodeBranches => _tree.Branches();
 
-    /// <summary>The bot's team role, by its slot.</summary>
-    public TFTeamRole Role { get; }
+    /// <summary>The bot's team role as the utilities read it: the allocator's answer this decide (<see cref="RoleRead"/>).</summary>
+    public TFTeamRole Role => RoleRead;
 
     /// <summary>The subtree the bot ran at its last decide alive: "Soldier", or "Soldier (as Scout)" for a class with none of its own.</summary>
     public string Subtree => _subtree;
@@ -177,10 +174,12 @@ public sealed partial class TFDecider : IDecider
         ReadObjectives();
         ChooseTarget();
         _interrupted = NoteInterrupts();
+        SeeThings();
         _tree.Decide(this, _run, tick);
         Engage();
         RocketJump();
         Hands();
+        ReactAndSpeak();
         Glance();
         FriendGate();
 
@@ -236,16 +235,16 @@ public sealed partial class TFDecider : IDecider
             Act("chase", d => d.ChaseTarget()));
 
         return new BtUtilitySelector<TFDecider>("root",
-            new BtScored<TFDecider>(Deliver, d => d.DeliverUtility(), Act("deliver", d => d.GoDeliver()), new BtCommit(1f, 0.05f)),
-            new BtScored<TFDecider>(Survive, d => d.SurviveUtility(), Act("go heal", d => d.GoHeal()), new BtCommit(3f, 0.1f)),
-            new BtScored<TFDecider>(Fight, d => d.FightUtility(), fight, new BtCommit(1.5f, 0.1f)),
-            new BtScored<TFDecider>(ChaseCarrier, d => d.ChaseCarrierUtility(), Act("chase carrier", d => d.GoChaseCarrier()), new BtCommit(2f, 0.1f)),
-            new BtScored<TFDecider>(Guard, d => d.GuardUtility(), Act("guard dropped flag", d => d.GoGuard()), new BtCommit(2f, 0.1f)),
-            new BtScored<TFDecider>(Escort, d => d.EscortUtility(), Act("escort", d => d.GoEscort()), new BtCommit(2f, 0.1f)),
-            new BtScored<TFDecider>(Fetch, d => d.FetchUtility(), Act("fetch", d => d.GoFetch()), new BtCommit(2f, 0.1f)),
-            new BtScored<TFDecider>(Defend, d => d.DefendUtility(), Act("defend", d => d.GoDefend()), new BtCommit(3f, 0.1f)),
-            new BtScored<TFDecider>(Search, d => d.SearchUtility(), Act("search", d => d.GoSearch()), new BtCommit(2f, 0.1f)),
-            new BtScored<TFDecider>(Roam, _ => 0.1f, Act("roam", d => d.GoRoam()), new BtCommit(1f, 0.05f)))
+            new BtScored<TFDecider>(Deliver, d => d.Weigh(Deliver, d.DeliverUtility()), Act("deliver", d => d.GoDeliver()), new BtCommit(1f, 0.05f)),
+            new BtScored<TFDecider>(Survive, d => d.Weigh(Survive, d.SurviveUtility()), Act("go heal", d => d.GoHeal()), new BtCommit(3f, 0.1f)),
+            new BtScored<TFDecider>(Fight, d => d.Weigh(Fight, d.FightUtility()), fight, new BtCommit(1.5f, 0.1f)),
+            new BtScored<TFDecider>(ChaseCarrier, d => d.Weigh(ChaseCarrier, d.ChaseCarrierUtility()), Act("chase carrier", d => d.GoChaseCarrier()), new BtCommit(2f, 0.1f)),
+            new BtScored<TFDecider>(Guard, d => d.Weigh(Guard, d.GuardUtility()), Act("guard dropped flag", d => d.GoGuard()), new BtCommit(2f, 0.1f)),
+            new BtScored<TFDecider>(Escort, d => d.Weigh(Escort, d.EscortUtility()), Act("escort", d => d.GoEscort()), new BtCommit(2f, 0.1f)),
+            new BtScored<TFDecider>(Fetch, d => d.Weigh(Fetch, d.FetchUtility()), Act("fetch", d => d.GoFetch()), new BtCommit(2f, 0.1f)),
+            new BtScored<TFDecider>(Defend, d => d.Weigh(Defend, d.DefendUtility()), Act("defend", d => d.GoDefend()), new BtCommit(3f, 0.1f)),
+            new BtScored<TFDecider>(Search, d => d.Weigh(Search, d.SearchUtility()), Act("search", d => d.GoSearch()), new BtCommit(2f, 0.1f)),
+            new BtScored<TFDecider>(Roam, d => d.Weigh(Roam, 0.1f), Act("roam", d => d.GoRoam()), new BtCommit(1f, 0.05f)))
         {
             Interrupt = d => d._interrupted,
         };
@@ -256,16 +255,14 @@ public sealed partial class TFDecider : IDecider
                         Escort = "Escort", Fetch = "Fetch", Defend = "Defend", Roam = "Roam";
 
     /// <summary>
-    /// What ends a commitment at once: an enemy newly in sight, or damage taken since the last
-    /// decide. Runs once a decide, before the tree.
+    /// What ends a commitment at once: an enemy newly in sight, or a hit by someone else since the
+    /// last decide (<see cref="HurtByAnother"/>: not the bot's own blast). Runs once a decide, before the tree.
     /// </summary>
     private bool NoteInterrupts()
     {
         bool fresh = _targetSighted && !ReferenceEquals(_target, _lastTarget);
         _lastTarget = _targetSighted ? _target : null;
-        int damage = _memory.Board.LastDamageTick.Value;
-        bool hurt = damage != _lastDamageSeen;
-        _lastDamageSeen = damage;
+        bool hurt = HurtByAnother();
         return fresh || hurt;
     }
 

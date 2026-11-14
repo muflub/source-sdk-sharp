@@ -371,7 +371,7 @@ public sealed class NavBuildJob
         if (loaded.Nav is not { } nav)
             return new NavBuildOutcome.Failed($"the built file does not load: {loaded.Refusal}", Retry: false);
         long sightStart = Stopwatch.GetTimestamp();
-        NavSight sight = NavSight.Build(nav.Nav.Graph, new Nav3dVoxelSpace(nav.Reader));
+        NavSight sight = NavSight.Build(nav.Nav.Graph, nav.File.Space);
         double sightMs = Stopwatch.GetElapsedTime(sightStart).TotalMilliseconds;
         return new NavBuildOutcome.Built(nav, sight, sightMs, stamp, level.Leaves.Length, bytes.Length, result.Warnings, checkLine);
     }

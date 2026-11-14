@@ -12,6 +12,12 @@ public enum SelfFlags : byte
     InWater = 1 << 4,
     Reloading = 1 << 5,
     Observer = 1 << 6,
+
+    /// <summary>
+    /// The game holds the body still: keys move it nowhere. A player knows it from the HUD (TF2's
+    /// pre-round countdown) and from walking into nothing; a bot that is held is not stuck.
+    /// </summary>
+    Frozen = 1 << 7,
 }
 
 /// <summary>

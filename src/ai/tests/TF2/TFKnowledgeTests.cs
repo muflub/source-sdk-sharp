@@ -1,4 +1,5 @@
 using SourceSharp.Ai.TF2.Knowledge;
+using TFThingType = SourceSharp.Ai.TF2.Senses.TFThingType;
 using SourceSharp.Shared;
 using TF2.Server.Buildings;
 using TF2.Server.Projectiles;
@@ -114,23 +115,61 @@ public sealed class TFKnowledgeTests
         Assert.Equal(68f, TFKnowledge.AimHeight(AimPoint.Head, TFClass.Soldier).Standing);
     }
 
+    /// <summary>What a bot gets out of the way of (plan_bots_teams_tf2_part_g G.2.3): a rocket's blast and a grenade's are the mod's own radii, and what has no blast has none.</summary>
     [Fact]
-    public void TheRocketJumpLooksDownThenJumpsDuckedAndFiresAtTheGround()
+    public void ARocketAndAGrenadeHaveTheModsBlastAndAFlareNone()
     {
-        AbilityRow jump = TFAbilities.Table().Rows.Single(r => r.Name == TFAbilities.RocketJump);
-        Assert.Equal(AbilityRun.Sequence, jump.Run);
-        const int Jump = (int)SourceSharp.Abi.InputButtons.Jump, Duck = (int)SourceSharp.Abi.InputButtons.Duck, Fire = (int)SourceSharp.Abi.InputButtons.Attack;
-        Assert.Equal([0, Jump | Duck, Jump | Duck | Fire, Duck], jump.Steps.Select(s => s.Buttons));
-        Assert.All(jump.Steps.Take(3), s => Assert.Equal(TFAbilities.RocketJumpPitch, s.Pitch));
+        Assert.Equal((TFProjectileDefs.RocketRadius, TFProjectileDefs.GrenadeJumpRadius, TFProjectileDefs.GrenadeJumpRadius, 0f, 0f),
+                     (TFKnowledge.BlastRadius(TFThingType.Rocket), TFKnowledge.BlastRadius(TFThingType.Pipe), TFKnowledge.BlastRadius(TFThingType.Sticky),
+                      TFKnowledge.BlastRadius(TFThingType.Flare), TFKnowledge.BlastRadius(TFThingType.Sentry)));
     }
 
     [Fact]
-    public void EveryCommandRowIsTheModsBuildOrDestroyOrder()
+    public void ASeenPipeFallsAsTheModsPipeDoesAndASeenRocketFliesFlat()
+        => Assert.Equal((TFKnowledge.ProjectileGravity(TFProjectile.Pipebomb), 0f), (TFKnowledge.FallOf(TFThingType.Pipe), TFKnowledge.FallOf(TFThingType.Rocket)));
+
+    [Fact]
+    public void ASentrysRangeIsTheModsSentryGuns() => Assert.Equal(TFSentryGun.SentryMaxRange, TFKnowledge.SentryRange);
+
+    [Fact]
+    public void TheRocketJumpIsAProgramWithCommandsForItsApproachAndAFlight()
     {
-        AbilityRow[] commands = [.. TFAbilities.Table().Rows.Where(r => r.Run == AbilityRun.Command)];
+        AbilityRow jump = TFAbilities.Table().Rows.Single(r => r.Name == TFAbilities.RocketJump);
+        Assert.Equal((AbilityRun.Program, 0), (jump.Run, jump.StepCount));
+        // The approach's own limit, and as many commands again as a search gives one flight.
+        Assert.True(jump.HoldTicks >= SourceSharp.Ai.TF2.Jump.RocketJumpProgram.ApproachCommands + new SourceSharp.Ai.TF2.Jump.JumpSearchSettings().MaxCommands,
+                    $"{jump.HoldTicks} commands");
+        Assert.True(TFAbilities.Table().Rows.IndexOf(jump) <= AbilityCall.MaxRow);
+    }
+
+    [Fact]
+    public void EveryBuildingCommandRowIsTheModsBuildOrDestroyOrder()
+    {
+        AbilityRow[] commands = [.. TFAbilities.Table().Rows.Where(r => r.Run == AbilityRun.Command && !r.Name.StartsWith("voice_", StringComparison.Ordinal))];
         Assert.Equal(8, commands.Length);
         Assert.All(commands, r => Assert.Contains(r.Command.Split(' ')[0], new[] { TFBuildCommand.Verb, TFDestroyCommand.Verb }));
         Assert.Contains(commands, r => r.Command == "build 2 0");
         Assert.Contains(commands, r => r.Command == "destroy 1 1");
+    }
+
+    /// <summary>The voice lines (plan_bots_teams_tf2_part_g G.2.4) are the mod's own voicemenu word with the menu and item stock's script puts each line at.</summary>
+    [Theory]
+    [InlineData(TFAbilities.VoiceMedic, "voicemenu 0 0")]
+    [InlineData(TFAbilities.VoiceThanks, "voicemenu 0 1")]
+    [InlineData(TFAbilities.VoiceSpy, "voicemenu 1 1")]
+    [InlineData(TFAbilities.VoiceSentryAhead, "voicemenu 1 2")]
+    public void AVoiceLineIsTheModsVoiceMenuWord(string row, string word)
+    {
+        AbilityRow line = TFAbilities.Table().Rows.Single(r => r.Name == row);
+        Assert.Equal((AbilityRun.Command, word), (line.Run, line.Command));
+        Assert.StartsWith(global::TF2.Server.Voice.TFVoiceMenuCommand.Verb + " ", line.Command, StringComparison.Ordinal);
+    }
+
+    /// <summary>The rows a decider found by index before the voice lines are where they were: the lines are added after them.</summary>
+    [Fact]
+    public void TheVoiceLinesComeAfterEveryOtherRow()
+    {
+        string[] names = [.. TFAbilities.Table().Rows.Select(r => r.Name)];
+        Assert.Equal((TFAbilities.RocketJump, 11), (names[0], Array.FindIndex(names, n => n.StartsWith("voice_", StringComparison.Ordinal))));
     }
 }

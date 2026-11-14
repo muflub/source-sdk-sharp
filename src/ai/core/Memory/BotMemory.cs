@@ -134,6 +134,11 @@ public sealed class BotMemory
     /// <summary>The last "going around" heard.</summary>
     public HeardCallout LastGoingAround { get; private set; }
 
+    /// <summary>The last teammate's call for help heard (its count 1: for a healer), and the last warning of something to keep away from.</summary>
+    public HeardCallout LastHelpCall { get; private set; }
+
+    public HeardCallout LastHazardCall { get; private set; }
+
     /// <summary>A teammate the bot saw die to an enemy it also saw (B.5's Trade): the killer and when; none before one.</summary>
     public (ActorId Killer, Tick When) TradeChance { get; private set; }
 
@@ -402,6 +407,10 @@ public sealed class BotMemory
             case AiEventKind.FriendlyFireSet:
                 FriendlyFireOn = e.Code != 0;
                 break;
+            case AiEventKind.Nemesis:
+                if (Board.Of(e.Other, make: true) is { } marked)
+                    marked.Nemesis = e.Code != 0;
+                break;
             case AiEventKind.Callout:
                 Callout(e);
                 break;
@@ -504,6 +513,12 @@ public sealed class BotMemory
                 break;
             case CalloutKind.GoingAround:
                 LastGoingAround = heard;
+                break;
+            case CalloutKind.Help:
+                LastHelpCall = heard;
+                break;
+            case CalloutKind.Hazard:
+                LastHazardCall = heard;
                 break;
         }
     }

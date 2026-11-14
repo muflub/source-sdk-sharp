@@ -8,6 +8,7 @@ using TF2.Server.Player;
 using TF2.Server.Projectiles;
 using TF2.Shared;
 using TF2.Shared.Player;
+using TF2.Shared.Rules;
 
 namespace SourceSharp.Ai.TF2.Senses;
 
@@ -47,7 +48,8 @@ public enum TFThingType
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFBotGameView(ITFActorFacts actors, ITFPlayerData players, IEngineEntities entities, IEntityDirectory directory,
-                                  TFDisguiseWeapons disguises, WeaponCatalog weapons, TFObjectiveFeed objectives) : IBotGameView
+                                  TFDisguiseWeapons disguises, WeaponCatalog weapons, TFObjectiveFeed objectives,
+                                  ITFRoundStateView rounds, TFPlayerMovementRestartFreezeConVar restartFreeze) : IBotGameView
 {
     /// <summary>How invisible a cloaked Spy is when a client draws nothing of him.</summary>
     public const float CloakHidden = 0.75f;
@@ -61,8 +63,24 @@ public sealed class TFBotGameView(ITFActorFacts actors, ITFPlayerData players, I
         if (!actors.TryRead(index, out TFActorFacts own))
             return read;
         int metal = players.Networked(index) is { } state ? state.Ammo[(int)TFAmmo.Metal] : 0;
-        return read with { Class = (int)own.Class, Conditions = Conditions(in own, disguiseShown: true), Metal = metal };
+        return read with { Class = (int)own.Class, Conditions = Conditions(in own, disguiseShown: true), Metal = metal,
+                           Flags = Frozen(bot) ? read.Flags | SelfFlags.Frozen : read.Flags };
     }
+
+    /// <summary>
+    /// Whether <paramref name="bot"/>'s own HUD marks the player in <paramref name="slot"/> as dominating it
+    /// (plan_bots_teams_tf2_part_g G.2.5): the row of its own networked state its client reads for the
+    /// scoreboard's nemesis mark (<c>m_bPlayerDominatingMe</c>), and nobody else's.
+    /// </summary>
+    public bool DominatedBy(EntityHandle bot, int slot)
+        => players.Networked(bot.EntryIndex) is { } own && own.IsPlayerDominatingMe(slot);
+
+    /// <summary>
+    /// The pre-round freeze, as the bot's client knows it: its HUD shows the round restarting (the
+    /// round state every client is sent) and the replicated <c>tf_player_movement_restart_freeze</c>
+    /// stands, the two things the movement's own speed walk asks (TFMovementRules.MaxSpeedScale).
+    /// </summary>
+    public bool Frozen(EntityHandle bot) => rounds.State == RoundState.Preround && restartFreeze.Value;
 
     public bool Render(EntityHandle viewer, EntityHandle them, ref ActorFacts facts)
     {

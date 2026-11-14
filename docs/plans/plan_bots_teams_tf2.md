@@ -1623,6 +1623,18 @@ This plan's own rulings (2026-11-02, through the coordinator):
 - **2026-11-10, Part G (same session): "Ok to push and continue"**: Part G
   starts. Its open questions are taken as recommended, except new
   map-tools work (Q-G6), which is asked again at G7.
+- **2026-11-11, P6 finished (lane p6e; the user, 2026-11-10: "finish off the P6
+  left overs")**: a bot held still by TF2's pre-round freeze (the HUD's round state
+  and the replicated restart freeze) reports no stall and does not hop; a drop two
+  columns on is taken over the edge; a goal with no place drops the last goal's
+  follower; who defends is `TFDecider.CtfRoleSplit` over the team's scoreboard rows
+  (a third, the last slots; it was every third slot, which gave one 4v4 team three
+  defenders and the other none); `tools/tf2-gate` bots-ctf plays 420 s and holds
+  `ai.main.cpu.us` under 1,500 us. With main's TF2 hull (27a9e0202), which ended the
+  bridge-roof and ceiling wedges (bots were in solid after rocket jumps), ten minutes
+  of ctf_2fort (`tools/ai-cost live`) captured 5, 3 and 4 times at 6v6 and 4, 4
+  and 4 at 4v4, with 136-259 stuck reports a 6v6 run against 364-420 on main
+  0ea7e4ec0.
 
 ### 8.2 The questions asked, all answered as recommended
 

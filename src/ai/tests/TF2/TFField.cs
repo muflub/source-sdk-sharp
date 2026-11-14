@@ -9,7 +9,8 @@ namespace SourceSharp.Ai.Tests.TF2;
 /// A TF2 bot on a synthetic CTF field, for the tree's facts: a flat floor 4,096 units long on x
 /// (64 cells of 64 u, 8 wide), red's base at the west end and blue's at the east, each with its flag,
 /// its capture zone, its spawn and a health pack; the bot a red Soldier with the stock launcher and
-/// shotgun, the HUD's objectives as the test sets them, and a view per step.
+/// shotgun, the HUD's objectives as the test sets them, and a view per step. Its tree reads the
+/// rocket jumps a test hands it (none unless it does: no jump).
 /// </summary>
 public sealed class TFField
 {
@@ -34,7 +35,8 @@ public sealed class TFField
     private int _tick;
 
     public TFField(int slot = 2, ulong seed = 7, string preset = "hard", bool graph = true, int floorLength = Length, Func<DecisionParams, DecisionParams>? tune = null,
-                   TFFeelSwitches? feel = null, SkillProfile? profile = null, SkillCurves? curves = null)
+                   TFFeelSwitches? feel = null, SkillProfile? profile = null, SkillCurves? curves = null, int[]? mates = null,
+                   SourceSharp.Ai.TF2.Jump.IJumpAdvisor? jumps = null)
     {
         Bot = new ActorId(slot, 1);
         profile ??= SkillPresets.TryGet(preset, out SkillProfile? p) ? p! : throw new ArgumentException(preset);
@@ -52,10 +54,16 @@ public sealed class TFField
                                    teamZones: [new TeamZone(Blue, ZoneKind.RespawnRoom, new AiVector(3968f, 0f, -16f), new AiVector(4096f, 512f, 200f))]);
         Graph = graph ? Floor(floorLength) : null;
         Memory = new BotMemory(Bot, 33, MemoryParams.For(profile), new MemoryWorld(map, Graph, 0.015f, id => id.ToString()), new HabitStore());
+        // The scoreboard's rows of the bot's teammates (red, as Self draws the bot).
+        foreach (int mate in mates ?? [])
+            Memory.Apply(AiEvent.ActorTeam(Bot, new Tick(1), new ActorId(mate, 1), Red, 0));
         Decider = new TFDecider(new BrainSetup(Bot, seed, Memory, Params, 0.015f),
-                                TFKnowledge.Classes(c => (300f, c == TFClass.Soldier ? 200 : 125))) { Feel = feel ?? TFFeelSwitches.All };
+                                TFKnowledge.Classes(c => (300f, c == TFClass.Soldier ? 200 : 125))) { Feel = feel ?? TFFeelSwitches.All, Jumps = jumps };
         Brain = new Brain(Bot, seed, Memory, Params, Decider);
     }
+
+    /// <summary>A bot that defends: the last slot of a team of three (<see cref="TFDecider.CtfRoleSplit"/>).</summary>
+    public static TFField Defender(Func<DecisionParams, DecisionParams>? tune = null) => new(slot: 3, tune: tune, mates: [1, 2]);
 
     public ActorId Bot { get; }
     public DecisionParams Params { get; }
@@ -64,6 +72,9 @@ public sealed class TFField
     public TFDecider Decider { get; }
     public Brain Brain { get; }
     public int Tick => _tick;
+
+    /// <summary>The root's branch the bot chose at its last decide, without the subtree's name before it.</summary>
+    public string Branch => Decider.Doing.Branch[(Decider.Doing.Branch.IndexOf(": ", StringComparison.Ordinal) + 2)..];
 
     /// <summary>The floor: <paramref name="length"/> (west to east) by <see cref="Width"/> cells, 4-connected; past it, no floor.</summary>
     public static NavGraph Floor(int length = Length)
@@ -108,6 +119,11 @@ public sealed class TFField
             new Objective(BlueZoneId, ObjectiveKind.Deliver, Blue, (1 << Red) | (1 << Blue), ObjectiveState.Open, BlueZone),
         ]);
 
+    /// <summary>Whether <paramref name="intent"/> begins a rocket jump: its one-shot's row is the jump's (a voice line is an ability one-shot too).</summary>
+    public bool BeginsJump(in IntentCommand intent)
+        => intent.Action.Kind == ActionKind.Ability && Memory.World.Map.Abilities.TryGet(AbilityCall.Row(intent.Action.WeaponSlot), out AbilityRow row)
+           && row.Name == TFAbilities.RocketJump;
+
     /// <summary>One decide: the bot as <paramref name="self"/>, the HUD's <paramref name="objectives"/>, and each of <paramref name="sighted"/> in sight on its team.</summary>
     public IntentCommand Step(SelfState self, ObjectiveKnowledge? objectives, params (ActorId Id, AiVector At, AiVector Velocity, int Team)[] sighted)
         => StepDrawn(self, objectives, [.. sighted.Select(s => new ActorFacts(s.Id, s.At, s.Velocity, Launcher, ActorActivity.None, 1f, s.Team))]);
@@ -118,6 +134,10 @@ public sealed class TFField
 
     /// <summary>One decide with <paramref name="events"/> perceived since the last (a sight lost, a sound heard) and each of <paramref name="sighted"/> in sight.</summary>
     public IntentCommand StepHearing(SelfState self, ObjectiveKnowledge? objectives, AiEvent[] events, params ActorFacts[] sighted)
+        => StepSeeing(self, objectives, [], events, sighted);
+
+    /// <summary>One decide with each of <paramref name="things"/> in sight too: the projectiles and buildings the bot's client draws.</summary>
+    public IntentCommand StepSeeing(SelfState self, ObjectiveKnowledge? objectives, ThingFacts[] things, AiEvent[]? events = null, params ActorFacts[] sighted)
     {
         _tick += DecideSchedule.Period;
         var tick = new Tick(_tick);
@@ -125,6 +145,8 @@ public sealed class TFField
         _view.SetObjectives(objectives);
         foreach (ActorFacts f in sighted)
             _view.AddSighted(f);
-        return Brain.Step(tick, _view, events);
+        foreach (ThingFacts t in things)
+            _view.AddThing(t);
+        return Brain.Step(tick, _view, events ?? []);
     }
 }
