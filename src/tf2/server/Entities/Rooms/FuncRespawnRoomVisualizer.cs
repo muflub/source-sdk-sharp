@@ -31,9 +31,8 @@ namespace TF2.Server.Entities.Rooms;
 /// as every always-sent entity takes it, and the brush is visible to every
 /// eye on the wire: the per-team hiding is the client's own answer
 /// (<c>ClientRespawnRoomVisualizer</c>), asked at
-/// its draw. The team and the brush's box ride the wire for that draw —
-/// the team the hiding compares against, the box where the client's shimmer
-/// sits.
+/// its draw. The team rides the wire for that draw: the team the hiding
+/// compares against.
 /// </para>
 /// </summary>
 [ScriptedEntity(MapClass, ScriptedEntityKind.Brush)]
@@ -43,7 +42,7 @@ public sealed class FuncRespawnRoomVisualizer(IEntityDirectory directory, IEngin
 
     [ScriptVars] public FuncRespawnRoomVisualizerVars VisualizerVars = new();
 
-    /// <summary>The wire state: the draw's team and the brush's box.</summary>
+    /// <summary>The wire state: the draw's team.</summary>
     [NetState] public RespawnRoomVisualizerNetState State = new();
 
     [SaveField] private int _team;
@@ -62,32 +61,11 @@ public sealed class FuncRespawnRoomVisualizer(IEntityDirectory directory, IEngin
     /// <summary><c>m_bSolid</c>: whether stock would make it solid to the enemy.</summary>
     public bool SolidToEnemies => _solid;
 
-    /// <summary>
-    /// The brush's box as the client's draw needs it: where the shimmer's
-    /// centre sits off the origin, how wide it reads to an eye looking at it
-    /// (the wider of the two horizontal spans — the billboard has one width)
-    /// and how tall. Never below a unit each way, so a brush authored with an
-    /// empty box still reads as one. Stock's client side gets the same from its
-    /// own brush model; our wire carries these numbers to ours.
-    /// </summary>
-    private void PublishGeometry()
-    {
-        (Vector mins, Vector maxs) = Entities.GetBounds(Handle);
-        Vector centre = (mins + maxs) * 0.5f;
-
-        State.CenterX = centre.X;
-        State.CenterY = centre.Y;
-        State.CenterZ = centre.Z;
-        State.Width = Math.Max(Math.Max(maxs.X - mins.X, maxs.Y - mins.Y), 1f);
-        State.Height = Math.Max(maxs.Z - mins.Z, 1f);
-    }
-
     public override void OnSpawn()
     {
         _solid = VisualizerVars.SolidToEnemies;
         _team = VisualizerVars.TeamNum;
         State.Team = (byte)_team;
-        PublishGeometry();
 
         // Stock's UpdateTransmitState (func_respawnroom.cpp:464-469): the FULLCHECK
         // arm is commented out, so the brush is FL_EDICT_ALWAYS and its

@@ -101,6 +101,13 @@ public abstract class FlyingProjectile : AnimatingEntity
     /// </summary>
     protected virtual TraceMask SweepMask => TraceMask.Shot;
 
+    /// <summary>
+    /// Whether something this struck is flown past rather than gone off on: a
+    /// sweep mask in stock that leaves a body out (the TF shots' teammate
+    /// window). Never asked about the shooter or a trigger. Nothing by default.
+    /// </summary>
+    protected virtual bool FliesThrough(EntityHandle toucher) => false;
+
     /// <summary>The flight struck <paramref name="struck"/> with this normal, just before <see cref="OnTouch"/>.</summary>
     protected internal virtual void OnStruckSurface(Vector normal, EntityHandle struck) { }
 
@@ -165,6 +172,20 @@ public abstract class FlyingProjectile : AnimatingEntity
 
         if (PassesThrough(toucher))
             return;
+
+        if (FliesThrough(toucher))
+        {
+            // On past the body at the speed it struck with; the brushes behind
+            // it, and the next body in the way, still stop the shot. The speed
+            // is the shell's own — stock's GetAbsVelocity at the touch, which
+            // is what the shell keeps — not a copy the integrator last wrote:
+            // a flyer whose steps the frame has not yet taken still owes the
+            // touch its real velocity, not the zero of a mover table nobody
+            // filled.
+            Motion.FlyPast(Handle, toucher);
+            Steer(Entities.GetVelocity(Handle), GravityScale);
+            return;
+        }
 
         Spend(toucher);
     }

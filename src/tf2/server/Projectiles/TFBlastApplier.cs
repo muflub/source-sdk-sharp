@@ -466,10 +466,19 @@ public sealed class TFBlastApplier
                         DamageType bits, TFWeaponId weapon, string weaponName, bool critical,
                         EntityHandle inflictor, Vector origin, TFDamageCustom custom, IAttributeProvider? item)
     {
+        // Stock's dir and force centre (:5846-5847, 5859): the normalized
+        // line away from the lifted blast centre to the victim's centre, and
+        // that centre itself. The native side manufactures the magnitude from
+        // them (CalculateExplosiveDamageForce) — clamp and the random fudge
+        // included — which is what knocks a stuck sticky loose and shoves a
+        // physics prop; a player's push stays this file's Push, so the hit
+        // pushing him once is unchanged.
+        Vector source = origin + new Vector(0f, 0f, GroundLift);
+        Vector direction = (Entities.GetWorldSpaceCenter(victim) - source).Normalized;
         using (HitGroups.Push(HitGroup.Generic, critical))
         using (Scopes.Push(custom, weapon, weaponName, item))
         using (Inflictors.Push(inflictor, origin))
-            return Damage.TakeDamageAnswered(victim, attacker, victimDamage, bits);
+            return Damage.TakeDamageAnswered(victim, attacker, victimDamage, bits, direction, source);
     }
 
     /// <summary>

@@ -940,7 +940,11 @@ int C_StandaloneEntity::DrawModel(int flags)
 
 		IManagedStandaloneClient* pStandalone = m_Clients.Managed();
 
-		return pStandalone ? pStandalone->OnStandaloneDraw((uint32_t)BlockHandle().ToInt()) : 0;
+		const int nDrawn = pStandalone ? pStandalone->OnStandaloneDraw((uint32_t)BlockHandle().ToInt()) : 0;
+
+		// Managed passed the draw on to the model, as an override calling BaseClass::DrawModel.
+		if (nDrawn != CStandaloneClients::kDrawOwnModel)
+			return nDrawn;
 	}
 
 	const model_t* pModel = GetModel();

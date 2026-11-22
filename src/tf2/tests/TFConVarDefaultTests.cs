@@ -220,6 +220,53 @@ public class TFConVarDefaultTests
         Assert.True(value == "30", $"the bound value is '{value}', not the game's 30");
     }
 
+    /// <summary>The flags each name was registered with, as the engine would hold them.</summary>
+    private sealed class FlagsBackend : client::SourceSharp.Abi.IConVarBackend
+    {
+        public Dictionary<string, int> Flags { get; } = [];
+
+        public int Register(string name, string defaultValue, string help, int flags, float? min, float? max)
+        {
+            Flags[name] = flags;
+            return Flags.Count - 1;
+        }
+
+        public void Set(int id, string value) { }
+        public string Get(int id) => string.Empty;
+        public string? ValueOf(string name) => null;
+    }
+
+    private static int ClientFlagsOf(string name, params Type[] types)
+    {
+        var backend = new FlagsBackend();
+        new client::SourceSharp.Abi.ConVarRegistry(backend).RegisterTypes(types);
+        return backend.Flags[name];
+    }
+
+    /// <summary>
+    /// Stock TF declares viewmodel_fov FCVAR_ARCHIVE (view.cpp:110-111) where
+    /// the other games declare it FCVAR_CHEAT; under the cheat flag a listen
+    /// server without sv_cheats refused the line TF's options page ran.
+    /// </summary>
+    [Fact]
+    public void TFsClientRegistrationArchivesTheViewmodelFovInsteadOfCheating()
+    {
+        int flags = ClientFlagsOf("viewmodel_fov", typeof(client::SourceSharp.Client.Render.ViewmodelFovConVar),
+                                  typeof(client::TF2.Client.TFViewmodelFovDefault));
+
+        Assert.True(flags == (int)client::SourceSharp.Abi.ConVarFlags.Archive,
+                    $"under TF's client registration viewmodel_fov registers flags 0x{flags:X}, not FCVAR_ARCHIVE alone");
+    }
+
+    [Fact]
+    public void TheCoresOwnClientRegistrationKeepsTheViewmodelFovACheat()
+    {
+        int flags = ClientFlagsOf("viewmodel_fov", typeof(client::SourceSharp.Client.Render.ViewmodelFovConVar));
+
+        Assert.True(flags == (int)client::SourceSharp.Abi.ConVarFlags.Cheat,
+                    $"the core's client alone registers viewmodel_fov with flags 0x{flags:X}, not FCVAR_CHEAT");
+    }
+
     [Fact]
     public void ADefaultForANameTheWalkNeverDeclaresIsRefused()
     {

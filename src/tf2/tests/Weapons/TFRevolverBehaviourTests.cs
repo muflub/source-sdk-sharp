@@ -76,6 +76,35 @@ public sealed class TFRevolverBehaviourTests
         Assert.Equal(10f, w.BehaviourKeptTime, 4);
     }
 
+    /// <summary>mult_dmg_disguised (the Enforcer) through the real press: the
+    /// undisguised shot lands the row's damage, and once the owner wears the
+    /// disguise (stock's <c>InCond(TF_COND_DISGUISED)</c>,
+    /// <c>tf_weaponbase_gun.cpp:913</c>) the next shot times that by the item's
+    /// multiplier (<c>:916</c>) — the arm riding the machine's hitscan ask at
+    /// <c>ModifyShot</c>, not a hand-built context.</summary>
+    [Fact]
+    public void A_disguised_spy_press_times_the_shot_by_the_disguise_multiplier()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.Classes[TFWeaponWorld.Owner] = TFClass.Spy;
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(9002, "disguise bonus", "mult_dmg_disguised", AttributeDescriptionFormat.Percentage,
+                                                               AttributeEffectType.Positive, false, false, AttributeValueType.Default,
+                                                               MergedKeys.Block("x")), 1.5f));
+        world.Owners.Items[TFWeaponWorld.Owner] = item;
+        var (w, vm) = world.Armed(Revolver, clip: 6, reserve: 24);
+        int seed = TFWeaponWorld.GunSeed(200, 10000);
+
+        world.Run(w, vm, Attack, now: 10f, seed: seed);
+        Assert.Equal(new ShotDamage(40f), world.Arms.Bullets[0].Shot);   // the row's damage, plain
+
+        world.Owners.Of(TFWeaponWorld.Owner).Add(TFCond.Disguised);      // stock's disguise cond, :913
+        world.Run(w, vm, Attack, now: 10.6f, seed: seed);
+
+        Assert.Equal(2, world.Arms.Bullets.Count);
+        Assert.Equal(new ShotDamage(60f), world.Arms.Bullets[1].Shot);   // :916 — the disguised multiplier rides the press
+    }
+
     [Fact]
     public void A_shot_still_on_the_fire_delay_stamps_nothing()
     {

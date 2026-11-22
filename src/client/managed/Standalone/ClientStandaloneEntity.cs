@@ -235,8 +235,20 @@ public abstract class ClientStandaloneEntity
     /// hand values to the engine and do no work of its own.
     /// </para>
     /// </summary>
-    /// <returns>1 if anything was drawn, which is what DrawModel answers.</returns>
+    /// <returns>
+    /// 1 if anything was drawn, which is what DrawModel answers; or
+    /// <see cref="DrawsModel"/> to have the shell draw the entity's model.
+    /// </returns>
     public virtual int OnDraw() => 0;
+
+    /// <summary>
+    /// <see cref="OnDraw"/>'s answer for a class whose draw is its own model's
+    /// behind a gate of its own: the shell draws the model as it draws one with
+    /// no custom draw. Stock's shape is an override of <c>DrawModel</c> that
+    /// returns early or calls <c>BaseClass::DrawModel</c>
+    /// (<c>C_FuncRespawnRoomVisualizer::DrawModel</c>).
+    /// </summary>
+    public const int DrawsModel = -3;
 
     /// <summary>
     /// This entity's draw prepared ahead of its DrawModel, in the view's one
