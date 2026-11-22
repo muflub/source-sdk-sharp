@@ -15,6 +15,13 @@ public static class ExitShape
     public static IEnumerable<Room> Variants(RoomKit kit, RoomTheme theme, ulong seed)
     {
         var rng = new RoomSeed(seed, "exit");
+        // Level 5's way down on its 512 kit (brief p18): 2 by 2 cells beside the arena, its one door west, into the arena.
+        if (Parts.SpanCells(kit) > 1)
+        {
+            yield return Hole("exit_breachw", kit, theme, [CellFace.West], Stations.Descent.Drop, 5, 5, rng, cover: true);
+            yield break;
+        }
+
         foreach (var (id, doors) in ArrivalShape.DoorSets)
         {
             yield return Cage("exit_cage" + id, kit, theme, doors, rng);
@@ -30,7 +37,7 @@ public static class ExitShape
     }
 
     private static RoomBuilder New(string name, RoomKit kit, RoomTheme theme, CellFace[] doors, int minDepth, int maxDepth) =>
-        new RoomBuilder(name, kit, theme).WithHeight(ArrivalShape.Height).WithDoors(doors)
+        new RoomBuilder(name, kit, theme).WithHeight(ArrivalShape.Height).Seat(doors)
             .WithEntry(new RoomEntry(["stairs"], MinDepth: minDepth, MaxDepth: maxDepth)).WithMapLabel("Way down");
 
     /// <summary>Levels 1 to 4: the cage down.</summary>

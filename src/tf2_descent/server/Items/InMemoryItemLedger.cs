@@ -145,6 +145,55 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
         return new DropResult(true, null, placed);
     }
 
+    /// <summary>The kill's pile as the game rolled it (L24: one pile a kill, shared on pickup); none for a roll of none.</summary>
+    public override Task<PileAnswer> KillAustralium(KillPile kill) => Task.FromResult(kill.Australium <= 0
+        ? new PileAnswer(false, LedgerRefusals.NoAustralium, null)
+        : new PileAnswer(true, null, PlacePile(new AustraliumPile(NextId(), kill.Australium, kill.Killer))));
+
+    /// <summary>
+    /// The pile picked up, as the host does it: the claimer must be one of <paramref name="members"/>
+    /// (the killer's party on the level); each member is credited the rules' share
+    /// (<c>AustraliumShares</c> over their sheets, in that order) and the pile is gone.
+    /// </summary>
+    public override async Task<PileTake> ClaimAustralium(string hero, long pileId, IReadOnlyList<string> members)
+    {
+        if (PileOf(pileId) is not { } pile)
+            return PileTake.Refused(LedgerRefusals.NotOnFloor);
+        if (!members.Contains(hero, StringComparer.Ordinal))
+            return PileTake.Refused(LedgerRefusals.NotInParty);
+        var here = new List<LedgerHero>();
+        foreach (var m in members.Distinct(StringComparer.Ordinal))
+            if (await Ensure(m) is { } h)
+                here.Add(h);
+        if (PileOf(pileId) is null)
+            return PileTake.Refused(LedgerRefusals.NotOnFloor);   // taken while the members loaded
+        UnplacePile(pileId);
+        var shares = Contract.AustraliumShares(pile.Australium, [.. here.Select(h => Rules.SheetCodec.Write(h.Sheet))]);
+        var credits = new List<PileCredit>();
+        for (int i = 0; i < here.Count && i < shares.Count; i++)
+        {
+            if (shares[i] <= 0)
+                continue;
+            await Credit(here[i].Hero, shares[i], "australium_pile", load: true);
+            credits.Add(new PileCredit(here[i].Hero, shares[i]));
+        }
+        return new PileTake(true, null, credits);
+    }
+
+    /// <summary>A numbered breakable's roll for one hero (the rules' <c>BreakableDrops</c>, as the host replays it): his Australium credited, his items on the floor; once per breakable and hero.</summary>
+    public override async Task<BreakAnswer> Break(BreakDrop drop)
+    {
+        if (await Ensure(drop.Hero) is not { } h)
+            return BreakAnswer.Refused(LedgerRefusals.NoHero);
+        if (!MarkBroken(drop.Seq, drop.Hero))
+            return BreakAnswer.Refused(LedgerRefusals.AlreadyBroken);
+        var roll = Contract.BreakableDrops(drop.InstanceSeed, drop.Seq, drop.Depth, Rules.SheetCodec.Write(h.Sheet));
+        if (roll.Australium > 0)
+            await Credit(drop.Hero, roll.Australium, "breakable_australium", load: true);
+        var items = roll.Items.Select(i => Place(new FloorItem(NextId(), Rules.ItemRules.Codec.Instance(i), drop.Hero, drop.Position))).ToList();
+        return new BreakAnswer(true, null, roll.Australium, items);
+    }
+
     /// <summary>Everything carried, and the Australium, onto the hero's corpse (as the host's RecordDeath), each item with where he carried it.</summary>
     public override Task<bool> RecordDeath(string hero, Vector position) => Serial(hero, async () =>
     {

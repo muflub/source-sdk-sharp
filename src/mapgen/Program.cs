@@ -334,7 +334,7 @@ if (args.Length > 0 && args[0] == "descent-level")
         }
 
         Console.WriteLine(levelOut);
-        foreach (string line in SourceSharp.MapGen.Descent.DescentLevel.Comments(levelDepth, levelSeed, report!))
+        foreach (string line in report!)
             Console.WriteLine("  " + line);
     }
     catch (Exception e) when (e is IOException or InvalidDataException or ArgumentException)

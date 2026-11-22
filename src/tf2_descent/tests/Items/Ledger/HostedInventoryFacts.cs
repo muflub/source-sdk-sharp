@@ -155,7 +155,7 @@ public sealed class HostedInventoryFacts
     }
 
     [Fact]
-    public async Task A_potion_onto_a_belt_stack_is_not_asked_of_the_host_which_has_no_merge()
+    public async Task A_potion_onto_a_belt_stack_merges_on_the_host_in_one_call()
     {
         await _ledger.Load(A);
         long a = await Put(Potions(1, 1));
@@ -165,8 +165,99 @@ public sealed class HostedInventoryFacts
 
         var merge = await _ledger.ToBelt(A, SlotOf(b), 0);
 
-        Assert.Equal(LedgerRefusals.HostUnsupported, merge.Refusal);
-        Assert.Empty(_host.Calls);
+        Assert.True(merge.Ok, merge.Refusal);
+        Assert.Equal([$"merge {A}"], _host.Calls);
+        Assert.Equal(2, Held.Inventory.Belt[0].Item.Count);
+        Assert.Equal(a, Held.Inventory.Belt[0].Id);
+        Assert.False(_host.Items.ContainsKey(_ledger.HostIdOf(b)!), "the source stack ended on the host");
+        Assert.Equal([b], merge.Change!.Gone);
+        AssertMirrored();
+    }
+
+    [Fact]
+    public async Task A_potion_stack_too_big_for_the_belt_slot_leaves_the_rest_in_the_backpack_on_both_sides()
+    {
+        // health_small stacks to 4: 3 onto a belt stack of 2 makes 4 there and leaves 1 in the backpack.
+        await _ledger.Load(A);
+        long a = await Put(Potions(2, 1));
+        long b = await Put(Potions(3, 2));
+        Assert.True((await _ledger.ToBelt(A, SlotOf(a), 0)).Ok);
+
+        var merge = await _ledger.ToBelt(A, SlotOf(b), 0);
+
+        Assert.True(merge.Ok, merge.Refusal);
+        Assert.Equal((4, 1), (Held.Inventory.Belt[0].Item.Count, Held.Inventory.Backpack[SlotOf(b)].Item.Count));
+        Assert.Equal((4, 1), (OnHost(a).Count, OnHost(b).Count));
+        AssertMirrored();
+    }
+
+    [Fact]
+    public async Task A_backpack_stack_merges_on_the_host()
+    {
+        await _ledger.Load(A);
+        long a = await Put(Potions(1, 1));
+        long b = await Put(Potions(2, 2));
+        _host.Calls.Clear();
+
+        var stack = await _ledger.Stack(A, SlotOf(a), SlotOf(b));
+
+        Assert.True(stack.Ok, stack.Refusal);
+        Assert.Equal([$"merge {A}"], _host.Calls);
+        Assert.Equal(3, OnHost(b).Count);
+        AssertMirrored();
+    }
+
+    [Fact]
+    public async Task Equipping_over_a_worn_item_is_one_host_swap()
+    {
+        await _ledger.Load(A);
+        long first = await Put(Roll("rocket_launcher", 1));
+        long second = await Put(Roll("rocket_launcher", 2));
+        Assert.True((await _ledger.Equip(A, SlotOf(first), "primary")).Ok);
+        _host.Calls.Clear();
+
+        var swap = await _ledger.Equip(A, SlotOf(second), "primary");
+
+        Assert.True(swap.Ok, swap.Refusal);
+        Assert.Equal([$"swap {A}"], _host.Calls);
+        AssertMirrored();
+    }
+
+    [Fact]
+    public async Task Equipping_over_a_worn_item_with_a_full_backpack_swaps_them()
+    {
+        await _ledger.Load(A);
+        long first = await Put(Roll("rocket_launcher", 1));
+        Assert.True((await _ledger.Equip(A, SlotOf(first), "primary")).Ok);
+        long second = await Put(Roll("rocket_launcher", 2));
+        int cap = R.Inventory.BackpackSlots(Held.Sheet);
+        for (ulong s = 10; Held.Inventory.Backpack.Count < cap; s++)
+            await Put(Roll("shovel", s));
+        Assert.Equal(-1, R.Inventory.FreeSlot(Held.Inventory, Held.Sheet));
+        int cell = SlotOf(second);
+
+        var swap = await _ledger.Equip(A, cell, "primary");
+
+        Assert.True(swap.Ok, swap.Refusal);
+        Assert.Equal(second, Held.Inventory.Equipped["primary"].Id);
+        Assert.Equal(cell, SlotOf(first));
+        AssertMirrored();
+    }
+
+    [Fact]
+    public async Task A_backpack_move_onto_a_taken_cell_swaps_the_two_on_the_host()
+    {
+        await _ledger.Load(A);
+        long a = await Put(Roll("shovel", 1));
+        long b = await Put(Roll("shovel", 2));
+        int ca = SlotOf(a), cb = SlotOf(b);
+        _host.Calls.Clear();
+
+        var move = await _ledger.Move(A, ca, cb);
+
+        Assert.True(move.Ok, move.Refusal);
+        Assert.Equal([$"swap {A}"], _host.Calls);
+        Assert.Equal((cb, ca), (OnHost(a).Slot, OnHost(b).Slot));
         AssertMirrored();
     }
 

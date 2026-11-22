@@ -123,12 +123,25 @@ public static class HordeArenaObstacles
     /// fallen pillar 1's; the boss stood 52 s at its corner). Nothing blocking: <paramref name="state"/>
     /// for every class, nothing made. Pure; a new state for each class that differs.
     /// </summary>
-    public static NavObstacleState[] ByClass(DerivedNav nav, NavObstacleState state)
+    public static NavObstacleState[] ByClass(DerivedNav nav, NavObstacleState state) => ByClass(nav, state, null);
+
+    /// <summary>
+    /// <see cref="ByClass(DerivedNav, NavObstacleState)"/> where each class starts from its own
+    /// cells, <paramref name="bases"/>[class] (the level's cells a static prop takes from that
+    /// class's hull: <see cref="HordeNavData.OpenFor"/>), or <paramref name="state"/>'s for a class
+    /// with none; a class whose cells are its own is a state of its own even with nothing blocking.
+    /// </summary>
+    public static NavObstacleState[] ByClass(DerivedNav nav, NavObstacleState state, IReadOnlyList<NavCellBlocks?>? bases)
     {
         ArgumentNullException.ThrowIfNull(nav);
         ArgumentNullException.ThrowIfNull(state);
         var classes = new NavObstacleState[2 + HordeHulls.Scales.Length];
-        Array.Fill(classes, state);
+        for (int k = 0; k < classes.Length; k++)
+        {
+            NavCellBlocks? own = bases is not null && k < bases.Count ? bases[k] : null;
+            classes[k] = own is null || ReferenceEquals(own, state.Cells) ? state : WithCells(state, own);
+        }
+
         List<int>? boxes = null;
         for (int o = 0; o < nav.Obstacles.Length && o < state.Count; o++)
         {
@@ -145,6 +158,7 @@ public static class HordeArenaObstacles
             var cls = (ClearanceClass)k;
             if (cls == ClearanceClass.Crouch)
                 continue;
+            NavObstacleState start = classes[k];
             float r = HordeHulls.HalfWidthOf(cls) + CellHalf, height = HordeHulls.HeightOf(cls);
             byte[]? cells = null;
             foreach (int o in boxes)
@@ -161,7 +175,7 @@ public static class HordeArenaObstacles
                     if (cells is null)
                     {
                         cells = new byte[graph.CellCount];
-                        NavCellBlocks? had = state.Cells;
+                        NavCellBlocks? had = start.Cells;
                         for (int i = 0; had is not null && i < cells.Length; i++)
                             cells[i] = had.State(i);
                     }
@@ -171,14 +185,17 @@ public static class HordeArenaObstacles
             }
 
             if (cells is not null)
-            {
-                NavObstacleState grown = state.Clone();
-                grown.Cells = new NavCellBlocks(cells);
-                classes[k] = grown;
-            }
+                classes[k] = WithCells(state, new NavCellBlocks(cells));
         }
 
         return classes;
+    }
+
+    private static NavObstacleState WithCells(NavObstacleState state, NavCellBlocks cells)
+    {
+        NavObstacleState copy = state.Clone();
+        copy.Cells = cells;
+        return copy;
     }
 
     /// <summary>

@@ -3,6 +3,18 @@ using SourceSharp.Abi;
 namespace TF2.Descent.Server;
 
 /// <summary>
+/// Whether the level now starting is a same-process hop this process began
+/// (HostService asks at each level start): a hop makes the process another
+/// instance, which Booting tells; any other level change (an operator's
+/// changelevel) keeps the instance the process was.
+/// </summary>
+public interface ISameProcessHop
+{
+    /// <summary>True once, for the level start a hop to <paramref name="map"/> began; false for any other.</summary>
+    bool Take(string map);
+}
+
+/// <summary>
 /// A same-process hop's level change (docs/sdk-integration.md §6, the host's
 /// local SameProcess travel): once the service has acknowledged Ready, link
 /// the target's level files into the mod's <c>pool/maps</c> and change level to
@@ -17,9 +29,20 @@ namespace TF2.Descent.Server;
 /// </para>
 /// </summary>
 [SideService(Side.Server)]
-public sealed class LevelHop(IModInfo mod, IServerConsole console, ILog log) : IHostCommandHook
+public sealed class LevelHop(IModInfo mod, IServerConsole console, ILog log) : IHostCommandHook, ISameProcessHop
 {
     private string? _changingTo;
+
+    // The map this process changed level to for a hop, until that level starts.
+    private string? _starting;
+
+    public bool Take(string map)
+    {
+        bool hop = string.Equals(map, _starting, StringComparison.OrdinalIgnoreCase);
+        if (hop)
+            _starting = null;
+        return hop;
+    }
 
     /// <summary>Where the target's level files are linked: the mod's pool/maps (gameinfo searches |gameinfo_path|pool).</summary>
     public string PoolMaps => Path.Combine(mod.GameDir, "pool", "maps");
@@ -72,6 +95,7 @@ public sealed class LevelHop(IModInfo mod, IServerConsole console, ILog log) : I
         }
 
         _changingTo = hop.Map;
+        _starting = hop.Map;
 
         Directory.CreateDirectory(PoolMaps);
         foreach (var file in hop.LevelFiles)

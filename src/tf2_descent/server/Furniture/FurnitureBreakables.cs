@@ -74,6 +74,7 @@ public sealed class FurnitureBreakables(FurnitureService furniture, IFurnitureHe
         foreach (var row in rows.Take(BreakablesNetState.Max))
         {
             byte entry = FurnitureCatalog.Number(FurnitureKindId.Breakable, row.Variant);
+            row.BreakableSlot = _props.Count;   // its number to the host (SDK 2.8 Break): the slot index, stable for a level copy
             _props.Add(BreakableGeometry.OnTheWire(_props.Count, entry, new NVector(row.Position.X, row.Position.Y, row.Position.Z), row.Yaw));
             _rows.Add(row);
         }

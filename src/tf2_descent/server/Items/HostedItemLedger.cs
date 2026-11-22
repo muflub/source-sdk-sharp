@@ -66,6 +66,9 @@ public sealed class HostedItemLedger(IGameRules rules, IHooks<IItemLedgerHook> h
     {
         "no_capacity" => full,
         "wrong_owner" => LedgerRefusals.WrongOwner,
+        "no_australium" => LedgerRefusals.NoAustralium,
+        "not_in_party" => LedgerRefusals.NotInParty,
+        "already_broken" => LedgerRefusals.AlreadyBroken,
         _ => $"{LedgerRefusals.HostPrefix}{r.Error}:{r.Reason}",
     };
 
@@ -242,12 +245,16 @@ public sealed class HostedItemLedger(IGameRules rules, IHooks<IItemLedgerHook> h
             }
             case "move":
             {
-                // The host refuses an occupied slot (slot_taken); the rules swap. A swap is not asked.
-                if (before.Inventory.Backpack.ContainsKey(op.To))
-                    return Unsupported;
-                var r = await host.Move(hero, HostIdOf(before.Inventory.Backpack[op.Slot].Id) ?? "", op.To);
+                // Onto an occupied cell the rules swap the two: SDK 2.8's Swap, one write.
+                long id = before.Inventory.Backpack[op.Slot].Id;
+                if (before.Inventory.Backpack.TryGetValue(op.To, out var other))
+                    return await SwapOnHost(hero, id, other.Id) is { } why ? Confirmed.No(why) : new Confirmed(predicted, null);
+                var r = await host.Move(hero, HostIdOf(id) ?? "", op.To);
                 return r.Ok ? new Confirmed(predicted, null) : Confirmed.No(Refusal(r.Refusal!));
             }
+            case "stack":
+                // A backpack stack into another: SDK 2.8's Merge, the rules' own arithmetic.
+                return await MergeOnHost(hero, before.Inventory.Backpack[op.Slot].Id, before.Inventory.Backpack[op.To].Id, predicted);
             case "deposit":
             {
                 long id = before.Inventory.Backpack[op.Slot].Id;
@@ -321,10 +328,11 @@ public sealed class HostedItemLedger(IGameRules rules, IHooks<IItemLedgerHook> h
             }
             case "to_belt":
             {
-                // The host keeps a stack as one item and has no merge: only an empty belt slot is asked.
-                if (before.Inventory.Belt.ContainsKey(op.To))
-                    return Unsupported;
-                return await MoveOnHost(hero, before.Inventory.Backpack[op.Slot].Id, HostContainer.Belt, op.To) is { } why
+                // Onto a belt slot holding the same potion the rules merge the stacks: SDK 2.8's Merge.
+                long id = before.Inventory.Backpack[op.Slot].Id;
+                if (before.Inventory.Belt.TryGetValue(op.To, out var there))
+                    return await MergeOnHost(hero, id, there.Id, predicted);
+                return await MoveOnHost(hero, id, HostContainer.Belt, op.To) is { } why
                     ? Confirmed.No(why) : new Confirmed(predicted, null);
             }
             case "from_belt":
@@ -345,8 +353,10 @@ public sealed class HostedItemLedger(IGameRules rules, IHooks<IItemLedgerHook> h
                 return await Wear(op, before, predicted);
             case "repair_worn":
             {
-                // The Engineer's repair is the host's town repair (hub only, priced by the host); a waived price has no call.
-                if (op.To != (int)WornRepair.Town)
+                // The Engineer's repair is the host's town repair (hub only, priced by the rules over the hero's sheet,
+                // contract 1.2). The dev command's waiver has no call: only a hero whose perks waive the price (the
+                // rules' town_free, which the host reads from his sheet) repairs free on the host.
+                if (op.To == (int)WornRepair.TownUncharged && !Rules.TownFree(before.Sheet))
                     return Unsupported;
                 var r = await host.Repair(hero, HostId(op.Id), HostRepairKind.Town, null);
                 return r.Ok ? new Confirmed(WithAnswered(predicted, op.Id, r.Value), null) : Confirmed.No(Refusal(r.Refusal!));
@@ -358,16 +368,44 @@ public sealed class HostedItemLedger(IGameRules rules, IHooks<IItemLedgerHook> h
                 return r.Ok ? new Confirmed(WithAnswered(predicted, op.Id, r.Value), null) : Confirmed.No(Refusal(r.Refusal!));
             }
             default:
-                // stack, give, australium and set_durability: no host call carries them.
+                // give, australium and set_durability: no host call carries them.
                 return Unsupported;
         }
     }
 
+    /// <summary>Two carried items exchange their container and slot on the host (SDK 2.8 <c>Swap</c>); the refusal as the ledger says it, or null.</summary>
+    private async Task<string?> SwapOnHost(string hero, long a, long b)
+    {
+        var r = await host.Swap(hero, HostId(a), HostId(b));
+        return r.Ok ? null : Refusal(r.Refusal!);
+    }
+
+    /// <summary>
+    /// <paramref name="from"/>'s stack into <paramref name="into"/>'s on the host (SDK 2.8 <c>Merge</c>,
+    /// the rules' <c>Merge</c>): <paramref name="predicted"/> is the rules' own merge, with the two
+    /// stacks as the host answered them (what is left of the source, or nothing when it was used up).
+    /// </summary>
+    private async Task<Confirmed> MergeOnHost(string hero, long from, long into, LedgerHero predicted)
+    {
+        var r = await host.Merge(hero, HostId(from), HostId(into));
+        if (!r.Ok)
+            return Confirmed.No(Refusal(r.Refusal!));
+        var after = predicted;
+        if (r.Value is [{ } intoAfter, { } fromAfter])
+        {
+            after = WithAnswered(after, into, intoAfter);
+            if (fromAfter.State != HostItemState.Consumed)
+                after = WithAnswered(after, from, fromAfter);
+        }
+        return new Confirmed(after, null);
+    }
+
     /// <summary>
     /// An equip on the host (SDK 2.7 <c>Move</c> into the slot's index): the item from its backpack
-    /// cell into the equipment slot. An item worn there first goes to a free backpack cell (the
-    /// host refuses a taken slot), then, when the rules put it where the new one was, there. Each
-    /// is a host call of its own: a refusal after the first resyncs from the host.
+    /// cell into the equipment slot. An item worn there is swapped out (SDK 2.8 <c>Swap</c>, one
+    /// write: the worn item takes the new one's cell, so a full backpack is no obstacle); when the
+    /// rules put it elsewhere (the new one came from a withdraw-only cell) it moves on there, a
+    /// refusal of that second call resyncing from the host.
     /// </summary>
     private async Task<Confirmed> Equip(Op op, LedgerHero before, LedgerHero predicted)
     {
@@ -377,15 +415,10 @@ public sealed class HostedItemLedger(IGameRules rules, IHooks<IItemLedgerHook> h
         if (!before.Inventory.Equipped.TryGetValue(slot, out var old))
             return await MoveOnHost(hero, id, HostContainer.Equipped, index) is { } why ? Confirmed.No(why) : new Confirmed(predicted, null);
 
+        if (await SwapOnHost(hero, id, old.Id) is { } refused)
+            return Confirmed.No(refused);
         int to = BackpackSlotOf(predicted, old.Id);
-        int spare = Rules.Inventory.FreeSlot(before.Inventory, before.Sheet);
-        if (spare < 0)
-            return Unsupported;   // a swap through a full backpack: the host has no swap, and no cell to pass it through
-        if (await MoveOnHost(hero, old.Id, HostContainer.Backpack, spare) is { } off)
-            return Confirmed.No(off);
-        if (await MoveOnHost(hero, id, HostContainer.Equipped, index) is { } on)
-            return await Resynced(before, on);
-        if (to != spare && await MoveOnHost(hero, old.Id, HostContainer.Backpack, to) is { } back)
+        if (to != op.Slot && await MoveOnHost(hero, old.Id, HostContainer.Backpack, to) is { } back)
             return await Resynced(before, back);
         return new Confirmed(predicted, null);
     }
@@ -504,14 +537,10 @@ public sealed class HostedItemLedger(IGameRules rules, IHooks<IItemLedgerHook> h
                 log.Warning($"[TF2Descent] reveal of kill {kill.KillSeq} for {kill.Hero} refused: {Refusal(r.Refusal!)}\n");
                 return;
             }
-            // After any operation of the hero's in flight: one that commits later would put back the Australium it read.
-            // SDK 2.7 books the whole roll to the killer and to every nearby member here, at the reveal. SDK 2.8 makes
-            // a kill's Australium one pile on the floor, shared by the party on pickup: its Claim credits it then.
-            long booked = r.Value.AustraliumBooked;
-            if (booked > 0)
-                await Serial(kill.Hero, () => Task.FromResult(Find(kill.Hero) is { } h
-                    ? Commit("kill_australium", h, h with { Inventory = h.Inventory with { Australium = h.Inventory.Australium + booked } }, [])
-                    : LedgerResult.Refused(LedgerRefusals.NoHero)));
+            // SDK 2.8's Reveal credits nothing (the SDK sets australium_pile): a kill's Australium is its pile's
+            // (KillAustralium), paid to the party when one of them picks it up (ClaimAustralium).
+            if (r.Value.AustraliumBooked != 0)
+                log.Warning($"[TF2Descent] reveal of kill {kill.KillSeq} for {kill.Hero} booked {r.Value.AustraliumBooked} Australium: a 2.8 reveal books none\n");
         }
         catch (Exception e)
         {
@@ -539,6 +568,58 @@ public sealed class HostedItemLedger(IGameRules rules, IHooks<IItemLedgerHook> h
         if (!opened.Ok)
             return DropResult.Refused(Refusal(opened.Refusal!));
         return new DropResult(true, null, [.. opened.Value.Select(i => OnFloor(i, drop.Hero, drop.Position)).OfType<FloorItem>()]);
+    }
+
+    /// <summary>
+    /// A kill's pile (SDK 2.8 <c>KillAustralium</c> under the killer's lease): the host replays the
+    /// kill's roll and its pile, the roll's Australium, is put on this floor under a ledger id. The
+    /// game's own roll is not sent: the host's answer is the pile.
+    /// </summary>
+    public override async Task<PileAnswer> KillAustralium(KillPile kill)
+    {
+        var r = await host.KillAustralium(kill.Killer, kill.KillSeq, kill.Robot, kill.PartySize, kill.Position);
+        if (!r.Ok)
+            return new PileAnswer(false, Refusal(r.Refusal!), null);
+        return new PileAnswer(true, null, PlacePile(new AustraliumPile(IdOf(r.Value.Id), r.Value.Count, kill.Killer)));
+    }
+
+    /// <summary>
+    /// The pile picked up (SDK 2.8 <c>ClaimAustralium</c> under the claimer's lease): the host pays
+    /// every member of the killer's party leased on this level his share at once (its parties and
+    /// leases decide who; <paramref name="members"/> is not sent), and each credit is put in that
+    /// hero's purse here when he is in memory (else his next load reads it).
+    /// </summary>
+    public override async Task<PileTake> ClaimAustralium(string hero, long pileId, IReadOnlyList<string> members)
+    {
+        if (PileOf(pileId) is null)
+            return PileTake.Refused(LedgerRefusals.NotOnFloor);
+        var r = await host.ClaimAustralium(hero, HostId(pileId));
+        if (!r.Ok)
+            return PileTake.Refused(Refusal(r.Refusal!));
+        UnplacePile(pileId);
+        var credits = new List<PileCredit>();
+        foreach (var c in r.Value)
+        {
+            credits.Add(new PileCredit(c.CharacterId, c.Amount));
+            if (c.Amount > 0)
+                await Credit(c.CharacterId, c.Amount, "australium_pile", load: false);
+        }
+        return new PileTake(true, null, credits);
+    }
+
+    /// <summary>
+    /// A numbered breakable broken by one hero (SDK 2.8 <c>Break</c> under his lease): the host replays
+    /// the rules' roll for him and credits its Australium (put in his purse here too); its items are
+    /// placed on this floor for him. <c>already_broken</c> the second time.
+    /// </summary>
+    public override async Task<BreakAnswer> Break(BreakDrop drop)
+    {
+        var r = await host.Break(drop.Hero, drop.Seq);
+        if (!r.Ok)
+            return BreakAnswer.Refused(Refusal(r.Refusal!));
+        if (r.Value.Australium > 0)
+            await Credit(drop.Hero, r.Value.Australium, "breakable_australium", load: false);
+        return new BreakAnswer(true, null, r.Value.Australium, [.. r.Value.Items.Select(i => OnFloor(i, drop.Hero, drop.Position)).OfType<FloorItem>()]);
     }
 
     public override async Task<DropResult> BossDrop(BossDrop boss)

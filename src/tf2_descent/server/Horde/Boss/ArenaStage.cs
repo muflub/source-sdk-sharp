@@ -39,14 +39,15 @@ public sealed class EngineArenaEntities(IEngineEntities entities) : IArenaEntiti
 }
 
 /// <summary>
-/// THE SEAM WHERE THE HORDE'S PATHS LEARN THE ARENA CHANGED: the stage tells it each input it fires,
+/// THE SEAM WHERE THE HORDE'S PATHS LEARN THE ARENA CHANGED: the stage tells it the inputs it fires,
 /// by the brush's name, whether the map holds the brush or not (the horde's navigation matches it to
-/// the level's obstacles of that name, <c>HordeNav</c>).
+/// the level's obstacles of that name, <c>HordeNav</c>), the inputs of one event together (a drilled
+/// station's pillar falling and its rubble landing are one change of the arena).
 /// </summary>
 public interface IArenaObstacles
 {
-    /// <summary>The brushes named <paramref name="name"/> were enabled (<paramref name="enabled"/>) or disabled.</summary>
-    void Changed(string name, bool enabled);
+    /// <summary>The brushes named in <paramref name="changes"/> were each enabled or disabled, together.</summary>
+    void Changed(IReadOnlyList<(string Name, bool Enabled)> changes);
 }
 
 /// <summary>The boss's phase the arena has reached this level, as the staged hazards read it (1-based; 1 before the fight's first change).</summary>
@@ -110,7 +111,7 @@ public sealed class ArenaStage(IArenaEntities entities, IArenaObstacles obstacle
     public int Missing { get; private set; }
 
     /// <summary>The level's boss stands: the leg-1 mouths open.</summary>
-    public void BossFound() => Once(MouthName(1), Disable, "the leg-1 mouths are open from the start");
+    public void BossFound() => Tell(Once(MouthName(1), Disable, "the leg-1 mouths are open from the start", out _), null);
 
     /// <summary>The boss entered <paramref name="phase"/> (1-based); the phases between the last and it are entered too.</summary>
     public void PhaseEntered(int phase)
@@ -119,8 +120,7 @@ public sealed class ArenaStage(IArenaEntities entities, IArenaObstacles obstacle
         {
             Phase = p;
             string why = string.Create(CultureInfo.InvariantCulture, $"the boss entered phase {p}");
-            Once(PlatformName(p), Disable, why);
-            Once(MouthName(p), Disable, why);
+            Tell(Once(PlatformName(p), Disable, why, out _), Once(MouthName(p), Disable, why, out _));
             log.Msg(string.Create(CultureInfo.InvariantCulture, $"[TF2Descent/Boss] arena: phase {p}: its staged hazards ({HazardName(p, "<kind>")}) are on\n"));
         }
     }
@@ -130,26 +130,43 @@ public sealed class ArenaStage(IArenaEntities entities, IArenaObstacles obstacle
     {
         string why = string.Create(CultureInfo.InvariantCulture, $"the Tank drilled station {station}");
         var sounds = rules.Rules.Bosses.Settings.Sounds;
-        foreach (var pillar in Once(PillarName(station), Disable, why))
+        var pillar = Once(PillarName(station), Disable, why, out var fell);
+        foreach (var p in fell)
         {
-            world.Particle(sounds.PillarDust, pillar.Centre);
-            world.Sound(pillar.Handle, sounds.PillarFalls);
+            world.Particle(sounds.PillarDust, p.Centre);
+            world.Sound(p.Handle, sounds.PillarFalls);
         }
 
-        Once(RubbleName(station), Enable, why);
+        // The pillar's fall and its rubble's landing are one change of the arena: the paths never plan with the pillar gone and no rubble.
+        Tell(pillar, Once(RubbleName(station), Enable, why, out _));
     }
 
     /// <summary>The boss is dead: the brush over the way down goes.</summary>
-    public void Fallen() => Once(ExitName, Disable, "the boss is dead");
+    public void Fallen() => Tell(Once(ExitName, Disable, "the boss is dead", out _), null);
 
-    /// <summary>Fires <paramref name="input"/> at <paramref name="name"/> unless this level already did; says once when the map holds none.</summary>
-    private IReadOnlyList<ArenaEntity> Once(string name, string input, string why)
+    /// <summary>Tells the horde's paths the inputs fired, together (none fired: nothing told).</summary>
+    private void Tell((string Name, bool Enabled)? first, (string Name, bool Enabled)? second)
     {
+        var changes = new List<(string Name, bool Enabled)>(2);
+        if (first is { } a)
+            changes.Add(a);
+        if (second is { } b)
+            changes.Add(b);
+        if (changes.Count > 0)
+            obstacles.Changed(changes);
+    }
+
+    /// <summary>
+    /// Fires <paramref name="input"/> at <paramref name="name"/> unless this level already did; says once when the map holds none.
+    /// Answers the change to tell the paths (none when already fired), the entities it reached into <paramref name="reached"/>.
+    /// </summary>
+    private (string Name, bool Enabled)? Once(string name, string input, string why, out IReadOnlyList<ArenaEntity> reached)
+    {
+        reached = [];
         if (!_fired.Add(name))
-            return [];
-        var reached = entities.Fire(name, input);
+            return null;
+        reached = entities.Fire(name, input);
         _log.Add((name, input, reached.Count));
-        obstacles.Changed(name, input == Enable);
         if (reached.Count == 0)
         {
             Missing++;
@@ -160,7 +177,7 @@ public sealed class ArenaStage(IArenaEntities entities, IArenaObstacles obstacle
             log.Msg(string.Create(CultureInfo.InvariantCulture, $"[TF2Descent/Boss] arena: {input} {name} ({reached.Count} entit{(reached.Count == 1 ? "y" : "ies")}): {why}\n"));
         }
 
-        return reached;
+        return (name, input == Enable);
     }
 
     public void OnLevelInit(string mapName) => Forget();

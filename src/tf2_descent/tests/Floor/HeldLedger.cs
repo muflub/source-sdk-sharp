@@ -32,6 +32,15 @@ internal sealed class HeldLedger
     public List<(KillDrop Kill, TaskCompletionSource<DropResult> Answer)> KillDrops { get; } = [];
     public List<string> Asked { get; } = [];
 
+    /// <summary>Every pile asked for; answered at once (with <see cref="PileAnswer"/> when set, else the game's roll).</summary>
+    public List<KillPile> KillPiles { get; } = [];
+
+    /// <summary>When set, a pile is answered this (the host's replay).</summary>
+    public Func<KillPile, PileAnswer>? PileAnswer { get; set; }
+
+    /// <summary>Every pile claim: who, which pile, and the members given.</summary>
+    public List<(string Hero, long Pile, IReadOnlyList<string> Members)> PileClaims { get; } = [];
+
     public class Dispatch : DispatchProxy
     {
         public HeldLedger Owner { get; set; } = null!;
@@ -59,6 +68,13 @@ internal sealed class HeldLedger
                     var held = new TaskCompletionSource<DropResult>();
                     o.KillDrops.Add((kill, held));
                     return held.Task;
+                case nameof(IItemLedger.KillAustralium):
+                    var pile = (KillPile)args![0]!;
+                    o.KillPiles.Add(pile);
+                    return Task.FromResult(o.PileAnswer?.Invoke(pile) ?? new PileAnswer(true, null, new AustraliumPile(9000 + o.KillPiles.Count, pile.Australium, pile.Killer)));
+                case nameof(IItemLedger.ClaimAustralium):
+                    o.PileClaims.Add(((string)args![0]!, (long)args[1]!, (IReadOnlyList<string>)args[2]!));
+                    return Task.FromResult(new PileTake(true, null, []));
                 case nameof(IItemLedger.PotionDrop):
                 case nameof(IItemLedger.ContainerDrop):
                 case nameof(IItemLedger.BossDrop):

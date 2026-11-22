@@ -319,6 +319,47 @@ public sealed class HordeArenaNavTests
         Assert.True(nav.Paths.Obstacles!.Blocking(ArenaGraph.Exit), "the control: the brushes not told of stand as shipped");
     }
 
+    // Live on level 10 seed 1 (2026-11-20, at 225fe2e96): a drill told the paths its pillar's fall and its rubble's landing
+    // one at a time, so the arena stood for a moment with the pillar gone and no rubble, the paths planned twice, and the
+    // pillar's line said 4 arena obstacles block on a load whose boss had died before the drill and 5 on one whose had not.
+    [Fact]
+    public void A_drilled_stations_pillar_and_rubble_are_one_change_of_the_paths()
+    {
+        var (rig, nav) = Ready();
+        int before = nav.Paths.Epoch;
+        int lines = rig.Log.Lines.Count(l => l.Text.Contains("nav: ", StringComparison.Ordinal));
+
+        nav.Changed([(ArenaGraph.PillarName, false), (ArenaGraph.RubbleName, true)]);
+
+        var told = rig.Log.Lines.Where(l => l.Text.Contains("nav: ", StringComparison.Ordinal)).Skip(lines).ToList();
+        var line = Assert.Single(told);
+        Assert.Contains(ArenaGraph.PillarName + " disabled", line.Text, StringComparison.Ordinal);
+        Assert.Contains(ArenaGraph.RubbleName + " enabled", line.Text, StringComparison.Ordinal);
+        Assert.Contains("2 arena obstacle(s) block", line.Text, StringComparison.Ordinal);   // the rubble and the exit
+        Assert.NotEqual(before, nav.Paths.Epoch);
+        Assert.False(nav.Paths.Obstacles!.Blocking(ArenaGraph.Pillar));
+        Assert.True(nav.Paths.Obstacles!.Blocking(ArenaGraph.Rubble));
+    }
+
+    /// <summary>Two loads, the boss dying before the drill on one and after it on the other, end with the same arena under one epoch.</summary>
+    [Fact]
+    public void Two_loads_whose_exit_opens_before_and_after_the_drill_end_alike()
+    {
+        var (rig, nav) = Ready();
+        nav.Changed([(ArenaGraph.PillarName, false), (ArenaGraph.RubbleName, true)]);
+        nav.Changed(ArenaStage.ExitName, enabled: false);
+        int first = nav.Paths.Epoch, firstBlocking = nav.ArenaBlocking;
+        Assert.NotEqual(0, first);
+
+        Load(rig, nav);
+        Assert.NotEqual(first, nav.Paths.Epoch);   // the control: the second load starts as the map ships
+        nav.Changed(ArenaStage.ExitName, enabled: false);
+        nav.Changed([(ArenaGraph.PillarName, false), (ArenaGraph.RubbleName, true)]);
+
+        Assert.Equal(first, nav.Paths.Epoch);
+        Assert.Equal(firstBlocking, nav.ArenaBlocking);
+    }
+
     [Fact]
     public void Doors_and_other_toggled_brushes_stay_open_as_before()
     {

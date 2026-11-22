@@ -162,14 +162,21 @@ public sealed partial class ServiceFlowTests
 
     private sealed record World(FakeLink Link, HostService Host, FakeConsole Console, BootWatcher Watcher, NowScheduler Scheduler, ListLog Log);
 
-    private static World Host(HostingMode mode, int? port = 27016)
+    /// <summary>The same-process hops this process began, by target map.</summary>
+    private sealed class Hops : ISameProcessHop
+    {
+        public HashSet<string> Started { get; } = new(StringComparer.Ordinal);
+        public bool Take(string map) => Started.Remove(map);
+    }
+
+    private static World Host(HostingMode mode, int? port = 27016, ISameProcessHop? hops = null)
     {
         var link = new FakeLink { ModeIs = mode };
         var console = new FakeConsole();
         var watcher = new BootWatcher();
         var scheduler = new NowScheduler();
         var log = new ListLog();
-        var host = new HostService(link, new Port(port), scheduler, console, new Hooks<IHostBootHook>(watcher), log);
+        var host = new HostService(link, new Port(port), scheduler, console, new Hooks<IHostBootHook>(watcher), log, hops);
         return new World(link, host, console, watcher, scheduler, log);
     }
 
@@ -244,6 +251,99 @@ public sealed partial class ServiceFlowTests
         Assert.Contains("mapready 27016 tf2_descent_town", w.Link.Calls);
         Assert.True(w.Host.Live);
         Assert.Equal(["booted hub", "live"], w.Watcher.Seen);
+    }
+
+    [Fact]
+    public void A_level_change_that_is_no_hop_keeps_the_instances_boot_and_goes_live_again()
+    {
+        // The service refuses a second Booting from a live instance (not_booting):
+        // an operator's changelevel leaves the process the instance it was.
+        var w = Host(HostingMode.Hosted, port: 27016);
+        w.Link.BootAnswers.Enqueue(HostResult<BootInfo>.Success(Boot()));
+        w.Host.OnPostInit();
+        w.Host.OnLevelInit("tf2_descent_town");
+        w.Host.OnLevelReady("tf2_descent_town");
+
+        w.Host.OnLevelInit("tf2_descent_town");
+        Assert.False(w.Host.Live);
+        Assert.Single(w.Link.Calls, c => c.StartsWith("booting", StringComparison.Ordinal));
+        Assert.Equal("hub", w.Host.Boot?.InstanceKind);
+
+        // Asked only with the boot kept: MapReady waits for a boot, and this
+        // scheduler's delays are already over, so without one it would spin.
+        w.Host.OnLevelReady("tf2_descent_town");
+
+        Assert.Equal(2, w.Link.Calls.Count(c => c == "mapready 27016 tf2_descent_town"));
+        Assert.True(w.Host.Live);
+        Assert.Empty(w.Console.Calls);
+    }
+
+    [Fact]
+    public void A_same_process_hop_boots_the_level_it_moves_to_as_the_instance_it_becomes()
+    {
+        var hops = new Hops();
+        var w = Host(HostingMode.Hosted, port: 27016, hops);
+        w.Link.BootAnswers.Enqueue(HostResult<BootInfo>.Success(Boot()));
+        w.Host.OnPostInit();
+        w.Host.OnLevelInit("tf2_descent_town");
+        w.Host.OnLevelReady("tf2_descent_town");
+
+        hops.Started.Add("tf2_descent-1-a");
+        w.Link.BootAnswers.Enqueue(HostResult<BootInfo>.Success(Boot("level", 1)));
+        w.Host.OnLevelInit("tf2_descent-1-a");
+
+        Assert.Equal(["start", "booting tf2_descent_town", "mapready 27016 tf2_descent_town", "booting tf2_descent-1-a"], w.Link.Calls);
+        Assert.Equal("level", w.Host.Boot!.InstanceKind);
+        Assert.False(w.Host.SameInstance);
+        Assert.Equal(["booted hub", "live", "booted level"], w.Watcher.Seen);
+    }
+
+    [Fact]
+    public void A_level_change_that_is_no_hop_tells_the_boot_hooks_the_boot_it_kept()
+    {
+        var w = Host(HostingMode.Hosted, port: 27016, new Hops());
+        w.Link.BootAnswers.Enqueue(HostResult<BootInfo>.Success(Boot("level", 2)));
+        w.Host.OnPostInit();
+        w.Host.OnLevelInit("tf2_descent-2-a");
+
+        w.Host.OnLevelInit("tf2_descent-2-a");
+
+        Assert.True(w.Host.SameInstance);
+        Assert.Equal(["booted level", "booted level"], w.Watcher.Seen);
+    }
+
+    [Fact]
+    public void A_boot_refused_for_a_reason_retrying_may_fix_is_said_once_while_it_retries()
+    {
+        var w = Host(HostingMode.Hosted);
+        w.Link.BootAnswers.Enqueue(Refused<BootInfo>(HostError.Rejected));
+        w.Link.BootAnswers.Enqueue(Refused<BootInfo>(HostError.Rejected));
+        w.Link.BootAnswers.Enqueue(HostResult<BootInfo>.Success(Boot("hub")));
+
+        w.Host.OnPostInit();
+        w.Host.OnLevelInit("tf2_descent_town");
+
+        var said = Assert.Single(w.Log.Lines, l => l.Contains("Booting was refused", StringComparison.Ordinal));
+        Assert.Contains("Rejected (reason: detail)", said);
+        Assert.Equal("hub", w.Host.Boot!.InstanceKind);
+    }
+
+    [Fact]
+    public void A_boot_refused_not_booting_while_the_instance_is_still_created_is_retried()
+    {
+        // SDK 2.8.1: the service creates the pod while the instance is Creating and marks it Booting only after
+        // the create returns, so a fast process's first Booting can be answered not_booting (host-67, 2026-11-21).
+        var w = Host(HostingMode.Hosted);
+        w.Link.BootAnswers.Enqueue(Refused<BootInfo>(HostError.NotBooting));
+        w.Link.BootAnswers.Enqueue(HostResult<BootInfo>.Success(Boot("hub")));
+
+        w.Host.OnPostInit();
+        w.Host.OnLevelInit("tf2_descent_town");
+
+        Assert.Empty(w.Console.Calls);
+        Assert.Equal("hub", w.Host.Boot!.InstanceKind);
+        var said = Assert.Single(w.Log.Lines, l => l.Contains("Booting was refused", StringComparison.Ordinal));
+        Assert.Contains("NotBooting", said);
     }
 
     [Fact]
@@ -968,6 +1068,26 @@ public sealed partial class ServiceFlowTests
 
         players.OnClientDisconnected(3);
         Assert.DoesNotContain(w.Link.Calls, c => c.StartsWith("leave", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_player_held_through_a_level_change_on_the_same_instance_is_not_joined_again()
+    {
+        var (w, players, clients, _) = Players();
+        clients.Slots[3] = (76561197960287930UL, "203.0.113.7:27005");
+        players.OnClientActive(3);
+        w.Link.Calls.Clear();
+
+        // An operator's changelevel: no hop, no departure (the engine keeps the
+        // client); the instance keeps its boot and the client is active again.
+        w.Host.OnLevelInit("tf2_descent_town");
+        players.OnBooted(w.Host.Boot!);
+        players.OnClientActive(3);
+
+        Assert.DoesNotContain(w.Link.Calls, c => c.StartsWith("join", StringComparison.Ordinal));
+        Assert.DoesNotContain(w.Link.Calls, c => c.StartsWith("leave", StringComparison.Ordinal));
+        Assert.NotNull(players.BySteamId("76561197960287930"));
+        Assert.Equal(1, w.Link.PlayersReported);
     }
 
     //-------------------------------------------------------------------------

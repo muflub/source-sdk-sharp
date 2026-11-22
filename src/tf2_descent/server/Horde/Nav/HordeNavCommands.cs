@@ -59,7 +59,7 @@ public sealed class HordeNavCommand(HordeNav nav, RobotMotion motion, ILog log)
             $"{Tag} props:{nav.Probed} of {nav.Candidates} cells probed, {nav.Blocked} blocked, {nav.ProbeMicros:0} us on the game thread\n"));
         double mean = p.Searches > 0 ? p.Micros / p.Searches : 0;
         log.Msg(string.Create(CultureInfo.InvariantCulture,
-            $"{Tag} searches {p.Searches}: found {p.Found}, nearest place of the floor {p.Nearest}, unreachable {p.Unreachable}, out of budget {p.OutOfBudget}; {mean:0} us each on the workers (longest {p.MostMicros:0} us), {p.CellsOnPaths} cells on found paths\n"));
+            $"{Tag} searches {p.Searches}: found {p.Found}, nearest place of the floor {p.Nearest}, unreachable {p.Unreachable}, out of budget {p.OutOfBudget}; {mean:0} us each on the workers (longest {p.MostMicros:0} us), {p.CellsOnPaths} cells on found paths; components under the arena made {p.JoinsWindowed} by windows and {p.JoinsWhole} whole, {p.JoinMicros:0} us in all on the workers (longest {p.MostJoinMicros:0} us)\n"));
         var s = motion.Stepper;
         log.Msg(string.Create(CultureInfo.InvariantCulture,
             $"{Tag} stepper {nav.StepperName} ({s?.GetType().Name}): {s?.StepsRun} steps at {(s is { StepsRun: > 0 } r ? r.StepMicros / r.StepsRun : 0):0.0} us cpu each; switches {motion.StepperSwitches}\n"));

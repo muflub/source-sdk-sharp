@@ -366,7 +366,8 @@ public sealed class RoomBuilder
     /// Makes the room <paramref name="n"/> by <paramref name="n"/> cells (M24, map tools'
     /// <c>room_footprint</c>): its box is <c>[0, n x cell]</c> along x and y, it has a door on every
     /// cell edge of its perimeter (sockets <c>east0</c> to <c>east{n-1}</c> and so on, each framed and
-    /// capped as any door), and its open floor is the whole interior. No surface may lie on one of
+    /// capped as any door), and its open floor is the whole interior unless it takes an outline
+    /// (<see cref="WithOutline"/>, level 5's rooms on the 512 kit, brief p18). No surface may lie on one of
     /// its internal cell faces (the tools refuse it); <see cref="Build"/> checks.
     /// </summary>
     public RoomBuilder WithFootprint(int n)
@@ -536,6 +537,16 @@ public sealed class RoomBuilder
     }
 
     /// <summary>An <c>info_poi</c> marker (a pack spawn, a shrine, a player spawn), facing <paramref name="yaw"/>.</summary>
+    /// <summary>
+    /// A breakable crate or barrel on its marker (ruling M34, <see cref="Breakables"/>) placed by the shape, not the
+    /// dresser: <paramref name="at"/> is its foot, turned <paramref name="yaw"/> (level 5's maze cells' niches, brief p18).
+    /// </summary>
+    public RoomBuilder WithBreakable(BreakableKind kind, Point at, int yaw)
+    {
+        entities.Add(Breakables.Poi(kind, at, yaw, nameof(Dressing.RoomDresser.Role.Corner)));
+        return this;
+    }
+
     public RoomBuilder WithPoi(string type, Point at, int yaw = 0)
     {
         entities.Add(Point("info_poi", at, ("poi_type", type), ("angles", Angles(yaw))));
@@ -611,10 +622,10 @@ public sealed class RoomBuilder
     {
         Validate();
         var shell = new List<RoomBox>();
-        if (cells > 1)
-            MultiShell(shell);
-        else if (outline.Count > 0)
+        if (outline.Count > 0)
             OutlineShell(shell);
+        else if (cells > 1)
+            MultiShell(shell);
         else
             Shell(shell);
         if (cells == 1)
@@ -804,8 +815,6 @@ public sealed class RoomBuilder
         if (height % kit.NavVoxel != 0)
             throw new ArgumentOutOfRangeException(nameof(height), height,
                 $"room {name}: {height} is not a whole number of the kit's {kit.NavVoxel}-unit navigation voxels");
-        if (cells > 1 && outline.Count > 0)
-            throw new ArgumentException($"room {name}: a larger room's open floor is its whole interior");
         if (width < kit.DoorWidth || width > kit.Interior)
             throw new ArgumentOutOfRangeException(nameof(width), width,
                 $"room {name}: width {width} is outside the door's {kit.DoorWidth} to the cell's {kit.Interior}");
@@ -816,16 +825,16 @@ public sealed class RoomBuilder
             throw new ArgumentOutOfRangeException(nameof(width), width, $"room {name}: width {width} does not centre on whole units");
         if (outline.Count > 0)
         {
-            float t = kit.WallDepth, c = kit.Cell;
+            float t = kit.WallDepth, c = Extent;
             foreach (Rect r in outline)
                 if (r.IsEmpty || r.X0 < t || r.Y0 < t || r.X1 > c - t || r.Y1 > c - t)
                     throw new ArgumentException($"room {name}: an outline rectangle {r} is empty or reaches into the cell's walls ({t} to {c - t})");
-            foreach (CellFace face in doors)
+            foreach (var (face, offset) in Sockets)
             {
-                var (mins, maxs) = ApproachBox(face);
+                var (mins, maxs) = ApproachBox(face, offset);
                 var inside = new Rect(Math.Max(mins.X, t), Math.Max(mins.Y, t), Math.Min(maxs.X, c - t), Math.Min(maxs.Y, c - t));
                 if (!Rects.Covers(outline, inside))
-                    throw new ArgumentException($"room {name}: its {WallName(face)} door's approach ({mins})-({maxs}) is not all open floor of the outline");
+                    throw new ArgumentException($"room {name}: its {SocketName(face, offset)} door's approach ({mins})-({maxs}) is not all open floor of the outline");
             }
         }
 
@@ -993,16 +1002,17 @@ public sealed class RoomBuilder
     /// </summary>
     private void OutlineShell(List<RoomBox> world)
     {
-        float c = kit.Cell, t = kit.WallDepth, h = height;
+        // A larger room may be outlined too (brief p18, level 5's rooms on the 512 kit): its box is the footprint's.
+        float c = Extent, t = kit.WallDepth, h = height;
         float z0 = t, z1 = h - t;
         Floors(world);
         Ceilings(world);
-        var doorways = doors.Select(f => kit.PlugBox(f)).Select(p => new Rect(p.Mins.X, p.Mins.Y, p.Maxs.X, p.Maxs.Y)).ToArray();
+        var doorways = Sockets.Select(s => PlugBox(s.Face, s.Offset)).Select(p => new Rect(p.Mins.X, p.Mins.Y, p.Maxs.X, p.Maxs.Y)).ToArray();
         foreach (Rect r in Rects.Subtract(new Rect(0, 0, c, c), outline.Concat(doorways)))
             world.Add(new RoomBox(new(r.X0, r.Y0, z0), new(r.X1, r.Y1, z1), theme.Wall));
-        foreach (CellFace face in doors)
+        foreach (var (face, offset) in Sockets)
         {
-            var plug = kit.PlugBox(face);
+            var plug = PlugBox(face, offset);
             if (kit.Head < z1)
                 world.Add(new RoomBox(plug.Mins with { Z = kit.Head }, plug.Maxs with { Z = z1 }, theme.Wall));
             world.Add(new RoomBox(plug.Mins, plug.Maxs, theme.Plug));

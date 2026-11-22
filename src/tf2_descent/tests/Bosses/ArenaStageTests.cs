@@ -98,6 +98,19 @@ public sealed class ArenaStageTests
     }
 
     [Fact]
+    public void A_drilled_stations_pillar_and_rubble_are_told_to_the_paths_together()
+    {
+        var rig = Rig("major_crits");
+        var body = rig.Lend();
+        int before = rig.ArenaObstacles.Told.Count;
+
+        rig.Ask(body, HordeAbilities.TankDrilled, 2);
+
+        var told = Assert.Single(rig.ArenaObstacles.Told.Skip(before));
+        Assert.Equal([(ArenaStage.PillarName(2), false), (ArenaStage.RubbleName(2), true)], told);
+    }
+
+    [Fact]
     public void A_falling_pillar_raises_its_dust_and_crashes_where_it_stands()
     {
         var rig = Rig("major_crits");

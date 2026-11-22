@@ -1,6 +1,7 @@
 using System.Globalization;
 
 using SourceSharp.Abi;
+using SourceSharp.Server;
 
 namespace TF2.Descent.Server.Horde.Session;
 
@@ -37,6 +38,39 @@ public sealed class HordeAiCommand(HordeSession session, HordeService horde, ILo
                 seen.Append(CultureInfo.InvariantCulture, $" {b.HeroSlots.ActorAt(h)}");
         log.Msg(string.Create(CultureInfo.InvariantCulture,
             $"[TF2Descent/Horde] ai: robot {robot} body {body} brain {b.BrainAt(body)}: {doing}; range {range:0} cone {MathF.Acos(cos) * 180f / MathF.PI:0} deg recognise {recognize} ticks hearing x{hearing:0.00}; sees{(seen.Length == 0 ? " nobody" : seen.ToString())}; carried {roster.Carried(robot)}\n"));
+    }
+}
+
+/// <summary>
+/// <c>tf2_descent_horde_call &lt;robot&gt; [player]</c>: the robot's pack told where the hero in that
+/// slot (default 1) stands, however far, as a pack call tells it (<see cref="Ai.Brains.HordeBrains.CallPackTo"/>):
+/// its members with a brain go to look, its far and sleeping robots converge (dev: the measure of a
+/// hunt along the level's paths from any distance).
+/// </summary>
+[ConCommand("tf2_descent_horde_call", Flags = ConVarFlags.Cheat,
+            Help = "tf2_descent_horde_call <robot> [player slot]: tell the robot's pack where that hero stands, however far: its brains go to look, its far robots converge")]
+public sealed class HordeCallCommand(HordeSession session, HordeService horde, IEnginePlayers players, IEngineEntities entities, IHordeClock clock, ILog log)
+{
+    public void Execute(int robot, int slot = 1)
+    {
+        if (session.Brains is not { } b || horde.Current?.Roster is not { } roster || (uint)robot >= (uint)roster.Count)
+        {
+            log.Msg($"[TF2Descent/Horde] call: no robot {robot}\n");
+            return;
+        }
+
+        var hero = players.GetHandle(slot);
+        if (hero == EntityHandle.None)
+        {
+            log.Msg($"[TF2Descent/Horde] call: no player {slot}\n");
+            return;
+        }
+
+        var at = HordeVectors.ToAi(entities.GetOrigin(hero));
+        int told = b.CallPackTo(clock.Tick, robot, slot, at);
+        int pack = roster.Pack(robot);
+        log.Msg(string.Create(CultureInfo.InvariantCulture,
+            $"[TF2Descent/Horde] call: pack {pack} of robot {robot} told player {slot} stands at ({at.X:0},{at.Y:0},{at.Z:0}): {told} brain(s) told, contact room {roster.ContactRoom(pack)}\n"));
     }
 }
 

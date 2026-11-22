@@ -931,7 +931,10 @@ public sealed class FurnitureService(IDescentModeState mode, ILevelData level, T
         row.Went = true;
         Broken++;
         bool forced = _forced is not null;
-        var outcome = _forced ?? rules.Furniture.Breaks.Roll(Seed, row.Placed.Marker).Outcome;
+        // Hosted, a crate or barrel is numbered by its slot (SDK 2.8 Break) and its outcome keyed on the instance,
+        // that number and the depth, as the host's BreakableDrops keys it; unhosted on the level seed and its marker.
+        uint? hostedSeq = ledger.Kind == LedgerKind.Hosted && row.BreakableSlot is int slot ? (uint)slot : null;
+        var outcome = _forced ?? (hostedSeq is { } seq ? rules.Furniture.Breaks.Hosted(Seed, seq, Depth) : rules.Furniture.Breaks.Roll(Seed, row.Placed.Marker).Outcome);
         _forced = null;
         row.Broke = outcome;
 
@@ -949,8 +952,20 @@ public sealed class FurnitureService(IDescentModeState mode, ILevelData level, T
             world.Sound(self, FurnitureSounds.BreakOf(row.Variant));
 
         string what;
+        string? onHost = null;
+        if (hostedSeq is { } numbered)
+        {
+            // R4: every hero in the room breaks it for himself, the breaker first, whatever the outcome (the host's roll).
+            onHost = await BreakOnHost(row, by?.Slot ?? -1, numbered);
+            if (onHost is null)
+                return outcome;
+        }
+
         switch (outcome)
         {
+            case BreakOutcome.Australium or BreakOutcome.Potion or BreakOutcome.Item when onHost is not null:
+                what = onHost;
+                break;
             case BreakOutcome.Australium or BreakOutcome.Potion or BreakOutcome.Item:
             {
                 var members = Members(row, by?.Slot ?? -1);
@@ -1012,8 +1027,43 @@ public sealed class FurnitureService(IDescentModeState mode, ILevelData level, T
 
         log.Msg(string.Create(CultureInfo.InvariantCulture,
             $"[TF2Descent/Furniture] {row.Variant} #{row.Index} ({row.Placed.Marker}) broken by {(by is { } h ? "player " + h.Slot : "no hero")} at ({row.Position.X:0} {row.Position.Y:0} {row.Position.Z:0}): " +
-            $"roll {outcome.ToString().ToLowerInvariant()}{(forced ? " (forced)" : "")}: {what}\n"));
+            $"roll {outcome.ToString().ToLowerInvariant()}{(forced ? " (forced)" : "")}: {what}" +
+            $"{(onHost is not null && !BreakableSettings.PerPlayer(outcome) ? "; " + onHost : "")}\n"));
         return outcome;
+    }
+
+    /// <summary>
+    /// A numbered crate or barrel broken on the host (SDK 2.8 <c>Break</c>): once for each hero
+    /// <see cref="Members"/> names (the breaker first, then the room's), each with his own lease and
+    /// roll; each one's Australium is credited to him at once and his items lie on the floor on his own
+    /// seat. Answers what each got, for the break's line; null when the level ended meanwhile.
+    /// </summary>
+    private async Task<string?> BreakOnHost(FurnitureRow row, int first, uint seq)
+    {
+        int levelAt = Level;
+        var place = ground.TryGround(row.Position + new Vector(0f, 0f, 8f), out var g) ? g : row.Position;
+        var asked = Members(row, first).Select(m => (Hero: m, Answer: ledger.Break(new BreakDrop(m.Key, seq, Seed, Depth, place)))).ToList();
+        var shares = new List<LootShare>();
+        var said = new List<string>();
+        foreach (var (m, task) in asked)
+        {
+            var answer = await task;
+            if (Level != levelAt)
+                return null;
+            if (!answer.Ok)
+            {
+                said.Add($"{m.Key} refused: {answer.Refusal}");
+                continue;
+            }
+            var item = answer.Items.Count > 0 ? answer.Items[0] : null;
+            shares.Add(new LootShare(m.Key, m.Slot, item, 0));
+            said.Add(string.Create(CultureInfo.InvariantCulture,
+                $"{m.Key} {(item is { } i ? i.Item.BaseId : "no item")}{(answer.Australium > 0 ? $", {answer.Australium} Australium credited" : "")}"));
+        }
+
+        var drop = floor.Place(place, shares);
+        return string.Create(CultureInfo.InvariantCulture,
+            $"hosted breakable {seq}, each hero's own [{string.Join("; ", said)}], {(drop is { } d ? $"drop {d.Number} at ({place.X:0} {place.Y:0} {place.Z:0})" : "nothing on the floor")}");
     }
 
     //-------------------------------------------------------------------------

@@ -341,8 +341,8 @@ public sealed class TF2DescentRules : IGameRules
         return new([], [ItemRules.Codec.ToRolled(ItemRules.Durability.Worn(ItemRules.Codec.Instance(item), amount, amount))], 0);
     }
 
-    /// <summary>The Engineer's repair (town) or the Repair Kit's (field), contract 1.1: <see cref="Repairs.Repair(RolledItem, RepairKind, RolledItem?, ulong)"/>.</summary>
-    public ItemChange Repair(RolledItem item, RepairKind kind, RolledItem? kit, ulong seed) => Repairs.Repair(item, kind, kit, seed);
+    /// <summary>Whether <paramref name="sheet"/>'s perks waive the Engineer's price (<see cref="Repairs.TownFree"/> over the sheet's skill stats).</summary>
+    public bool TownFree(HeroSheet sheet) => Repairs.TownFree(Skills.Stats(sheet, SkillBonuses.None));
 
     /// <summary>
     /// What a new hero of <paramref name="className"/> starts with (contract 1.1; starting_kits.json):
@@ -384,6 +384,66 @@ public sealed class TF2DescentRules : IGameRules
         var hero = SheetCodec.Read(opener);
         return Loot.ContainerDrops(instanceSeed, containerSeq, depth, hero.Name, hero.ClassId, hero.Level);
     }
+
+    //-------------------------------------------------------------------------
+    // Host.Contracts 1.2: the Australium pile, repairs by the hero, breakables, merges
+    //-------------------------------------------------------------------------
+
+    /// <summary>
+    /// A kill's Australium pile divided when it is picked up (contract 1.2; the user's ruling L24):
+    /// <see cref="LootRules.Split"/> among <paramref name="killerFirst"/> (the remainder one apiece
+    /// from the killer), each share raised by its member's own <c>australium_find_pct</c>
+    /// (<see cref="LootRules.FoundShare"/>: Scavenger, read from the sheet's skill ranks), and never
+    /// past the whole pile.
+    /// </summary>
+    public IReadOnlyList<long> AustraliumShares(long total, IReadOnlyList<CharacterSheet> killerFirst)
+    {
+        if (killerFirst.Count == 0)
+            return [];
+        var split = LootRules.Split(Math.Max(0, total), killerFirst.Count);
+        return [.. killerFirst.Select((s, i) => Math.Min(Math.Max(0, total), LootRules.FoundShare(split[i], AustraliumFindPct(SheetCodec.Read(s)))))];
+    }
+
+    /// <summary>The Australium a hero finds beyond his share, in percent: his sheet's skill stats' <c>australium_find_pct</c>.</summary>
+    public double AustraliumFindPct(HeroSheet sheet) => Skills.Stats(sheet, SkillBonuses.None).Total("australium_find_pct");
+
+    /// <summary>
+    /// A repair by a hero (contract 1.2, <see cref="Repairs.Repair(RolledItem, RepairKind, RolledItem?, int, bool, ulong)"/>):
+    /// a field repair runs at the repairer's level, a town repair is free when his perks waive it
+    /// (<see cref="TownFree"/>). The 1.1 member, which carries no sheet, is the contract's default:
+    /// the town's price, and no field repair.
+    /// </summary>
+    public ItemChange Repair(RolledItem item, RepairKind kind, RolledItem? kit, CharacterSheet sheet, ulong seed)
+    {
+        var hero = SheetCodec.Read(sheet);
+        return Repairs.Repair(item, kind, kit, hero.Level, TownFree(hero), seed);
+    }
+
+    /// <summary>
+    /// One numbered breakable broken by <paramref name="opener"/> (contract 1.2): the outcome keyed on
+    /// the instance, the number and the depth (<see cref="BreakRules.Hosted"/>), so every hero agrees;
+    /// a share of his own for Australium, a potion or an item (<see cref="LootRules.Breakable"/> from
+    /// <see cref="BreakRules.HostedRequest"/>, its item as a container's); the empty roll for nothing
+    /// and for a blast, a cloud or an ambush, which the game carries out from the same outcome.
+    /// </summary>
+    public BreakableRoll BreakableDrops(ulong instanceSeed, uint breakableSeq, int depth, CharacterSheet opener)
+    {
+        var outcome = Furniture.Breaks.Hosted(instanceSeed, breakableSeq, depth);
+        if (!BreakableSettings.PerPlayer(outcome))
+            return new(0, []);
+        var hero = SheetCodec.Read(opener);
+        var request = Furniture.Breaks.HostedRequest(instanceSeed, breakableSeq, hero.Name, hero.ClassId);
+        var share = Loot.Breakable(request, outcome, depth);
+        var item = Loot.ContainerItem(hero.ClassId, hero.Level, depth, share.Item ? share.Tier : -1,
+            share.Outcome == LootOutcome.Potion ? share.Potion : null, request.Seed);
+        return new(share.Australium, item is null ? [] : [ItemRules.Codec.ToRolled(item)]);
+    }
+
+    /// <summary>Two stacks of one kind become one (contract 1.2, <see cref="InventoryRules.Merge"/>); an item of an older schema does not stack.</summary>
+    public ItemChange Merge(RolledItem source, RolledItem target) =>
+        source.SchemaVersion != ItemCodec.Schema || target.SchemaVersion != ItemCodec.Schema
+            ? new([], [], 0, InventoryRefusals.NotStackable)
+            : Inventory.Merge(ItemRules.Codec.Instance(source), ItemRules.Codec.Instance(target));
 }
 
 /// <summary>Why the contract's <c>Wear</c> was refused.</summary>

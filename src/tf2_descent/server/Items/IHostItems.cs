@@ -73,6 +73,34 @@ public interface IHostItems
     /// <summary>SDK 2.7 <c>Items.OpenContainer</c>: the rules' container roll replayed by the host and minted to this floor for the opener; refused <c>already_opened</c> the second time.</summary>
     Task<HostResult<IReadOnlyList<HostItem>>> OpenContainer(string steamId, uint containerSeq);
 
+    /// <summary>
+    /// SDK 2.8 <c>Items.KillAustralium</c> under the killer's lease: the host replays the kill's roll
+    /// (<paramref name="killSeq"/> is the seat-0 kill sequence, whose roll carries the Australium) and
+    /// mints one pile on this floor (<see cref="HostItem.IsAustraliumPile"/>, <c>Count</c> the roll);
+    /// <c>already_minted</c> a second time, <c>no_australium</c> for a roll of none.
+    /// </summary>
+    Task<HostResult<HostItem>> KillAustralium(string steamId, uint killSeq, string robot, int partySize, Vector position);
+
+    /// <summary>
+    /// SDK 2.8 <c>Items.ClaimAustralium</c>: the pile picked up by the player (the killer or one of
+    /// his party); every party member on this level is credited his share at once. Each credit names
+    /// its member by SteamID when that player is held here (else by the host's character id).
+    /// </summary>
+    Task<HostResult<IReadOnlyList<HostAustraliumCredit>>> ClaimAustralium(string steamId, string pileId);
+
+    /// <summary>
+    /// SDK 2.8 <c>Items.Break</c> under the player's lease: the host replays the rules'
+    /// <c>BreakableDrops</c> for him, credits its Australium to him and puts its items on this floor
+    /// for him; <c>already_broken</c> a second time.
+    /// </summary>
+    Task<HostResult<HostBreak>> Break(string steamId, uint breakableSeq);
+
+    /// <summary>SDK 2.8 <c>Items.Swap</c>: two carried items exchange their container and slot in one write; answers [a, b] as they are after.</summary>
+    Task<HostResult<IReadOnlyList<HostItem>>> Swap(string steamId, string itemA, string itemB);
+
+    /// <summary>SDK 2.8 <c>Items.Merge</c>: <paramref name="fromItemId"/>'s stack into <paramref name="intoItemId"/>'s; answers [into, from] as they are after (from <see cref="HostItemState.Consumed"/> when used up).</summary>
+    Task<HostResult<IReadOnlyList<HostItem>>> Merge(string steamId, string fromItemId, string intoItemId);
+
     /// <summary><c>Items.RecordDeath</c> under the player's lease (<see cref="IHostLink.RecordDeath"/>, the same method): true when the host took it.</summary>
     Task<bool> RecordDeath(string steamId, Vector position);
 

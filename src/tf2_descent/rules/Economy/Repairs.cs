@@ -120,28 +120,38 @@ public sealed class Repairs
     public string Kit => S.Kit;
 
     /// <summary>
-    /// The hero level a field repair with <paramref name="kit"/> runs at: the hero's level when the
-    /// kit came to him (its roll context's), the only hero level the contract's
-    /// <c>Repair(item, Field, kit, seed)</c> carries; at least 1.
+    /// The stat that waives the Engineer's price for a hero (stats.json; a perk that sets it to 1
+    /// or more makes his town repairs free). The game's own word for a waived repair is
+    /// <c>town_free</c> (the dev command's); the rules read it from the hero, never from the caller,
+    /// so no server can waive a price the hero has not earned.
     /// </summary>
-    public static int KitLevel(RolledItem kit) => Math.Max(1, kit.Context.CharacterLevel);
+    public const string TownFreeStat = "town_repair_free";
+
+    /// <summary>Whether a hero with <paramref name="stats"/> repairs in town for nothing: <see cref="TownFreeStat"/> at 1 or more.</summary>
+    public static bool TownFree(Hero.HeroStats stats) => stats.Total(TownFreeStat) >= 1;
 
     /// <summary>
-    /// <c>IGameRules.Repair(item, kind, kit, seed)</c> (Host.Contracts 1.1). A town repair is the
-    /// Engineer's (<see cref="Repair(RolledItem)"/>: priced, the maximum untouched). A field repair
-    /// takes one Repair Kit (<paramref name="kit"/>, a stack of one) and runs <see cref="Field"/> at
-    /// <see cref="KitLevel"/>: the item comes back in place (<c>Produced[0]</c>), the kit is used up
+    /// <c>IGameRules.Repair(item, kind, kit, sheet, seed)</c> (Host.Contracts 1.2), by the repairer:
+    /// <paramref name="heroLevel"/> and <paramref name="townFree"/> are read from his sheet. A town
+    /// repair is the Engineer's (<see cref="Repair(RolledItem)"/>: priced, the maximum untouched),
+    /// <c>Cost = 0</c> when his price is waived (<see cref="TownFree"/>). A field repair takes one
+    /// Repair Kit (<paramref name="kit"/>, a stack of one) and runs <see cref="Field"/> at the
+    /// hero's level: the item comes back in place (<c>Produced[0]</c>), the kit is used up
     /// (<c>Consumed = [1]</c>), nothing is paid. Refused, nothing used, without a kit, on a stack of
     /// kits, or where <see cref="Field"/> refuses (at the maximum, unusable, no gear).
     /// </summary>
-    public ItemChange Repair(RolledItem item, RepairKind kind, RolledItem? kit, ulong seed)
+    public ItemChange Repair(RolledItem item, RepairKind kind, RolledItem? kit, int heroLevel, bool townFree, ulong seed)
     {
-        if (kind == RepairKind.Town) return Repair(item);
+        if (kind == RepairKind.Town)
+        {
+            var town = Repair(item);
+            return town.Ok && townFree ? town with { Cost = 0 } : town;
+        }
         if (kit is null || kit.BaseType != S.Kit || kit.SchemaVersion != ItemCodec.Schema || item.BaseType == S.Kit)
             return new([], [], 0, RepairRefusals.NeedsKitAndItem);
         if (kit.Count != 1) return new([], [], 0, RepairRefusals.KitStack);
         if (item.SchemaVersion != ItemCodec.Schema) return new([], [], 0, RepairRefusals.NotRepairable);
-        var result = Field(_codec.Instance(item), KitLevel(kit), seed);
+        var result = Field(_codec.Instance(item), heroLevel, seed);
         return result.Ok ? new([1], [_codec.ToRolled(result.Item!)], 0) : new([], [], 0, result.Refusal);
     }
 

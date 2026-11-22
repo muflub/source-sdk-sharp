@@ -71,10 +71,12 @@ public sealed class DescentRoomsVerbTests(DescentLibraries libs) : IClassFixture
     [InlineData(15)]
     [InlineData(1)]
     [InlineData(14)]
-    public void Every_depth_builds_on_the_normal_kits_cell(int depth)
+    public void Every_depth_builds_on_the_normal_kits_cell_but_level_5_on_its_512(int depth)
     {
-        Assert.Equal(1024, DescentRooms.KitFor(depth).Cell);
-        Assert.All(Built(depth), r => Assert.Equal(1024, r.Kit.Cell));
+        // Level 5 is a maze of 512 cells (brief p18, M36).
+        int cell = depth == MazeLevel.Depth ? 512 : 1024;
+        Assert.Equal(cell, DescentRooms.KitFor(depth).Cell);
+        Assert.All(Built(depth), r => Assert.Equal(cell, r.Kit.Cell));
     }
 
     [Theory]
@@ -96,11 +98,11 @@ public sealed class DescentRoomsVerbTests(DescentLibraries libs) : IClassFixture
     {
         Room arena = Built(depth).Single(r => r.Entry.Tags.Contains("boss_arena"));
 
-        Assert.Equal(depth == 15 ? 1 : 2, arena.Sockets.Count());
+        // Level 5's: the maze's two doors and the way down's (brief p18).
+        Assert.Equal(depth switch { 15 => 1, 5 => 3, _ => 2 }, arena.Sockets.Count());
     }
 
     [Theory]
-    [InlineData(5)]
     [InlineData(10)]
     [InlineData(15)]
     public void A_boss_library_holds_only_its_rows_rooms(int depth)
@@ -145,7 +147,7 @@ public sealed class DescentRoomsVerbTests(DescentLibraries libs) : IClassFixture
     }
 
     [Theory]
-    [MemberData(nameof(AllDepths))]
+    [MemberData(nameof(RulesDepths))]
     public void The_layout_makes_every_depths_level_from_its_library(int depth)
     {
         var pool = PoolOf(depth);
@@ -158,7 +160,7 @@ public sealed class DescentRoomsVerbTests(DescentLibraries libs) : IClassFixture
     }
 
     [Theory]
-    [MemberData(nameof(AllDepths))]
+    [MemberData(nameof(RulesDepths))]
     public void A_levels_jump_minimums_are_met_from_its_library(int depth)
     {
         LayoutResult result = new LevelLayout().Generate(depth, 7, PoolOf(depth));
@@ -197,13 +199,16 @@ public sealed class DescentRoomsVerbTests(DescentLibraries libs) : IClassFixture
     private const int RoutineSeeds = 20;
 
     [Theory]
-    [MemberData(nameof(AllDepths))]
+    [MemberData(nameof(RulesDepths))]
     public void The_real_catalogue_lays_out_every_depth_at_20_seeds_without_a_shortfall(int depth)
     {
         var problems = DescentRealCatalogueSweepTests.Sweep(depth, PoolOf(depth), RoutineSeeds);
 
         Assert.True(problems.Count == 0, $"depth {depth}: {problems.Count} problems, first: {string.Join(" | ", problems.Take(3))}");
     }
+
+    /// <summary>The depths the rules module's generator lays: all but level 5, whose maze the map generator lays (brief p18; <c>DescentMazeLevelTests</c>).</summary>
+    public static TheoryData<int> RulesDepths => [.. Enumerable.Range(1, 15).Where(d => d != MazeLevel.Depth)];
 
     public static TheoryData<int> NormalDepths => [.. Enumerable.Range(1, 15).Where(d => !DepthTable.For(d).IsBoss)];
 

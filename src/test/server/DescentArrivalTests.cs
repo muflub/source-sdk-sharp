@@ -28,22 +28,44 @@ public sealed class DescentArrivalTests(DescentLibraries libs) : IClassFixture<D
     private static bool IsWayIn(string name) => RoomName.Parse(name).Family is "arrival" or "camp";
 
     /// <summary>The placements joined to <paramref name="at"/>: one cell over, each with a door facing the other.</summary>
+    /// <summary>Each door of a placement as the level grid's cell and the side it opens on: a larger room's (unturned, level 5's on the 512 kit) on each of its sockets.</summary>
+    private static IEnumerable<(int Row, int Column, Doors Side)> DoorEdges(Placement p)
+    {
+        var shape = RoomName.Parse(p.Room);
+        if (!shape.IsMultiCell)
+        {
+            Doors doors = DoorSets.Rotate(shape.Doors, p.Rotation);
+            foreach (Doors side in (Doors[])[Doors.North, Doors.East, Doors.South, Doors.West])
+                if ((doors & side) != 0)
+                    yield return (p.Row, p.Column, side);
+            yield break;
+        }
+
+        for (int k = 0; k < shape.CellsX; k++)
+        {
+            if (shape.HasSocket(Doors.South, k)) yield return (p.Row, p.Column + k, Doors.South);
+            if (shape.HasSocket(Doors.North, k)) yield return (p.Row + shape.CellsY - 1, p.Column + k, Doors.North);
+        }
+
+        for (int k = 0; k < shape.CellsY; k++)
+        {
+            if (shape.HasSocket(Doors.West, k)) yield return (p.Row + k, p.Column, Doors.West);
+            if (shape.HasSocket(Doors.East, k)) yield return (p.Row + k, p.Column + shape.CellsX - 1, Doors.East);
+        }
+    }
+
     private static IEnumerable<Placement> Joined(LevelPlan plan, Placement at)
     {
-        Doors mine = DoorSets.Rotate(RoomName.Parse(at.Room).Doors, at.Rotation);
-        foreach (Placement p in plan.Placements)
+        var mine = DoorEdges(at).Select(e => e.Side switch
         {
-            Doors side = (p.Row - at.Row, p.Column - at.Column) switch
-            {
-                (1, 0) => Doors.North,
-                (-1, 0) => Doors.South,
-                (0, 1) => Doors.East,
-                (0, -1) => Doors.West,
-                _ => Doors.None,
-            };
-            if (side != Doors.None && (mine & side) != 0 && (DoorSets.Rotate(RoomName.Parse(p.Room).Doors, p.Rotation) & DoorSets.Opposite(side)) != 0)
+            Doors.North => (e.Row + 1, e.Column, Doors.South),
+            Doors.South => (e.Row - 1, e.Column, Doors.North),
+            Doors.East => (e.Row, e.Column + 1, Doors.West),
+            _ => (e.Row, e.Column - 1, Doors.East),
+        }).ToHashSet();
+        foreach (Placement p in plan.Placements)
+            if (p != at && DoorEdges(p).Any(mine.Contains))
                 yield return p;
-        }
     }
 
     [Theory]
@@ -56,12 +78,13 @@ public sealed class DescentArrivalTests(DescentLibraries libs) : IClassFixture<D
         int neighbours = 0;
         for (ulong seed = 1; seed <= Seeds; seed++)
         {
-            LayoutResult result = new LevelLayout().Generate(depth, seed, pool);
-            Assert.True(result.Ok, $"depth {depth} seed {seed}: {result.Error}");
-            Placement arrival = result.Plan!.Placements.Single(p => IsWayIn(p.Room));
+            // Level 5's maze is laid by the map generator (brief p18), every other depth by the rules module.
+            var (plan, _, error) = DescentLevel.Lay(depth, seed, pool, _ => 0);
+            Assert.True(plan is not null, $"depth {depth} seed {seed}: {error}");
+            Placement arrival = plan!.Placements.Single(p => IsWayIn(p.Room));
             if (Packs(rooms[arrival.Room]) > 0)
                 found.Add($"seed {seed}: the way in {arrival.Room} holds {Packs(rooms[arrival.Room])} pack(s)");
-            foreach (Placement next in Joined(result.Plan, arrival))
+            foreach (Placement next in Joined(plan, arrival))
             {
                 neighbours++;
                 if (Packs(rooms[next.Room]) > 0)

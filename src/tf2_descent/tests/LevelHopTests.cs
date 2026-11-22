@@ -83,6 +83,30 @@ public sealed class LevelHopTests : IDisposable
     }
 
     [Fact]
+    public void The_level_a_hop_changed_to_is_told_it_is_the_hop_once()
+    {
+        var hop = Hop();
+        Assert.False(hop.Take("tf2_descent-1-a"));
+
+        hop.OnHopped(Notice("tf2_descent-1-a"));
+
+        Assert.False(hop.Take("tf2_descent_town"));
+        Assert.True(hop.Take("tf2_descent-1-a"));
+        Assert.False(hop.Take("tf2_descent-1-a"));
+    }
+
+    [Fact]
+    public void A_cross_process_or_unacknowledged_hop_is_no_level_change_of_this_process()
+    {
+        var hop = Hop();
+
+        hop.OnHopped(Notice("tf2_descent-1-a", sameProcess: false));
+        hop.OnHopped(Notice("tf2_descent-1-a", ready: false));
+
+        Assert.False(hop.Take("tf2_descent-1-a"));
+    }
+
+    [Fact]
     public void A_cross_process_or_unacknowledged_hop_changes_nothing()
     {
         var hop = Hop();

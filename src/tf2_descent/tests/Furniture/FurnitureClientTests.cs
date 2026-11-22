@@ -14,10 +14,6 @@ using FurnitureFlags = client::TF2.Descent.Shared.FurnitureFlags;
 using FurnitureKindId = client::TF2.Descent.Shared.FurnitureKindId;
 using FurnitureNear = client::TF2.Descent.Client.Furniture.FurnitureNear;
 using IClientLevelHook = client::SourceSharp.Client.IClientLevelHook;
-using ClientCollisionGroup = client::SourceSharp.Abi.EngineCollisionGroup;
-using ClientSideServiceAttribute = client::SourceSharp.Abi.SideServiceAttribute;
-using IBreakPieceGroupRule = client::SourceSharp.Client.TempEnts.IBreakPieceGroupRule;
-using TFBreakPieceGroup = client::TF2.Descent.Client.Furniture.TFBreakPieceGroup;
 
 namespace TF2.Descent.Tests.Furniture;
 
@@ -119,15 +115,5 @@ public sealed class FurnitureClientTests
 
         Assert.Empty(near.Live);
         Assert.Empty(near.Near(96));
-    }
-
-    [Fact]
-    public void A_broken_piece_on_the_client_is_DEBRIS_as_TFs_are()
-    {
-        // TF_CLIENT_DLL's arm of BreakModelCreateSingle, after Initialize's PUSHAWAY.
-        IBreakPieceGroupRule rule = new TFBreakPieceGroup();
-
-        Assert.Equal(ClientCollisionGroup.Debris, rule.Group(ClientCollisionGroup.PushAway));
-        Assert.Contains(typeof(TFBreakPieceGroup).GetCustomAttributes<ClientSideServiceAttribute>(), a => a.Side == Side.Client);
     }
 }

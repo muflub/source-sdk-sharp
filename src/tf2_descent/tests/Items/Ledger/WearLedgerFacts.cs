@@ -166,6 +166,24 @@ public sealed class WearLedgerFacts
     }
 
     [Fact]
+    public async Task A_field_repair_runs_at_the_heros_level_not_the_level_the_kit_was_had_at()
+    {
+        // Contract 1.2 carries the repairer's sheet; the 2.7 interim read the kit's stored level.
+        var worn = await Launcher();
+        var broken = worn.Item with { Durability = 0 };
+        Plant("primary", broken);
+        _ledger.SetSheet(A, Held.Sheet with { Level = 1 });
+        await GiveKit(heroLevel: 30);
+
+        var r = await _ledger.RepairWorn(A, "primary", WornRepair.Field);
+
+        var after = Held.Inventory.Equipped["primary"].Item;
+        Assert.True(r.Ok, r.Refusal);
+        Assert.Equal(60 - R.Repairs.Field(broken, 1, 1).Steps.Sum(s => s.MaxLost), after.MaxDurability);
+        Assert.NotEqual(R.Repairs.Field(broken, 30, 1).Item!.MaxDurability, after.MaxDurability);
+    }
+
+    [Fact]
     public async Task A_field_repair_of_what_is_worn_spends_one_repair_kit_from_the_backpack()
     {
         var worn = await Launcher();

@@ -20,14 +20,15 @@ public static class DescentRooms
     /// The kit a depth's rooms are built on (§3.1), cut to its theme's door frame: the normal kit at
     /// every depth, the boss levels' arenas being rooms larger than one cell on it (§3.2, M24).
     /// </summary>
-    public static RoomKit KitFor(int depth) => RoomKit.For(RoomKit.Normal.Name, 1024, ThemeFor(Check(depth)).DoorFrame, RoomKit.Normal.NavVoxel);
+    public static RoomKit KitFor(int depth) =>
+        RoomKit.For(RoomKit.Normal.Name, Check(depth) == MazeLevel.Depth ? RoomKit.MazeCell : RoomKit.NormalCell, ThemeFor(depth).DoorFrame, RoomKit.Normal.NavVoxel);
 
     /// <summary>The theme a depth is drawn in (§7, task A9): Act I's at depths 1 to 4, Phase 1's grey below them for now.</summary>
     public static RoomTheme ThemeFor(int depth) => RoomTheme.ForDepth(Check(depth));
 
     /// <summary>The families a depth's library is made of.</summary>
     public static IReadOnlyList<RoomShape> ShapesFor(int depth) =>
-        DepthTable.For(Check(depth)).IsBoss ? RoomCatalogue.Boss : RoomCatalogue.Mine;
+        Check(depth) == MazeLevel.Depth ? RoomCatalogue.Maze : DepthTable.For(depth).IsBoss ? RoomCatalogue.Boss : RoomCatalogue.Mine;
 
     /// <summary>The rooms of a depth's library for a seed: its families' rooms whose depth range holds the depth, dressed in its theme.</summary>
     public static IReadOnlyList<Room> Rooms(int depth, ulong seed) => [.. Dressed(depth, seed).Select(r => r.Dressed)];
@@ -66,7 +67,9 @@ public static class DescentRooms
             var (built, use) = room.Role == RoomRole.Up && theme.Arrival is { } arrival ? (theme.Redraw(room, arrival), arrival)
                 : theme.Caves is { } caves && theme.CaveFamilies.Contains(Dressing.RoomDresser.Family(room.Name)) ? (theme.Redraw(room, caves), caves)
                 : (room, theme);
-            rooms.Add((built, Dressing.RoomDresser.Dress(built, use, seed, Breakables.CapAt(depth)), use));
+            // A maze cell holds only the breakable its shape stood in its niche (brief p18): 92 of them share the level's 96.
+            int cap = Shapes.MazeShape.IsMaze(built.Name) ? 0 : Breakables.CapAt(depth);
+            rooms.Add((built, Dressing.RoomDresser.Dress(built, use, seed, cap), use));
         }
 
         return rooms;

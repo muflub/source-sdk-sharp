@@ -67,6 +67,58 @@ public static class Parts
         };
     }
 
+    /// <summary>
+    /// The cells a side a room of the normal kit's size covers on <paramref name="kit"/>: 1 on the
+    /// normal kit, 2 on level 5's 512 kit (brief p18: the maze level's other rooms keep their size and
+    /// become rooms of 2 by 2 cells).
+    /// </summary>
+    public static int SpanCells(RoomKit kit) => Math.Max(1, RoomKit.NormalCell / kit.Cell);
+
+    /// <summary>The extent of a room of the normal kit's size on <paramref name="kit"/>: <see cref="SpanCells"/> cells.</summary>
+    public static float Span(RoomKit kit) => SpanCells(kit) * kit.Cell;
+
+    /// <summary>
+    /// Gives a room of the normal kit's size its doors on <paramref name="doors"/>: on the normal kit one
+    /// door a wall; on a smaller cell (level 5's 512) a room of <see cref="SpanCells"/> cells a side with
+    /// a socket on the first cell edge of each wall (the south's on east and west, the west's on north and
+    /// south), so a row of such rooms meets face to face.
+    /// </summary>
+    public static RoomBuilder Seat(this RoomBuilder b, params CellFace[] doors)
+    {
+        int n = SpanCells(b.Kit);
+        return n == 1 ? b.WithDoors(doors) : b.WithFootprint(n).WithSockets([.. doors.Select(f => (f, 0))]);
+    }
+
+    /// <summary>The door axis of <paramref name="b"/>'s socket on <paramref name="face"/>: its first socket's middle along the wall.</summary>
+    private static float AxisOf(RoomBuilder b, CellFace face) =>
+        b.Kit.Cell / 2f + b.Kit.Cell * b.Sockets.Where(s => s.Face == face).Select(s => s.Offset).DefaultIfEmpty(0).First();
+
+    /// <summary>A door's neck as <see cref="Neck(RoomKit, CellFace, float, float)"/>, in <paramref name="b"/>'s own box and on its socket's axis (a larger room's).</summary>
+    public static Rect Neck(RoomBuilder b, CellFace face, float width, float length)
+    {
+        float c = b.Extent, t = b.Kit.WallDepth, m = AxisOf(b, face), w = width / 2f;
+        return face switch
+        {
+            CellFace.East => new(c - t - length, m - w, c - t, m + w),
+            CellFace.West => new(t, m - w, t + length, m + w),
+            CellFace.North => new(m - w, c - t - length, m + w, c - t),
+            _ => new(m - w, t, m + w, t + length),
+        };
+    }
+
+    /// <summary>A door's point as <see cref="DoorPoint(RoomKit, CellFace, float)"/>, in <paramref name="b"/>'s own box and on its socket's axis.</summary>
+    public static Point DoorPoint(RoomBuilder b, CellFace face, float inset)
+    {
+        float c = b.Extent, t = b.Kit.WallDepth, m = AxisOf(b, face), f = b.Kit.Sill;
+        return face switch
+        {
+            CellFace.East => new(c - t - inset, m, f),
+            CellFace.West => new(t + inset, m, f),
+            CellFace.North => new(m, c - t - inset, f),
+            _ => new(m, t + inset, f),
+        };
+    }
+
     /// <summary>The point on a door's axis <paramref name="inset"/> in from the wall's inner face, on the floor.</summary>
     public static Point DoorPoint(RoomKit kit, CellFace face, float inset)
     {
@@ -106,7 +158,7 @@ public static class Parts
     public static RoomBuilder LampsFromDoors(this RoomBuilder b, Point hub, float spacing, float above, Lamp lamp)
     {
         foreach (CellFace face in b.DoorFaces)
-            b.LampsAlong(DoorPoint(b.Kit, face, 0), hub, spacing, above, lamp);
+            b.LampsAlong(DoorPoint(b, face, 0), hub, spacing, above, lamp);
         return b;
     }
 

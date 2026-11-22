@@ -75,6 +75,15 @@ public sealed class FurnitureBreakablesTests
     }
 
     [Fact]
+    public void Each_crate_and_barrel_is_numbered_by_its_slot_for_the_host()
+    {
+        var rig = new Rig();
+
+        Assert.All(rig.Breakables.Props, p => Assert.Equal(p.Slot, rig.Breakables.Rows[p.Slot].BreakableSlot));
+        Assert.True(rig.Breakables.Props.Count > 1, "the stimulus: more than one slot to number");
+    }
+
+    [Fact]
     public void The_entitys_state_fits_the_largest_blob_tier()
     {
         // The shells' largest standalone tier is 2048 bytes, the engine block included

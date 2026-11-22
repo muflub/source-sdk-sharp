@@ -431,21 +431,46 @@ public static class DescentLevel
     /// (<c>.roomcams</c>, <see cref="RoomCameras"/>); the layout's error when
     /// the pool cannot make one.
     /// </summary>
-    public static (string? Error, LayoutReport? Report) Generate(string libraryDir, int depth, ulong seed, string output)
+    public static (string? Error, IReadOnlyList<string>? Comments) Generate(string libraryDir, int depth, ulong seed, string output)
     {
-        var (library, rooms) = ReadManifest(File.ReadAllText(Path.Combine(libraryDir, "library.json")));
-        LayoutResult result = new LevelLayout().Generate(depth, seed, rooms);
-        if (!result.Ok)
-            return (result.Error, null);
-        if (OverLevelCap(result.Plan!, File.ReadAllText(Path.Combine(libraryDir, "library.json"))) is { } over)
+        string manifest = File.ReadAllText(Path.Combine(libraryDir, "library.json"));
+        var (library, rooms) = ReadManifest(manifest);
+        var (laid, comments, why) = Lay(depth, seed, rooms, room => BreakablesOf(manifest, room));
+        if (laid is not { } plan)
+            return (why, null);
+
+        if (OverLevelCap(plan, manifest) is { } over)
             return (over, null);
-        File.WriteAllText(output, Write(result.Plan!, library, LevelKeys.ForDepth(depth), Comments(depth, seed, result.Report!)));
-        var cameras = Cameras(result.Plan!, File.ReadAllText(Path.Combine(libraryDir, "library.json"))).ToList();
-        if (DoorwayCamera(result.Plan!, DescentRooms.ThemeFor(depth).Props.RailFamilies) is { } doorway)
+        File.WriteAllText(output, Write(plan, library, LevelKeys.ForDepth(depth), comments));
+        var cameras = Cameras(plan, manifest).ToList();
+        if (DoorwayCamera(plan, DescentRooms.ThemeFor(depth).Props.RailFamilies, DescentRooms.KitFor(depth).Cell) is { } doorway)
             cameras.Add(doorway);
         File.WriteAllLines(Path.ChangeExtension(output, ".cameras"), cameras);
-        File.WriteAllLines(Path.ChangeExtension(output, ".roomcams"), RoomCameras(result.Plan!, File.ReadAllText(Path.Combine(libraryDir, "library.json"))));
-        File.WriteAllText(Path.ChangeExtension(output, ".arena"), ArenaFile(result.Plan!, File.ReadAllText(Path.Combine(libraryDir, "library.json"))));
-        return (null, result.Report);
+        File.WriteAllLines(Path.ChangeExtension(output, ".roomcams"), RoomCameras(plan, manifest));
+        File.WriteAllText(Path.ChangeExtension(output, ".arena"), ArenaFile(plan, manifest));
+        return (null, comments);
+    }
+
+    /// <summary>
+    /// A level's plan and the level file's comments from a library's rooms: level 5's maze by <see cref="MazeLevel"/>
+    /// (brief p18), every other depth by the rules module's generator; or why there is none.
+    /// </summary>
+    public static (LevelPlan? Plan, IReadOnlyList<string> Comments, string? Error) Lay(int depth, ulong seed, IReadOnlyList<RoomInfo> rooms, Func<string, int> breakablesOf)
+    {
+        if (depth == MazeLevel.Depth)
+        {
+            var (maze, laid, error) = MazeLevel.Plan(seed, rooms, breakablesOf);
+            return maze is null ? (null, [], error) : (maze, MazeLevel.Comments(seed, maze, laid!), null);
+        }
+
+        LayoutResult result = new LevelLayout().Generate(depth, seed, rooms);
+        return result.Ok ? (result.Plan, Comments(depth, seed, result.Report!), null) : (null, [], result.Error);
+    }
+
+    /// <summary>The breakables <c>library.json</c> counts for one room (0 for a room without one).</summary>
+    public static int BreakablesOf(string manifestJson, string room)
+    {
+        using var doc = JsonDocument.Parse(manifestJson);
+        return doc.RootElement.GetProperty("rooms").TryGetProperty(room, out JsonElement r) && r.TryGetProperty("breakables", out JsonElement n) ? n.GetInt32() : 0;
     }
 }

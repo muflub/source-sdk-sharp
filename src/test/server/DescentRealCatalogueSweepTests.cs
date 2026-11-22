@@ -1,4 +1,5 @@
 using SourceSharp.Host.Contracts;
+using SourceSharp.MapGen.Descent;
 using TF2.Descent.Rules.Layout;
 using Xunit;
 
@@ -16,7 +17,8 @@ public sealed class DescentRealCatalogueSweepTests
 {
     private const int Seeds = 200;
 
-    public static TheoryData<int> AllDepths => [.. Enumerable.Range(1, 15)];
+    /// <summary>The depths the rules module lays: level 5's maze is the map generator's (brief p18).</summary>
+    public static TheoryData<int> AllDepths => [.. Enumerable.Range(1, 15).Where(d => d != MazeLevel.Depth)];
 
     /// <summary>Every problem of the levels of seeds 1 to <paramref name="seeds"/> at a depth from a pool.</summary>
     internal static List<string> Sweep(int depth, IReadOnlyList<RoomInfo> pool, int seeds)

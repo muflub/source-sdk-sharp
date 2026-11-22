@@ -115,6 +115,20 @@ public static class RoomCatalogue
     ];
 
     /// <summary>
+    /// Level 5's rooms on its 512 kit (brief p18, M35, M36): the way in, the antechamber and the way down as rooms
+    /// of 2 by 2 cells, the narrowed Magazine, and the maze's cells by door mask in the connector families their
+    /// doors make (<see cref="Shapes.MazeShape"/>). The lobby is the drift's quiet twin, as at every boss level.
+    /// </summary>
+    public static IReadOnlyList<RoomShape> Maze { get; } =
+    [
+        new("arrival", Shapes.ArrivalShape.Variants),
+        new("antechamber", Shapes.AntechamberShape.Variants),
+        new("arena", Shapes.ArenaShape.Variants),
+        new("exit", Shapes.ExitShape.Variants),
+        .. Shapes.MazeShape.Families.Select(f => new RoomShape(f, Shapes.MazeShape.Of(f))),
+    ];
+
+    /// <summary>
     /// Every room of every family, family by family, in each family's order,
     /// each renamed from its author's <c>family_variant</c> to the layout's
     /// name (<see cref="LayoutNames"/>).

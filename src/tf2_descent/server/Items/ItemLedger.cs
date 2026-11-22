@@ -86,6 +86,10 @@ public sealed class ItemLedger(
     public Task<DropResult> ContainerDrop(ContainerDrop drop) => Current.ContainerDrop(drop);
     public Task<LedgerResult> Claim(string hero, long floorId) => Current.Claim(hero, floorId);
     public Task<LedgerResult> CollectAustralium(string hero, long amount) => Current.CollectAustralium(hero, amount);
+    public Task<PileAnswer> KillAustralium(KillPile kill) => Current.KillAustralium(kill);
+    public Task<PileTake> ClaimAustralium(string hero, long pileId, IReadOnlyList<string> members) => Current.ClaimAustralium(hero, pileId, members);
+    public Task<BreakAnswer> Break(BreakDrop drop) => Current.Break(drop);
+    public IReadOnlyCollection<AustraliumPile> Piles => Current.Piles;
     public Task<LedgerResult> Drop(string hero, int slot, Vector position) => Current.Drop(hero, slot, position);
     public Task<LedgerResult> Move(string hero, int from, int to) => Current.Move(hero, from, to);
     public Task<LedgerResult> Stack(string hero, int from, int to) => Current.Stack(hero, from, to);

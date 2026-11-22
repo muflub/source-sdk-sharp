@@ -84,6 +84,36 @@ public sealed class BreakRules
         return new BreakRoll(marker, all[r.Pick([.. all.Select(S.Weight)])]);
     }
 
+    /// <summary>
+    /// The outcome of breaking hosted breakable <paramref name="breakableSeq"/> (the breakables
+    /// manager's slot) on the instance of <paramref name="instanceSeed"/> at <paramref name="depth"/>
+    /// (Host.Contracts 1.2 <c>BreakableDrops</c>): keyed on those three alone, so every hero the host
+    /// asks for agrees on it, and the game carries out the same outcome (a blast, a cloud, an ambush).
+    /// The depth is the levels table's (one below 1 reads depth 1, as every loot roll does), so a
+    /// hub's depth 0 and its level's 1 agree.
+    /// </summary>
+    public BreakOutcome Hosted(ulong instanceSeed, uint breakableSeq, int depth)
+    {
+        var r = Seeded.From(instanceSeed, "break_hosted", breakableSeq, Math.Clamp(depth, 1, _content.Levels.Rows.Count));
+        var all = Enum.GetValues<BreakOutcome>();
+        return all[r.Pick([.. all.Select(S.Weight)])];
+    }
+
+    /// <summary>The name a hosted breakable goes by in its share's roll: its number on the level.</summary>
+    public static string HostedName(uint breakableSeq) => "breakable:" + breakableSeq.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// What one opener's share of hosted breakable <paramref name="breakableSeq"/> is rolled from: the
+    /// breakables' table, for the opener as the host knows him (his sheet's name and class), seeded
+    /// from the instance seed and the breakable's number, as the unhosted share is from the level
+    /// seed, the marker and the player.
+    /// </summary>
+    public LootRequest HostedRequest(ulong instanceSeed, uint breakableSeq, string openerName, string openerClass)
+    {
+        string name = HostedName(breakableSeq), player = openerName + "/" + openerClass;
+        return new(S.LootTable, name, player, Seeded.From(instanceSeed, "break_share", name, player).NextULong());
+    }
+
     /// <summary>What the loot rules roll <paramref name="player"/>'s share of a break from: the breakables' table, seeded by the level, the marker and the player.</summary>
     public LootRequest Request(ulong levelSeed, string marker, string player) =>
         new(S.LootTable, marker, player, Seeded.From(levelSeed, "break_share", marker, player).NextULong());

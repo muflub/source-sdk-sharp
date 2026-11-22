@@ -90,7 +90,9 @@ public static class DressLint
             bool overHead = p.Role == RoomDresser.Role.Set && p.Box.Mins.Z >= kit.Head;
             foreach (var d in doors.Where(d => !flat && !overHead && d.Box.DistanceTo(p.Box) < RoomDresser.DoorClear))
                 Add(DoorClear, $"{p.What} is {d.Box.DistanceTo(p.Box):0.#} from its {d.Name} door's opening; dressing keeps {RoomDresser.DoorClear} clear");
-            foreach (var m in markers.Where(m => !flat && p.Box.Mins.Z < m.At.Z + RoomLint.HullHeight && p.Box.Maxs.Z > m.At.Z - 1 && p.Box.LevelDistanceTo(m.At.X, m.At.Y) < RoomDresser.MarkerClear))
+            // A breakable the shape stood on its own marker (level 5's maze cells, brief p18) is that marker, not a piece beside it.
+            bool Own((string? Type, Point At) m) => p.Entity is { } pe && Breakables.Is(pe) && pe.Origin == m.At && pe.Key("poi_type") == m.Type;
+            foreach (var m in markers.Where(m => !flat && !Own(m) && p.Box.Mins.Z < m.At.Z + RoomLint.HullHeight && p.Box.Maxs.Z > m.At.Z - 1 && p.Box.LevelDistanceTo(m.At.X, m.At.Y) < RoomDresser.MarkerClear))
                 Add(MarkerClear, $"{p.What} stands {p.Box.LevelDistanceTo(m.At.X, m.At.Y):0.#} from the {m.Type} marker at ({m.At}); dressing keeps {RoomDresser.MarkerClear} clear");
             // A centrepiece stands on a hall's plinth, in the air of no surface a jump needs (T1 at most).
             bool centre = p.Role == RoomDresser.Role.Centre;

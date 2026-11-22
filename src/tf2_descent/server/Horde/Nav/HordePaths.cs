@@ -36,6 +36,7 @@ public sealed class HordePaths : IHordePaths, IDisposable
     private readonly ThreadLocal<Scratch> _scratch = new(() => new Scratch(), trackAllValues: false);
     private Published? _now;
     private long _searches, _found, _unreachable, _outOfBudget, _nearest, _ticks, _mostTicks, _pathCells;
+    private long _joinsWindowed, _joinsWhole, _joinTicks, _mostJoinTicks;
 
     public int Epoch => Volatile.Read(ref _now)?.Epoch ?? 0;
 
@@ -77,7 +78,8 @@ public sealed class HordePaths : IHordePaths, IDisposable
         ArgumentNullException.ThrowIfNull(data);
         ArgumentNullException.ThrowIfNull(level);
         ArgumentNullException.ThrowIfNull(obstacles);
-        Volatile.Write(ref _now, new Published(data, level, obstacles, ByClass(data, obstacles), EpochOf(data.Identity, obstacles)));
+        NavObstacleState[] classes = ByClass(data, obstacles);
+        Volatile.Write(ref _now, new Published(data, level, obstacles, classes, Joins(data, obstacles, classes), EpochOf(data.Identity, obstacles)));
     }
 
     /// <summary>
@@ -91,7 +93,8 @@ public sealed class HordePaths : IHordePaths, IDisposable
         ArgumentNullException.ThrowIfNull(obstacles);
         if (Volatile.Read(ref _now) is not { } now)
             return false;
-        Volatile.Write(ref _now, now with { Obstacles = obstacles, Classes = ByClass(now.Data, obstacles), Epoch = EpochOf(now.Data.Identity, obstacles) });
+        NavObstacleState[] classes = ByClass(now.Data, obstacles);
+        Volatile.Write(ref _now, now with { Obstacles = obstacles, Classes = classes, Components = Joins(now.Data, obstacles, classes), Epoch = EpochOf(now.Data.Identity, obstacles) });
         return true;
     }
 
@@ -108,10 +111,104 @@ public sealed class HordePaths : IHordePaths, IDisposable
     private NavObstacleState[] ByClass(HordeNavData data, NavObstacleState obstacles)
     {
         long t0 = Stopwatch.GetTimestamp();
-        NavObstacleState[] classes = HordeArenaObstacles.ByClass(data.Nav, obstacles);
+        // Each class from its own cells (the props its hull meets), when the state is the level's own with the arena on it.
+        NavObstacleState[] classes = HordeArenaObstacles.ByClass(data.Nav, obstacles, ReferenceEquals(obstacles.Cells, data.Open.Cells) ? data.ClassCells : null);
         ClassMicros = Stopwatch.GetElapsedTime(t0).TotalMicroseconds;
         return classes;
     }
+
+    /// <summary>
+    /// Each class's components under its obstacles (indexed as <paramref name="classes"/>), made
+    /// the first time a search asks (on an AI worker, never at the hand-over on the game thread):
+    /// the level's own, made with every obstacle open (<see cref="HordeNavData.Components"/>), for a
+    /// class whose state is the level's open one (nothing blocking, the same cells); else made from
+    /// them by flooding windows round the blocking boxes (<see cref="NavComponents.Near"/>, the whole
+    /// graph when a window cannot tell). A goal the arena's brushes alone cut off from the start is
+    /// then off its floor (<see cref="PathAnswer.Nearest"/>), not searched to the end of its budget or
+    /// answered unreachable as the open components had it. The answer is the same whoever makes it, so a search stays a pure function of the epoch's state.
+    /// </summary>
+    private Lazy<NavComponents>?[] Joins(HordeNavData data, NavObstacleState obstacles, NavObstacleState[] classes)
+    {
+        bool sameCells = ReferenceEquals(obstacles.Cells, data.Open.Cells);
+        var blocking = new List<int>();
+        for (int o = 0; o < obstacles.Count; o++)
+        {
+            if (obstacles.Blocking(o) && !data.Open.Blocking(o))
+                blocking.Add(o);
+        }
+
+        var joins = new Lazy<NavComponents>?[classes.Length];
+        for (int k = 0; k < classes.Length; k++)
+        {
+            var cls = (ClearanceClass)k;
+            if (data.Components(cls) is not { } level)
+                continue;
+            if (sameCells && blocking.Count == 0 && ReferenceEquals(classes[k].Cells, data.OpenFor(cls).Cells))
+            {
+                joins[k] = new Lazy<NavComponents>(level);
+                continue;
+            }
+
+            NavObstacleState state = classes[k];
+            bool windowed = sameCells && blocking.Count > 0 && blocking.TrueForAll(o => o < data.Nav.Obstacles.Length);
+            var boxes = new List<(float MinX, float MinY, float MaxX, float MaxY)>(blocking.Count);
+            if (windowed)
+            {
+                // What changed lies round the blocking boxes: the cells a class's hull keeps off them, and both ends
+                // of every step into their leaves (a leaf names the obstacle that reaches it, a body's width round its box).
+                float grow = MathF.Max(HordeHulls.HalfWidthOf(cls) + HordeArenaObstacles.CellHalf, ObstacleReach) + EdgeReach;
+                foreach (int o in blocking)
+                {
+                    NavObstacleInfo b = data.Nav.Obstacles[o];
+                    boxes.Add((b.Mins.X - grow, b.Mins.Y - grow, b.Maxs.X + grow, b.Maxs.Y + grow));
+                }
+            }
+
+            joins[k] = new Lazy<NavComponents>(() => MakeJoins(data, level, cls, state, windowed ? boxes : null), LazyThreadSafetyMode.ExecutionAndPublication);
+        }
+
+        return joins;
+    }
+
+    private NavComponents MakeJoins(HordeNavData data, NavComponents level, ClearanceClass cls, NavObstacleState state,
+                                    List<(float MinX, float MinY, float MaxX, float MaxY)>? boxes)
+    {
+        long t0 = Stopwatch.GetTimestamp();
+        int windows = -1;
+        NavComponents made = boxes is null ? NavComponents.Of(data.Graph, cls, state) : NavComponents.Near(level, data.Graph, cls, state, boxes, out windows);
+        long spent = Stopwatch.GetTimestamp() - t0;
+        Interlocked.Increment(ref windows < 0 ? ref _joinsWhole : ref _joinsWindowed);
+        Interlocked.Add(ref _joinTicks, spent);
+        long most;
+        while (spent > (most = Interlocked.Read(ref _mostJoinTicks)) && Interlocked.CompareExchange(ref _mostJoinTicks, spent, most) != most)
+        {
+        }
+
+        return made;
+    }
+
+    /// <summary>Components made since the paths began (<see cref="Joins"/>): by windows round what changed, and by flooding the whole graph.</summary>
+    public long JoinsWindowed => Interlocked.Read(ref _joinsWindowed);
+
+    public long JoinsWhole => Interlocked.Read(ref _joinsWhole);
+
+    /// <summary>The components' making time on the workers, in microseconds: all of it, and the longest.</summary>
+    public double JoinMicros => Interlocked.Read(ref _joinTicks) * 1e6 / Stopwatch.Frequency;
+
+    public double MostJoinMicros => Interlocked.Read(ref _mostJoinTicks) * 1e6 / Stopwatch.Frequency;
+
+    /// <summary>How far round its box an obstacle's leaves reach: the game's own body's half-width (the derivation's ring).</summary>
+    public const float ObstacleReach = 24f;
+
+    /// <summary>How far past a leaf a step into it starts: one of the built levels' cells.</summary>
+    public const float EdgeReach = 16f;
+
+    /// <summary>Whether <paramref name="a"/> and <paramref name="b"/> are in one component of <paramref name="cls"/>'s cells as the obstacles stand now (true before the graph is ready).</summary>
+    public bool Joined(CellId a, CellId b, ClearanceClass cls) => Volatile.Read(ref _now) is not { } now || now.Joined(a, b, cls);
+
+    /// <summary>The components <see cref="Joined"/> asks for <paramref name="cls"/> now, or none (before the graph is ready, or a class no robot plans by).</summary>
+    public NavComponents? ComponentsFor(ClearanceClass cls) =>
+        Volatile.Read(ref _now) is { } now && (uint)cls < (uint)now.Components.Length ? now.Components[(int)cls]?.Value : null;
 
     /// <summary>The level is going: no graph, epoch 0. A search already running finishes on the graph it read.</summary>
     public void Clear() => Volatile.Write(ref _now, null);
@@ -156,12 +253,12 @@ public sealed class HordePaths : IHordePaths, IDisposable
             CellId start = data.CellAt(from, cls), goal = data.CellAt(to, cls);
             AiVector end = to;
             var found = PathAnswer.Found;
-            if (!start.IsValid || !goal.IsValid || !data.Joined(start, goal, cls) || Held(graph, obstacles, goal.Index) || obstacles.CellBlocked(goal.Index))
+            if (!start.IsValid || !goal.IsValid || !now.Joined(start, goal, cls) || Held(graph, obstacles, goal.Index) || obstacles.CellBlocked(goal.Index))
             {
                 // A goal off the class's floor, or in a place a standing arena brush takes (a hero on the exit's
                 // cover stands over its pit; a place under landed rubble, held by it or blocked as a cell, whose search would
                 // spend its whole budget): the free place of the start's floor nearest it, to hold at.
-                int near = start.IsValid ? NearestOnFloor(data, obstacles, start, to, cls) : -1;
+                int near = start.IsValid ? NearestOnFloor(now, obstacles, start, to, cls) : -1;
                 if (near < 0)
                 {
                     Interlocked.Increment(ref _unreachable);
@@ -177,7 +274,7 @@ public sealed class HordePaths : IHordePaths, IDisposable
             }
 
             // A goal more than the horizon's doors away: as far as just past the horizon's last door this time.
-            if (found == PathAnswer.Found && Horizon(data, level, from, to, cls, out AiVector past, out CellId pastCell) && data.Joined(start, pastCell, cls))
+            if (found == PathAnswer.Found && Horizon(data, level, from, to, cls, out AiVector past, out CellId pastCell) && now.Joined(start, pastCell, cls))
             {
                 end = past;
                 goal = pastCell;
@@ -264,15 +361,15 @@ public sealed class HordePaths : IHordePaths, IDisposable
     /// nearest <paramref name="to"/>: on the floor plane, with a unit of height counted twice so a
     /// floor under or over the goal is not taken for it; the lower index on a tie. -1 for none.
     /// </summary>
-    private static int NearestOnFloor(HordeNavData data, NavObstacleState obstacles, CellId start, AiVector to, ClearanceClass cls)
+    private static int NearestOnFloor(Published now, NavObstacleState obstacles, CellId start, AiVector to, ClearanceClass cls)
     {
-        NavGraph graph = data.Graph;
+        NavGraph graph = now.Data.Graph;
         int best = -1;
         float bestD = float.MaxValue;
         for (int i = 0; i < graph.CellCount; i++)
         {
             NavCell c = graph.Cell(i);
-            if (!c.Admits(cls) || obstacles.CellBlocked(i) || !data.Joined(start, new CellId(i), cls) || Held(graph, obstacles, i))
+            if (!c.Admits(cls) || obstacles.CellBlocked(i) || !now.Joined(start, new CellId(i), cls) || Held(graph, obstacles, i))
                 continue;
             float d = (c.Centre - to).Length2D + 2f * MathF.Abs(c.FloorZ - to.Z);
             if (d < bestD)
@@ -363,10 +460,13 @@ public sealed class HordePaths : IHordePaths, IDisposable
 
     public void Dispose() => _scratch.Dispose();
 
-    /// <summary>What a search reads, published whole: the graph, its level, the obstacles, each class's of them, and the epoch naming them.</summary>
-    private sealed record Published(HordeNavData Data, HordeLevel Level, NavObstacleState Obstacles, NavObstacleState[] Classes, int Epoch)
+    /// <summary>What a search reads, published whole: the graph, its level, the obstacles, each class's of them and its components under them, and the epoch naming them.</summary>
+    private sealed record Published(HordeNavData Data, HordeLevel Level, NavObstacleState Obstacles, NavObstacleState[] Classes, Lazy<NavComponents>?[] Components, int Epoch)
     {
         public NavObstacleState For(ClearanceClass cls) => (uint)cls < (uint)Classes.Length ? Classes[(int)cls] : Obstacles;
+
+        public bool Joined(CellId a, CellId b, ClearanceClass cls) =>
+            (uint)cls < (uint)Components.Length && Components[(int)cls] is { } comp ? comp.Value.JoinedFrom(Data.Graph, a, b, cls, For(cls)) : Data.Joined(a, b, cls);
     }
 
     /// <summary>One thread's search state.</summary>

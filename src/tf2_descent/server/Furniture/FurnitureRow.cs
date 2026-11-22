@@ -78,6 +78,9 @@ public sealed class FurnitureRow
     /// <summary>What breaking it rolled; null while it stands.</summary>
     public BreakOutcome? Broke { get; internal set; }
 
+    /// <summary>A crate's or barrel's slot in the breakables' entity (<see cref="FurnitureBreakables"/>): its number to the host (SDK 2.8 <c>Break</c>); null for one left out.</summary>
+    public int? BreakableSlot { get; internal set; }
+
     /// <summary>When a set-off explosive goes off (seconds, the server's clock); null when none is pending.</summary>
     public double? ExplodeAt { get; internal set; }
 

@@ -432,6 +432,16 @@ public sealed class HordeBrains : IHordeSightSink
             Push(b, AiEvent.SoundHeard(actor, tick, SoundKind.Unknown, carried.LastKnownPosition, loudness, target, -1));
             Alert(row, AlertCause.Carried, SoundKind.Unknown, s.LastPos, carried.LastKnownPosition, carried.TargetSeat, true);
         }
+        else if (_roster.Pack(row) is var pack && _roster.PackAlertedToHero(pack))
+        {
+            // A pack-mate on its way to its pack's contact (the far simulation's converge or queue) carries nothing of
+            // its own: it goes on to look where the pack was sent, rather than standing where it was given its body.
+            int seat = _roster.ContactSeat(pack);
+            ActorId target = seat > 0 ? _heroes.ActorOf(seat) : ActorId.None;
+            AiVector contact = _roster.Contact(pack);
+            Push(b, AiEvent.SoundHeard(actor, tick, SoundKind.Unknown, contact, 1f, target, -1));
+            Alert(row, AlertCause.Carried, SoundKind.Unknown, s.LastPos, contact, seat, true);
+        }
     }
 
     /// <summary>
@@ -561,6 +571,42 @@ public sealed class HordeBrains : IHordeSightSink
 
     /// <summary>Pack-mates with brains told by a pack call (<see cref="CallPack"/>).</summary>
     public long PackCalls { get; private set; }
+
+    /// <summary>Dev calls made (<see cref="CallPackTo"/>), since the brains began.</summary>
+    public long DevCalls { get; private set; }
+
+    /// <summary>
+    /// A dev call (<c>tf2_descent_horde_call</c>): the pack of the robot in <paramref name="row"/> told
+    /// that the hero in <paramref name="seat"/> is at <paramref name="at"/>, wherever its robots stand,
+    /// the way a pack call tells a pack-mate (<see cref="CallPack"/>): each member with a brain hears
+    /// where he is, from him, and goes to look; the pack's far and sleeping robots converge on it (the
+    /// far simulation). No sense of the game reaches that far: it measures a hunt along the level's
+    /// paths from any distance. Answers the members with a brain told.
+    /// </summary>
+    public int CallPackTo(long now, int row, int seat, AiVector at)
+    {
+        _now = now;
+        if ((uint)row >= (uint)_roster.Count || seat <= 0)
+            return 0;
+        ActorId hero = _heroes.ActorOf(seat);
+        int room = _level.RoomAt(at);
+        AlertPackLogged(row, room >= 0 ? room : _roster.Room(row), at, seat);
+        int pack = _roster.Pack(row), told = 0;
+        var tick = new Tick((int)now);
+        for (int b = 1; b < _body.Length; b++)
+        {
+            ref readonly Body m = ref _body[b];
+            if (!m.Brain.IsValid || _roster.Pack(m.Row) != pack)
+                continue;
+            Push(b, AiEvent.SoundHeard(m.Brain, tick, SoundKind.Unknown, at, 1f, hero, -1));
+            Carry(m.Row, seat, at, AlertLevel.Suspicious);
+            Alert(m.Row, AlertCause.PackCall, SoundKind.Unknown, _poses.Position(b), at, seat, true);
+            told++;
+        }
+
+        DevCalls++;
+        return told;
+    }
 
     /// <summary>
     /// The robot in <paramref name="row"/>'s pack alerted to a contact (<see cref="RobotRoster.AlertPack"/>):

@@ -134,9 +134,7 @@ internal sealed class FakeHostItems(TF2DescentRules r) : IHostItems
     /// <summary>When set, an identify or a repair answers only once it completes.</summary>
     public TaskCompletionSource? InPlaceGate { get; set; }
 
-    /// <summary>The Australium a reveal books for the kill (the host's KillRoll.Australium).</summary>
-    public long RevealBooks { get; set; }
-
+    /// <summary>A 2.8 reveal (the SDK sets australium_pile): it books no Australium; the kill's is its pile's.</summary>
     public async Task<HostResult<RevealOutcome>> Reveal(string steamId, HostItem item, uint killSeq, string robot, IReadOnlyList<string> party, Vector position)
     {
         if (Fails("reveal", steamId))
@@ -146,8 +144,7 @@ internal sealed class FakeHostItems(TF2DescentRules r) : IHostItems
         if (RevealGate is { } gate)
             await gate.Task;
         var moved = Store(Items[item.Id] with { Owner = HostOwnerKind.World, OwnerId = "instance", ForCharacter = steamId });
-        Australium[steamId] += RevealBooks;
-        return HostResult<RevealOutcome>.Success(new RevealOutcome(moved, RevealBooks));
+        return HostResult<RevealOutcome>.Success(new RevealOutcome(moved, 0));
     }
 
     public Task<HostResult<IReadOnlyList<HostItem>>> MintDrops(string steamId, uint killSeq, string robot, int tier, IReadOnlyList<string> party, Vector position)
@@ -176,6 +173,8 @@ internal sealed class FakeHostItems(TF2DescentRules r) : IHostItems
             return Task.FromResult(No<HostItem>("no_item", HostError.NoItem));
         if (item.ForCharacter.Length > 0 && item.ForCharacter != steamId)
             return Task.FromResult(No<HostItem>("wrong_owner", HostError.WrongOwner));
+        if (item.IsAustraliumPile)
+            return Task.FromResult(No<HostItem>("australium_pile"));
         int slot = FreeSlot(steamId);
         if (slot < 0)
             return Task.FromResult(No<HostItem>("no_capacity", HostError.NoCapacity));
@@ -410,8 +409,9 @@ internal sealed class FakeHostItems(TF2DescentRules r) : IHostItems
             return No<HostItem>("bad_kit");
         }
         KitsNamed.Add(kitId);
+        // The host's 2.8 ledger asks the 1.2 member, with the repairer's sheet.
         var answer = await InPlace("repair", steamId, itemId,
-            i => r.Repair(i, (RepairKind)(int)kind, kit is null ? null : Rolled(kit), ++_seed));
+            i => ((IGameRules)r).Repair(i, (RepairKind)(int)kind, kit is null ? null : Rolled(kit), r.SheetCodec.Write(Sheets[steamId]), ++_seed));
         if (answer.Ok && kit is not null)
             Items.Remove(kit.Id);
         return answer;
@@ -457,6 +457,133 @@ internal sealed class FakeHostItems(TF2DescentRules r) : IHostItems
 
     public Task<HostResult<IReadOnlyList<HostItem>>> Salvage(string steamId, string itemId) =>
         Task.FromResult(Transform("salvage", steamId, [itemId], i => r.Salvage(i[0], Ctx(steamId, "salvage"), ++_seed)));
+
+    //-------------------------------------------------------------------------
+    // SDK 2.8 (the host's DescentLedger: KillAustralium, ClaimAustralium, Break, Swap, Merge)
+    //-------------------------------------------------------------------------
+
+    private readonly Dictionary<uint, string> _piles = new();
+    private readonly Dictionary<string, string> _pileKiller = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _paid = new(StringComparer.Ordinal);
+    private readonly HashSet<(uint Seq, string Hero)> _broken = [];
+
+    /// <summary>The host's parties: each member's party, killer included (none: a party of one).</summary>
+    public Dictionary<string, List<string>> Parties { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>The characters leased on another instance (left the level): a pile's pickup pays them nothing.</summary>
+    public HashSet<string> Elsewhere { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Puts <paramref name="members"/> in one party.</summary>
+    public void Party(params string[] members)
+    {
+        var party = members.ToList();
+        foreach (var m in members)
+            Parties[m] = party;
+    }
+
+    /// <summary>The host's pile: the kill's roll replayed, one pile per kill.</summary>
+    public Task<HostResult<HostItem>> KillAustralium(string steamId, uint killSeq, string robot, int partySize, Vector position)
+    {
+        if (Fails("pile", steamId))
+            return Task.FromResult(Unreachable<HostItem>());
+        if (_piles.ContainsKey(killSeq))
+            return Task.FromResult(No<HostItem>("already_minted"));
+        var roll = r.KillRoll(InstanceSeed, killSeq, robot, Depth, Math.Max(1, partySize));
+        if (roll.Australium <= 0)
+            return Task.FromResult(No<HostItem>("no_australium"));
+        var pile = Store(new HostItem($"h{++_next}", 0, HostItem.AustraliumPileType, 0, 0, (int)roll.Australium, true, OpaquePayload.Empty,
+            HostOwnerKind.World, "instance", -1, 1, "", "instance", 0));
+        _piles[killSeq] = pile.Id;
+        _pileKiller[pile.Id] = steamId;
+        return Task.FromResult(HostResult<HostItem>.Success(pile));
+    }
+
+    /// <summary>The host's pickup: the claimer in the killer's party, every member on the level credited his share by the rules, once.</summary>
+    public Task<HostResult<IReadOnlyList<HostAustraliumCredit>>> ClaimAustralium(string steamId, string pileId)
+    {
+        if (Fails("pile_claim", steamId))
+            return Task.FromResult(Unreachable<IReadOnlyList<HostAustraliumCredit>>());
+        if (!Items.TryGetValue(pileId, out var pile) || !pile.IsAustraliumPile || pile.Owner != HostOwnerKind.World)
+            return Task.FromResult(No<IReadOnlyList<HostAustraliumCredit>>("no_item", HostError.NoItem));
+        string killer = _pileKiller[pileId];
+        var members = (Parties.GetValueOrDefault(killer) ?? [killer]).Prepend(killer).Distinct().ToList();
+        if (!members.Contains(steamId))
+            return Task.FromResult(No<IReadOnlyList<HostAustraliumCredit>>("not_in_party", HostError.WrongOwner));
+        var here = members.Where(m => Sheets.ContainsKey(m) && !Elsewhere.Contains(m)).ToList();
+        var shares = r.AustraliumShares(pile.Count, [.. here.Select(m => r.SheetCodec.Write(Sheets[m]))]);
+        if (shares.Count != here.Count || shares.Any(s => s < 0 || s > pile.Count))
+            return Task.FromResult(No<IReadOnlyList<HostAustraliumCredit>>("rules_bad_shares"));
+        var credits = new List<HostAustraliumCredit>();
+        for (int i = 0; i < here.Count; i++)
+        {
+            if (shares[i] == 0 || !_paid.Add($"pile:{pileId}:{here[i]}"))
+                continue;
+            Australium[here[i]] += shares[i];
+            credits.Add(new HostAustraliumCredit(here[i], shares[i]));
+        }
+        Items.Remove(pileId);
+        return Task.FromResult(HostResult<IReadOnlyList<HostAustraliumCredit>>.Success(credits));
+    }
+
+    /// <summary>The host's break: the rules' roll for this hero, its Australium credited, its items to the floor for him; once per breakable and hero.</summary>
+    public Task<HostResult<HostBreak>> Break(string steamId, uint breakableSeq)
+    {
+        if (Fails("break", steamId))
+            return Task.FromResult(Unreachable<HostBreak>());
+        if (!_broken.Add((breakableSeq, steamId)))
+            return Task.FromResult(No<HostBreak>("already_broken"));
+        var roll = r.BreakableDrops(InstanceSeed, breakableSeq, Depth, r.SheetCodec.Write(Sheets[steamId]));
+        Australium[steamId] += roll.Australium;
+        var items = roll.Items.Select(d => Store(Mint(r.ItemRules.Codec.Instance(d), HostOwnerKind.World, "instance", -1, steamId))).ToList();
+        return Task.FromResult(HostResult<HostBreak>.Success(new HostBreak(roll.Australium, items)));
+    }
+
+    /// <summary>The host's swap: both the caller's, each destination asked of the rules; one refusal refuses both.</summary>
+    public Task<HostResult<IReadOnlyList<HostItem>>> Swap(string steamId, string itemA, string itemB)
+    {
+        if (Fails("swap", steamId))
+            return Task.FromResult(Unreachable<IReadOnlyList<HostItem>>());
+        if (itemA == itemB)
+            return Task.FromResult(No<IReadOnlyList<HostItem>>("bad_items"));
+        if (OwnedBy(steamId, itemA) is not { } a || OwnedBy(steamId, itemB) is not { } b)
+            return Task.FromResult(No<IReadOnlyList<HostItem>>("wrong_owner", HostError.WrongOwner));
+        var sheet = r.SheetCodec.Write(Sheets[steamId]);
+        if ((r.PlaceRefusal(sheet, Rolled(a), (ItemContainer)b.Container, b.Slot) ?? r.PlaceRefusal(sheet, Rolled(b), (ItemContainer)a.Container, a.Slot)) is { } why)
+            return Task.FromResult(No<IReadOnlyList<HostItem>>(why));
+        var movedA = Store(a with { Container = b.Container, Slot = b.Slot, Version = a.Version + 1 });
+        var movedB = Store(b with { Container = a.Container, Slot = a.Slot, Version = b.Version + 1 });
+        return Task.FromResult(HostResult<IReadOnlyList<HostItem>>.Success([movedA, movedB]));
+    }
+
+    /// <summary>The host's merge: the rules' answer, the count conserved, into raised and from ended or lowered; answers [into, from].</summary>
+    public Task<HostResult<IReadOnlyList<HostItem>>> Merge(string steamId, string fromItemId, string intoItemId)
+    {
+        if (Fails("merge", steamId))
+            return Task.FromResult(Unreachable<IReadOnlyList<HostItem>>());
+        if (fromItemId == intoItemId)
+            return Task.FromResult(No<IReadOnlyList<HostItem>>("bad_items"));
+        if (OwnedBy(steamId, fromItemId) is not { } source || OwnedBy(steamId, intoItemId) is not { } target)
+            return Task.FromResult(No<IReadOnlyList<HostItem>>("wrong_owner", HostError.WrongOwner));
+        var change = r.Merge(Rolled(source), Rolled(target));
+        if (!change.Ok)
+            return Task.FromResult(No<IReadOnlyList<HostItem>>(change.Refusal!));
+        bool whole = change.Produced.Count == 1 && change.Consumed is [0];
+        bool partial = change.Produced.Count == 2 && change.Consumed.Count == 0;
+        if (change.Cost != 0 || !(whole || partial) || change.Produced.Sum(p => p.Count) != source.Count + target.Count)
+            return Task.FromResult(No<IReadOnlyList<HostItem>>("rules_bad_merge"));
+        var into = With(target, r.ItemRules.Codec.Instance(change.Produced[0]));
+        HostItem from;
+        if (whole)
+        {
+            Items.Remove(source.Id);
+            from = source with { State = HostItemState.Consumed, Version = source.Version + 1 };
+        }
+        else
+        {
+            from = With(source, r.ItemRules.Codec.Instance(change.Produced[1]));
+        }
+        return Task.FromResult(HostResult<IReadOnlyList<HostItem>>.Success([into, from]));
+    }
 
     public Task<bool> RecordDeath(string steamId, Vector position)
     {

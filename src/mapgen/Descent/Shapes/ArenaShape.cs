@@ -9,11 +9,11 @@ namespace SourceSharp.MapGen.Descent.Shapes;
 /// server where its boss stands and faces, the Tank's track and the robots' mouths (<see cref="ArenaData"/>),
 /// and names the brushes the encounter switches (<see cref="BossNames"/>).
 /// <list type="bullet">
-/// <item>Level 5, the Powder Magazine, 2x2: a blasted chamber, its corners rounded, stone pillars for
-/// cover from the cannonballs, a ring of ledges at the double jump's 96 (S2) along the north wall and
-/// round the north-west curve, shelves at the rocket jump's 224 (B1), red warning lamps high on the walls
-/// and one white work light over the middle; in at its west socket's south cell, out at its east socket's
-/// north cell.</item>
+/// <item>Level 5, the Powder Magazine, 2x2 on level 5's 512 kit (brief p18): a blasted chamber at the centre of
+/// the maze, its corners rounded, four stone pillars for cover from the cannonballs, the ring ledge at the double
+/// jump's 96 (S2) along the west wall and round the north-east curve, shelves at the rocket jump's 224 (B1), red
+/// warning lamps on the walls and one white work light over the middle; the maze in at its north and south
+/// sockets, the way down off its east.</item>
 /// <item>Level 10, the Bore, 3x3: the cavern the robots bored up into, its roof on four outer pillars and a
 /// central one (each a named brush the Tank drills, its rubble a named brush that falls), the Tank's
 /// track a spiral of about 10,500 from the robots' lift at the east wall in to the central pillar past the
@@ -34,7 +34,8 @@ public static class ArenaShape
         {
             // 768, not 1,024 (brief p16): Sir Nukesalot, at the largest scale the nav's hulls hold, read small against a
             // 1,024-high hall; 768 still holds the rocket air (576) over the floor and the air over the shelves at 224.
-            [5] = (2, [(CellFace.West, 0), (CellFace.East, 1)], 768),
+            // On level 5's 512 kit since brief p18: 2 by 2 of 512, the maze's doors north and south, the way down's east.
+            [5] = (2, [MagazineExit, MagazineNorth, MagazineSouth], 768),
             [10] = (3, [(CellFace.West, 1), (CellFace.East, 1)], 1280),
             [15] = (4, [(CellFace.West, 1)], 1280),
         };
@@ -48,7 +49,18 @@ public static class ArenaShape
     public static IEnumerable<Room> Variants(RoomKit kit, RoomTheme theme, ulong seed)
     {
         var rng = new RoomSeed(seed, "arena");
-        yield return Magazine(kit, theme, rng);
+        // The Magazine stands on level 5's 512 kit, the Bore and the Pit on the normal kit (brief p18).
+        if (kit.Cell == RoomKit.MazeCell)
+        {
+            yield return Magazine(kit, theme, rng);
+            yield break;
+        }
+
+        // The draws the Magazine took from the stream before the Bore when it stood on this kit (its pillars' turn and its
+        // two barrels), so the Bore's and the Pit's seeded rocks are as they were.
+        rng.Pick<float>([0, 15, 30]);
+        rng.Pick<float>([-160, 160]);
+        rng.Pick<float>([-120, 120]);
         yield return Bore(kit, theme, rng);
         yield return Pit(kit, theme, rng);
     }
@@ -91,69 +103,86 @@ public static class ArenaShape
     // Level 5: the Powder Magazine.
     //-------------------------------------------------------------------------
 
-    /// <summary>The radius the Magazine's north-west and south-east corners are blasted round to.</summary>
-    public const float MagazineRound = 640;
+    /// <summary>The radius the Magazine's north-east corner is blasted round to, a bench of the ring ledge round it.</summary>
+    public const float MagazineRound = 224;
+
+    /// <summary>The radius its south-west corner is rounded to; the corners by the sockets are cut short.</summary>
+    public const float MagazineRoundSouthWest = 160, MagazineRoundSmall = 96;
 
     /// <summary>How far under the Magazine's roof its warm fill hangs.</summary>
     public const float MagazineFillUnderRoof = 96;
 
+    /// <summary>
+    /// The Magazine's stone pillars, relative to its middle: four on the axes 182 out, so a straight run of the
+    /// rocket jump's 768 stays clear beside them (along y = middle - 112, from the west ledge to the east wall).
+    /// </summary>
+    public static IReadOnlyList<(float X, float Y)> MagazinePillars { get; } = [(-182, 0), (182, 0), (0, -182), (0, 182)];
+
+    /// <summary>The Magazine's pillars' radius.</summary>
+    public const float MagazinePillarRadius = 48;
+
+    /// <summary>The Magazine's sockets: the maze's two doors, north and south on opposite cells, and the way down's east (brief p18).</summary>
+    public static (CellFace Face, int Offset) MagazineNorth => (CellFace.North, 0);
+
+    /// <summary>The maze's south door into the Magazine.</summary>
+    public static (CellFace Face, int Offset) MagazineSouth => (CellFace.South, 1);
+
+    /// <summary>The Magazine's door to the way down.</summary>
+    public static (CellFace Face, int Offset) MagazineExit => (CellFace.East, 0);
+
+    /// <summary>
+    /// Level 5, the Powder Magazine, narrowed (brief p18, M35, M36): 2 by 2 cells of the 512 kit, 992 inside and
+    /// 768 high, at the centre of the maze, which joins it by two doors, north and south on opposite cells; a third,
+    /// east, opens only on the way down. Four stone pillars round the boss for cover from his cannonballs; the
+    /// ring ledge at 96 (S2) along the west wall with stairs at its north end, and round the north-east curve
+    /// as a bench with a reward and no stair; rocket shelves at 224 (B1) on the north and south walls; red
+    /// warning lamps on the flat walls and one white work light over the middle. The boss in the middle facing
+    /// the west, the way in; three mouths at the edge facing in. Track 0.
+    /// </summary>
     private static Room Magazine(RoomKit kit, RoomTheme theme, RoomSeed rng)
     {
         var b = New("arena_a", kit, theme, 5);
         Rect body = b.Body;
-        float m = b.Extent / 2, f = b.Floor, small = kit.DoorLow - 96;
-        // Blasted round: the two corners without a door near them deep, the others short of the sockets.
-        b.WithBrushes(b.RoundCorner(body, Corner.NorthWest, MagazineRound, 6)).WithBrushes(b.RoundCorner(body, Corner.SouthEast, MagazineRound, 6))
-            .WithBrushes(b.RoundCorner(body, Corner.SouthWest, small, 4)).WithBrushes(b.RoundCorner(body, Corner.NorthEast, small, 4));
+        float m = b.Extent / 2, f = b.Floor;
+        b.WithBrushes(b.RoundCorner(body, Corner.NorthEast, MagazineRound, 6)).WithBrushes(b.RoundCorner(body, Corner.SouthWest, MagazineRoundSouthWest, 4))
+            .WithBrushes(b.RoundCorner(body, Corner.NorthWest, MagazineRoundSmall, 3)).WithBrushes(b.RoundCorner(body, Corner.SouthEast, MagazineRoundSmall, 3));
 
-        // The boss in the middle, facing the way in (the west socket's south cell).
-        Point entry = DoorPoint(b, CellFace.West, 0);
-        b.WithBossSpot(new Point(m, m, f), Toward(m, m, entry.X, entry.Y));
+        // The boss in the middle, facing the way in (the maze's way in is the block's west side).
+        b.WithBossSpot(new Point(m, m, f), 180);
 
-        // Stone pillars on a ring for cover from his cannonballs, turned by the seed.
-        float turn = rng.Pick<float>([0, 15, 30]);
-        for (int k = 0; k < 6; k++)
-        {
-            float a = (turn + 60 * k) * MathF.PI / 180;
-            b.Pillar(MathF.Round(m + 520 * MathF.Cos(a)), MathF.Round(m + 520 * MathF.Sin(a)), 72, 10);
-        }
+        foreach (var (x, y) in MagazinePillars)
+            b.Pillar(m + x, m + y, MagazinePillarRadius, 10);
 
-        // The ring ledge at the double jump's height (S2): along the north wall from the north-west curve, its
-        // stairs at the east end for everyone, and round the curve itself, a bench of the rock's ring.
+        // The ring ledge at the double jump's height (S2): along the west wall, its stairs at the north end for everyone,
+        // and round the north-east curve, a bench of the rock's ring with a reward on it and no stair: a Scout's.
         int s2 = JumpTable.Of(JumpTier.S2).Ledge(0.5f, kit.NavVoxel);
-        float nwX = body.X0 + MagazineRound, nwY = body.Y1 - MagazineRound;
-        b.Mezzanine(CellFace.North, nwX - 8, 1300, depth: 160);
-        b.WithBrushes(Brush.RingWall(nwX, nwY, MagazineRound - 160, MagazineRound + 8, 24, f, f + s2, theme.Block, keep: i => i is >= 6 and < 12));
-        // And round the south-east curve, with a reward on it and no stair: a Scout's.
-        float seX = body.X1 - MagazineRound, seY = body.Y0 + MagazineRound;
-        b.WithBrushes(Brush.RingWall(seX, seY, MagazineRound - 160, MagazineRound + 8, 24, f, f + s2, theme.Block, keep: i => i is >= 18 and < 24));
-        float seA = 315 * MathF.PI / 180, seR = MagazineRound - 80;
-        b.Mark(MarkerKind.Container, MathF.Round(seX + seR * MathF.Cos(seA)), MathF.Round(seY + seR * MathF.Sin(seA)), above: s2);
+        b.Mezzanine(CellFace.West, 240, 700, depth: 160);
+        float neX = body.X1 - MagazineRound, neY = body.Y1 - MagazineRound;
+        b.WithBrushes(Brush.RingWall(neX, neY, MagazineRound - 128, MagazineRound + 8, 24, f, f + s2, theme.Block, keep: i => i is >= 0 and < 6));
+        float neA = 52 * MathF.PI / 180, neR = MagazineRound - 64; // off a seam between two of the ring's segments
+        b.Mark(MarkerKind.Container, MathF.Round(neX + neR * MathF.Cos(neA)), MathF.Round(neY + neR * MathF.Sin(neA)), above: s2);
 
-        // Shelves at the rocket jump's height (B1) on the west and east walls, between the sockets and the curves.
-        b.RocketShelf(CellFace.West, 1100, 1340, depth: 128, t: 0.5f).RocketShelf(CellFace.East, 700, 940, depth: 128, t: 0.5f);
+        // Shelves at the rocket jump's height (B1) on the north and south walls, clear of the doors and the curves.
+        b.RocketShelf(CellFace.North, 400, 640, depth: 128, t: 0.5f).RocketShelf(CellFace.South, 300, 560, depth: 128, t: 0.5f);
 
         // Packs (the boss spot is the first), powder barrels on barrel markers.
-        b.Pack(m - 300, m - 150).Pack(m + 250, m + 250).Pack(m - 150, m + 330)
-            .Mark(MarkerKind.Barrel, m + rng.Pick<float>([-160, 160]), m - 760).Mark(MarkerKind.Barrel, m + 760, m + rng.Pick<float>([-120, 120]));
+        b.Pack(300, 300).Pack(720, 300).Pack(420, 760)
+            .Mark(MarkerKind.Barrel, 760 + rng.Pick<float>([-24, 24]), 160).Mark(MarkerKind.Barrel, 880, 440 + rng.Pick<float>([-40, 40]));
 
-        // The robots' mouths: his adds come in from the far side, then from the curves.
-        b.WithMouth(new Point(body.X1 - 240, body.Y1 - 300, f), 225, 1)
-            .WithMouth(new Point(nwX - 260, nwY + 260, f), 315, 2)
-            .WithMouth(new Point(seX + 260, seY - 260, f), 135, 3);
+        // The robots' mouths at the arena's edge, facing in: by the east wall, by the north-west stairs, by the south-east.
+        foreach (var (x, y, leg) in ((float, float, int)[])[(900, 600, 1), (230, 860, 2), (840, 180, 3)])
+            b.WithMouth(new Point(x, y, f), Toward(x, y, m, m), leg);
 
-        // Red warning lamps high on the flat walls, over every ledge's air; one white work light over the middle.
+        // Red warning lamps on the flat walls, over every ledge's air; one white work light over the middle.
         if (ArenaLamp(theme, LampMount.Wall) is { } red)
         {
             float z = f + 352;
-            foreach (float y in (float[])[760, 1240])
+            foreach (float y in (float[])[380, 640])
                 b.WithLampSite(red, new Point(body.X0, y, z), 0);
-            foreach (float x in (float[])[900, 1450])
-                b.WithLampSite(red, new Point(x, body.Y1, z), 270);
-            foreach (float y in (float[])[820, 1180])
+            b.WithLampSite(red, new Point(560, body.Y1, z), 270);
+            foreach (float y in (float[])[500, 700])
                 b.WithLampSite(red, new Point(body.X1, y, z), 180);
-            foreach (float x in (float[])[600, 1150])
-                b.WithLampSite(red, new Point(x, body.Y0, z), 90);
+            b.WithLampSite(red, new Point(430, body.Y0, z), 90);
         }
 
         if (ArenaLamp(theme, LampMount.Pendant) is { } white)

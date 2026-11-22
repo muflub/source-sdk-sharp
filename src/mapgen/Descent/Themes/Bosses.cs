@@ -62,7 +62,8 @@ public static class Bosses
         FrameBrushes = new BrushFrame(new("wood/wood_wall008a", 0.25f), new("wood/wood_wall008a", 0.25f), PostWidth: 16, HeadDepth: 16, Proud: 16)
         {
             CapOverhang = 24,
-            MinLight = 0.3f,
+            // About the maze's dark walls' light (brief p18): at 0.3 every frame in the maze read as a pale stone arch.
+            MinLight = 0.15f,
         },
         // Brick lining the blasted rock to above head height; the rock drawn larger in the arena.
         WallLow = new("brick/brickwall001", 0.25f),

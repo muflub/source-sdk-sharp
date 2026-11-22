@@ -241,8 +241,8 @@ HOST_ROOT ?= $(abspath ../source-sdk-sharp-host)
 SLN := SourceSharp.slnx
 export SS_SLN := $(SLN)
 # What `make setup` must find in $(HOST_ROOT)/bin/nupkg, else it runs host-pack.
-HOST_PACKAGES := $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.1.0.nupkg \
-                 $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Sdk.2.7.0.nupkg
+HOST_PACKAGES := $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.2.0.nupkg \
+                 $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Sdk.2.8.1.nupkg
 
 PHONY_LOADPROF := loadprof loadprof-probe
 PHONY_TESTS := managed-test managed-legs descent-test tf2-test ai-test ai-jank
@@ -313,7 +313,7 @@ help:
 SETUP_ARGS ?=
 # The host's packages (SourceSharp.Host.Sdk, SourceSharp.Host.Contracts) that
 # the TF2Descent projects restore from $(HOST_ROOT)/bin/nupkg (src/tf2_descent/
-# Directory.Build.props: Sdk 2.7.0, Contracts 1.1.0). A host change within a
+# Directory.Build.props: Sdk 2.8.1, Contracts 1.2.0). A host change within a
 # version keeps the same package identity, so the machine-wide NuGet cache is
 # cleared of them first, or restore keeps a stale copy.
 # SourceSharp.MapFormats, the .nav3d reader the AI restores from map-tools'

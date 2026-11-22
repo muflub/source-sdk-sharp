@@ -199,7 +199,7 @@ public sealed class ContractRulesFacts
     {
         var broken = ItemFixtures.Item("shovel", 0, 1) with { Durability = 0 };
 
-        var change = Contract.Repair(Rolled(broken), RepairKind.Field, Rolled(Kit(7)), 11);
+        var change = Contract.Repair(Rolled(broken), RepairKind.Field, Rolled(Kit(7)), Sheet(level: 7), 11);
 
         Assert.True(change.Ok, change.Refusal);
         Assert.Equal([1], change.Consumed);
@@ -208,12 +208,13 @@ public sealed class ContractRulesFacts
     }
 
     [Fact]
-    public void A_field_repair_runs_at_the_hero_level_the_kit_was_had_at()
+    public void A_field_repair_runs_at_the_repairers_level_whatever_level_the_kit_was_had_at()
     {
+        // Contract 1.2 carries the repairer's sheet: the 2.7 interim read the kit's stored level instead.
         var broken = ItemFixtures.Item("shovel", 0, 1) with { Durability = 0 };
 
-        var low = Contract.Repair(Rolled(broken), RepairKind.Field, Rolled(Kit(1)), 11).Produced[0];
-        var high = Contract.Repair(Rolled(broken), RepairKind.Field, Rolled(Kit(30)), 11).Produced[0];
+        var low = Contract.Repair(Rolled(broken), RepairKind.Field, Rolled(Kit(30)), Sheet(level: 1), 11).Produced[0];
+        var high = Contract.Repair(Rolled(broken), RepairKind.Field, Rolled(Kit(1)), Sheet(level: 30), 11).Produced[0];
 
         Assert.Equal(Bytes(R.Repairs.Field(broken, 1, 11).Item), Bytes(low));
         Assert.Equal(Bytes(R.Repairs.Field(broken, 30, 11).Item), Bytes(high));
@@ -221,18 +222,27 @@ public sealed class ContractRulesFacts
     }
 
     [Fact]
+    public void The_contract_1_1_repair_without_a_sheet_refuses_a_field_repair()
+    {
+        // Reverted interim: with no sheet there is no hero level to size a field repair by.
+        var broken = Rolled(ItemFixtures.Item("shovel", 0, 1) with { Durability = 0 });
+
+        Assert.Equal("unsupported", Contract.Repair(broken, RepairKind.Field, Rolled(Kit(7)), 11).Refusal);
+    }
+
+    [Fact]
     public void A_field_repair_without_a_kit_is_refused_and_uses_nothing()
     {
         var broken = Rolled(ItemFixtures.Item("shovel", 0, 1) with { Durability = 0 });
 
-        Assert.Equal(RepairRefusals.NeedsKitAndItem, Contract.Repair(broken, RepairKind.Field, null, 1).Refusal);
-        Assert.Equal(RepairRefusals.NeedsKitAndItem, Contract.Repair(broken, RepairKind.Field, Rolled(Potion(1)), 1).Refusal);
+        Assert.Equal(RepairRefusals.NeedsKitAndItem, Contract.Repair(broken, RepairKind.Field, null, Sheet(), 1).Refusal);
+        Assert.Equal(RepairRefusals.NeedsKitAndItem, Contract.Repair(broken, RepairKind.Field, Rolled(Potion(1)), Sheet(), 1).Refusal);
     }
 
     [Fact]
     public void A_field_repair_of_an_item_at_its_maximum_is_refused_and_keeps_the_kit()
     {
-        var change = Contract.Repair(Rolled(ItemFixtures.Item("shovel", 0, 1)), RepairKind.Field, Rolled(Kit()), 1);
+        var change = Contract.Repair(Rolled(ItemFixtures.Item("shovel", 0, 1)), RepairKind.Field, Rolled(Kit()), Sheet(), 1);
 
         Assert.Equal(RepairRefusals.AtMaximum, change.Refusal);
         Assert.Empty(change.Consumed);
@@ -243,7 +253,7 @@ public sealed class ContractRulesFacts
     {
         var worn = Rolled(ItemFixtures.Item("shovel", 0, 1) with { Durability = 10 });
 
-        var town = Contract.Repair(worn, RepairKind.Town, null, 1);
+        var town = Contract.Repair(worn, RepairKind.Town, null, Sheet(), 1);
 
         Assert.Equal(R.Repair(worn).Cost, town.Cost);
         Assert.True(town.Cost > 0);

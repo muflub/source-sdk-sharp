@@ -43,7 +43,9 @@ public sealed class DescentBossArenaTests(DescentLibraries libs) : IClassFixture
     }
 
     [Theory]
-    [MemberData(nameof(BossDepths))]
+    [InlineData(10)]
+    [InlineData(15)]
+    // Level 5's arena has no west door: its boss faces the maze's way in, west (DescentMazeLevelTests, brief p18).
     public void The_boss_faces_the_arenas_way_in(int depth)
     {
         Room arena = Arena(depth).Dressed;

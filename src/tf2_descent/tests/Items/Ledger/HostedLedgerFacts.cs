@@ -220,23 +220,17 @@ public sealed class HostedLedgerFacts : LedgerFacts
     }
 
     [Fact]
-    public async Task Australium_a_reveal_books_during_another_operation_is_kept()
+    public async Task A_reveal_pays_no_Australium_the_kills_is_its_piles()
     {
+        // SDK 2.8 sets australium_pile on every Reveal: the host books nothing there, and neither does the ledger.
         await _ledger.Load(A);
-        long id = await Put(A, Roll("rocket_launcher", tier: 2, itemLevel: 10) with { Identified = false });
         await SetAustralium(A, 1000);
-        _host.RevealBooks = 5;
-        _host.RevealGate = new TaskCompletionSource();
-        _host.InPlaceGate = new TaskCompletionSource();
-        await DropFor(A, Roll("cap"));                          // its reveal waits at the host
+        _host.Calls.Clear();
 
-        var identify = _ledger.Identify(A, SlotOf(A, id));      // waits at the host too
-        _host.RevealGate.SetResult();                           // the reveal books 5 first
-        _host.InPlaceGate.SetResult();                          // then the identify answers
-        var identified = await identify;
+        await DropFor(A, Roll("cap"));
 
-        Assert.True(identified.Ok, identified.Refusal);
-        Assert.Equal(_host.Australium[A], _ledger.Find(A)!.Inventory.Australium);
+        Assert.Contains($"reveal {A}", _host.Calls);
+        Assert.Equal((1000L, 1000L), (_host.Australium[A], _ledger.Find(A)!.Inventory.Australium));
     }
 
     [Fact]

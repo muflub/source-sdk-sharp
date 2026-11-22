@@ -11,8 +11,8 @@ namespace TF2.Descent.Server.Gear;
 /// repairs what the hero wears through the item ledger by the rules (dev; cheats; the vendor
 /// is WO8): <c>town</c> is the Engineer's, to the maximum, the maximum untouched, for its price
 /// in Australium from the hero's purse; <c>town_free</c> the same with the price waived;
-/// <c>field</c> Diablo 1's steps with a Repair Kit from the backpack (it is used up), at the hero
-/// level the kit was had at, each lowering the maximum. The pending wear is written first. A repaired
+/// <c>field</c> Diablo 1's steps with a Repair Kit from the backpack (it is used up), at the
+/// hero's level, each lowering the maximum. The pending wear is written first. A repaired
 /// item has its attributes again: the ledger's change re-settles the kit (<see cref="HeroKitSettle"/>).
 /// </summary>
 [ConCommand("tf2_descent_repair",

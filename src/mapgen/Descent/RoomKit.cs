@@ -120,7 +120,17 @@ public sealed record RoomKit(string Name, int Cell, int DoorWidth, int DoorHeigh
     /// voxel (wall 8) packed a 19-room library into 100 MB in 26 s; this kit
     /// packs the same rooms smaller and faster (plan §1.3).
     /// </summary>
-    public static RoomKit Normal { get; } = For("normal", 1024, FrameModel.FarmDoorframe);
+    public static RoomKit Normal { get; } = For("normal", NormalCell, FrameModel.FarmDoorframe);
+
+    /// <summary>The normal kit's cell (E1).</summary>
+    public const int NormalCell = 1024;
+
+    /// <summary>
+    /// Level 5's cell (brief p18, ruling M36): its maze is a 10 by 10 block of 512 cells round a 2 by 2
+    /// arena, so the level's every room is on this kit, the door the normal kit's (208 by 192, framed);
+    /// a room of the normal size covers 2 by 2 of these cells.
+    /// </summary>
+    public const int MazeCell = 512;
 
     /// <summary>The door opening's low edge along its wall, cell-local.</summary>
     public int DoorLow => (Cell - DoorWidth) / 2;

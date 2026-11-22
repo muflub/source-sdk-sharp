@@ -71,12 +71,18 @@ internal sealed class FakeArenaEntities : IArenaEntities
     }
 }
 
-/// <summary>What the horde's paths are told of the arena: every change, in order.</summary>
+/// <summary>What the horde's paths are told of the arena: every change, in order, and how they were told together.</summary>
 internal sealed class FakeArenaObstacles : IArenaObstacles
 {
     public List<(string Name, bool Enabled)> Changes { get; } = [];
 
-    public void Changed(string name, bool enabled) => Changes.Add((name, enabled));
+    public List<(string Name, bool Enabled)[]> Told { get; } = [];
+
+    public void Changed(IReadOnlyList<(string Name, bool Enabled)> changes)
+    {
+        Told.Add([.. changes]);
+        Changes.AddRange(changes);
+    }
 }
 
 /// <summary>The hands an ability is handed, as a fact sees them: every launch kept, a cap it sets.</summary>

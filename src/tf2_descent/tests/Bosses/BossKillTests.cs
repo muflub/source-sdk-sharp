@@ -25,6 +25,7 @@ public sealed class BossKillTests
         public IReadOnlyList<LootMember> Near(Vector at, int killer) => [.. players.Select(p => new LootMember(p, "hero-" + p, at))];
         public string? HeroOf(int player) => "hero-" + player;
         public Vector? Origin(int player) => default(Vector);
+        public IReadOnlyList<string> PileMembers(string killer, string claimer) => [.. players.Select(p => "hero-" + p)];
     }
 
     private sealed class Fixture

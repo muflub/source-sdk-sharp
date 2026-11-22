@@ -1,11 +1,13 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Text;
 
 using SourceSharp.Abi;
 using SourceSharp.Ai;
 using SourceSharp.MapFormats.Bsp;
 using SourceSharp.MapFormats.Bsp.Structs;
 
+using TF2.Descent.Ai.Brains;
 using TF2.Descent.Ai.Level;
 using TF2.Descent.Server.Horde.Boss;
 using TF2.Descent.Server.Horde.Motion;
@@ -72,8 +74,27 @@ public enum HordeNavState : byte
 public sealed class HordeNav(IEngineFiles files, RobotMotion motion, IMotionWorld world, HordeMotionSyncConVar sync, IHordeClock clock, ILog log)
     : IArenaObstacles, IDisposable
 {
-    /// <summary>Static-prop cells tested against the engine's world a tick: about 2 us each in a debug build (11,067 on depth 1 seed 1 took 14 to 27 ms in all), so a level is probed in under a second.</summary>
+    /// <summary>Probes of static-prop cells against the engine's world a tick: about 2 us each in a debug build (11,067 on depth 1 seed 1 took 14 to 27 ms in all), so a level is probed in under a second.</summary>
     public const int ProbesPerTick = 256;
+
+    /// <summary>
+    /// The robot classes each static-prop cell is probed for, biggest first: a cell whose box is
+    /// clear for a hull is clear for every smaller one, so a free cell takes one probe, and a cell
+    /// in a prop is probed down to the first class it is clear for.
+    /// </summary>
+    public static ReadOnlySpan<ClearanceClass> ProbeOrder =>
+        [ClearanceClass.Hull5, ClearanceClass.Hull4, ClearanceClass.Hull3, ClearanceClass.Hull2, ClearanceClass.Stand];
+
+    /// <summary>
+    /// The box a cell is probed with for <paramref name="cls"/>: the class's hull 4 units narrower
+    /// each way, from above a step to 10 under its top (the stand class's is
+    /// <see cref="ProbeMins"/>..<see cref="ProbeMaxs"/>; only flat cells are probed).
+    /// </summary>
+    public static (Vector Mins, Vector Maxs) ProbeBox(ClearanceClass cls)
+    {
+        float half = HordeHulls.HalfWidthOf(cls) - 4f, top = HordeHulls.HeightOf(cls) - 10f;
+        return (new Vector(-half, -half, 19f), new Vector(half, half, top));
+    }
 
     /// <summary>How far round a static prop's origin its cells are tested.</summary>
     public const float PropReach = 112f;
@@ -92,7 +113,8 @@ public sealed class HordeNav(IEngineFiles files, RobotMotion motion, IMotionWorl
     private HordeNavData? _data;
     private HordeLevel? _level;
     private byte[]? _blocks;
-    private int _probed;
+    private byte[]? _hullFrom;
+    private int _probed, _probeStep, _probes;
     private long _begunTick, _readyTick;
     private double _probeMicros;
     private WorkerMotionStepper? _worker;
@@ -130,6 +152,9 @@ public sealed class HordeNav(IEngineFiles files, RobotMotion motion, IMotionWorl
 
     public int Probed => _probed;
 
+    /// <summary>Probes the static-prop cells took (one for a cell clear for every hull).</summary>
+    public int Probes => _probes;
+
     public int Blocked => _data?.BlockedCells ?? 0;
 
     public double ProbeMicros => _probeMicros;
@@ -148,14 +173,27 @@ public sealed class HordeNav(IEngineFiles files, RobotMotion motion, IMotionWorl
     /// The brushes named <paramref name="name"/> were enabled or disabled: kept for the level, and,
     /// once the graph is ready, the paths plan with the arena as it stands now.
     /// </summary>
-    public void Changed(string name, bool enabled)
+    public void Changed(string name, bool enabled) => Changed([(name, enabled)]);
+
+    /// <summary>
+    /// The brushes named in <paramref name="changes"/> were enabled or disabled together (a
+    /// drilled station's pillar and its rubble): kept for the level, and, once the graph is ready,
+    /// the paths plan with the arena as it stands after all of them, one new obstacle state and one
+    /// log line for the change (live on level 10 at 225fe2e96 the pillar's line came between the
+    /// two, so its count, 4 or 5, said whether the exit had opened before the drill).
+    /// </summary>
+    public void Changed(IReadOnlyList<(string Name, bool Enabled)> changes)
     {
-        ArgumentNullException.ThrowIfNull(name);
-        _arena[name] = enabled;
-        if (State != HordeNavState.Ready || _data is not { } data)
-            return;
-        ArenaBrushRole role = HordeArenaObstacles.RoleOf(name);
-        if (role == ArenaBrushRole.None)
+        ArgumentNullException.ThrowIfNull(changes);
+        bool arena = false;
+        foreach (var (name, enabled) in changes)
+        {
+            ArgumentNullException.ThrowIfNull(name);
+            _arena[name] = enabled;
+            arena |= HordeArenaObstacles.RoleOf(name) != ArenaBrushRole.None;
+        }
+
+        if (State != HordeNavState.Ready || _data is not { } data || !arena)
             return;
         NavObstacleState state = HordeArenaObstacles.State(data.Nav, data.Open, _arena, out int blocking);
         ArenaBlocking = blocking;
@@ -164,9 +202,20 @@ public sealed class HordeNav(IEngineFiles files, RobotMotion motion, IMotionWorl
         bool changed = HordePaths.EpochOf(data.Identity, state) != Paths.Epoch;
         if (changed)
             Paths.Obstruct(state);
-        int count = HordeArenaObstacles.Count(data.Nav, name);
+        var told = new StringBuilder();
+        foreach (var (name, enabled) in changes)
+        {
+            ArenaBrushRole role = HordeArenaObstacles.RoleOf(name);
+            if (role == ArenaBrushRole.None)
+                continue;
+            if (told.Length > 0)
+                told.Append(", ");
+            told.Append(CultureInfo.InvariantCulture,
+                $"{name} {(enabled ? "enabled" : "disabled")} ({role}, {HordeArenaObstacles.Count(data.Nav, name)} obstacle(s) of the name): {(HordeArenaObstacles.Blocks(role, enabled) ? "blocks" : "open")}");
+        }
+
         log.Msg(string.Create(CultureInfo.InvariantCulture,
-            $"[TF2Descent/Horde] nav: {name} {(enabled ? "enabled" : "disabled")} ({role}, {count} obstacle(s) of the name): {(HordeArenaObstacles.Blocks(role, enabled) ? "blocks" : "open")}; {blocking} arena obstacle(s) block, epoch {Paths.Epoch:x8} ({Paths.ClassMicros:0} us for the classes' cells): {(changed ? "paths in hand are planned again" : "paths unchanged")}\n"));
+            $"[TF2Descent/Horde] nav: {told}; {blocking} arena obstacle(s) block, epoch {Paths.Epoch:x8} ({Paths.ClassMicros:0} us for the classes' cells): {(changed ? "paths in hand are planned again" : "paths unchanged")}\n"));
     }
 
     /// <summary>The stepper the motion runs now, by name.</summary>
@@ -328,7 +377,11 @@ public sealed class HordeNav(IEngineFiles files, RobotMotion motion, IMotionWorl
 
         _data = derived;
         _blocks = new byte[derived.Graph.CellCount];
+        _hullFrom = new byte[derived.Graph.CellCount];
+        Array.Fill(_hullFrom, HordeNavData.NoHull);
         _probed = 0;
+        _probeStep = 0;
+        _probes = 0;
         _probeMicros = 0;
         State = HordeNavState.Probing;
         log.Msg(string.Create(CultureInfo.InvariantCulture,
@@ -340,29 +393,45 @@ public sealed class HordeNav(IEngineFiles files, RobotMotion motion, IMotionWorl
         var data = _data!;
         int[] candidates = _candidates ?? [];
         long t0 = Stopwatch.GetTimestamp();
-        int end = Math.Min(candidates.Length, _probed + ProbesPerTick);
-        for (; _probed < end; _probed++)
+        ReadOnlySpan<ClearanceClass> order = ProbeOrder;
+        for (int budget = ProbesPerTick; budget > 0 && _probed < candidates.Length; budget--)
         {
             int cell = candidates[_probed];
             NavCell c = data.Graph.Cell(cell);
+            ClearanceClass cls = order[_probeStep];
             var at = new Vector((c.MinX + c.MaxX) * 0.5f, (c.MinY + c.MaxY) * 0.5f, c.FloorZ);
-            var t = world.Sweep(at, at, ProbeMins, ProbeMaxs, EntityHandle.None);
-            if (t.StartSolid && t.EntityIndex == 0)
+            var (mins, maxs) = ProbeBox(cls);
+            var t = world.Sweep(at, at, mins, maxs, EntityHandle.None);
+            _probes++;
+            bool inProp = t.StartSolid && t.EntityIndex == 0;
+            if (inProp && cls == ClearanceClass.Stand)
                 _blocks![cell] = NavCellBlocks.Blocked;
+            else if (inProp)
+                _hullFrom![cell] = (byte)cls;
+
+            // In a prop: the next smaller class; clear (or the last): the next cell.
+            if (inProp && _probeStep + 1 < order.Length)
+            {
+                _probeStep++;
+                continue;
+            }
+
+            _probeStep = 0;
+            _probed++;
         }
 
         _probeMicros += Stopwatch.GetElapsedTime(t0).TotalMicroseconds;
         if (_probed < candidates.Length)
             return;
 
-        _data = data.WithBlocks(_blocks!);
+        _data = data.WithBlocks(_blocks!, _hullFrom);
         NavObstacleState arena = HordeArenaObstacles.State(_data.Nav, _data.Open, _arena, out int blocking);
         ArenaBlocking = blocking;
         Paths.Ready(_data, _level!, arena);
         State = HordeNavState.Ready;
         _readyTick = clock.Tick;
         log.Msg(string.Create(CultureInfo.InvariantCulture,
-            $"[TF2Descent/Horde] nav ready: {_map}, {_readyTick - _begunTick} ticks after the level began; {_data.BlockedCells} of {candidates.Length} static-prop cells blocked ({_probeMicros:0} us of probes on the game thread), {blocking} arena obstacle(s) block ({_arena.Count} arena change(s) this level), epoch {Paths.Epoch:x8} ({Paths.ClassMicros:0} us for the classes' cells); robots plan on the graph\n"));
+            $"[TF2Descent/Horde] nav ready: {_map}, {_readyTick - _begunTick} ticks after the level began; {_data.BlockedCells} of {candidates.Length} static-prop cells blocked, for the bigger hulls {_data.ClassBlockedCells(ClearanceClass.Hull2)} {_data.ClassBlockedCells(ClearanceClass.Hull3)} {_data.ClassBlockedCells(ClearanceClass.Hull4)} {_data.ClassBlockedCells(ClearanceClass.Hull5)} more ({_probes} probes, {_probeMicros:0} us on the game thread), {blocking} arena obstacle(s) block ({_arena.Count} arena change(s) this level), epoch {Paths.Epoch:x8} ({Paths.ClassMicros:0} us for the classes' cells); robots plan on the graph\n"));
     }
 
     private void PickStepper()
@@ -398,6 +467,7 @@ public sealed class HordeNav(IEngineFiles files, RobotMotion motion, IMotionWorl
         _data = null;
         _level = null;
         _blocks = null;
+        _hullFrom = null;
         _arena.Clear();
         ArenaBlocking = 0;
         State = HordeNavState.None;

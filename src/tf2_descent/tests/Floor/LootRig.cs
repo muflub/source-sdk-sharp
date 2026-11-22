@@ -63,6 +63,13 @@ internal sealed class RigParty : ILootParty
     public string? HeroOf(int player) => Members.FirstOrDefault(m => m.Player == player)?.Hero;
 
     public Vector? Origin(int player) => Members.FirstOrDefault(m => m.Player == player)?.Origin;
+
+    /// <summary>Heroes on the level in no party with the others.</summary>
+    public HashSet<string> Strangers { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Every member but the strangers is one party: the killer first, then by slot.</summary>
+    public IReadOnlyList<string> PileMembers(string killer, string claimer) =>
+        [.. Members.Where(m => !Strangers.Contains(m.Hero)).OrderBy(m => m.Hero != killer).ThenBy(m => m.Player).Select(m => m.Hero)];
 }
 
 internal sealed class RigMode : IDescentModeState

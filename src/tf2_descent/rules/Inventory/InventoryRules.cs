@@ -265,6 +265,29 @@ public sealed class InventoryRules
         return Done(hero with { Backpack = backpack.Remove(from) }, stash, a);   // merged whole: its id leaves, its units stay in 'to'
     }
 
+    /// <summary>
+    /// The contract's <c>Merge</c> (Host.Contracts 1.2): <paramref name="source"/>'s count into
+    /// <paramref name="target"/>'s, up to the base's stack size, as <see cref="Stack"/> and
+    /// <see cref="ToBelt"/> merge. Inputs are [source, target]: <c>Produced[0]</c> is the target
+    /// with its new count; used up, the source is <c>Consumed = [0]</c>, else <c>Produced[1]</c>
+    /// holds what did not fit. Both re-encoded, in place; nothing costs. Refused
+    /// (<see cref="InventoryRefusals.NotStackable"/>) for two bases, a base that does not stack, or
+    /// a target with no room.
+    /// </summary>
+    public ItemChange Merge(ItemInstance source, ItemInstance target)
+    {
+        int limit = _content.ItemBases.TryGet(target.BaseId, out var b) ? b.Stack : 1;
+        if (source.BaseId != target.BaseId || limit <= 1)
+            return new([], [], 0, InventoryRefusals.NotStackable);
+        int moved = Math.Min(source.Count, limit - target.Count);
+        if (moved <= 0)
+            return new([], [], 0, InventoryRefusals.NotStackable);
+        var into = _items.Codec.ToRolled(target with { Count = target.Count + moved });
+        return moved == source.Count
+            ? new([0], [into], 0)
+            : new([], [into, _items.Codec.ToRolled(source with { Count = source.Count - moved })], 0);
+    }
+
     /// <summary>Replaces the item in a slot with its changed self, same id (the Spy's identify, the Engineer's repair: the host changes those in place).</summary>
     public InventoryResult Replace(HeroInventory hero, StashState stash, int slot, ItemInstance changed) =>
         hero.Backpack.TryGetValue(slot, out var held)

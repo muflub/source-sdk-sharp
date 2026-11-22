@@ -34,6 +34,13 @@ public interface ILootParty
 
     /// <summary>Where the player in slot <paramref name="player"/> stands; null for no living hero there.</summary>
     Vector? Origin(int player);
+
+    /// <summary>
+    /// Who a kill's pile is shared with when <paramref name="claimer"/> picks it up (L24): every hero
+    /// on the level (living or not) in the party of <paramref name="killer"/>, or of the claimer when
+    /// the killer has left, the killer first, then by slot; as the ledger names them.
+    /// </summary>
+    IReadOnlyList<string> PileMembers(string killer, string claimer);
 }
 
 /// <summary>The heroes, the engine's places, the ledger's names (<see cref="HeroKeys"/>) and the killer's party (<see cref="Party.IPartyRoster"/>).</summary>
@@ -67,6 +74,20 @@ public sealed class HeroLootParty(Heroes heroes, HeroKeys keys, IEngineEntities 
 
     public Vector? Origin(int player) =>
         heroes.Of(player) is { Player: var p } && p != EntityHandle.None && players.IsAlive(p) ? entities.GetOrigin(p) : null;
+
+    public IReadOnlyList<string> PileMembers(string killer, string claimer)
+    {
+        var here = new List<(int Slot, string Name)>();
+        foreach (var hero in heroes.All)
+            if (hero.Sheet is not null && hero.Player != EntityHandle.None && keys.Of(hero.PlayerIndex) is { } name)
+                here.Add((hero.PlayerIndex, name));
+        var anchor = here.FirstOrDefault(h => h.Name == killer);
+        if (anchor.Name is null)
+            anchor = here.FirstOrDefault(h => h.Name == claimer);
+        if (anchor.Name is null)
+            return [];
+        return [.. here.Where(h => roster.SameParty(anchor.Slot, h.Slot)).OrderBy(h => h.Name != killer).ThenBy(h => h.Slot).Select(h => h.Name)];
+    }
 }
 
 /// <summary>The floor under a point.</summary>

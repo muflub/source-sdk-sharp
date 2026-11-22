@@ -196,9 +196,16 @@ public static class RoomLint
     // jump rooms: 576 of clear air over half the floor and a straight 768 run.
     //-------------------------------------------------------------------------
 
+    /// <summary>
+    /// Whether the jump-space rules (plan §4: a jump room's clear air) pass over a room by its role: a tunnel, a
+    /// corridor or a junction, whose low roof is the point of it. Level 5's maze cells are tunnels so: their solid
+    /// roof at 384 is what stops a jump over the maze's walls (brief p18).
+    /// </summary>
+    public static bool JumpSpaceExempt(Room room) => room.Entry.Tags.Contains("corridor") || room.Entry.Tags.Contains("junction");
+
     public static IEnumerable<LintFinding> CheckJumpClearAir(Room room, RoomColumns columns)
     {
-        if (!room.Entry.Jump)
+        if (!room.Entry.Jump || JumpSpaceExempt(room))
             yield break;
         var reached = columns.ReachableAtT1(room.Sockets.Select(s => room.DoorInside(s.Face, s.Offset, 48)));
         var (clear, floor, run) = columns.ClearAir(JumpTable.RocketClearAir, reached);

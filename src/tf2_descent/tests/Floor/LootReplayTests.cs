@@ -126,17 +126,18 @@ public sealed class LootReplayTests
             var rolls = rules.Loot.PerSeat(Seed, sequence, key, Depth, 2, rules.Salt);
             bool own = roster.IsBoss(row) || roster.IsChampion(row);
             long total = rolls[0].Australium + (own ? rules.Loot.BossAustralium(LootKey.Parse(key).Template) : 0);
-            var shares = LootRules.Split(total, 2);
             for (int s = 0; s < 2; s++)
             {
                 var (hero, slot) = seats[s];
                 var expected = Expected(rules, ledger, ledgerSheets[hero], hero, sequence, s, rolls[s], key, own);
                 var got = placed[i].Select(d => d.SeatOf(slot)?.Item?.Item).OfType<ItemInstance>().ToList();
                 Assert.Equal(expected.Select(Bytes), got.Select(Bytes));
-                Assert.Equal(shares[s], placed[i].Count == 0 ? 0 : placed[i][0].SeatOf(slot)?.Australium ?? 0);
                 items += got.Count;
-                australium += shares[s];
             }
+
+            // The kill's Australium is one pile on its first drop (L24), shared when it is picked up.
+            Assert.Equal(total, placed[i].Count == 0 ? 0 : placed[i][0].Pile?.Australium ?? 0);
+            australium += total;
         }
 
         // The game's sheets are the replay's: the same XP and level for each hero.
