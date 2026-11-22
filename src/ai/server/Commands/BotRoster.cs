@@ -89,6 +89,23 @@ public enum RosterKind : byte
     UnnamedCustom,
 }
 
+/// <summary>
+/// The options a game reads off <c>ai_bot_add</c> past the generic ones (plan_bots_teams_tf2 P7): TF2's <c>class=</c> and
+/// <c>archetype=</c>, a pin for tests and A/B runs. The command asks the game whether each <c>key=value</c> word is one
+/// of its own and fine; the roster keeps them with the bot and tells the game each time the bot joins the game.
+/// </summary>
+public interface IBotOptions
+{
+    /// <summary>The keys the game reads (<c>class</c>, <c>archetype</c>).</summary>
+    IReadOnlyCollection<string> Keys { get; }
+
+    /// <summary>Null when <paramref name="options"/> (every game key given, by key) are fine, else why not.</summary>
+    string? Check(IReadOnlyDictionary<string, string> options);
+
+    /// <summary><paramref name="bot"/> joined the game (its <see cref="RosterBot.Actor"/> set) with its <see cref="RosterBot.Options"/>.</summary>
+    void Joined(RosterBot bot);
+}
+
 /// <summary>A bot the server wants: its name, skills and seed, and whether it is in the game or why it is not.</summary>
 public sealed class RosterBot(int ordinal, string? givenName, RosterKind kind, SkillProfile shape)
 {
@@ -125,6 +142,9 @@ public sealed class RosterBot(int ordinal, string? givenName, RosterKind kind, S
 
     /// <summary>The team it joins under a mode with teams (plan_bots_teams_tf2 B.6): <see cref="RosterTeam.Auto"/>, 2 or 3.</summary>
     public int Team { get; set; }
+
+    /// <summary>The game's own options <c>ai_bot_add</c> gave it (<see cref="IBotOptions"/>: TF2's <c>class=</c>, <c>archetype=</c>), by key; none by default.</summary>
+    public IReadOnlyDictionary<string, string> Options { get; set; } = new Dictionary<string, string>();
 
     /// <summary>
     /// The tick it last asked to join a team (a refusal is asked again later, not every
@@ -165,7 +185,7 @@ public sealed class RosterBot(int ordinal, string? givenName, RosterKind kind, S
 /// refused entry is a console line naming it and the fault, and joins nothing.
 /// </summary>
 [SideService(Side.Server)]
-public sealed class AiRoster(AiBots bots, IBotProfileSource profiles, IServerSlots slots, ILog log, IRosterTeams teams)
+public sealed class AiRoster(AiBots bots, IBotProfileSource profiles, IServerSlots slots, ILog log, IRosterTeams teams, IBotOptions? options = null)
 {
     /// <summary>A refused team join is asked again this long after (5 s).</summary>
     public const int TeamRetryTicks = 336;
@@ -223,7 +243,7 @@ public sealed class AiRoster(AiBots bots, IBotProfileSource profiles, IServerSlo
     /// <c>ai_bot_add</c>: a bot joins the roster, and the game when there is
     /// room (else it waits, benched). Answers null, or why it did not join.
     /// </summary>
-    public string? Add(string? name, string? spec, int team = RosterTeam.Auto)
+    public string? Add(string? name, string? spec, int team = RosterTeam.Auto, IReadOnlyDictionary<string, string>? gameOptions = null)
     {
         SkillVerdict verdict = BotSkillSpec.Parse(name ?? "custom", spec, out SkillProfile? skills);
         if (!verdict.Accepted)
@@ -239,6 +259,7 @@ public sealed class AiRoster(AiBots bots, IBotProfileSource profiles, IServerSlo
         Count();
         RosterBot bot = _bots[^1];
         bot.Team = team;
+        bot.Options = gameOptions ?? new Dictionary<string, string>();
         if (bots.NavBuilding)
         {
             // It joins the roster now and the game when the build lands (Reconcile, on the nav's version).
@@ -678,6 +699,8 @@ public sealed class AiRoster(AiBots bots, IBotProfileSource profiles, IServerSlo
             return refusal;
         bot.Actor = id;
         bot.Reason = "";
+        // The game reads its own options (a class pin) for the bot now in the game, on every level it joins.
+        options?.Joined(bot);
         // A player's first act under a mode with teams: the team menu's jointeam.
         if (teams.Teamplay)
         {

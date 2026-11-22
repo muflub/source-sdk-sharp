@@ -85,7 +85,9 @@ public enum ActorActivity : byte
 /// B.2: in HL2DM the model's team, in TF2 a disguise's), 0 when the mode plays no teams. <see cref="Class"/>
 /// is the class a client renders it as (a disguise's; 0 for a game without classes), <see cref="Conditions"/>
 /// the conditions drawn on it, and <see cref="NameSlot"/> the slot of the player whose name its target ID
-/// shows when that is not its own (a disguise's borrowed name, 0 for its own: plan_bots_teams_tf2 C.3).
+/// shows when that is not its own (a disguise's borrowed name, 0 for its own: plan_bots_teams_tf2 C.3). <see cref="Facing"/>
+/// is where it looks, as every client sees a player's head and aim (plan_bots_teams_tf2 P7: a backstab, a dodge across a
+/// line of fire); not recorded, so a replay reads it as default (pitch and yaw 0).
 /// </summary>
 public readonly record struct ActorFacts(
     ActorId Id,
@@ -97,7 +99,8 @@ public readonly record struct ActorFacts(
     int Team = 0,
     int Class = 0,
     ActorConditions Conditions = ActorConditions.None,
-    int NameSlot = 0);
+    int NameSlot = 0,
+    AiAngles Facing = default);
 
 /// <summary>What a sighted thing that is not a player is (plan_bots_teams_tf2 C.3).</summary>
 public enum ThingKind : byte
@@ -192,6 +195,7 @@ public sealed class PerceivedView
         SightedCount = 0;
         ThingCount = 0;
         Objectives = null;
+        GameHud = null;
     }
 
     /// <summary>The self's second-trigger pool and frags, read after the view (format 5's tail, <see cref="AiRecordFormat"/>).</summary>
@@ -203,6 +207,17 @@ public sealed class PerceivedView
         Self = Self with { Team = self };
         for (int i = 0; i < SightedCount && i < sighted.Length; i++)
             _sighted[i] = _sighted[i] with { Team = sighted[i] };
+    }
+
+    /// <summary>
+    /// The self's class, conditions and metal, and each sighted actor's class, conditions, borrowed name and facing, read
+    /// after the view (format 10's tail, <see cref="AiRecordFormat"/>); a missing one stays as it was.
+    /// </summary>
+    internal void SetDrawn(int selfClass, ActorConditions selfConditions, int metal, ReadOnlySpan<(int Class, ActorConditions Conditions, int NameSlot, AiAngles Facing)> sighted)
+    {
+        Self = Self with { Class = selfClass, Conditions = selfConditions, Metal = metal };
+        for (int i = 0; i < SightedCount && i < sighted.Length; i++)
+            _sighted[i] = _sighted[i] with { Class = sighted[i].Class, Conditions = sighted[i].Conditions, NameSlot = sighted[i].NameSlot, Facing = sighted[i].Facing };
     }
 
     /// <summary>Makes this view a copy of <paramref name="other"/> (a step's own copy, so the ring can move on, §2.7).</summary>
@@ -219,6 +234,7 @@ public sealed class PerceivedView
         other.Things.CopyTo(_things);
         ThingCount = other.ThingCount;
         Objectives = other.Objectives;
+        GameHud = other.GameHud;
     }
 
     /// <summary>Adds a thing the bot has sight of this tick; false, and nothing added, when the view is full.</summary>
@@ -234,6 +250,16 @@ public sealed class PerceivedView
 
     /// <summary>The objectives the HUD shows this tick (<see cref="Objectives"/>).</summary>
     public void SetObjectives(ObjectiveKnowledge? objectives) => Objectives = objectives;
+
+    /// <summary>
+    /// What the bot's own HUD shows past <see cref="Self"/> in a game that has more (plan_bots_teams_tf2 P7): its loadout,
+    /// its meters, the teammates' health its HUD shows. The game's binding's own type, immutable, the same object while
+    /// nothing on it changes; null for a game with none, and in a replay (it is not recorded, as the objectives are not).
+    /// </summary>
+    public GameHud? GameHud { get; private set; }
+
+    /// <summary>The game's HUD this tick (<see cref="GameHud"/>).</summary>
+    public void SetGameHud(GameHud? hud) => GameHud = hud;
 
     /// <summary>Adds an actor the bot has sight of this tick.</summary>
     public void AddSighted(in ActorFacts facts)
@@ -263,4 +289,25 @@ public sealed class PerceivedView
         facts = default;
         return false;
     }
+}
+
+/// <summary>
+/// The base of a game's own HUD read (<see cref="PerceivedView.GameHud"/>, plan_bots_teams_tf2 P7): a game's binding
+/// derives its type from it; the core reads nothing of it but the bytes a recording keeps (<see cref="Recorded"/>,
+/// format 10), which a replay hands back as a <see cref="RecordedGameHud"/> for the game's decider to read with its own
+/// codec. A derived type must be immutable: a view's copy keeps the same object.
+/// </summary>
+public abstract class GameHud
+{
+    /// <summary>The bytes a recording keeps of this HUD: all a decider reads of it, so a replay decides as the game did.</summary>
+    public abstract byte[] Recorded();
+}
+
+/// <summary>A game's HUD as a recording kept it (format 10): its bytes, for the game's decider to read back.</summary>
+public sealed class RecordedGameHud(byte[] bytes) : GameHud
+{
+    /// <summary>The bytes the game's <see cref="GameHud.Recorded"/> wrote.</summary>
+    public byte[] Bytes { get; } = bytes;
+
+    public override byte[] Recorded() => Bytes;
 }

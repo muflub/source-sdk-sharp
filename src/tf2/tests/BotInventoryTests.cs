@@ -43,6 +43,14 @@ public sealed class BotInventoryTests
         return new EconTestFiles().With(BotInventory.TablePath, File.ReadAllText(path));
     }
 
+    /// <summary>The shipped schema (the game's content dir holds it), which has every multi-class item the trimmed fixture lacks.</summary>
+    private static ItemSchema ShippedSchema()
+    {
+        string path = RepoLayout.Repo("bin", RepoLayout.Config, "content", "tf", "scripts", "items", "items_game.txt");
+        Assert.True(File.Exists(path), $"{path} is missing: the game's content dir holds the shipped schema");
+        return EconTestFiles.Schema(File.ReadAllText(path));
+    }
+
     private static EconTestFiles CraftedTable(params string[] rows) =>
         new EconTestFiles().With(BotInventory.TablePath,
             string.Join('\n', [Header, .. rows]) + "\n");
@@ -229,6 +237,152 @@ public sealed class BotInventoryTests
 
         Assert.Equal(BotInventory.SeedOfName("Delta"), first.SeedOf(3));
         Assert.Equal(Draws(first.ForBot(3)!), Draws(second.ForBot(9)!));
+    }
+
+    /// <summary>
+    /// A multi-class item is drawn into the slot it takes for each class, not the table's slot column (its default slot):
+    /// the upgradeable shotgun (199, primary by default, the Engineer's) is a Soldier's, Pyro's and Heavy's secondary.
+    /// Keyed by the column it sat under the Soldier's primary, where the inventory refuses it, and the stock launcher stood.
+    /// </summary>
+    [Fact]
+    public void AMultiClassItemIsDrawnIntoEachClasssOwnSlot()
+    {
+        EconTestFiles files = CraftedTable("199\tUpgradeable TF_WEAPON_SHOTGUN_PRIMARY\ttf_weapon_shotgun\tprimary\tsoldier,heavy,pyro,engineer\t\t\tworks\t");
+        ItemSchema schema = ShippedSchema();
+        PlayerInventory inventory = Source(files, schema).ForBot(Seat, 0)!;
+
+        Assert.Equal([(TFClass.Soldier, TFLoadoutSlot.Secondary), (TFClass.HeavyWeapons, TFLoadoutSlot.Secondary), (TFClass.Pyro, TFLoadoutSlot.Secondary),
+                      (TFClass.Engineer, TFLoadoutSlot.Primary)],
+                     Draws(inventory).Where(d => d.Defindex == 199).Select(d => d.Key).OrderBy(k => (int)k.Class));
+        Assert.Equal(199, inventory.ItemInLoadout(TFClass.Soldier, TFLoadoutSlot.Secondary, schema)!.Defindex);
+    }
+
+    /// <summary>
+    /// Over the shipped table, every works row reaches each class it names in the slot that class takes it in: no
+    /// class and slot misses a row the class can carry there (the shotguns, the pistols, the Pain Train, the pan's reskins).
+    /// </summary>
+    [Fact]
+    public void EveryWorksRowReachesEachOfItsClassesSlots()
+    {
+        EconTestFiles files = ShippedTable();
+        ItemSchema schema = ShippedSchema();
+        BotInventory source = Source(files, schema);
+        var misses = new List<string>();
+        int reached = 0;
+        foreach (var line in files.ReadGameFile(BotInventory.TablePath)!.ReplaceLineEndings("\n").Split('\n'))
+        {
+            string[] cols = line.Split('\t');
+            if (cols.Length < 8 || cols[0] == "defindex" || cols[7] != "works" || BotInventory.BarsTheObjective(cols[6])
+                || !int.TryParse(cols[0], out int defindex) || schema.Item(defindex) is not { } definition)
+                continue;
+            foreach (TFClass cls in definition.UsedByClasses)
+            {
+                if (!source.WorksFor(cls, definition.Slot(cls)).Any(w => w.Defindex == defindex))
+                    misses.Add($"{defindex} {cols[1]} as {cls} {definition.Slot(cls)}");
+                else
+                    reached++;
+            }
+        }
+
+        Assert.Empty(misses);
+        Assert.True(reached > 400, $"{reached} class slots reached: the shipped schema did not reach the facts");
+    }
+
+    /// <summary>
+    /// An item the inventory refuses for the slot (a row naming a class the item is not used by: the pistol as a
+    /// Soldier's) is counted and the draw goes on to the next row, so over 50 seeds the Soldier always equips one.
+    /// Ignored, the seeds that drew the pistol left the slot unequipped.
+    /// </summary>
+    [Fact]
+    public void ARefusedItemIsCountedAndTheDrawGoesOn()
+    {
+        EconTestFiles files = CraftedTable(
+            "22\tTF_WEAPON_PISTOL\ttf_weapon_pistol\tsecondary\tscout,soldier\t\t\tworks\t",
+            "10\tTF_WEAPON_SHOTGUN_SOLDIER\ttf_weapon_shotgun\tsecondary\tsoldier\t\t\tworks\t");
+        BotInventory source = Source(files, EconTestFiles.TrimmedSchema());
+        for (ulong seed = 0; seed < 50; seed++)
+            Assert.Contains(Draws(source.ForBot(Seat, seed)!), d => d.Key == (TFClass.Soldier, TFLoadoutSlot.Secondary) && d.Defindex == 10);
+        Assert.True(source.Refused > 0, "no seed drew the pistol for the Soldier: the refusal was never reached");
+    }
+
+    /// <summary>
+    /// An item that marks its holder for death (self_mark_for_death: the Escape Plan, MvM's GRU) is never the seeded draw's,
+    /// over 200 seeds; the choice seam reaches it (a Soldier's archetype plays the Escape Plan).
+    /// </summary>
+    [Fact]
+    public void AnItemThatMarksForDeathIsOnlyAChoices()
+    {
+        EconTestFiles files = CraftedTable(
+            "22\tTF_WEAPON_PISTOL\ttf_weapon_pistol\tsecondary\tscout\t\t\tworks\t",
+            "23\tTF_WEAPON_PISTOL_SCOUT\ttf_weapon_pistol\tsecondary\tscout\t\tmult_dmg;self_mark_for_death\tworks\t");
+        BotInventory source = Source(files, EconTestFiles.TrimmedSchema());
+        var drawn = new HashSet<int>();
+        for (ulong seed = 0; seed < 200; seed++)
+            drawn.UnionWith(Draws(source.ForBot(Seat, seed)!).Select(d => d.Defindex));
+        Assert.Equal([22], drawn);
+        var chosen = new BotInventory(EconTestFiles.TrimmedSchema(), files, new TestBots(isBot: true), Log(), new Choice(23));
+        Assert.Contains(Draws(chosen.ForBot(Seat, 0)!), d => d.Key == (TFClass.Scout, TFLoadoutSlot.Secondary) && d.Defindex == 23);
+    }
+
+    /// <summary>The Escape Plan (775) in the shipped table is a Soldier's melee a choice may give and the seeded draw never does.</summary>
+    [Fact]
+    public void TheEscapePlanIsOnlyAChoices()
+    {
+        BotInventory source = Source(ShippedTable(), ShippedSchema());
+        BotWorksItem plan = Assert.Single(source.WorksFor(TFClass.Soldier, TFLoadoutSlot.Melee), w => w.Defindex == 775);
+        Assert.True(plan.Flagged);
+        for (ulong seed = 0; seed < 200; seed++)
+            Assert.DoesNotContain(Draws(source.ForBot(Seat, seed)!), d => d.Defindex == 775);
+        var chosen = new BotInventory(ShippedSchema(), ShippedTable(), new TestBots(isBot: true), Log(), new SoldierMelee(775));
+        Assert.Contains(Draws(chosen.ForBot(Seat, 0)!), d => d.Key == (TFClass.Soldier, TFLoadoutSlot.Melee) && d.Defindex == 775);
+    }
+
+    private sealed class SoldierMelee(int defindex) : IBotItemChoice
+    {
+        public int Choose(int entIndex, TFClass cls, TFLoadoutSlot slot, IReadOnlyList<BotWorksItem> works)
+            => cls == TFClass.Soldier && slot == TFLoadoutSlot.Melee ? defindex : -1;
+    }
+
+    /// <summary>A flagged family (the Targe, a shield) is never the seeded draw's: the stock item stands, over 100 seeds.</summary>
+    [Fact]
+    public void AFlaggedFamilyIsNotDrawnBySeed()
+    {
+        EconTestFiles files = CraftedTable("131\tThe Chargin' Targe\ttf_wearable_demoshield\tsecondary\tdemoman\ttf_wearable_demoshield shield\t\tworks\t");
+        BotInventory source = Source(files, EconTestFiles.TrimmedSchema());
+        Assert.Single(source.WorksFor(TFClass.Demoman, TFLoadoutSlot.Secondary));
+        for (ulong seed = 0; seed < 100; seed++)
+            Assert.DoesNotContain(Draws(source.ForBot(Seat, seed)!), d => d.Defindex == 131);
+    }
+
+    private sealed class Choice(int defindex) : IBotItemChoice
+    {
+        public int Asked { get; private set; }
+
+        public int Choose(int entIndex, TFClass cls, TFLoadoutSlot slot, IReadOnlyList<BotWorksItem> works)
+        {
+            Asked++;
+            return cls == TFClass.Demoman && slot == TFLoadoutSlot.Secondary || cls == TFClass.Scout && slot == TFLoadoutSlot.Secondary ? defindex : -1;
+        }
+    }
+
+    /// <summary>The AI's choice of a works row is the bot's item, a flagged family too (the archetype that plays the Targe chose it).</summary>
+    [Fact]
+    public void AChosenWorksRowIsTheBotsItem()
+    {
+        EconTestFiles files = CraftedTable("131\tThe Chargin' Targe\ttf_wearable_demoshield\tsecondary\tdemoman\ttf_wearable_demoshield shield\t\tworks\t");
+        var choice = new Choice(131);
+        var source = new BotInventory(EconTestFiles.TrimmedSchema(), files, new TestBots(isBot: true), Log(), choice);
+        Assert.Contains(Draws(source.ForBot(Seat, 0)!), d => d.Key == (TFClass.Demoman, TFLoadoutSlot.Secondary) && d.Defindex == 131);
+        Assert.True(choice.Asked > 0);
+    }
+
+    /// <summary>A choice that names no offered row is the draw's: only a works item is ever a bot's (the control: 22 offered, 23 named).</summary>
+    [Fact]
+    public void AChoiceOfAnItemNotOfferedIsTheDraws()
+    {
+        EconTestFiles files = CraftedTable("22\tTF_WEAPON_PISTOL\ttf_weapon_pistol\tsecondary\tscout\t\t\tworks\t");
+        var source = new BotInventory(EconTestFiles.TrimmedSchema(), files, new TestBots(isBot: true), Log(), new Choice(23));
+        Assert.Contains(Draws(source.ForBot(Seat, 0)!), d => d.Key == (TFClass.Scout, TFLoadoutSlot.Secondary) && d.Defindex == 22);
     }
 
     /// <summary>A class and slot whose rows are all partial or missing answers the stock item, owning nothing.</summary>

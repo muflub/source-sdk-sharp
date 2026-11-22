@@ -715,6 +715,76 @@ public sealed class TFPointsTests
         Assert.Equal((null, TFTeamPlay.None, false), (g.Decider.RallyPlace, g.Decider.TeamPlay, said.Say.Says));
     }
 
+    /// <summary>
+    /// Lane Groutes, fourth pass: a bot that comes to a teammate's rally late goes to the rally by its own way while late, not
+    /// first to its teammates (live on cp_granary late bots walked "back to the team" 7 s from a rally called ahead of them).
+    /// Its play stays none until its lateness is past, as ABotComesToARallyLateByItsTeamworkAndTheLeastIgnoresIt holds.
+    /// </summary>
+    [Fact]
+    public void ABotLateToATeammatesRallyGoesToTheRallyNotBackToItsTeam()
+    {
+        var rally = new AiVector(1300f, 256f, 0f);
+        TFField f = Field(tune: p => p with { Teamwork = 5f });
+        f.Decider.HoldStance(TFStance.Team);
+        f.StepHearing(Bot(At), Level(), [Heard(f, MateId, CalloutKind.Rally, rally)]);
+        for (int i = 0; i < Decides(2f); i++)
+        {
+            // A teammate seen behind it: its team's place is back there.
+            f.Step(Bot(At), Level(), Seen(MateId, MateBehind));
+            Assert.Equal(TFTeamPlay.None, f.Decider.TeamPlay);
+            Assert.Equal(("to the rally", rally), (f.Decider.Doing.Verdict, f.Decider.Doing.Goal));
+        }
+
+        // At the rally while still late: it waits there, looking about.
+        IntentCommand at = f.Step(Bot(rally), Level());
+        Assert.Equal(("at the rally", LookKind.Point), (f.Decider.Doing.Verdict, at.Look.Kind));
+        Assert.Equal(TFTeamPlay.None, f.Decider.TeamPlay);
+    }
+
+    /// <summary>
+    /// The user, 2026-11-20: "at the start of the round bots dont have to wait and assume all team members are going towards the
+    /// objective directly". Held still by the round's start, then let go: a team-stance bot whose teammate stands behind it
+    /// (mid-round, where it calls a rally: the control) calls none, holds none, waits for nobody, and goes for the point.
+    /// </summary>
+    [Fact]
+    public void AtARoundsStartNoRallyIsCalledAndNoBotGoesToItsTeamOrWaits()
+    {
+        TFField f = Field(mates: [Mate, 4, 5]);
+        f.Decider.HoldStance(TFStance.Team);
+        for (int i = 0; i < Decides(1f); i++)
+            Assert.False(f.Step(TFField.Self(At, extra: SelfFlags.Frozen), Level(), Seen(MateId, MateBehind)).Say.Says);
+        for (int i = 0; i < Decides(4f); i++)
+        {
+            IntentCommand c = f.Step(Bot(At + new AiVector(i * 20f, 0f, 0f)), Level(), Seen(MateId, MateBehind));
+            Assert.False(c.Say.Says);
+            Assert.True(f.Decider.InOpening);
+            Assert.Equal((TFTeamPlay.Push, (AiVector?)null), (f.Decider.TeamPlay, f.Decider.RallyPlace));
+            Assert.DoesNotContain(f.Decider.Doing.Verdict, (string[])["to the team", "back to the team", "at the rally", "to the rally", "to the front", "waiting for the push"]);
+            // Its push is for point A, the point in play (the way there is the Course branch's, a Soldier's).
+            Assert.Equal(20, f.Decider.PushTarget);
+        }
+
+        Assert.Equal(1, f.Decider.OpeningPushes);
+        Assert.Equal(0, f.Decider.RalliesCalled);
+        // The control: the same bot and teammate mid-round, never held by a round's start: it calls a rally.
+        TFField g = Field(mates: [Mate, 4, 5]);
+        Assert.Equal(CalloutKind.Rally, Rallied(g) == default ? CalloutKind.None : CalloutKind.Rally);
+        Assert.False(g.Decider.InOpening);
+    }
+
+    /// <summary>After its death the opening is over for the bot: back from the dead it gathers by the usual rules.</summary>
+    [Fact]
+    public void ARoundsOpeningEndsWithTheBotsDeath()
+    {
+        TFField f = Field(mates: [Mate, 4, 5]);
+        f.Decider.HoldStance(TFStance.Team);
+        f.Step(TFField.Self(At, extra: SelfFlags.Frozen), Level(), Seen(MateId, MateBehind));
+        f.Step(Bot(At), Level(), Seen(MateId, MateBehind));
+        Assert.True(f.Decider.InOpening);
+        f.Step(TFField.Self(At) with { Flags = SelfFlags.None, Health = 0 }, Level());
+        Assert.False(f.Decider.InOpening);
+    }
+
     [Fact]
     public void TwoRalliesCalledAtOnceAreTheLowerSlots()
     {
@@ -756,6 +826,33 @@ public sealed class TFPointsTests
         AiVector r6 = Rallied(six);
         Assert.False(six.Step(Bot(r6), Level(), Seen(MateId, r6)).Say.Says);
         Assert.Equal(CalloutKind.Push, six.Step(Bot(r6), Level(), Seen(MateId, r6), Seen(Mate4, r6)).Say.Kind);
+    }
+
+    /// <summary>
+    /// Lane Groutes: a bot waiting at its rally looks all round within the time a sighting counts, so teammates who came by
+    /// another way, or up behind it, are seen there. Live on cp_granary a caller looking one way stood 23 s, counting nobody.
+    /// </summary>
+    [Fact]
+    public void ABotWaitingAtItsRallyLooksAllRoundWithinTheTimeASightingCounts()
+    {
+        TFField f = Field(mates: [Mate, 4, 5]);
+        AiVector rally = Rallied(f);
+        var bearings = new List<float>();
+        for (int i = 0; i < Decides(TFDecider.RallySeenSeconds); i++)
+        {
+            IntentCommand c = f.Step(Bot(rally), Level());
+            Assert.Equal("at the rally", f.Decider.Doing.Verdict);
+            Assert.Equal(LookKind.Point, c.Look.Kind);
+            AiVector d = c.Look.Point - rally;
+            bearings.Add((MathF.Atan2(d.Y, d.X) * (180f / MathF.PI) + 360f) % 360f);
+        }
+
+        // No gap between bearings wider than the eyes' 90°: every way round was in view at some decide.
+        float[] sorted = [.. bearings.Order()];
+        float widest = 360f - sorted[^1] + sorted[0];
+        for (int i = 1; i < sorted.Length; i++)
+            widest = MathF.Max(widest, sorted[i] - sorted[i - 1]);
+        Assert.True(widest < 90f, $"widest gap {widest:F0}° over {sorted.Length} decides");
     }
 
     [Fact]

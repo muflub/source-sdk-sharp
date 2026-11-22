@@ -83,7 +83,7 @@ public sealed class TFBelievedSpeedTests
             => method?.Name == nameof(IEntityDirectory.OfClass) ? Array.Empty<ScriptedEntity>() : throw new InvalidOperationException($"asked {method?.Name}");
     }
 
-    private sealed class NoLog : ILog
+    internal sealed class NoLog : ILog
     {
         public void Msg(string message)
         {

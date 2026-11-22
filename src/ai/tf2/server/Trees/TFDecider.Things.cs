@@ -98,8 +98,8 @@ public sealed partial class TFDecider
     /// <summary>Decides on which the bot stopped at the edge of a sentry's range rather than walk in.</summary>
     public int SentryHolds { get; private set; }
 
-    /// <summary>Whether the bot keeps out of a sentry's range: every class, until P7 gives some the means to kill one.</summary>
-    private static bool AvoidsSentries => true;
+    /// <summary>Whether the bot keeps out of a sentry's range: the class's say (P7, <see cref="ClassPlay.AvoidsSentries"/>), every class's by default.</summary>
+    private bool AvoidsSentries => _classPlay?.AvoidsSentries ?? true;
 
     private AiVector BodyMiddle
         => _self.Origin + new AiVector(0f, 0f, TFKnowledge.AimHeight(AimPoint.Body, _class).At((_self.Flags & SelfFlags.Ducking) != 0));
@@ -197,7 +197,7 @@ public sealed partial class TFDecider
     {
         if (HeldStill)
             return;
-        if (_reflexWhy.Length != 0 && !Busy)
+        if (_reflexWhy.Length != 0 && !Busy && (_classPlay?.TakesReflex(_reflexWhy) ?? true))
         {
             _move = _reflex;
             _verdict = _reflexWhy;

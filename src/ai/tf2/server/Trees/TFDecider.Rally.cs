@@ -61,6 +61,14 @@ public sealed partial class TFDecider
     /// </summary>
     public const float RallyIgnoreTeamwork = 2f, RallyLatePerTeamwork = 1f;
 
+    /// <summary>
+    /// How fast a bot waiting at a rally turns its look about (lane Groutes): once round in <see cref="RallySeenSeconds"/>,
+    /// so every teammate at the rally comes into its 90° eyes within the time a sighting counts. Live on cp_granary (routes
+    /// on, 2026-11-20) a caller looking one way stood 23 s at its rally with a teammate 4 u behind it and another 216 u from
+    /// the place on the other approach, counted neither, and pushed only when the rally's time ran out.
+    /// </summary>
+    public const float LookAboutDegreesPerSecond = 360f / RallySeenSeconds;
+
     /// <summary>A rally pushes with half the team's players within <see cref="RallyGatherUnits"/>, and never fewer than this.</summary>
     public const int RallyLeast = 2;
 
@@ -189,6 +197,9 @@ public sealed partial class TFDecider
     {
         _play = TFTeamPlay.None;
         _toFront = false;
+        // Held by the round's start, no rally is called (the opening calls none); let go, the opening's push.
+        if (_roundOpeningWait || (_roundOpening && OpeningPush()))
+            return;
         HearRally();
         if (_cameBack && CameBack())
             return;
@@ -596,6 +607,7 @@ public sealed partial class TFDecider
     private void EndPush()
     {
         _pushing = false;
+        _roundOpening = false;
         PointsAfterPush++;
         TakeStance(TFStance.Points);
     }
@@ -603,7 +615,7 @@ public sealed partial class TFDecider
     /// <summary>A death ends a push (C.6.1: until it is taken, lost or they die); the stance stays, and back from the dead the bot looks for its team's push (<see cref="CameBack"/>).</summary>
     private void TeamPlayDied()
     {
-        (_pushing, _toFront) = (false, false);
+        (_pushing, _toFront, _roundOpening, _roundOpeningWait) = (false, false, false, false);
         _cameBack = true;
     }
 
@@ -613,6 +625,8 @@ public sealed partial class TFDecider
     /// </summary>
     private bool JoinsRally()
     {
+        if (_roundOpening)
+            return false;
         HearRally();
         if (!_rallyHeld || _rally.Speaker == _bot || !RallyLive(_rally))
             return false;
@@ -622,6 +636,84 @@ public sealed partial class TFDecider
         if (_pointsGoal is not { } goal)
             return there <= RallyJoinReach;
         return there < _self.Origin.DistanceTo(goal.Position) && there <= RallyJoinReach;
+    }
+
+    /// <summary>
+    /// The opening of a round (the user, 2026-11-20: "at the start of the round bots dont have to wait and assume all team
+    /// members are going towards the objective directly"): from the bot's first decide unheld after the round's start held
+    /// it (TF2's pre-round freeze, or a setup its HUD shows), for that life, until its death or the end of its first push.
+    /// </summary>
+    public bool InOpening => _roundOpening;
+
+    private bool _roundOpening, _roundOpeningWait;
+
+    /// <summary>Opening pushes, for the facts and the route: a team-stance bot that went straight for the point at a round's start.</summary>
+    public int OpeningPushes { get; private set; }
+
+    /// <summary>
+    /// Every decide alive: a round's start holds the bot (frozen, or a setup on the HUD); the first decide it is no longer
+    /// held, its opening begins.
+    /// </summary>
+    private void NoteOpening()
+    {
+        bool held = HeldStill || (_view.Objectives is { } o && o.All.Any(x => x.Setup));
+        if (held)
+            (_roundOpeningWait, _roundOpening) = (true, false);
+        else if (_roundOpeningWait)
+            (_roundOpeningWait, _roundOpening) = (false, true);
+    }
+
+    /// <summary>
+    /// The team stance in the opening: no rally called or held, nobody waited on; straight for the point by the bot's own way,
+    /// its teammates taken to be going too (a push, begun at once, whose waits are off). False with no point to push for: the
+    /// stance's usual play then.
+    /// </summary>
+    private bool OpeningPush()
+    {
+        _rallyHeld = false;
+        if (_pushing && PushOver())
+        {
+            EndPush();
+            return true;
+        }
+
+        if (_pushing)
+        {
+            _play = TFTeamPlay.Push;
+            return true;
+        }
+
+        if (!BeginPush(_now))
+            return false;
+        OpeningPushes++;
+        return true;
+    }
+
+    /// <summary>
+    /// A team-stance bot holding a teammate's live rally that it comes to late (its Teamwork's lateness, <see cref="Hold"/>):
+    /// its play is not yet the gather, and its rally is already called.
+    /// </summary>
+    private bool RallyComing => _stance == TFStance.Team && _play == TFTeamPlay.None && _rallyHeld && _rally.Speaker != _bot && RallyLive(_rally);
+
+    /// <summary>
+    /// Late to a teammate's rally (lane Groutes, fourth pass): to the rally by its own way, and at it, wait looking about, as
+    /// the gather does; not first to its teammates. Its play stays none until its lateness is past (the gather's waits and
+    /// counts are the late bot's then). Live on cp_granary (both arms) late bots spent the 7 s of a Teamwork 3 bot's lateness
+    /// "to the team" and "back to the team" round (-2090 1950), walking back from a rally already called ahead of them.
+    /// </summary>
+    private bool GoToRallyLate()
+    {
+        if (_self.Origin.DistanceTo(_rally.Place) < GatherArriveUnits)
+        {
+            StandApart(_rally.Place, GroupStandUnits);
+            LookAbout();
+            _verdict = "at the rally";
+            return true;
+        }
+
+        GoTo(_rally.Place, MoveSpeed.Run);
+        _verdict = "to the rally";
+        return true;
     }
 
     /// <summary>To the push's point, keeping with the others; to the rally, and at it, wait.</summary>
@@ -642,7 +734,7 @@ public sealed partial class TFDecider
                 return true;
             }
 
-            if (mine > PushCommitUnits && _pushWaitedTicks * _tick < PushWaitMostSeconds && TeammateFarBehind(at, mine))
+            if (!_roundOpening && mine > PushCommitUnits && _pushWaitedTicks * _tick < PushWaitMostSeconds && TeammateFarBehind(at, mine))
             {
                 _pushWaitedTicks += sinceLast;
                 (_hasGoal, _goal) = (true, _self.Origin);
@@ -670,6 +762,7 @@ public sealed partial class TFDecider
         if (_self.Origin.DistanceTo(_rally.Place) < GatherArriveUnits)
         {
             StandApart(_rally.Place, GroupStandUnits);
+            LookAbout();
             _verdict = "at the rally";
             return true;
         }
@@ -689,6 +782,20 @@ public sealed partial class TFDecider
         GoTo(_rally.Place, MoveSpeed.Run);
         _verdict = "to the rally";
         return true;
+    }
+
+    /// <summary>
+    /// The look of a bot waiting at its rally with no enemy in sight: about, at eye height, a turn every
+    /// <see cref="RallySeenSeconds"/> (<see cref="LookAboutDegreesPerSecond"/>), each bot from its own slot's bearing.
+    /// </summary>
+    private void LookAbout()
+    {
+        if (_targetSighted)
+            return;
+        float degrees = ((_now.Value * _tick * LookAboutDegreesPerSecond) + (_bot.Slot * 47f)) % 360f;
+        float r = degrees * (MathF.PI / 180f);
+        _look = new LookIntent(LookKind.Point, OwnEye + new AiVector(MathF.Cos(r) * LearnedLook.Reach, MathF.Sin(r) * LearnedLook.Reach, 0f),
+                               ActorId.None, AimPoint.Body, 0f, 0);
     }
 
     /// <summary>

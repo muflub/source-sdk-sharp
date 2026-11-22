@@ -15,6 +15,7 @@ public sealed class AiReplayCursor
     private readonly Dictionary<(int Slot, int Tick), IntentCommand> _recorded = new();
     private readonly Dictionary<(int Slot, int Tick), IntentCommand> _replayed = new();
     private readonly Dictionary<int, byte[]> _levels = new();
+    private AiHudMemo _huds = new();
     private readonly Func<AiRecordedWorld, (NavGraph? Graph, ICellSight? Sight)>? _nav;
     private readonly Func<BrainSetup, IDecider?>? _deciders;
     private AiSession _session = null!;
@@ -125,6 +126,7 @@ public sealed class AiReplayCursor
         _next = 0;
         At = null;
         _lastWorld = null;
+        _huds = new AiHudMemo();
     }
 
     // The world the last World or NavChange record built the brains' over: a NavChange moves it to another graph.
@@ -172,7 +174,7 @@ public sealed class AiReplayCursor
                 _session.Push(pushed);
                 break;
             case AiRecordType.Snapshot:
-                AiSnapshot snap = AiRecordFormat.ReadSnapshot(r, _session.Snapshots);
+                AiSnapshot snap = AiRecordFormat.ReadSnapshot(r, _session.Snapshots, _huds);
                 _session.Publish(snap);
                 At = snap.Tick;
                 break;

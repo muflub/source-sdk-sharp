@@ -272,6 +272,10 @@ if (args.Length >= 1 && args[0] == "navsplit")
 if (args.Length >= 1 && args[0] == "navcells")
     return NavCellsTool.Run(args[1..], Console.Out, Console.Error);
 
+//   spread <map.nav3d> <map.bsp> [lives=3] [spacing=1024] [amplitude=0.1]   TF2's planned routes from each team's first spawn room to the point in play, with and without each bot's field (lane Groutes)
+if (args.Length >= 1 && args[0] == "spread")
+    return RouteSpreadTool.Run(args[1..], Console.Out, Console.Error);
+
 //   jumps <map.nav3d> <map.bsp> <soldier.txt> <out.json> <build> <commit> [candidate-limit]   TF2's blast-jump place finder on the map, measured
 if (args.Length >= 1 && args[0] == "jumps")
     return JumpPlacesTool.Run(args[1..], Console.Out, Console.Error);

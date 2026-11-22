@@ -298,16 +298,45 @@ public sealed class TFDeciderTests
         return intents.Count(i => f.BeginsJump(i));
     }
 
+    /// <summary>A Scout runs its own subtree (P7), named as itself, and the Soldier's rocket jump is not in it.</summary>
     [Fact]
-    public void AClassWithNoSubtreeRunsTheSoldiersAndSaysSoWithoutItsJump()
+    public void AScoutRunsItsOwnSubtreeAndSaysSoWithoutTheSoldiersJump()
     {
         // The control: the book advises a jump for the run, and a Soldier on it takes it (TFJumpRuleTests).
         var f = new TFField(jumps: new TFJumpAdvice());
         Assert.Equal(1, AbilityIntents(new TFField(jumps: new TFJumpAdvice()), () => Running(), 20, out _));
         Assert.Equal(0, AbilityIntents(f, () => Running(TFClass.Scout), 20, out List<IntentCommand> intents));
         Assert.Equal((MoveKind.Follow, TFField.BlueFlag), (intents[^1].Move.Kind, intents[^1].Move.Corner0));
-        Assert.Equal("Soldier (as Scout)", f.Decider.Subtree);
-        Assert.StartsWith("Soldier (as Scout): ", f.Decider.Doing.Branch, StringComparison.Ordinal);
+        Assert.Equal("Scout", f.Decider.Subtree);
+        Assert.StartsWith("Scout: ", f.Decider.Doing.Branch, StringComparison.Ordinal);
+    }
+
+    /// <summary>Each of the nine classes' subtrees is named by the class as its menu says it: a Heavy is "Heavy", not the enum's word.</summary>
+    [Theory]
+    [InlineData(TFClass.Scout, "Scout")]
+    [InlineData(TFClass.Sniper, "Sniper")]
+    [InlineData(TFClass.Soldier, "Soldier")]
+    [InlineData(TFClass.Demoman, "Demoman")]
+    [InlineData(TFClass.Medic, "Medic")]
+    [InlineData(TFClass.HeavyWeapons, "Heavy")]
+    [InlineData(TFClass.Pyro, "Pyro")]
+    [InlineData(TFClass.Spy, "Spy")]
+    [InlineData(TFClass.Engineer, "Engineer")]
+    public void EachClassRunsASubtreeNamedForIt(TFClass playerClass, string name)
+    {
+        var f = new TFField();
+        f.Step(Running(playerClass), TFField.Ctf());
+        Assert.Equal((name, name + ": " + TFDecider.Fetch), (f.Decider.Subtree, f.Decider.Doing.Branch));
+    }
+
+    /// <summary>A bot that comes back as another class runs that class's subtree, named anew.</summary>
+    [Fact]
+    public void ABotThatChangesClassRunsTheNewClasssSubtree()
+    {
+        var f = new TFField();
+        f.Step(Running(TFClass.Soldier), TFField.Ctf());
+        f.Step(Running(TFClass.Medic), TFField.Ctf());
+        Assert.Equal(("Medic", "Medic: " + TFDecider.Fetch), (f.Decider.Subtree, f.Decider.Doing.Branch));
     }
 
     [Fact]

@@ -12,7 +12,7 @@ namespace SourceSharp.Ai.Tests.TF2;
 /// shotgun, the HUD's objectives as the test sets them, and a view per step. Its tree reads the
 /// rocket jumps a test hands it (none unless it does: no jump).
 /// </summary>
-public sealed class TFField
+internal sealed class TFField
 {
     public const int Red = (int)TFTeam.Red, Blue = (int)TFTeam.Blue;
     public const int Launcher = 3, Shotgun = 5, Shovel = 7;
@@ -37,7 +37,8 @@ public sealed class TFField
     public TFField(int slot = 2, ulong seed = 7, string preset = "hard", bool graph = true, int floorLength = Length, Func<DecisionParams, DecisionParams>? tune = null,
                    TFFeelSwitches? feel = null, SkillProfile? profile = null, SkillCurves? curves = null, int[]? mates = null,
                    SourceSharp.Ai.TF2.Jump.IJumpAdvisor? jumps = null, TeamZone[]? zones = null, ItemSpawn[]? packs = null, NavGraph? floor = null,
-                   ICellSight? sight = null, ImmutableArray<TFCourseEnd> ends = default)
+                   ICellSight? sight = null, ImmutableArray<TFCourseEnd> ends = default, WeaponKnowledge? weapons = null,
+                   Func<TFDecider, TFClass, TFDecider.ClassPlay?>? plays = null)
     {
         Bot = new ActorId(slot, 1);
         profile ??= SkillPresets.TryGet(preset, out SkillProfile? p) ? p! : throw new ArgumentException(preset);
@@ -50,7 +51,7 @@ public sealed class TFField
             new ItemSpawn(0, "item_healthkit_medium", ItemKind.HealthMedium, new AiVector(512f, 64f, 0f), 10f),
             new ItemSpawn(1, "item_healthkit_medium", ItemKind.HealthMedium, new AiVector(3584f, 64f, 0f), 10f),
         ];
-        var map = new MapKnowledge("tf_field", [.. items], [], Weapons, [new TeamSpawn(Red, RedSpawn), new TeamSpawn(Blue, BlueSpawn)],
+        var map = new MapKnowledge("tf_field", [.. items], [], weapons ?? Weapons, [new TeamSpawn(Red, RedSpawn), new TeamSpawn(Blue, BlueSpawn)],
                                    TFAbilities.Table(),
                                    teamZones: [new TeamZone(Blue, ZoneKind.RespawnRoom, new AiVector(3968f, 0f, -16f), new AiVector(4096f, 512f, 200f)), .. zones ?? []]);
         Graph = floor ?? (graph ? Floor(floorLength) : null);
@@ -59,7 +60,7 @@ public sealed class TFField
         foreach (int mate in mates ?? [])
             Memory.Apply(AiEvent.ActorTeam(Bot, new Tick(1), new ActorId(mate, 1), Red, 0));
         Decider = new TFDecider(new BrainSetup(Bot, seed, Memory, Params, 0.015f),
-                                TFKnowledge.Classes(c => (300f, c == TFClass.Soldier ? 200 : 125))) { Feel = feel ?? TFFeelSwitches.All, Jumps = jumps, CourseEnds = ends };
+                                TFKnowledge.Classes(c => (300f, c == TFClass.Soldier ? 200 : 125))) { Feel = feel ?? TFFeelSwitches.All, Jumps = jumps, CourseEnds = ends, Plays = plays };
         Brain = new Brain(Bot, seed, Memory, Params, Decider);
     }
 
@@ -73,6 +74,9 @@ public sealed class TFField
     public TFDecider Decider { get; }
     public Brain Brain { get; }
     public int Tick => _tick;
+
+    /// <summary>The bot's own HUD each step's view carries (P7: its kit, meters, the teammates' health it shows); none unless a fact sets it.</summary>
+    public SourceSharp.Ai.TF2.Senses.TFHud? Hud { get; set; }
 
     /// <summary>The root's branch the bot chose at its last decide, without the subtree's name before it.</summary>
     public string Branch => Decider.Doing.Branch[(Decider.Doing.Branch.IndexOf(": ", StringComparison.Ordinal) + 2)..];
@@ -144,6 +148,7 @@ public sealed class TFField
         var tick = new Tick(_tick);
         _view.Reset(Bot, tick, self);
         _view.SetObjectives(objectives);
+        _view.SetGameHud(Hud);
         foreach (ActorFacts f in sighted)
             _view.AddSighted(f);
         foreach (ThingFacts t in things)

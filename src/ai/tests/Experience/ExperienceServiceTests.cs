@@ -823,7 +823,13 @@ public sealed partial class ExperienceServiceTests : IDisposable
         Assert.True(SpinWait.SpinUntil(() => service.Worker.Attaches == 1, TimeSpan.FromSeconds(10)), "the attach was never noticed");
         Frame(service);
         Assert.Equal(1, service.Worker.Attaches);
-        Assert.Equal(1, service.Slot.Current.Rounds);
+        // The kept round's merged snapshot comes from the worker after the attach and the game publishes it on a frame of its
+        // own: wait for it as for the attach (run alone, the one frame above came before the worker's merge, review-p7f §8).
+        Assert.True(SpinWait.SpinUntil(() =>
+        {
+            service.OnPostThink(0.015f);
+            return service.Slot.Current.Rounds == 1;
+        }, TimeSpan.FromSeconds(10)), $"the kept round never reached the slot ({service.Slot.Current.Rounds})");
         Assert.Contains(_log.All, l => l.Line.Contains($"experience: {Db} attached", StringComparison.Ordinal));
         Assert.Contains("\"state\":\"on\"", service.Json(), StringComparison.Ordinal);
         Assert.Contains("\"ai.experience.waiting\":0,\"ai.experience.attaches\":1,", service.Counters(), StringComparison.Ordinal);

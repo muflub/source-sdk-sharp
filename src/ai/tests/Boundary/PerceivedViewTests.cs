@@ -49,8 +49,9 @@ public class PerceivedViewTests
     {
         // What a client is sent of another player, and nothing else (§2.2, §4.3).
         string[] members = typeof(ActorFacts).GetProperties().Select(p => p.Name).Order(StringComparer.Ordinal).ToArray();
-        // The class, conditions and borrowed name a client renders (plan_bots_teams_tf2 C.2) are drawn, not sent as numbers to read.
-        Assert.Equal(["Activity", "Class", "Conditions", "Id", "NameSlot", "Origin", "Team", "Velocity", "VisibleFraction", "WeaponSeen"], members);
+        // The class, conditions and borrowed name a client renders (plan_bots_teams_tf2 C.2) are drawn, not sent as numbers to read;
+        // the facing is the head and aim every client draws (P7).
+        Assert.Equal(["Activity", "Class", "Conditions", "Facing", "Id", "NameSlot", "Origin", "Team", "Velocity", "VisibleFraction", "WeaponSeen"], members);
     }
 
     [Fact]

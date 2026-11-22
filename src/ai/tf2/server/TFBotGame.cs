@@ -19,7 +19,7 @@ namespace SourceSharp.Ai.TF2;
 /// </summary>
 [SideService(Side.Server, As = [typeof(IBotGame)])]
 public sealed class TFBotGame(WeaponCatalog catalog, TFWeaponScripts scripts, TFClassTable classes, TFPlacedEntities placed, TFBotGameView view,
-                              TFFeelSwitchConVars feel, Jump.TFJumps? jumps = null) : IBotGame
+                              TFFeelSwitchConVars feel, Jump.TFJumps? jumps = null, TFBotPins? pins = null) : IBotGame
 {
     private readonly AbilityTable _abilities = TFAbilities.Table();
 
@@ -30,7 +30,8 @@ public sealed class TFBotGame(WeaponCatalog catalog, TFWeaponScripts scripts, TF
     /// life, reads the level's rocket jumps from the binding's book (plan_bots_teams_tf2_part_g G.5 step 6), and knows the
     /// level's course ends (lane Ge) as <see cref="Map"/> read them.
     /// </summary>
-    public IDecider Decider(BrainSetup setup) => new Trees.TFDecider(setup, Classes()) { Feel = feel.Read(), Jumps = jumps?.Book, CourseEnds = _ends };
+    public IDecider Decider(BrainSetup setup)
+        => new Trees.TFDecider(setup, Classes()) { Feel = feel.Read(), Jumps = jumps?.Book, CourseEnds = _ends, Pin = pins?.Of(setup.Bot) };
 
     public AbilityTable Abilities => _abilities;
 

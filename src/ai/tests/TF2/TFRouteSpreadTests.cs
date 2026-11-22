@@ -86,6 +86,31 @@ public sealed class TFRouteSpreadTests
         Assert.Equal([4.5f], g.PointSeconds.Select(s => MathF.Round(s, 3)));
     }
 
+    /// <summary>Live, the first wiring's last sample started at an int's least, the difference wrapped, and no walk was ever kept.</summary>
+    [Fact]
+    public void ALevelsFirstTickIsSampledAndTheNextOnlyASampleLater()
+    {
+        Assert.True(TFRouteSpreadRoute.Due(0, TFRouteSpreadRoute.NoSample));
+        Assert.True(TFRouteSpreadRoute.Due(5000, TFRouteSpreadRoute.NoSample));
+        Assert.False(TFRouteSpreadRoute.Due(10, 0));
+        Assert.True(TFRouteSpreadRoute.Due(TFRouteSpreadRoute.SampleTicks, 0));
+    }
+
+    /// <summary>A walk's goal stays its goal while the team may still take it, however near another comes (live, walks broke off mid-way).</summary>
+    [Fact]
+    public void AGoalStaysOneWhileTheTeamMayTakeItAndNotOnceItIsLockedOrTheTeams()
+    {
+        int blue = 1 << Blue;
+        var points = new ObjectiveKnowledge(ImmutableArray.Create(
+            new Objective(1, ObjectiveKind.Capture, Red, blue, ObjectiveState.Open, new AiVector(9000f, 0f, 0f)),
+            new Objective(2, ObjectiveKind.Capture, 0, blue, ObjectiveState.Locked, new AiVector(100f, 0f, 0f)),
+            new Objective(3, ObjectiveKind.Capture, Blue, 1 << Red, ObjectiveState.Open, new AiVector(50f, 0f, 0f))));
+        Assert.True(TFRouteSpread.IsGoal(points, Blue, 1));
+        Assert.False(TFRouteSpread.IsGoal(points, Blue, 2));
+        Assert.False(TFRouteSpread.IsGoal(points, Blue, 3));
+        Assert.False(TFRouteSpread.IsGoal(points, Blue, 99));
+    }
+
     [Fact]
     public void TheGoalIsTheNearestPointTheTeamMayCaptureElseTheOtherTeamsFlag()
     {

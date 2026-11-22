@@ -194,15 +194,23 @@ public sealed class TFFeelSwitchTests
         return convar;
     }
 
-    /// <summary>The service over nine convars of its own, each at its default but the one named <paramref name="off"/>, held at 0.</summary>
+    /// <summary>The service over ten convars of its own, each at its default but the one named <paramref name="off"/>, held at 0.</summary>
     internal static TFFeelSwitchConVars Switches(string? off = null)
         => new(ConVar<TFFeelCarrierConVar>(off), ConVar<TFFeelSearchConVar>(off), ConVar<TFFeelAimConVar>(off), ConVar<TFFeelRetreatConVar>(off),
                ConVar<TFFeelFriendGateConVar>(off), ConVar<TFFeelGlanceConVar>(off), ConVar<TFFeelPrefireConVar>(off), ConVar<TFFeelJumpHealthConVar>(off),
-               ConVar<TFFeelFightConVar>(off));
+               ConVar<TFFeelFightConVar>(off), ConVar<TFFeelRoutesConVar>(off));
 
     [Fact]
     public void AsDeclaredEveryPartIsOn()
-        => Assert.Equal(new TFFeelSwitches(true, true, true, true, true, true, true, true, true), Switches().Read());
+        => Assert.Equal(new TFFeelSwitches(true, true, true, true, true, true, true, true, true, true), Switches().Read());
+
+    /// <summary>Lane Groutes: <c>ai_tf_feel_routes</c> at 0 switches off the bots' own ways and nothing else.</summary>
+    [Fact]
+    public void TheRoutesConVarAtZeroSwitchesOffTheBotsOwnWaysAndNoOther()
+    {
+        Assert.Equal(TFFeelSwitches.All with { Routes = false }, Switches(off: "ai_tf_feel_routes").Read());
+        Assert.Equal(TFFeelSwitches.All, Switches().Read());
+    }
 
     [Theory]
     [InlineData("ai_tf_feel_carrier", false, true, true, true, true, true, true, true, true)]
@@ -231,6 +239,7 @@ public sealed class TFFeelSwitchTests
     [InlineData(typeof(TFFeelPrefireConVar))]
     [InlineData(typeof(TFFeelJumpHealthConVar))]
     [InlineData(typeof(TFFeelFightConVar))]
+    [InlineData(typeof(TFFeelRoutesConVar))]
     public void EachSwitchIsACheat(Type convar)
         => Assert.Equal(ConVarFlags.Cheat, convar.GetCustomAttribute<ConVarAttribute>()!.Flags & ConVarFlags.Cheat);
 }

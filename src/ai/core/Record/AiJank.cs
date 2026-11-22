@@ -436,7 +436,7 @@ public static class AiJank
         private void TakeSnapshot(BinaryReader r)
         {
             _ring ??= new SnapshotRing(2, _slots, _sighted);
-            AiSnapshot snap = AiRecordFormat.ReadSnapshot(r, _ring);
+            AiSnapshot snap = AiRecordFormat.ReadSnapshot(r, _ring, _huds);
             int tick = snap.Tick.Value;
             for (int slot = 0; slot < snap.Slots; slot++)
             {
@@ -468,6 +468,7 @@ public static class AiJank
         }
 
         private SnapshotRing? _ring;
+        private readonly AiHudMemo _huds = new();
         private int _slots = 64, _sighted = 16;
 
         private readonly List<ActorFacts> _facts = [];

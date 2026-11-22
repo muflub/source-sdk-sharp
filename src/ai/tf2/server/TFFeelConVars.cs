@@ -54,14 +54,21 @@ public sealed class TFFeelJumpHealthConVar : BoolConVar { }
 public sealed class TFFeelFightConVar : BoolConVar { }
 
 /// <summary>
-/// The feel layer's switches as the nine convars stand now. <see cref="TFBotGame"/> reads them when
+/// <c>ai_tf_feel_routes</c> (lane Groutes): 0 and a bot's searches have no field of its own, so every bot from one place
+/// takes the one shortest way, as before (<see cref="TFFeelSwitches.Routes"/>, <see cref="Nav.TFRouteVariation"/>).
+/// </summary>
+[ConVar("ai_tf_feel_routes", "1", Help = "0: a bot's searches have no field of its own, so every bot takes the one shortest way; for bots added afterwards", Flags = ConVarFlags.Cheat)]
+public sealed class TFFeelRoutesConVar : BoolConVar { }
+
+/// <summary>
+/// The feel layer's switches as the ten convars stand now. <see cref="TFBotGame"/> reads them when
 /// it makes a bot's decider, which keeps them for its life.
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFFeelSwitchConVars(TFFeelCarrierConVar carrier, TFFeelSearchConVar search, TFFeelAimConVar aim, TFFeelRetreatConVar retreat,
                                         TFFeelFriendGateConVar friendGate, TFFeelGlanceConVar glance, TFFeelPrefireConVar prefire,
-                                        TFFeelJumpHealthConVar jumpHealth, TFFeelFightConVar fight)
+                                        TFFeelJumpHealthConVar jumpHealth, TFFeelFightConVar fight, TFFeelRoutesConVar routes)
 {
     public TFFeelSwitches Read() => new(carrier.Value, search.Value, aim.Value, retreat.Value, friendGate.Value, glance.Value, prefire.Value, jumpHealth.Value,
-                                        fight.Value);
+                                        fight.Value, routes.Value);
 }

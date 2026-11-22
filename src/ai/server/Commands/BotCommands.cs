@@ -44,19 +44,50 @@ public static class BotSkillSpec
 /// (§3.5.1); a name is used as given. The bot joins the roster (§3.5); a
 /// preset bot draws its levels from its seed.
 /// </summary>
-[ConCommand("ai_bot_add", Help = "ai_bot_add [name] [easy|medium|hard|expert | skills=a,b,c,d,e,f,g,h,i,j] [team=auto|2|3|4|5]: add a bot (no name: one is drawn; team: under a mode with teams)")]
-public sealed class AiBotAddCommand(AiRoster roster, ILog log, IPlayerNotices notices)
+[ConCommand("ai_bot_add", Help = "ai_bot_add [name] [easy|medium|hard|expert | skills=a,b,c,d,e,f,g,h,i,j] [team=auto|2|3|4|5] [key=value ...]: add a bot (no name: one is drawn; team: under a mode with teams; a game's own keys, TF2's class= and archetype=, pin it)")]
+public sealed class AiBotAddCommand(AiRoster roster, ILog log, IPlayerNotices notices, IBotOptions? gameOptions = null)
 {
     private IEnumerable<string> Presets() => SkillPresets.Names;
 
-    public void Execute([Complete(From = nameof(Presets))] string? nameOrSkills = null, [Complete(From = nameof(Presets))] string? skills = null, string? team = null)
+    public void Execute([Complete(From = nameof(Presets))] string? nameOrSkills = null, [Complete(From = nameof(Presets))] string? skills = null, string? team = null,
+                        [Rest] string? more = null)
     {
-        // team= may stand in any place (plan_bots_teams_tf2 B.6).
-        string? teamField = team;
-        if (nameOrSkills?.StartsWith("team=", StringComparison.Ordinal) == true)
-            (teamField, nameOrSkills, skills) = (nameOrSkills, skills, null);
-        else if (skills?.StartsWith("team=", StringComparison.Ordinal) == true)
-            (teamField, skills) = (skills, null);
+        // team= may stand in any place (plan_bots_teams_tf2 B.6), and so may a game's own key=value (P7: TF2's class=, archetype=).
+        var positional = new List<string>();
+        string? teamField = null;
+        var options = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        IEnumerable<string> words = new[] { nameOrSkills, skills, team }.Where(w => w is not null).Select(w => w!)
+            .Concat((more ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        foreach (string word in words)
+        {
+            int eq = word.IndexOf('=', StringComparison.Ordinal);
+            string key = eq > 0 ? word[..eq] : "";
+            if (key == "team" && teamField is null)
+                teamField = word;
+            else if (eq > 0 && key != "skills" && key != "profile" && gameOptions?.Keys.Contains(key, StringComparer.OrdinalIgnoreCase) == true)
+                options[key] = word[(eq + 1)..];
+            else if (eq > 0 && key != "skills" && key != "profile")
+            {
+                Refuse($"ai_bot_add refused: '{word}' is no option ({string.Join(", ", new[] { "team=" }.Concat(gameOptions?.Keys.Select(k => k + "=") ?? []))})");
+                return;
+            }
+            else
+                positional.Add(word);
+        }
+
+        // A third plain word is the team, as before; past that, a word too many.
+        if (positional.Count >= 3)
+        {
+            if (teamField is not null || positional.Count > 3)
+            {
+                Refuse($"ai_bot_add refused: '{positional[teamField is not null ? 2 : 3]}' is one argument too many");
+                return;
+            }
+
+            teamField = positional[2];
+            positional.RemoveAt(2);
+        }
+
         int wanted = RosterTeam.Auto;
         if (teamField is not null)
         {
@@ -70,13 +101,20 @@ public sealed class AiBotAddCommand(AiRoster roster, ILog log, IPlayerNotices no
             wanted = parsed;
         }
 
+        if (options.Count > 0 && gameOptions?.Check(options) is { } wrong)
+        {
+            Refuse($"ai_bot_add refused: {wrong}");
+            return;
+        }
+
+        string? first = positional.Count > 0 ? positional[0] : null, second = positional.Count > 1 ? positional[1] : null;
         // One word is a skill spec when it reads as one, else a name.
-        bool specOnly = skills is null && nameOrSkills is not null
-                        && (nameOrSkills.StartsWith("skills=", StringComparison.Ordinal) || SkillPresets.TryGet(nameOrSkills, out _));
-        string? name = specOnly ? null : nameOrSkills;
-        string? spec = specOnly ? nameOrSkills : skills;
+        bool specOnly = second is null && first is not null
+                        && (first.StartsWith("skills=", StringComparison.Ordinal) || SkillPresets.TryGet(first, out _));
+        string? name = specOnly ? null : first;
+        string? spec = specOnly ? first : second;
         string who = name ?? "(unnamed)";
-        if (roster.Add(name, spec, wanted) is { } refusal)
+        if (roster.Add(name, spec, wanted, options) is { } refusal)
             Refuse($"ai_bot_add {who} refused: {refusal}");
     }
 

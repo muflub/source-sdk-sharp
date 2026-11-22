@@ -117,8 +117,7 @@ public static class TFRouteSpread
         float bestDistance = float.PositiveInfinity;
         foreach (Objective o in objectives.All)
         {
-            bool goal = o.Kind == ObjectiveKind.Capture ? (o.MayAct & (1 << team)) != 0 && o.State != ObjectiveState.Locked
-                : o.Kind == ObjectiveKind.Carry && o.OwnerTeam != team;
+            bool goal = IsGoal(o, team);
             float d = o.Position.DistanceTo(from);
             if (goal && (best.Id < 0 || (o.Kind == ObjectiveKind.Capture && d < bestDistance)))
                 (best, bestDistance) = ((o.Id, o.Position), d);
@@ -126,6 +125,23 @@ public static class TFRouteSpread
 
         return best;
     }
+
+    /// <summary>Whether objective <paramref name="id"/> is still a goal for <paramref name="team"/>: a point it may capture, or the other team's flag.</summary>
+    public static bool IsGoal(ObjectiveKnowledge objectives, int team, int id)
+    {
+        ArgumentNullException.ThrowIfNull(objectives);
+        foreach (Objective o in objectives.All)
+        {
+            if (o.Id == id)
+                return IsGoal(o, team);
+        }
+
+        return false;
+    }
+
+    private static bool IsGoal(in Objective o, int team)
+        => o.Kind == ObjectiveKind.Capture ? (o.MayAct & (1 << team)) != 0 && o.State != ObjectiveState.Locked
+            : o.Kind == ObjectiveKind.Carry && o.OwnerTeam != team;
 
     /// <summary>The vector in the ground plane.</summary>
     public static AiVector Flat(AiVector v) => v with { Z = 0f };

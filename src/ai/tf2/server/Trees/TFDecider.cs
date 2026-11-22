@@ -4,9 +4,9 @@ using TF2.Shared;
 namespace SourceSharp.Ai.TF2.Trees;
 
 /// <summary>
-/// A TF2 bot's decision layer (plan_bots_teams_tf2 C.3, C.6, P6 step 6): one tree, a subtree per
-/// class (<see cref="TFClassTrees"/>: the Soldier's is the only real one, and every other class
-/// runs it and says so), over the shared tactical layer and the CTF objectives the HUD shows.
+/// A TF2 bot's decision layer (plan_bots_teams_tf2 C.3, C.6, P6 step 6, P7): one tree, a subtree per
+/// class (each class's play, TFDecider.Classes.cs, in its own file under <c>Classes/</c>), over the
+/// shared tactical layer and the CTF objectives the HUD shows.
 ///
 /// <para>The root ranks, by utility: deliver the enemy's flag the bot carries, survive (a health
 /// pack or the team's resupply when hurt), fight what it sees, chase the enemy carrying its flag,
@@ -46,6 +46,7 @@ public sealed partial class TFDecider : IDecider
     public const float FightNear = 320f, FightFar = 900f, SelfBlastUnits = 160f;
 
     private readonly ActorId _bot;
+    private readonly ulong _seed;
     private readonly BotMemory _memory;
     private readonly DecisionParams _p;
     private readonly MapKnowledge _map;
@@ -105,6 +106,7 @@ public sealed partial class TFDecider : IDecider
         _map = setup.Memory.World.Map;
         _graph = setup.Memory.World.Graph;
         _tick = setup.TickSeconds;
+        _seed = setup.Seed;
         _rng = new AiRandom(setup.Seed ^ 0x5446_5452UL);
         _aimRng = new AiRandom(setup.Seed ^ 0x5446_4149UL);
         StartFeel(setup.Seed);
@@ -137,12 +139,13 @@ public sealed partial class TFDecider : IDecider
     /// <summary>The bot's team role as the utilities read it: the allocator's answer this decide (<see cref="RoleRead"/>).</summary>
     public TFTeamRole Role => RoleRead;
 
-    /// <summary>The subtree the bot ran at its last decide alive: "Soldier", or "Soldier (as Scout)" for a class with none of its own.</summary>
+    /// <summary>The subtree the bot ran at its last decide alive: its class's ("Scout", "Soldier", "Heavy").</summary>
     public string Subtree => _subtree;
 
     public IntentCommand Decide(Tick tick, PerceivedView view, int seq)
     {
         _view = view;
+        _lastHud = HudOf(view);
         _self = view.Self;
         _now = tick;
         _move = MoveIntent.Hold;
@@ -152,6 +155,7 @@ public sealed partial class TFDecider : IDecider
         _verdict = "";
         _hasGoal = false;
         _say = SayIntent.Nothing;
+        _friendFire = false;
         Streak();
         NotePrefireOutcome();
         NoteTeammateDeaths();
@@ -167,6 +171,7 @@ public sealed partial class TFDecider : IDecider
             _jumpUntil = default;
             (_courseNeed, _courseNoWaySince) = (0f, -1);
             HealthJumpDied();
+            _classPlay?.Died();
             if (_endsLastTick.Value > 0)
                 ForgetEnds();
             Trace.Begin(tick);
@@ -176,10 +181,11 @@ public sealed partial class TFDecider : IDecider
         }
 
         _class = (TFClass)_self.Class;
-        if (_class != _namedClass)
+        if (_class != _namedClass || _classPlay is null)
         {
             _namedClass = _class;
-            _subtree = TFClassTrees.Name(_class);
+            _classPlay = PlayOf(_class);
+            _subtree = _classPlay.Name;
             ReadOnlySpan<BtNode<TFDecider>> branches = _root.Children;
             for (int i = 0; i < branches.Length; i++)
                 _branchNames[i] = $"{_subtree}: {branches[i].Name}";
@@ -194,17 +200,19 @@ public sealed partial class TFDecider : IDecider
         SeeThings();
         _tree.Decide(this, _run, tick);
         FollowTry();
-        Engage();
+        _classPlay.Engage();
         Errand();
-        RocketJump();
+        _classPlay.OneShots();
         Prefire();
-        Hands();
+        _classPlay.Hands();
         ReactAndSpeak();
         LookAtDanger();
         Glance();
         LookWhereTheyLook();
         FriendGate();
 
+        if (_action.Kind == ActionKind.Ability && AbilityCall.Row(_action.WeaponSlot) is >= 0 and var row && row < _abilityUses.Length)
+            _abilityUses[row]++;
         var reason = new DecisionReason(LeafId(), _root.Chosen?.LastScore ?? 0f, 0f, 0f);
         Trace.End(in reason);
         Tick expires = tick + IntentCommand.LifetimeTicks;
@@ -253,7 +261,7 @@ public sealed partial class TFDecider : IDecider
 
         var fight = new BtSelector<TFDecider>("fight",
             new BtSequence<TFDecider>("dry", If("launcher dry", d => d.LauncherDry), Act("back off and load", d => d.BackOffDry())),
-            new BtSequence<TFDecider>("hold", If("in sight", d => d._targetSighted || d.SightJustLost), Act("fight at range", d => d.FightAtRange())),
+            new BtSequence<TFDecider>("hold", If("in sight", d => d._targetSighted || d.SightJustLost), Act("fight at range", d => d._classPlay.FightInSight())),
             Act("chase", d => d.ChaseTarget()));
 
         return new BtUtilitySelector<TFDecider>("root",
@@ -269,6 +277,7 @@ public sealed partial class TFDecider : IDecider
             new BtScored<TFDecider>(Course, d => d.Weigh(Course, d.CourseUtility()), Act("course", d => d.GoCourse()), new BtCommit(2f, 0.1f)),
             new BtScored<TFDecider>(PointsBranch, d => d.Weigh(PointsBranch, d.PointsUtility()), Act("points", d => d.GoPoints()), new BtCommit(2f, 0.1f)),
             new BtScored<TFDecider>(TeamBranch, d => d.Weigh(TeamBranch, d.TeamUtility()), Act("team", d => d.GoTeam()), new BtCommit(2f, 0.1f)),
+            new BtScored<TFDecider>(ClassBranch, d => d.Weigh(ClassBranch, d.ClassUtility()), Act("class place", d => d.GoClassPlace()), new BtCommit(2f, 0.1f)),
             new BtScored<TFDecider>(Roam, d => d.Weigh(Roam, 0.1f), Act("roam", d => d.GoRoam()), new BtCommit(1f, 0.05f)))
         {
             Interrupt = d => d._interrupted,
@@ -481,10 +490,11 @@ public sealed partial class TFDecider : IDecider
         return true;
     }
 
-    /// <summary>In sight: hold the launcher's range, sidestepping, nearer when far and back when the blast would reach the bot.</summary>
+    /// <summary>In sight: hold the weapon's range band (<see cref="FightBand"/>), sidestepping, nearer when far and back when the blast would reach the bot.</summary>
     private bool FightAtRange()
     {
-        float approach = _targetDist > FightFar ? 0.8f : _targetDist < FightNear ? -0.6f : 0f;
+        (float near, float far) = FightBand;
+        float approach = _targetDist > far ? 0.8f : _targetDist < near ? -0.6f : 0f;
         if (Feel.Fight)
             FightStep(approach);
         else

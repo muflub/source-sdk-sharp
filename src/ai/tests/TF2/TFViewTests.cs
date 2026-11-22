@@ -65,6 +65,50 @@ public sealed class TFViewTests
         Assert.False(TFBotGameView.Draw(Blue, DisguisedSpy(TFBotGameView.CloakHidden), -1, ref gone));
     }
 
+    /// <summary>
+    /// A Spy cloaked past three quarters is drawn when something on him shows (stock's tf_bot_vision.cpp:264-271, the Pyro
+    /// research): burning, Jarate, a blink where he was struck, blood. The control: the same cloak with none hides him.
+    /// </summary>
+    [Theory]
+    [InlineData("burning")]
+    [InlineData("jarated")]
+    [InlineData("blinking")]
+    [InlineData("bleeding")]
+    public void ACloakedSpyWhoseBodyShowsIsDrawn(string cue)
+    {
+        TFActorFacts cloaked = DisguisedSpy(0.9f);
+        TFActorFacts shown = cue switch
+        {
+            "burning" => cloaked with { Burning = true },
+            "jarated" => cloaked with { Jarated = true },
+            "blinking" => cloaked with { Blinking = true },
+            _ => cloaked with { Bleeding = true },
+        };
+        ActorFacts hidden = Engine(Red), seen = Engine(Red);
+        Assert.Equal((false, true), (TFBotGameView.Draw(Blue, cloaked, -1, ref hidden), TFBotGameView.Draw(Blue, shown, -1, ref seen)));
+    }
+
+    /// <summary>A fully cloaked Spy on fire shows as much as a cloak just under hiding him (review-p7f F5): not a sighting of nothing.</summary>
+    [Fact]
+    public void ACueShowsAtLeastAQuarterOfAFullyCloakedSpy()
+    {
+        ActorFacts f = Engine(Red);
+        Assert.True(TFBotGameView.Draw(Blue, DisguisedSpy(1f) with { Burning = true }, -1, ref f));
+        Assert.Equal(TFBotGameView.CueShows, f.VisibleFraction, 3);
+    }
+
+    /// <summary>A cloaked Spy a cue shows is a target: a Soldier aims at and fights the burning, undisguised Spy its view draws at the cue's quarter.</summary>
+    [Fact]
+    public void ACloakedSpyACueShowsIsTargeted()
+    {
+        ActorFacts spy = Engine(Red) with { Origin = new AiVector(2448f, 256f, 0f) };
+        Assert.True(TFBotGameView.Draw(Blue, DisguisedSpy(1f) with { Disguised = false, Burning = true }, -1, ref spy));
+        var f = new TFField();
+        IntentCommand i = f.StepDrawn(TFField.Self(new AiVector(2048f, 256f, 0f), team: TFField.Blue), TFField.Ctf(), spy);
+        // Its first decide on him calls "Spy!" (the voice line's one-shot); the aim is on him, and he is the fight's target.
+        Assert.Equal((LookKind.Actor, spy.Id, spy.Id), (i.Look.Kind, i.Look.Actor, f.Decider.Doing.Target));
+    }
+
     [Fact]
     public void AnUndisguisedPlayerIsDrawnAsHisClassWithTheConditionsAnyoneSees()
     {

@@ -32,13 +32,16 @@ namespace SourceSharp.Ai.TF2.Nav;
 /// that lands by a health pack costs a search what the pack does not give back (lane G9, <see cref="JumpHealthRule"/>).</item>
 /// <item>Where its team's players died (lane G4a): a bot's searches weigh its team's field of the
 /// experience's routes (<see cref="ExperienceRouteSlot"/>) by its Cunning (<see cref="TFRouteWeights"/>).</item>
+/// <item>Its own way (lane Groutes): a bot's searches over the level's graph mind the field of the corridor to the point in
+/// play its life drew, composed with that, so bots and lives from one place take different ones of the near-equal ways, none
+/// dearer than 1.15 times the way they would take without it (<see cref="TFRouteVariation"/>).</item>
 /// </list>
 /// A player's reach is read from its own carrier, and its health from its own entity: the profile is
 /// asked for the bot itself.
 /// </summary>
 [SideService(Side.Server, As = [typeof(INavProfile)])]
 public sealed class TFNavProfile(ITFActorFacts actors, ITFLevelEntities placed, IEngineEntities entities, TFBlastLinks links,
-                                  ExperienceRouteSlot? routes = null, TFRouteWeights? weights = null) : INavProfile
+                                  ExperienceRouteSlot? routes = null, TFRouteWeights? weights = null, TFRouteVariation? variation = null) : INavProfile
 {
     /// <summary>The derivation's numbers, worked from the mod's movement constants.</summary>
     public static NavNumbers ModNumbers
@@ -100,6 +103,21 @@ public sealed class TFNavProfile(ITFActorFacts actors, ITFLevelEntities placed, 
             return default;
         float weight = weights.Of(player.EntryIndex);
         return weight > 0f && routes.Current.For(team) is { } hazard ? new NavHazardAllowance(hazard, weight) : default;
+    }
+
+    /// <summary>
+    /// What a bot's searches over <paramref name="graph"/> mind: its team's field at its weight (<see cref="HazardFor(EntityHandle, int)"/>)
+    /// composed with the field of the corridor its life drew (<see cref="TFRouteVariation.For"/>, found from its
+    /// <paramref name="obstacles"/>), at weight 1; the team's alone for a player that is no bot of ours, a bot with the
+    /// switch off, or no variation.
+    /// </summary>
+    public NavHazardAllowance HazardFor(EntityHandle player, int team, NavGraph graph, NavObstacleState obstacles)
+    {
+        NavHazardAllowance own = HazardFor(player, team);
+        if (variation is null)
+            return own;
+        Vector at = entities.GetOrigin(player);
+        return variation.For(player.EntryIndex, graph, team, own, obstacles, new AiVector(at.X, at.Y, at.Z));
     }
 
     /// <summary>

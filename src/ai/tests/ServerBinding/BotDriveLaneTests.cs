@@ -201,18 +201,21 @@ public sealed class BotDriveLaneTests
         var other = new ActorId(3, 2);
         var queued = new PlayersProbe();
         Assert.True(lanes.Hand(Input(1, running), Self));
-        SpinWait.SpinUntil(() => running.Thread != 0, TimeSpan.FromSeconds(10));
+        Assert.True(SpinWait.SpinUntil(() => running.Thread != 0, TimeSpan.FromSeconds(10)), "the first step never started");
         Assert.True(lanes.Hand(Input(1, queued, bot: other), Self));
 
-        // Released only after the stop has begun: Stop must wait for it.
+        // Released only once the stop has begun (the pool no longer running), not after a fixed sleep: on a loaded
+        // box the stop could start later than the sleep, and the worker then ran the queued step (gate 2026-11-21).
+        bool stopBegan = false;
         var release = new Thread(() =>
         {
-            Thread.Sleep(50);
+            stopBegan = SpinWait.SpinUntil(() => !pool.Running, TimeSpan.FromSeconds(10));
             gate.Set();
         });
         release.Start();
         int discarded = pool.Stop();
         release.Join();
+        Assert.True(stopBegan, "the stop never began while the first step ran");
         Assert.Equal(1, discarded);
         Assert.Equal(0, pool.Alive);
         Assert.Equal(0, queued.Reads);

@@ -174,6 +174,7 @@ public sealed partial class TFDecider
     private void ReadPoints()
     {
         NotePointsJump();
+        NoteOpening();
         _onPoints = _onCourse && _ends.IsEmpty && KnowsTeammate();
         if (!_onPoints)
         {
@@ -413,7 +414,7 @@ public sealed partial class TFDecider
 
     /// <summary>The team's weight: in the team stance gathering or pushing, or with a teammate's place to go to; or in the points stance with no point to go to and such a place.</summary>
     private float TeamUtility()
-        => _onPoints && ((_stance == TFStance.Team && (_play != TFTeamPlay.None || _teamPlaceKnown)) || (_pointsGoal is null && _teamPlaceKnown)) ? TeamWeight : 0f;
+        => _onPoints && ((_stance == TFStance.Team && (_play != TFTeamPlay.None || _teamPlaceKnown || RallyComing)) || (_pointsGoal is null && _teamPlaceKnown)) ? TeamWeight : 0f;
 
     /// <summary>To the points' goal, and on it, stand: by the Course branch's way for a bot that rocket jumps, else on foot.</summary>
     private bool GoPoints()
@@ -445,6 +446,8 @@ public sealed partial class TFDecider
     {
         if (_stance == TFStance.Team && _play != TFTeamPlay.None)
             return GoTeamPlay();
+        if (RallyComing)
+            return GoToRallyLate();
         if (!_teamPlaceKnown)
             return false;
         if (_self.Origin.DistanceTo(_teamPlace) < GatherArriveUnits)

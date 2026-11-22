@@ -1,0 +1,342 @@
+#!/usr/bin/env python3
+"""The per-class A/B harness of the TF2 bots (plan_bots_teams_tf2 P7 step 5).
+
+  tools/ai-tf-class --class scout[,medic,...] [--archetype NAME] [--map cp_granary] [--bots 8] [--pinned 4]
+                    [--seconds 300] [--control soldier] [--control-archetype NAME] [--arms arm,control]
+                    [--config debug] [--extra "+convar value"] [--tag TAG] [--keep]
+
+Runs the map once per arm, each a headless tf2 game of its own (tools/ai-scenario's Game: its instance, temp dir,
+dev-API directory and port, from AI_SCENARIO_API_DIR, AI_SCENARIO_TMPDIR and AI_SCENARIO_PORT). In each arm
+--bots bots are added: the first --pinned of them pinned (`ai_bot_add <name> hard team=2|3 class=<c> archetype=<a>`),
+split between the teams, the rest picked by the composition. The arm pins --class (and --archetype); the control
+pins --control (the Soldier by default) with the same names, so the same seeds. Both arms run --seconds from the
+adds.
+
+Read through the dev API's routes, not the log: /ai/points once a second (the objectives, the capture areas, each
+bot's place), /ai/classes at the end (class, archetype, kit, ability uses by row, the class's own counters, stuck
+lines, the scoreboard's kills, deaths, damage, captures). A class lane's own counters (ClassPlay.Count: ubers
+popped, sentry seconds, backstabs) are in /ai/classes and come out in the table summed over the pinned bots, with
+no change here.
+
+The measure is the standing ruling's (2026-11-15): how long the bots take to get to the objective and progress in
+the map. Per arm: the seconds until a pinned bot first stands on an objective it may take (a capture area of a point
+its team may capture, or within 96 u of the enemy's flag), counted from the start of the round it happened in; a
+round restarted straight back to Preround (waiting for players, about 31 s in) is not counted. Then the points that
+changed hands (by team), the pinned bots'
+captures, kills, deaths, damage, stuck lines, ability uses and counters. Writes
+bin/<config>/ai-class/<utc>-<tag>/<arm>.points.jsonl, <arm>.classes.json and report.json, prints the table, and
+exits 1 when an arm failed to run (no sample, no pinned bot of the class seen).
+`--rescore <run dir>` scores a saved run's first times again from its samples.
+"""
+import argparse
+import importlib.machinery
+import importlib.util
+import json
+import os
+import sys
+import time
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_loader = importlib.machinery.SourceFileLoader("ai_scenario", os.path.join(ROOT, "tools", "ai-scenario"))
+_spec = importlib.util.spec_from_loader("ai_scenario", _loader)
+sc = importlib.util.module_from_spec(_spec)
+_loader.exec_module(sc)
+
+FLAG_REACH = 96.0
+RED, BLUE = 2, 3
+
+
+def inside(at, area):
+    lo, hi = area["mins"], area["maxs"]
+    return all(lo[i] - 8 <= at[i] <= hi[i] + 8 for i in range(3))
+
+
+def on_objective(bot, sample):
+    """Whether a bot stands on an objective it may take: a capture area of a point its team may capture, or by the enemy's flag."""
+    at, team = bot["at"], bot["team"]
+    points = {o["id"]: o for o in sample.get("objectives", [])}
+    for o in points.values():
+        if o["kind"] == "Carry" and o["owner"] not in (team, 0):
+            d = sum((at[i] - o["at"][i]) ** 2 for i in range(3)) ** 0.5
+            if d <= FLAG_REACH:
+                return True
+    for area in sample.get("areas", []):
+        if not inside(at, area):
+            continue
+        # The area's point: the objective nearest the area's middle (the route names the point by its map name only).
+        mid = [(area["mins"][i] + area["maxs"][i]) / 2 for i in range(3)]
+        best = min(points.values(), key=lambda o: sum((o["at"][i] - mid[i]) ** 2 for i in range(3)), default=None)
+        if best is not None and best["kind"] == "Capture" and best["owner"] != team and (best["may"] >> team) & 1:
+            return True
+    return False
+
+
+def owner_changes(samples):
+    """The points that changed hands, by the team they went to, over the samples."""
+    last, changes = {}, {RED: 0, BLUE: 0}
+    for s in samples:
+        for o in s.get("objectives", []):
+            if o["kind"] != "Capture":
+                continue
+            was = last.get(o["id"])
+            if was is not None and o["owner"] != was and o["owner"] in changes:
+                changes[o["owner"]] += 1
+            last[o["id"]] = o["owner"]
+    return changes
+
+
+RUNNING = "RoundRunning"
+
+
+def first_on_objective(samples, pinned):
+    """The seconds from a round's start until a pinned bot first stands on an objective it may take, and that start.
+
+    A round that goes from running straight back to Preround (the waiting-for-players restart, about 31 s in) was
+    restarted, not played: the bots respawn, so an arrival in it is not counted. Each other round counts from the
+    sample where it began running; the first such round with an arrival gives the answer. (None, None) when no
+    counted round has one. Samples without a round state (old routes) count from the first sample."""
+    start, arrival, best = None, None, (None, None)
+    prev = None
+    for s in samples:
+        state = (s.get("round") or {}).get("state")
+        t = s.get("t")
+        if state is None:
+            state = RUNNING
+        if state == RUNNING and prev != RUNNING:
+            start, arrival = t, None
+        if prev == RUNNING and state != RUNNING:
+            if state != "Preround" and arrival is not None and best[0] is None:
+                best = (round(arrival - start, 2), start)
+            start, arrival = None, None
+        if arrival is None and start is not None:  # start is None unless the round runs
+            for b in s.get("bots", []):
+                if b.get("name") in pinned and b.get("alive") and on_objective(b, s):
+                    arrival = t
+                    break
+        prev = state
+    if best[0] is None and prev == RUNNING and arrival is not None:
+        best = (round(arrival - start, 2), start)
+    return best
+
+
+# An arm whose /ai/points reads erred more often than this is no measure (review-p7f F3).
+MAX_ERRED_SHARE = 0.1
+
+
+def samples_fault(samples):
+    """Why the samples are no measure, or None: none of them carries the bots, or too many erred."""
+    good = [s for s in samples if isinstance(s.get("bots"), list) and s["bots"]]
+    if not good:
+        return "no /ai/points sample carried the bots (%d samples)" % len(samples)
+    erred = len(samples) - len(good)
+    if erred > MAX_ERRED_SHARE * len(samples):
+        return "%d of %d /ai/points samples erred or carried no bots" % (erred, len(samples))
+    return None
+
+
+def read_classes(fetch, tries=40, wait=0.25, sleep=time.sleep):
+    """/ai/classes once every brain was read: a brain busy deciding answers read false and class undefined, so read again."""
+    last = None
+    for _ in range(tries):
+        try:
+            last = fetch()
+        except Exception as e:
+            last = {"error": str(e)}
+        bots = last.get("bots") if isinstance(last, dict) else None
+        if isinstance(bots, list) and all(b.get("read") for b in bots):
+            return last, None
+        sleep(wait)
+    return last, "/ai/classes never read every brain in %d tries" % tries
+
+
+def run_arm(a, arm, cls, archetype, out):
+    game = sc.Game(a.map, a.config, extra=("+maxplayers 16 " + a.extra).strip(), mod="tf2")
+    result = {"arm": arm, "class": cls, "archetype": archetype or "", "ok": False}
+    samples = []
+    try:
+        game.start()
+        names = []
+        for i in range(a.bots):
+            name = "P7%s%d" % ("Pin" if i < a.pinned else "Mix", i + 1)
+            team = RED if i % 2 == 0 else BLUE
+            words = ["ai_bot_add", name, a.skill, "team=%d" % team]
+            if i < a.pinned:
+                # A comma list pins the classes in turn: --class scout,medic,heavy is a mixed team.
+                words.append("class=%s" % cls.split(",")[i % len(cls.split(","))])
+                if archetype:
+                    words.append("archetype=%s" % archetype)
+            game.cmd(" ".join(words))
+            names.append(name)
+        pinned = set(names[:a.pinned])
+        t0 = time.time()
+        with open(os.path.join(out, arm + ".points.jsonl"), "w") as f:
+            while time.time() - t0 < a.seconds:
+                t = time.time()
+                try:
+                    s = game.json("/ai/points")
+                except Exception as e:  # a busy frame: the next second's sample
+                    s = {"error": str(e)}
+                s["t"] = round(t - t0, 2)
+                f.write(json.dumps(s) + "\n")
+                samples.append(s)
+                time.sleep(max(0.0, 1.0 - (time.time() - t)))
+        first, started = first_on_objective(samples, pinned)
+        classes, unread = read_classes(lambda: game.json("/ai/classes"))
+        fault = samples_fault(samples) or unread
+        classes = classes if isinstance(classes, dict) else {}
+        with open(os.path.join(out, arm + ".classes.json"), "w") as f:
+            json.dump(classes, f, indent=1)
+        mine = [b for b in classes.get("bots", []) if b["name"] in pinned]
+        summed = {}
+        for key in ("kills", "deaths", "damage", "captures", "defenses", "healing", "backstabs", "buildings", "stuck_lines"):
+            summed[key] = sum(b.get(key, 0) for b in mine)
+        abilities, counters = {}, {}
+        for b in mine:
+            for k, v in b.get("abilities", {}).items():
+                abilities[k] = abilities.get(k, 0) + v
+            for k, v in b.get("counters", {}).items():
+                counters[k] = counters.get(k, 0) + v
+        result.update({
+            "ok": fault is None and all(any(b.get("class") == cls_raw(c) for b in mine) for c in cls.split(",")[:a.pinned]),
+            "fault": fault,
+            "pinned_seen": [(b["name"], b.get("class"), b.get("archetype"), b.get("kit")) for b in mine],
+            "first_on_objective_s": first, "round_start_s": started, "points_changed": owner_changes(samples), "samples": len(samples),
+            "pinned": summed, "abilities": abilities, "counters": counters, "clock": classes.get("clock", {}),
+            "composition": sorted((b["name"], b.get("class")) for b in classes.get("bots", []) if b["name"] not in pinned),
+        })
+    finally:
+        game.stop(a.keep)
+    return result
+
+
+def cls_raw(cls):
+    return "heavyweapons" if cls == "heavy" else cls
+
+
+def table(results):
+    keys = ["first_on_objective_s", "points_changed", "kills", "deaths", "damage", "captures", "stuck_lines"]
+    rows = [["arm", "class", "archetype"] + keys + ["abilities", "counters"]]
+    for r in results:
+        p = r.get("pinned", {})
+        rows.append([r["arm"], r["class"], r["archetype"] or "-",
+                     str(r.get("first_on_objective_s")), "red %(2)s blue %(3)s" % {str(k): v for k, v in r.get("points_changed", {}).items()} if r.get("points_changed") else "-",
+                     *[str(p.get(k, "-")) for k in keys[2:]],
+                     ",".join("%s=%s" % kv for kv in sorted(r.get("abilities", {}).items())) or "-",
+                     ",".join("%s=%s" % kv for kv in sorted(r.get("counters", {}).items())) or "-"])
+    widths = [max(len(row[i]) for row in rows) for i in range(len(rows[0]))]
+    return "\n".join("  ".join(c.ljust(widths[i]) for i, c in enumerate(row)) for row in rows)
+
+
+def self_test():
+    """The harness's own reads, red once each by hand (see .scratch/p7f-mutations.log): exit 1 on a failure."""
+    fails = []
+
+    def check(ok, what):
+        if not ok:
+            fails.append(what)
+
+    area = {"mins": [0, 0, 0], "maxs": [100, 100, 100]}
+    point = {"id": 1, "kind": "Capture", "owner": BLUE, "may": 1 << RED, "at": [50, 50, 0]}
+    sample = {"objectives": [point], "areas": [area]}
+    check(on_objective({"at": [50, 50, 10], "team": RED}, sample), "a red bot in a blue point's area red may capture is on it")
+    check(not on_objective({"at": [50, 50, 10], "team": BLUE}, sample), "the owner's own bot is not on an objective it may take")
+    check(not on_objective({"at": [500, 50, 10], "team": RED}, sample), "a bot outside the area is not on it")
+    locked = {"objectives": [dict(point, may=0)], "areas": [area]}
+    check(not on_objective({"at": [50, 50, 10], "team": RED}, locked), "a point red may not capture now is no objective to it")
+    flag = {"objectives": [{"id": 9, "kind": "Carry", "owner": BLUE, "may": 0, "at": [0, 0, 0]}], "areas": []}
+    check(on_objective({"at": [60, 0, 0], "team": RED}, flag), "a red bot by blue's flag is on an objective")
+    check(not on_objective({"at": [200, 0, 0], "team": RED}, flag), "a red bot 200 u from blue's flag is not")
+    samples = [{"objectives": [dict(point, owner=0)]}, {"objectives": [dict(point, owner=RED)]}, {"objectives": [dict(point, owner=RED)]},
+               {"objectives": [dict(point, owner=BLUE)]}]
+    check(owner_changes(samples) == {RED: 1, BLUE: 1}, "a point taken by red then blue is one change each: %r" % owner_changes(samples))
+    on = {"name": "p", "team": RED, "alive": True, "at": [50, 50, 10]}
+    off = dict(on, at=[500, 50, 10])
+
+    def at(t, state, b):
+        return {"t": t, "round": {"state": state}, "objectives": [point], "areas": [area], "bots": [b]}
+    restarted = [at(0, "Preround", off), at(6, RUNNING, off), at(30, RUNNING, on), at(31, "Preround", off),
+                 at(36, RUNNING, off), at(58, RUNNING, on)]
+    check(first_on_objective(restarted, {"p"}) == (22, 36), "an arrival in a restarted round is not counted: %r"
+          % (first_on_objective(restarted, {"p"}),))
+    played = [at(0, "Preround", off), at(6, RUNNING, off), at(20, RUNNING, on), at(90, "TeamWin", off),
+              at(100, "Preround", off), at(105, RUNNING, on)]
+    check(first_on_objective(played, {"p"}) == (14, 6), "a round played to its end counts from its start: %r"
+          % (first_on_objective(played, {"p"}),))
+    check(first_on_objective(restarted, {"q"}) == (None, None), "no pinned bot on it is no time")
+    check(first_on_objective([at(0, "Preround", on), at(5, RUNNING, off), at(9, RUNNING, on)], {"p"}) == (4, 5),
+          "standing on it before the round runs is not an arrival")
+    bot = {"name": "x", "team": RED, "alive": True, "at": [0, 0, 0]}
+    check(samples_fault([{"error": "busy"}] * 5) is not None, "an arm whose every sample erred is no measure")
+    check(samples_fault([]) is not None, "an arm with no sample at all is no measure")
+    check(samples_fault([{"bots": []}] * 5) is not None, "samples with no bots are no measure")
+    check(samples_fault([{"bots": [bot]}] * 9 + [{"error": "busy"}]) is None, "one erred sample in ten is fine")
+    check(samples_fault([{"bots": [bot]}] * 8 + [{"error": "busy"}] * 2) is not None, "two in ten erred is too many")
+    answers = [{"bots": [{"read": False, "class": "undefined"}]}, {"bots": [{"read": True, "class": "scout"}]}]
+    got, why = read_classes(lambda: answers.pop(0), sleep=lambda _: None)
+    check(why is None and got["bots"][0]["class"] == "scout", "a busy brain at the end is read again: %r %r" % (got, why))
+    got, why = read_classes(lambda: {"bots": [{"read": False}]}, tries=3, sleep=lambda _: None)
+    check(why is not None, "a brain never read fails the read")
+    for f in fails:
+        print("FAIL: " + f)
+    print("ai-tf-class self-test: %d checks failed" % len(fails))
+    return 1 if fails else 0
+
+
+def rescore(out):
+    """A run directory's first-on-objective times scored again from its saved samples (`--rescore <dir>`)."""
+    with open(os.path.join(out, "report.json")) as f:
+        report = json.load(f)
+    for r in report["results"]:
+        pinned = {name for name, *_ in r.get("pinned_seen", [])}
+        path = os.path.join(out, r["arm"] + ".points.jsonl")
+        if not pinned or not os.path.exists(path):
+            print("%s: no pinned names or no samples: not scored" % r["arm"])
+            return 1
+        with open(path) as f:
+            samples = [json.loads(line) for line in f if line.strip()]
+        first, started = first_on_objective(samples, pinned)
+        print("%s %s %s: first_on_objective_s %s (round from %s s; was %s)" % (
+            r["arm"], r["class"], r["archetype"] or "-", first, started, r.get("first_on_objective_s")))
+    return 0
+
+
+def main():
+    if sys.argv[1:] == ["--self-test"]:
+        sys.exit(self_test())
+    if sys.argv[1:2] == ["--rescore"] and len(sys.argv) == 3:
+        sys.exit(rescore(sys.argv[2]))
+    ap = argparse.ArgumentParser(description="the per-class A/B harness of the TF2 bots (P7)")
+    ap.add_argument("--class", dest="cls", required=True)
+    ap.add_argument("--archetype", default="")
+    ap.add_argument("--control", default="soldier")
+    ap.add_argument("--control-archetype", default="")
+    ap.add_argument("--arms", default="arm,control")
+    ap.add_argument("--map", default="cp_granary")
+    ap.add_argument("--bots", type=int, default=8)
+    ap.add_argument("--pinned", type=int, default=4)
+    ap.add_argument("--skill", default="hard")
+    ap.add_argument("--seconds", type=float, default=300)
+    ap.add_argument("--config", default="debug")
+    ap.add_argument("--extra", default="")
+    ap.add_argument("--tag", default="")
+    ap.add_argument("--keep", action="store_true")
+    a = ap.parse_args()
+    stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    out = os.path.join(ROOT, "bin", a.config, "ai-class", "%s-%s" % (stamp, a.tag or a.cls))
+    os.makedirs(out, exist_ok=True)
+    results = []
+    for arm in [x for x in a.arms.split(",") if x]:
+        cls, archetype = (a.cls, a.archetype) if arm == "arm" else (a.control, a.control_archetype)
+        results.append(run_arm(a, arm, cls, archetype, out))
+    with open(os.path.join(out, "report.json"), "w") as f:
+        json.dump({"map": a.map, "bots": a.bots, "pinned": a.pinned, "seconds": a.seconds, "results": results}, f, indent=1)
+    print("ai-tf-class %s, %d bots (%d pinned), %gs a run: %s" % (a.map, a.bots, a.pinned, a.seconds, out))
+    print(table(results))
+    for r in results:
+        if not r.get("ok"):
+            print("ai-tf-class: arm %s failed: %s" % (r["arm"], r.get("fault") or "no pinned bot of the class was seen"))
+    sys.exit(0 if all(r["ok"] for r in results) else 1)
+
+
+if __name__ == "__main__":
+    main()

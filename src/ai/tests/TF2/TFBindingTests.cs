@@ -161,7 +161,7 @@ public sealed class TFBindingTests
         var feel = new TFFeelSwitchConVars(DeclaredConVars.Fresh<TFFeelCarrierConVar>(), DeclaredConVars.Fresh<TFFeelSearchConVar>(), DeclaredConVars.Fresh<TFFeelAimConVar>(),
                                            DeclaredConVars.Fresh<TFFeelRetreatConVar>(), DeclaredConVars.Fresh<TFFeelFriendGateConVar>(), glance,
                                            DeclaredConVars.Fresh<TFFeelPrefireConVar>(), DeclaredConVars.Fresh<TFFeelJumpHealthConVar>(),
-                                           DeclaredConVars.Fresh<TFFeelFightConVar>());
+                                           DeclaredConVars.Fresh<TFFeelFightConVar>(), DeclaredConVars.Fresh<TFFeelRoutesConVar>());
         var game = new TFBotGame(WeaponCatalog.Stock(), null!, classes, null!, null!, feel);
         var duel = new Trees.Duel(Trees.Duel.Preset("normal"));
         var setup = new BrainSetup(new ActorId(1, 1), 7UL, duel.Memory, duel.Params, 0.015f);

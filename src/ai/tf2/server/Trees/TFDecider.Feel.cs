@@ -12,13 +12,15 @@ namespace SourceSharp.Ai.TF2.Trees;
 /// (<see cref="Retreat"/>), a teammate in the way holds no fire (<see cref="FriendGate"/>), and
 /// the bot does not glance off its way (<see cref="Glance"/>), and it fires at nothing it has not seen (<see cref="Prefire"/>),
 /// and a rocket jump keeps the health floor wherever it lands (<see cref="JumpHealth"/>, lane G9), and a fighting Soldier
-/// sidesteps only by Agility's share, a coin for each side, with no hop, crouch or cover (<see cref="Fight"/>, lane Gfight).
+/// sidesteps only by Agility's share, a coin for each side, with no hop, crouch or cover (<see cref="Fight"/>, lane Gfight),
+/// and every bot's searches take the one shortest way, with no field of its own (<see cref="Routes"/>, lane Groutes: read by
+/// <see cref="Nav.TFRouteVariation"/>, not the decider).
 /// </summary>
 public readonly record struct TFFeelSwitches(bool Carrier, bool Search, bool Aim, bool Retreat, bool FriendGate, bool Glance, bool Prefire = true,
-                                             bool JumpHealth = true, bool Fight = true)
+                                             bool JumpHealth = true, bool Fight = true, bool Routes = true)
 {
     /// <summary>Every part on: the layer as it is.</summary>
-    public static TFFeelSwitches All => new(true, true, true, true, true, true, true, true, true);
+    public static TFFeelSwitches All => new(true, true, true, true, true, true, true, true, true, true);
 }
 
 /// <summary>
@@ -166,7 +168,8 @@ public sealed partial class TFDecider
         if (tier > _pickTier)
             (_pickTier, _pick) = (tier, new TargetPick(TargetCloseUnits));
         float bonus = _p.RankBonus * TargetScore.RankBonus(TargetScore.RankOf(_memory, a), _pickRows)
-                      + (a.ClassBelieved == (int)TFClass.Medic ? MedicBonus : 0f) + (carrier ? CarrierBonus : 0f);
+                      + (a.ClassBelieved == (int)TFClass.Medic ? MedicBonus : 0f) + (carrier ? CarrierBonus : 0f)
+                      + (_classPlay?.TargetBonus(a, sighted, dist) ?? 0f);
         float priority = TargetScore.Priority(sighted, a.Confidence, dist, _p.EasyTargetDiscount, bonus, TargetScore.Grudge(a, _now, _tick, _p.GrudgeWeight),
                                               ReferenceEquals(a, _aboutBefore));
         return _pick.Takes(sighted, dist, priority);
@@ -204,7 +207,8 @@ public sealed partial class TFDecider
     /// </summary>
     private void FriendGate()
     {
-        if (!Feel.FriendGate || _action.Kind != ActionKind.Fire || !TeamRule.IsGameTeam(_self.Team))
+        // Fire at a teammate on purpose (a heal beam: FireAtFriend) is not held for one.
+        if (!Feel.FriendGate || _action.Kind != ActionKind.Fire || !TeamRule.IsGameTeam(_self.Team) || _friendFire)
             return;
         float blast = _memory.FriendlyFireOn && Splash(out _) ? SelfBlastUnits : 0f;
         // A shot goes at its aim point: a target's (a rocket at its feet goes at the floor beside them) or a prefire's place on the
@@ -265,13 +269,14 @@ public sealed partial class TFDecider
     {
         get
         {
+            float hurtShare = _classPlay?.HurtShare ?? HurtShare;
             if (!Feel.Retreat)
-                return HealthShare < HurtShare;
+                return HealthShare < hurtShare;
             float share = RetreatRule.HealthShare(in _p);
             // A bot never hurt has no last hit to be under threat from.
             Tick hurt = _memory.Board.LastDamageTick;
             bool threatened = _targetSighted || (hurt.Value != 0 && RetreatRule.Threatened(false, _now, hurt, _tick));
-            return HealthShare < (threatened ? share : Math.Max(HurtShare, share));
+            return HealthShare < (threatened ? share : Math.Max(hurtShare, share));
         }
     }
 

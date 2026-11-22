@@ -97,6 +97,7 @@ public static class AiReplayer
         int userCmds = 0;
         AiRecordedWorld? lastWorld = null;
 
+        var huds = new AiHudMemo();
         while (AiRecordFormat.TryReadRecord(recording, out AiRecordType type, out byte[] payload))
         {
             using var r = new BinaryReader(new MemoryStream(payload, writable: false));
@@ -121,7 +122,7 @@ public static class AiReplayer
                     session.Push(pushed);
                     break;
                 case AiRecordType.Snapshot:
-                    AiSnapshot snap = AiRecordFormat.ReadSnapshot(r, session.Snapshots);
+                    AiSnapshot snap = AiRecordFormat.ReadSnapshot(r, session.Snapshots, huds);
                     session.Publish(snap);
                     // A replay outruns any pool: it waits rather than let a lane drop a step (§2.6).
                     if (session.Counters.InFlight >= AiSession.LaneDepth)
