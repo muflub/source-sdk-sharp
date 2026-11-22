@@ -1440,6 +1440,15 @@ Found on the way: a depth 9 seed 1 built at this tip has no pool room, so `Horde
 
 Two more things follow from the fix. The game's own wide hull keeps the one-step rule, so a hull of the game's own size (48 by 82) is admitted in 160,775 cells on ctf_2fort, 9 more than the 160,766 the game stands in. Giving the body the same rule would change TF2's graph hashes and cache names: that needs a ruling. Descent's `DirectorSettings.FloorBoundSizes` (plan 4.7) was written for giants that cannot climb stairs, and the Descent lane should check whether it still holds.
 
+## TF2 bots: stacked teammates at a later rally (2026-11-21)
+
+Lane Groutes (landed `d28eb8f8a`): two bots standing within 12 u of each other
+(one on the other's head, or pressed together in a doorway) do not count each
+other at a rally after the round's opening, so a rally can wait for a bot that is
+already there. Seen on cp_granary in the spread runs; not measured on its own.
+Start from the rally's teammate count in `TFDecider.Rally.cs` and a fact with two
+bots 8 u apart.
+
 ## TF2 bots on ctf_2fort: what P6 left (2026-11-11)
 
 From lane p6e (main after `694f4f618`). Its runs and notes were in that lane's `.scratch`, and the numbers are in `docs/plans/plan_bots_teams_tf2.md` §8.1.

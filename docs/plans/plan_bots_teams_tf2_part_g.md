@@ -486,6 +486,39 @@ two were sent back for a fuller account.
   big room's navigation smaller, and the proposal is revised from its
   numbers before anything is built into the game.
 
+### Rulings (user, 2026-11-20)
+
+- **Routes: "Raise to 1.15".** A varied route may cost up to 1.15 times the
+  shortest (was 1.1): on cp_granary the spawn-to-mid second way is 1.103 to
+  1.113 times, so under 1.1 the opening leg had one way.
+- **"Bots should take different ways to the same objective if arriving at
+  the same time."** Teammates bound for one goal at about the same time are
+  spread over the ways on offer, not drawn each on its own. Lane Groutes'
+  second pass.
+- **"At the start of the round bots dont have to wait and assume all team
+  members are going towards the objective directly."** At a round's opening
+  no rally is called and no bot goes to its team first: every team-stance bot
+  heads for the point in play (lane Groutes, `d28eb8f8a`).
+
+### Rulings (user, 2026-11-16)
+
+Asked one at a time after the 2026-11-16 landing (G.15).
+
+- **A store busy at open: "retry, then go on".** When a game opens the SQLite
+  store while another process holds a write past the busy timeout, the open
+  no longer refuses the store for the session: the game goes on without it
+  and retries in the background until the lock clears, then attaches it.
+  The game never waits on it.
+- **The cp_granary door:** not the visualizer and not the wired glass. The
+  user saw "a solid/textured slab" over a doorway on cp_granary: a lane
+  finds and fixes it.
+- **The rooms plan, Q-R5 and stage A:** the smarter derivation, then stage
+  A, one lane (`plan_bots_teams_tf2_part_g_rooms.md` R.6).
+- **Follow-ups, all four briefed:** strafing into walls, varied routes (a
+  per-bot, per-life cost within 1.1 times the shortest), the bot looping at
+  a spawn door on "heard something", and the respawn wave's wait following
+  `spec_freeze_time` (the TF2 port's).
+
 ### Open questions, each with a recommendation (taken as recommended 2026-11-10; Q-G6's first item since allowed)
 
 | | question | recommendation |
@@ -775,6 +808,10 @@ Everything below is on local main; nothing is pushed.
 | navbuild, a TF2 map's navigation on load | `376013ae0` (2 commits) | TF2 registers a build policy (`TFNavBuilds`), so a map with no `.nav3d` has one built in the server, byte-identical to the offline build (cp_granary, cp_badlands); a build past `ai_nav_build_max_mb` (6,144) of managed heap is stopped and refused (jump_academy2: 1,647 of 16,384 cells at 6.2 GiB) |
 | Gfight, moving while shooting | `19c5b15ca` (6 commits) | the fight's strafe, crouch and cover are the core's (HL2MP's replays unchanged); a fighting Soldier sidesteps on most stretches, reverses like a person, hops and crouches at times, reloads in cover; moving on 66.0 % of firing ticks (47.5 % before; the user's HL2MP sessions 65.6 %); `ai_tf_feel_fight`; `tools/ai-replay fight` |
 | Gobj, the way to the objective | `c07364b03` (9 commits) | a moved spawn door keeps its doorway a way through (`NavObstacleField`; bots had rerouted round the room); a rally is called at the team's front and only within 2,000 u of the point; teammates stand at least 200 u apart; median ratio of nearing to walking 0.93-0.97 (0.72-0.81 before); time to the first capture not shortened (both teams now contest mid) |
+| Gstore, a busy store is retried | `4f6c1c5c2` (1 commit) | a game whose store another process holds past the busy timeout goes on without it, retries every second and attaches it when the lock clears (user, 2026-11-16); a real refusal still refuses; `/ai/experience` state `waiting` |
+| Gmove, walls and the door loop | `3595c3dff` (6 commits) | a fighting Soldier does not sidestep into a wall or off a drop (still-at-a-wall ticks 5.0 % to 2.1 % of firing); a door or prop noise with no player behind it near the bot or a seen teammate is its own side's (a bot looped 36.6 s at a spawn door it opened); `ai-replay fightstill`, `searches` |
+| rooms, jump_academy2 a room at a time | `96b9287a7` (13 commits) | `tf/download` mounted; a room derived in tiles with the 4 by 4 merge (pogo 10.5 s / 2.33 GB to 3.1 s / 0.9 GB); a teleport back sorted into fail floor or kept; recording format 9 (NavChange); `ai-nav-build --rooms`; stage A (the level's graph is the room in play, installs 1-3 ms); jump links seeded from a room's ways in; a remade brain's one-shots are taken (they were dropped after any map change) |
+| Groutes, ways to the point (2026-11-21) | `d28eb8f8a` (14 commits) | each bot's life draws one of the near-equal corridors to the point in play and keeps to it, none over 1.15 times the shortest (user, 2026-11-20); teammates arriving at a goal together take different corridors; a bot late to a rally goes to it by its own way; at a round's opening no bot rallies or waits; `/ai/routes/spread` and `tools/ai-replay spread` measure it. cp_granary, 5 runs per arm at `1f80a54ca`: blue median to the point 38.1 s off and on, red 42.1 s both, captures 22 off against 27 on, opening waves split 2/2 in every run on. Open: stacked bots within 12 u do not see each other at later rallies (docs/todo.md); "to the next stage" circling near (-2008 3385) is the jump planner's, given to the P7 Soldier lane. Gate: `make check` 14 legs, maps, nav, bots-jump (its wall step 5/5 alone after a read failure), boots of cp_granary, ctf_2fort, ss_ai_duel |
 
 **Landed with them (2026-11-16, main `d3274954c`, one gate for 68 commits).** The user's play reports of
 2026-11-15, each its own lane: the control point's view bob (client prediction of the capture area,

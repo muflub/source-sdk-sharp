@@ -1,6 +1,6 @@
 # plan_descent_mine_levels.md: the fifteen levels of the Descent mine shaft
 
-Status: reviewed and committed 2026-11-10. Brief p9 (2026-11-14): the brightness gate on the game's scale, Act II's second look pass, and the logic session's asks (section 1.3e). Phases 0 to 2 done; Phase 3 (Act I) built and reviewed from its preview sheets on 2026-11-10 (section 1.3a, section 11's status table), a third review pass the same day (brief p3c: the great halls' interiors, a door frame per theme, the boss arenas on the 1024 kit), waiting on the user's checkpoint; Phase 4 (Act II, levels 6 to 9) built and reviewed from its sheets in three rounds and two more on levels 8 and 9 (brief p4, section 1.3c), with the three Act I leftovers of that brief.
+Status: reviewed and committed 2026-11-10. Brief p18 (2026-11-20): level 5 a square maze of 512 cells round a narrowed arena (section 1.3l, M35, M36). Brief p14 (2026-11-16): Act III, levels 11 to 14, themed, lit and checked in game (section 1.3h). Brief p9 (2026-11-14): the brightness gate on the game's scale, Act II's second look pass, and the logic session's asks (section 1.3e). Phases 0 to 2 done; Phase 3 (Act I) built and reviewed from its preview sheets on 2026-11-10 (section 1.3a, section 11's status table), a third review pass the same day (brief p3c: the great halls' interiors, a door frame per theme, the boss arenas on the 1024 kit), waiting on the user's checkpoint; Phase 4 (Act II, levels 6 to 9) built and reviewed from its sheets in three rounds and two more on levels 8 and 9 (brief p4, section 1.3c), with the three Act I leftovers of that brief.
 
 This plan designs the fifteen dungeon levels of TF2 Descent as one mine shaft
 under the town: what each level looks and plays like, the room shapes they are
@@ -60,6 +60,8 @@ nothing more.
 | M32 | (user, 2026-11-15) Levels 4, 6 and 8 move to their M30 targets in game (40, 32, 24 from 36, 28, 35): brief p11, section 1.3e. |
 | M33 | (user, 2026-11-15) A wide hull stands on a step whose top lies inside a nav voxel (the extra-hull climb asks the first voxel at or above the feet; 2fort's one-unit spawn sill). The facts that needed depth 1's old cut floor take a synthetic cut instead (branch descent-sill). |
 | M34 | (user, 2026-11-15) Breakable crates and barrels belong to one breakable-prop manager entity per level (or per room if one level-sized bound costs too much per trace): it owns their health and collision, breaks them and keeps clients in step (broken bits plus a seed); no edict per crate. The game-logic session builds the manager; the rooms stop emitting breakables as `prop_static` and write a crate list (likely a `.map2d` section beside LITE) in the shape its reader names. |
+| M35 | (user, 2026-11-20, relayed by the game-logic session) "narrow the arena and make getting to him a big square maze with him in the center". Level 5's boss block is a square maze round a narrowed arena: the arena one room at the block's centre, the maze a seeded spanning tree with loops so packs can flank, exactly two doors into the arena on opposite sides, every maze cell its own room so the automap reveals the maze cell by cell, corridors a 92-wide giant walks, a solid roof at 384 so nobody jumps a wall. For level 5's maze only, this supersedes M18's limit on dead-end hallways: a maze has dead ends by nature. Built in brief p18 (section 1.3l). |
+| M36 | (user, 2026-11-20, relayed by the game-logic session, during brief p18) "can we reduce the size of the maze blocks to get more cells?" Level 5 builds on a 512 kit (cell 512, the door 208 by 192 and framed as before); its other rooms keep their size as rooms of 2 by 2 cells. The block is 10 by 10 cells (the same 5,120 square): the arena the centre 2 by 2, one room of the family `arena`; each maze cell one corridor junction keyed by its door mask; the way down its own room beside the arena, joined to the arena alone by a third door (the coordinator's ruling during brief p18: the server reads a room holding the way down as the exit, not the arena; and the game-logic session's ask that the arena be one room, which the boss's leash and the arena stage key on). The M16 room budget does not count level 5's maze cells; the level holds under 255 rooms (the automap sends a room number as a byte) and keeps the breakables' caps (per room, 96 a level). |
 
 ### 1.3 Measured in Phase 0 (2026-11-10)
 
@@ -726,6 +728,572 @@ one failed, `HordeNavDataTests.Every_class_reaches_every_room_of_depth_9_seed_1_
 asserts that this tree's built level 9 seed 1 holds a pool room: it holds none (the layout from the d09
 library at this code is byte for byte the built one), and this brief did not touch level 9.
 
+### 1.3f Breakables as points (brief p12, 2026-11-16, ruling M34)
+
+The game-logic session's breakable manager (branch `descent-breakables`) asked for an `info_poi` per
+breakable where the dresser wrote a `prop_static`: `poi_type` `descent_mark_breakable_crate` or `_barrel`,
+`origin` the model's foot (a crate's origin; the floor under a barrel's middle, the server lifting its
+model 30), `angles` `0 yaw 0`, no prop at the place, at most 8 a room and 96 a level. As built
+(`a0efc978a`, `73fe84129`, at base `a773a44d3`):
+
+- **Which become breakable.** Act I's powder crate (`props_2fort/miningcrate002`) becomes the crate
+  (`miningcrate001`, box -21 -36 0 .. 22 37 39), its oil drum (`props_2fort/oildrum`) and level 8's
+  open drum (`props_swamp/oildrum_open`) the barrel (`props_farm/wooden_barrel`, -23 -23 0 .. 23 23 60
+  over the foot): `PropModel.Breakable`. Where the dresser stands one as clutter (a corner pile, a wall
+  or floor piece, a companion) it fits the server's model by its box and writes the point. Not
+  breakable: a lantern's stand (levels 3 and 6: a broken stand drops its lamp), the jump features'
+  crate steps (brushes), the Mill's hazard drums (`barrel01`, `barrel03`: the level's look, and 80
+  high), level 3's lying distillery barrels and half crates and level 1-2's big lakeside crate (each
+  twice the server's model), level 8's flat swamp crates. Levels 7 and 9 have no crate or drum and hold
+  none.
+- **Solid in every gate.** The dress lint reads a breakable as a solid piece (door clear, marker clear,
+  jump air, the giant's route, cut-off floor), the giant's flat walk as a solid box, the preview's walker
+  as the static prop the preview stands there (below). The room compile refuses a point of interest
+  where its standing agent (32 by 72) does not fit in the voxel the point is in, widened by the agent's
+  half-width (map tools `RoomNavBuilder.PlacePois`), and the nav counts solid static props: so a
+  breakable stands only where that box is free (`Breakables.AgentSweep`), later solid dressing keeps out
+  of it, and the dress lint holds it (`dress_breakable`); `marker_floor`, a standing player's 48-wide
+  hull, is not a crate's rule and leaves it alone. Every library of levels 1-4 and 6-9 compiled clean.
+- **The caps, and where the level cap is held.** The map tools' link and the host's link place rooms
+  as compiled, and neither can turn a point back into a prop, so the level cap is held in the room
+  compile: a room of depth d takes at most `Breakables.CapAt(d)` = min(8, 96 / the depth's exact room
+  budget, M16): 5 at level 1, 4 at 2, 3 at 3, 4, 6 and 7, 2 at 8 and 9 (2 at 11 and 12, 1 at 13 and
+  14). Any level of the depth, whatever rooms it draws, then holds 96 at most, the same seed giving the
+  same level. Past a room's cap the theme's prop stays where it stood. `library.json` counts each
+  room's (`breakables`) and `descent-level` refuses a level over 96 (`DescentLevel.OverLevelCap`), which
+  no level of these libraries reaches. Facts (`DescentBreakableTests`), each red under its mutation
+  (`.scratch/p12-mutate.py`): every depth's cap times its rooms is at most 96 (red with the cap at 8:
+  14 of 17 facts); 18 copies of level 1's richest room stay under 96, and at the room cap alone would be
+  over it; a synthetic level of 13 rooms of 8 is refused (104), of 12 is not (96).
+- **Counts, seeds 1-3** (the level's `.nav3d` read back with `tools/descent-breakables list`, as the
+  server's `LevelReader` reads markers: `Nav3dReader`, every non-door point by its `poi_type`; each
+  equals the sum of the placed rooms' `breakables`; props left are the stand-ins' static props still in
+  the map, levels 3 and 6's crates nearly all lantern stands):
+
+| Level | Crates | Barrels | Props left (crate / drum) | Busiest room (seed 1) | Before: crates / drums as props |
+|---|---|---|---|---|---|
+| 1 | 34 29 23 | 19 13 17 | 2/1 4/2 0/0 | yard_a, widedrift_b, split_d 5 | 28/42 24/33 19/30 |
+| 2 | 16 15 12 | 9 15 21 | 2/1 2/1 6/7 | hall_a, exit_cagea, arrival_cagea 4 | 13/20 17/25 16/38 |
+| 3 | 16 16 16 | 8 7 6 | 32/2 26/1 31/11 | split_d, pillar_d, exit_cagea 3 | 51/14 44/12 58/18 |
+| 4 | 0 0 0 | 18 12 13 | 0/1 0/7 0/6 | yard_a 3 | 0/30 0/34 0/25 |
+| 6 | 0 0 0 | 23 21 22 | 31/8 24/4 26/8 | grotto_b, grotto_a 3 | 31/34 24/30 26/33 |
+| 7, 9 | 0 | 0 | 0 | | 0 |
+| 8 | 0 0 0 | 34 27 26 | 0/7 0/6 0/10 | yard_b, treasure_a 2 | 0/49 0/39 0/46 (open drums) |
+
+- **The preview.** Neither linked map holds a breakable, so `tools/descent-preview-spawns` (which the
+  Makefile already runs on the preview's map) has `tools/descent-breakables preview` stand the server's
+  models at the points read from the preview's `.nav3d` as solid static props casting no shadow, and
+  rebinds the preview's `.map2d` to the new checksum as `descent-face-sides` does. The sheets show the
+  dark mining crates and wooden barrels by the walls (`d01/tf2_descent-1-s1-rooms/views/21-cam18.png`,
+  yard_a), and the reach gate's walker meets them. No map tools change was needed.
+- **Gates** at `73fe84129`, depths 1-4 and 6-9, seeds 1-3: brightness ok, 100.6 / 68.9 / 57.3 / 41.5 /
+  34.4 / 27.4 / 22.9 / 22.1 (before, `a773a44d3`: 100.5 / 69.1 / 57.4 / 41.5 / 34.3 / 27.4 / 23.0 /
+  22.1): the props lost their baked shadows but the preview draws the server's models in their place;
+  reach ok; budget ok, map entities unchanged (static props and points cost none), brushes within 5.
+- **The map tools under the measurements.** The shared map tools checkout moved from the lock
+  (`3551fa8`) to `dc1e00a` at 03:50 during the after-run, so levels 6-9 of it were built on `dc1e00a`.
+  Rebuilt on a private checkout at the lock (`.scratch/p12-maptools`, which `maptools.lock.local` names
+  in this tree) after the rebase onto `1a7820b93`: levels 6-9 read the same figures to the tenth
+  (34.4 / 27.4 / 22.9 / 22.1), reach and budget ok, the same entity and brush counts.
+- **In game** (rebased onto `1a7820b93`, the breakable manager; a listen server of this tree's debug
+  build): level 1 seed 1's manager holds 56 crates and barrels, each of the 53 points matched to a slot
+  of its kind within a unit and its yaw (the other 3 are container and explosive markers left empty,
+  the server's `otherwise`), and level 6 seed 1's 32, its 23 points all matched. A Soldier's rocket at
+  level 1's room 14 broke the crate it hit and the barrel beside it (roll nothing: splinters;
+  `.scratch/p12-shots/d01-room14-before.jpg`, `-after.jpg`), one at room 12 broke four, one rolling
+  Australium and dropping it; a rocket at level 6 broke the barrel by the fuse boxes
+  (`.scratch/p12-shots/d06-slot1-before.jpg`, `-after.jpg`). The models stand on the floor where the
+  points put them, the barrel lifted as asked. No `EXCEPTION IN` in either level's console.
+- **Tests:** at `a773a44d3`, `make managed-test FILTER='FullyQualifiedName~Descent'` 1,106 passed, 0
+  failed (one of them since dropped: no mutation could fail it), `make descent-test` 3,923 passed, 3
+  skipped. Rebased onto `1a7820b93`, two of main's `LevelReaderTests` failed on this tree's levels 1
+  seed 2 and 2 seed 1: the server now reads breakables as markers, and `library.json`'s `markers` did not
+  list them. It does now (rebuilt, the maps and `.nav3d` files are byte for byte the same); then
+  1,113 Descent managed facts and 4,089 of `make descent-test` passed, 3 skipped, 0 failed.
+
+### 1.3g The boss arenas themed, and the boss contract (brief p13, 2026-11-16)
+
+Branch `descent-mine-plan` from `e6ba31b21`, map tools `dc1e00a` (the lock), debug. Builds `.scratch/p13-build.sh`
+(rounds `.scratch/p13-rN/`, extra arena views `p13-views.py`), review log `.scratch/p13-REVIEW.md` (three rounds),
+in-game shots `.scratch/p13-shots/dNN/final-{off,r0}/` (the preview's cameras and six of each arena's own, `aN`),
+the contract as received `.scratch/p13-contract.md`.
+
+**The three themes** (`Themes/Bosses.cs`, palettes `d05.tsv`, `d10.tsv`, `d15.tsv`; every material and model opened
+in the asset database first; one, `nature/gravelfloor002b`, was picked without opening it and turned out a railway
+texture that drew track over every floor of level 10: replaced, noted in the palette):
+
+- **5, the Powder Magazine** (Act I's end): tan blasted rock (`nature/rockwall007`) over a brick lining to 192
+  (`brick/brickwall001`), a worn concrete floor, grey concrete pillars and ledges, timber sets, the Mill's hazard
+  stripe on every ledge edge and door head. Lamps: red caged warning lamps (`props_spytech/siren`) as an accent
+  over a warm fill under every roof (the first build lit the rooms by the red lamps alone and every small room read
+  as a darkroom), caged bulbs where the floor is still dark. Its way in, the lift's last station, is drawn in the
+  Mill's theme. Fog `46 32 28` 768-4096.
+- **10, the Bore** (Act II's end): grey drilled rock (`nature/rockwall010b`), grey gravel spoil, grey-green rock
+  pillars (`nature/cavewall005a`), the robots' steel frames; the robots' mobile light towers
+  (`props_mvm/construction_light02`, cold white spots), dim in the tunnels, strong in the arena. Fog `14 16 20`
+  512-2048.
+- **15, the Pit** (Act III is not themed): the Rot column's black mud (`swamp/nature/swampmud004` band,
+  `nature/blendmudmud001a` floor) and Brimstone's black rock (`nature/underworld_rockwall001`: the Rot's own wall,
+  `blendrockgroundwallforest004`, is grass), slimy cobbles for the platform (`swamp/brick/swampcobblewall001`), a
+  black slime water of its own (`descent/pit_slime`, from `water/water_underworld`, fog `6 10 5` at 40), torches on
+  stakes (`props_viaduct_event/underworld_torch01`). Fog `6 9 6` 384-1536.
+
+**The arenas** (`Shapes/ArenaShape.cs`; each lights itself, `RoomBuilder.WithOwnLamps`, from its theme's
+`ArenaLamps`; every height from the jump table):
+
+- **5** (2x2, 1024 high): the north-west and south-east corners blasted round to 640, the others 312 short of the
+  sockets; six stone pillars (radius 72) on a ring of 520 for cover, turned by the seed; the ring ledge at 96 (S2)
+  along the north wall and round the north-west curve (a bench of the ring, stairs at its east end), another round
+  the south-east curve with a container and no stair; rocket shelves at 224 (B1) on the west and east walls; two
+  barrel markers; eight red warning lamps high on the flat walls (over every ledge's air), one white work light on
+  a long cable over the middle, a dim warm fill. The boss in the middle facing the way in (yaw 207).
+- **10** (3x3, 1280 high): the Tank's track (`ArenaShape.BoreTrack`, 15 points) comes out of the robots' lift
+  (`props_mvm/mine_elevator`, non-solid, a steel headframe over the track's start at the east wall), runs up the
+  east side, along the north, down the west, along the south, then in round the central pillar: legs of 1,370,
+  1,840, 2,180, 1,820 and 3,340, **10,550 units**, four outer stations each 340 beside its pillar and the final one
+  420 north of the central pillar; its treads worn into the floor (two strips of coal, never solid); steel
+  catwalks 512 deep at 384 (B2) over the north and south legs, each with a container; rock steps at 96 then 144
+  (S3) in the west band and at 96 (S2) in the north-east; low rock cover (64, a crouch-jump) beside each leg on
+  its inner side; two tunnel mouths in the east wall (rock buttress portals floor to roof round a black back, the
+  MvM planks across each); ten light towers (eight round the walls, two between the legs) and a dim cold fill.
+  The boss west of the central pillar facing the way in (yaw 180).
+- **15** (4x4, 1280 high): one socket west; a dry mud shore by the door, then a lake of black slime 12 deep to the
+  walls; the platform a step up (1024 square): its core (448) and west quarter world, its east, north and south
+  sections the named brushes the encounter breaks away; four islands a step up; pillar tops at 96 then 144 (S3) and
+  at 96 (S2) in the slime; shelves at 224 (B1, north) and 384 (B2, south and east); six torches on the core and the
+  west quarter only (they never break away); a faint green glow over the lake on a 1024 grid. The boss on the
+  platform's middle facing the way in (yaw 194).
+- **The ways down**: level 5's `exit_breach` and level 10's `exit_bore` are the raised floor with a hole (as the
+  collapse of 6 to 9, now 6 to 9 only), the hole filled to the platform's top by the exit cover.
+
+**The contract** (the game-logic session's, received during the brief; as built):
+
+- `.map2d` section `ARNA` (version 1; boss spot and yaw, track points with flags, mouths with yaw and leg):
+  `library.json`'s `arena` entry, turned into the level's frame by `descent-level` (`<level>.arena`,
+  `DescentLevel.ArenaFile`), written by `tools/descent-arena`, which `tools/descent-room-light` runs after LITE.
+  Level 5: boss, no track, 3 mouths (legs 1-3); level 10: boss, 15 points (4 stations, final last), 3 mouths (the
+  lift for leg 1, the two east portals for 2 and 3); level 15: boss, no track, 4 mouths (legs 1-4). The boss spot
+  is also the arena's first pack marker, so today's fallback stands the boss on the same spot.
+- Named brushes (`BossNames`, one place): `descent_boss_exit` (5, 10), `descent_boss_pillar_1`-`5` and
+  `descent_boss_rubble_1`-`5` (rubble `StartDisabled 1`, two heaps per pillar on its side away from the track), level
+  15's `descent_boss_platform_2`-`4` and `descent_boss_hazard_2`-`4_slime` (`trigger_multiple`, `StartDisabled 1`;
+  phase 2's covers the whole lake but the platform and islands, and the east section's floor; 3 and 4 the north and
+  south sections' floors). No `descent_boss_mouth_<leg>` brush: the mouths are open portals (and the lift).
+- They survive the room compile and the link: every name is in each built level's entity lump as written
+  (`func_brush`, `Solidity 0`, `StartDisabled` as asked). In game (seed 1): `/entity?name=` finds each;
+  `Disable` on `descent_boss_exit` opens level 5's hole and `Enable` shuts it
+  (`.scratch/p13-shots/d05/exit-closed.jpg`, `exit-open.jpg`); `Disable` on platforms 2 and 3 takes those
+  sections away (`d15/platform-whole.jpg`, `platform-broken23.jpg`).
+- **What the nav believes**: each named `func_brush` is a dynamic obstacle of kind Toggle in the `.nav3d`, with its
+  name and bounds (`tools/descent-breakables obstacles`): the grid treats it as open space and the runtime blocks its
+  leaves while it is in the way (map tools `Nav3dObstacle`). So the exit cover's hole, the pillars and the rubble
+  are open in the grid itself; the game must pass them as blocking (exit, pillars at the start; rubble once its
+  pillar falls). With that blocking, the extra hulls' boxes (91.2 x 155.8, 72 x 123, 55.2 x 94.3: the x1.9, 1.5 and
+  1.15 bands) walk from the west door to all five stations at every stage of the fight, pillars standing and then
+  falling one by one with their rubble (`tools/descent-breakables reach`, level 10 seeds 1; the negative control:
+  a point inside pillar 1 is not reached while it stands and is once it falls). Offline, a 96 x 160 box on the
+  floor reaches every station with every pillar and all the rubble solid at once (`DescentBossArenaTests`).
+- **The Tank fits**: stock `boss_tank.mdl`'s hull (read from its header: -115.3 -79.1 -16.8 to 117.3 79.1 176.2)
+  facing along each leg and turning in place at every point meets nothing solid at any time (world, pillars,
+  rubble, solid props) along the whole dressed track, library seeds 0-3 (`TankTrack.Collisions`; the closing leg
+  back to point 0 is not driven and not held); the dresser keeps out of the hull's sweep plus 16
+  (`Room.KeepClear`, `dress_keep_clear`).
+- **Before the server read it** (`e6ba31b21`, `tf2_descent_boss` in game, seed 1): the bosses' posts were already the
+  ARNA spots (the first pack marker); the Tank stood beside Major Crits and drove no track.
+- **With the server's reader** (rebased onto `69177c8e4`, `ArenaLayout`; `.scratch/p13-contract-check.py`, shots
+  `.scratch/p13-shots/dNN/contract/`): each load line reports the section, `missing: none`:
+  5 `arena layout: boss at (4096 1024 16) yaw 207, 0 track points (0 stations), 3 mouths`;
+  10 `boss at (4008 1536 16) yaw 180, 15 track points (5 stations), 3 mouths`;
+  15 `boss at (5120 2048 32) yaw 194, 0 track points (0 stations), 4 mouths`.
+  `tf2_descent_boss_spawn` stands each boss on its spot facing its yaw (its body's angles 0 -153 0, 0 -180 0,
+  0 -166 0). Level 10: the Tank comes out of the lift along the first leg (`tank-start.jpg`, at (5721,1496) a few
+  seconds in); `tf2_descent_boss_arena drill 1` to `5` takes each pillar away and stands its rubble
+  (`pillar1-before.jpg`, `pillar1-after.jpg`, `wide-before.jpg`, `wide-all-drilled.jpg`). Level 15:
+  `tf2_descent_boss_phase 1` to `3` take platforms 2, 3, 4 away (`platform-phase1.jpg` to `platform-phase4.jpg`) and
+  turn on the staged slime (`tf2_descent_hazards`: 15 volumes of phase 2, one each of 3 and 4, off before, on
+  after). `tf2_descent_boss_kill` disables `descent_boss_exit` at 5 and 10 and the hole opens
+  (`exit-before-kill.jpg`, `exit-after-kill.jpg`). Each `descent_boss_mouth_<leg>` is reported as a name the map
+  does not hold (no mouth brushes ship: the mouths are open portals).
+- **What still reads wrong**: a fallen pillar leaves a black disc on the floor (the floor under it was inside the
+  brush when the level was lit); level 10's exit cover is lit a shade darker than the platform round it, so the
+  hole's place shows before the kill (level 5's does not); the lift's steel frame reads near black (a prop in the
+  dark).
+
+**Measured** (gates at seeds 1-3, all ok; in game seed 1, the preview's cameras, robots killed first, mean
+Rec.709 luma over the 4:3 centre, level 1 = 100 at 0.3477):
+
+| Level | 5 | 10 | 15 |
+|---|---|---|---|
+| Target (brief p13, in-game scale) | 52 | 22 | 7 |
+| Gate, seeds 1 2 3 | 49.9 50.2 47.1 (49.1) | 24.9 23.5 23.6 (24.0) | 7.1 7.1 7.4 (7.2) |
+| In game, lamp off | 53.8 | 24.0 | 4.6 |
+| In game, base lamp (radius 480) | 72.1 | 46.2 | 19.7 |
+| Black crush, off / base lamp | 0.3 / 0.1 % | 8.1 / 2.0 % | 77.7 / 31.1 % |
+| The arena's own light (LITE, seed 1) | 61 | 25 | 5 |
+| Map entities (of 1,536) | 55-56 | 58-61 | 62 |
+| Brushes (of 8,192) | 397-477 | 231-240 | 201-208 |
+| Library pack | 76 MB | 66 MB | 49 MB |
+
+The boss targets are their set pieces' light, not a step of the descent: the gate holds each to its own target and
+runs the falling order over the levels between them (`BOSS` in `tools/descent-gate`). The reach gate counts one exit
+trap at 5 and 10: the hole under the cover.
+
+### 1.3h Act III themed: levels 11 to 14 (brief p14, 2026-11-16)
+
+Branch `descent-mine-plan` from `cb92cda60`, map tools `dc1e00a` (the lock), debug, a box loaded 30 to 135 by other
+sessions throughout. Builds `.scratch/p14-round.sh` (rounds r0 to r9, `.scratch/p14-rN/`); review log
+`.scratch/p14-REVIEW.md` (the lint pass, three rounds of sheets, six rounds in game); in-game shots
+`.scratch/p14-shots/dNN/<round>-{off,r0}/` (the preview's 14 cameras, robots killed first, lamp off and at the base
+lamp, radius 480), measured as p10 (`.scratch/p14-measure.py`: mean Rec.709 luma over the 4:3 centre, level 1 = 100
+at 0.3477; black crush the share under luma 0.02; floor the lower half). Every material and model was opened in the
+asset database first (`.scratch/p14-m*.jpg`, `p14-mod*.jpg`); the plan's slime (`nature/toxicslime002a`) has no
+texture there, its turbine is no static prop, its furnace and skull horns have no collision, its Rot wall is grass.
+
+**The four themes** (`Themes/ActThree.cs`, palettes `d11.tsv`-`d14.tsv`; section 7's as-built rows):
+
+- **11, Robot Works**: rusted orange panels (`metal/wall026`) over dark perforated steel, grating for every deck,
+  stair and catwalk (the galleries' catwalk rings and rocket shelves edged in hazard stripe), steel sets, pilasters
+  and roof beams, the halls' gantry; consoles, cabinets and pipework on the walls, MvM barrel crates and steel tanks
+  in corners, tank machines and drums on the floor. Spytech ceiling lamps of which half have failed
+  (`LampKind.Dead` 0.5: the fixture hangs, no light, marked `descent_dead`), the same shades on cords in halls (half
+  failed); the floor they leave dark is lit first by red caged emergency lamps (`props_spytech/siren`, the cover
+  pass with the theme's `CoverLamps` alone); a dim cold fill. Fog `26 14 12` 512-1792. Its way in is the camp (M10).
+- **12, the Sump**: red-brown sewer brick over the green concrete lining, a concrete vault, mud floors, rusted steel
+  walkways and pipe-top pillars, red pipes rising into the walls, round drains at knee height, chemical barrels;
+  bug zappers under the roof, bell lamps on cords in tall rooms, a dim green fill. Its slime: `descent/sump_slime`
+  (TF2's murky water, its fog `26 34 8` to 24, reflecting), which the game draws as a luminous yellow-green sheet,
+  the brightest thing in a room. Fog `14 20 9` 448-1728.
+- **13, Brimstone**: black jagged underworld rock, grey stone ledges, pillars and arches (`nightfall/cliffwall`),
+  ash floors, black spires and horns of rock, a fang on a hall's focus, gargoyles; torches on stakes in pools, iron
+  sconces on the walls, fire baskets hung on chains in tall rooms, a dim red fill. Its lava:
+  `nature/underworld_lava002` (self-lit) as a non-solid skin two units deep with `_minlight 0.6` (the preview draws
+  by the lightmap alone). Fog `26 8 4` 448-1664. Its fill is below the Sump's in the gate, as §6 asks.
+- **14, the Rot**: mossy black-green rock over a band of black mud, green mud floors, pale karst ledges and pillars,
+  slimy cobble arches, rock spires, karst rocks, slabs, stalactites; fungus clusters glowing green on the floor in
+  pools and on open floor (`LampKind.FreeStanding`: the cover pass stands them in a cave's middle), as brackets on
+  the walls, a faint fill. Its slime is the Pit's (`descent/pit_slime`). Fog `8 11 6` 384-1600. Its first walls,
+  black mud (`swamp/nature/swampmud005`), took no light even from the hero's lamp: 40 % of the frame was black at
+  the base lamp.
+
+**Hazards** (`RoomTheme.HazardFloor`; `hazards.json`'s kinds, `tf2_descent_hazard_<kind>`, always on): slime at 12
+and 14, lava at 13, none at 11. The shapes lay it in every pool's basin, every flooded gallery's water and (13)
+every chasm leap's gap, between the decks, short of the bridge, open on the near side (`RoomBuilder.HazardFloor`).
+The dresser lays it on the floor of its families' rooms (12 and 14: pits, chimneys, caverns, grottos, stopes,
+chasms; 13: caverns, grottos, stopes, chimneys, pits) that nothing else needs: the largest rectangles left by the
+giant's lane between the doors and two columns more, the doors' approaches, 112 round every marker and a blast
+ledge's take-off (128), at most two a room, each kept only while a giant still walks dry door to door and to every
+pack (`KeepsWay`). Nothing stands on a hazard floor; each has its own glow over it (a fill light every 256 to 320:
+12 green, 13 orange, 14 dim green). The room lint's new `hazard_path` refuses a room whose doors a giant joins
+only through an always-on volume (facts: across the way, beside it, a boss's staged volume). Seed 1 holds 0 / 25 /
+35 / 25 volumes (11 / 12 / 13 / 14, the server's count at load). **In game** (level 13, noclip off): the hero stood
+in lava volume #18 took 7 bites of 56 (fire, 112 a second at depth 13) and died, named in the kill feed ("Lava
+killed lodle", `#Descent_Hazard_lava`).
+
+**Breakables** (M34): 11's oil drums and Mann Co. crates and 12's open drums become breakables (factory stores and
+waste drums, the kind a fight breaks); 13 and 14 hold none (no crate or drum in hell). Seeds 1-3 (the `.nav3d`
+read back): 11 27/11, 26/7, 25/14 crates/barrels; 12 0/59, 0/62, 0/50; 13 and 14 none.
+
+**What it costs**: libraries pack to 1,051 MB (11), 1,217 MB (12), 740 MB (13), 1,106 MB (14), dressing 4 to 10
+minutes and packing 3 to 7 under the load; levels link in 12 to 54 s. A fill light every 512 under every roof is
+about 220 map entities a level (13: 422 before its fill, 670 after).
+
+The final builds (seed 1 measured in game): 11 round r5, 12 r6, 13 r8, 14 r9, each built from the code as committed.
+
+| Level | 11 | 12 | 13 | 14 |
+|---|---|---|---|---|
+| Target (in game, M30) | 16 | 13 | 11 | 9 |
+| Gate, seeds 1 2 3 (mean) | 16.8 19.1 18.3 (18.1) | 13.8 14.9 14.5 (14.4) | 12.9 12.9 12.1 (12.6) | 10.9 9.4 10.6 (10.3) |
+| In game, lamp off (seed 1) | 12.8 | 12.4 | 9.0 | 8.5 |
+| In game, base lamp | 38.6 | 31.3 | 23.4 | 26.1 |
+| Black crush, off / base lamp | 20.0 / 7.0 % | 27.9 / 6.3 % | 37.3 / 14.3 % | 53.8 / 19.7 % |
+| Floor luma, off / base lamp | .037 / .205 | .031 / .120 | .028 / .114 | .019 / .120 |
+| Frame colour off (r g b) | .066 .039 .035 (red) | .047 .043 .031 (olive) | .075 .021 .007 (red) | .020 .034 .011 (green) |
+| Map entities (of 1,536) | 666-845 | 764-889 | 670-689 | 630-698 |
+| Brushes (of 8,192) | 2,883-3,051 | 2,917-2,959 | 2,719-2,772 | 2,790-2,847 |
+
+The gate holds 9 (22.1) > 11 > 12 > 13 > 14 > 15 (7.2); reach ok (a Heavy reaches every room's floor, no trap) and
+budget ok at all twelve levels; the dress lint and the giant's flat walk (`DescentGiantNavTests`, now every depth)
+hold every Act III room.
+
+- **The game reads Act III darker than the gate**, more the darker the level: game over gate 0.76 at 11, 0.90 at 12,
+  0.70 at 13, 0.78 at 14 (0.60 when its walls were black mud). So no level reaches its in-game target with its gate
+  inside 3 of the target: each was taken toward the top of its tolerance (11's seed 2 reads 19.1), and 12 and 14 are
+  within a point of their targets in game, 11 and 13 short by 3 and 2. Level 14 was first lit to 9.3 in game, over
+  13's 9.0: it was taken down to 8.5 so the levels still darken going down in game. Level 6's residual (brief p11) again,
+  larger in the dark: the gate's 2.2 re-encoding of the preview reads the darks lighter than the game draws them.
+- **Black crush**: 20 to 54 % with the lamp off (the Pit's was 78 %), 6 to 20 % at the base lamp, where every
+  level's floor near the hero reads (0.114 or more). A fill under the roof (one light every 512) moved crush only a
+  few points: under a 1024 roof at 448 to half light it hardly reaches the floor (12: 36.6 to 33.2 %, 13: 53.4 to
+  48.3 %), so the lamps carry the light and the fill colours the dark.
+- **The lamp** washes each level's colour near the hero, as in Act II: 13's black rock turns grey within it, 11's
+  tile floor grey-white, 14's mud floor brown litter; each level keeps its hue beyond about one room width (the
+  off-lamp frame colours above).
+
+### 1.3i A second look at the boss arenas and Act III (brief p15, 2026-11-16)
+
+Branch `descent-mine-plan` from `abc204810`, map tools `dc1e00a` (the lock), debug, a box loaded 35 to 80 by other
+sessions throughout. Builds `.scratch/p15-round.sh` (rounds r1 to r5, `.scratch/p15-rN/`); in-game shots
+`.scratch/p15-shots/dNN/<round>-{off,r0}/` (the preview's cameras, robots killed first, lamp off and at the base lamp,
+radius 480; the arenas' own views `aN` from `.scratch/p15-views.py`), measured as p10 (`.scratch/p15-measure.py`: mean
+Rec.709 luma over the 4:3 centre, level 1 = 100 at 0.3477; black crush the share under luma 0.02); before and after
+sheets `.scratch/p15-sheets/fix*.jpg`. Every new material and model was opened in the asset database first
+(`.scratch/p15-mats/*.jpg`).
+
+**The fixes, as built:**
+
+- **Rubble off its pillar's leaves (level 10).** The server's graph keeps one obstacle per nav leaf, and every
+  pillar's rubble box overlapped its pillar's box: the built `.nav3d` of seeds 1 to 3 held leaves inside both
+  (`descent_boss_pillar_3` and `descent_boss_rubble_3` among them; `DescentArenaNavTests`, red at `abc204810`). Each
+  pillar's heaps now lie on one side of its box, 32 or more off it, on a side the track does not run, and overlap
+  into one heap; pillar 1 stands at (380, 760) from the middle (from 300). The fact holds levels 5, 10 and 15 at
+  seeds 1 to 3, leaves inside two named Toggle boxes counted from the level's own leaves and obstacle bounds. The
+  game side's built-level facts (`HordeArenaBuiltNavTests`, its control points under rubble 1 and across rubble 3)
+  pass on the new level unchanged. Before and after: `fix1-rubble.jpg`.
+- **The torches stand on what never drops (level 15).** Platform 3's torches stood 32 in from its edge and read as
+  floating once it dropped (`.scratch/p13-shots/d15/contract/platform-phase4.jpg`). They stand 96 in now, and the
+  dresser refuses any piece within `BossNames.PlatformEdge` (32) of a section's box. Facts: no dressing piece
+  (lamps, props, set brushes, breakables) within 32 of a `descent_boss_platform_<n>` box at library seeds 0 to 3; a
+  torch moved to a section's edge is found. Phase 4 in game: `fix2-torches.jpg`.
+- **Level 15's lake.** `descent/pit_slime`'s fog from `6 10 5` to `14 24 9`: the water draws its fog unlit, so
+  the lake reads as a faint green surface round the torch-lit platform (tried live with `mat_reloadmaterial` at
+  `6 10 5`, `12 20 8`, `20 34 12`: the last read as a flat green floor). Low green glows every 512 along its rim
+  by the walls (`ArenaShape.ShoreGlow`). The antechamber's mud, the Rot's `nature/blendmudmud001a`, drew its second
+  layer, a litter of twigs, on a plain brush (a worldvertextransition material shows its `$basetexture2` there):
+  the floor is `swamp/nature/swampmud003` (black `swampmud005` was tried: 80 % of the frame black, the base lamp
+  11.8). `fix3-d15-lake.jpg`.
+- **Level 10's look.** Cover and rubble are lumps of rock (`Parts.Rock`: an uneven polygon, its top drawn in by
+  half toward a point off its middle, each side's corners in one plane). The track is a spiral winding in
+  counter-clockwise: out of the lift, now turned 90 to open north on the first leg, up the east side at x 1120,
+  west along the north to the north-east pillar's station on its north side, down the west, east along the south,
+  then north inside the first leg at x 640, west at y 420 and south to the central pillar's station on its west
+  side (the old track came back up its first leg's line and turned the other way round the middle, which read as
+  a squared loop); 12 points, five legs of 2,140, 1,900, 1,520, 1,820 and 3,340, 10,720 in all. Pillars and the
+  exit cover cast no shadow (`WithNamedBrush(..., castsShadow: false)`): a casting pillar's floor was dark under it,
+  the disc a fallen one left, and the casting cover's top was lit under the platform round it; in the preview the
+  cover now reads flush with the platform. A cold work light stands before the lift's open front. The S2 steps
+  stand between the first leg and the fifth, north of the lift. `fix4-d10-look.jpg`.
+- **Level 5's antechamber.** The Magazine's timber pilasters stand up rooms 512 high too (they began at 768), and
+  the octagon antechamber has posts of the trim at its eight corners and up the middle of each cut wall.
+  `fix5-d05-antechamber.jpg`. The boss (x1.9) still looks small in the 1,024-high hall: the hall is 1,024 for its
+  rocket air (576 over half the floor) and the shelves at 224 (338 of air); 768 would hold both and make him read
+  a quarter larger against the walls, or the game side's scale could rise to about 2.5. Not changed here.
+- **Cameras out of solids.** A larger room's preview camera (its body's south-west corner) walks in toward its
+  focus until its eye stands in open air (`PreviewCamera.InOpenAir`: no solid brush within 16). Facts: every room
+  of levels 5, 10 and 15's libraries has its camera in open air; a block in a hall's corner moves the camera out.
+  The arena views of p13 (`a3` at level 5, `a6` at level 10, inside a bench and a stepping pillar) are moved
+  (`.scratch/p15-views.py`). `fix6-cameras.jpg`. The doorway camera (`DescentLevel.DoorwayCamera`) is still laid
+  from the plan alone and can stand in a solid (open since brief p11).
+- **Act III.** 11: grottos and flooded galleries are drawn and dressed in `RoomTheme.Caves` (the works' theme with
+  the Bore's rock, `nature/rockwall010b`, and a poured concrete floor) through `CaveFamilies`. 12: the slime is a lit
+  skin of HL2's toxic slime texture (`descent/sump_scum` from `nature/toxicslime002a_dx70`, `_minlight` 0.12) under
+  its volumes, not a water whose fog drew a flat luminous sheet (darkening the fog live drew it black; a
+  `$basetexture` on the water drew nothing); pillars, walkways and steps in the green concrete (the diamond-plate
+  cylinder of `pillar_d` was the Block). 13: ledges, stairs, pillars and arches in `nature/rockwall002_island`
+  (dark, rust-veined; the plan's `nightfall/cliffwall` drew as pale concrete), the floor black ash
+  (`nature/dirtfloor005b`) under the grey-black rock, so the fire's red falls in two tones; low lumps of the rock
+  round every lava pool the dresser lays (`HazardFloor.Lips`, a step high at most). 14: ledges, stairs and pillars
+  in `descent/rot_rock` (`nature/rockwall015a`, its `$envmap` off; the karst drew as flat grey concrete), the floor
+  `descent/rot_mud` (`nature/mudfloor005a`, its `$envmap` off; the blend drew twigs), dark boulders for the pale
+  karst rocks, and the slime the Pit's now faint green. `fix7-d11.jpg`, `fix7-d12.jpg`, `fix7-d14.jpg`, and 13's
+  shots `.scratch/p15-shots/d13/r5-*`.
+
+**Commits:** `eda881f73` (the gate's calibration), `cad8ba5f4` (the arenas' shapes, the dresser's platform rule, the
+cameras, the nav fact), `652ae14cd` (the themes: Act III, the Pit's floor and lake, the Magazine's pilasters at 512,
+the light), `e59ddc589` (the replaced `descent/sump_slime` dropped).
+
+**The gate's calibration** (`tools/descent-gate`, `CALIBRATION`): a depth's figure times its act's factor is what is
+held to the in-game target and to the falling order. Each factor is the act's in-game figures (lamp off, seed 1)
+over the gate's seed-1 figures of the same builds, summed over every level of the act measured both ways: Act I
+(p10's 1, 2, 3 of p9's builds, p11's 4, p13's 5) 324.9 / 319.0 = 1.019; Act II (p11's 6 and 8, p10's 7 and 9, p13's
+10) 131.6 / 135.8 = 0.969; Act III (p14's 11 to 14, p13's 15) 47.3 / 61.5 = 0.769. Tolerances are unchanged; the
+self-test holds an Act III level on its in-game target only by its factor (red with the factor taken out).
+
+**Measured** (gates at seeds 1-3, all ok; in game seed 1; the boss levels' in-game figure is the preview's cameras,
+as p13's):
+
+| Level | 5 | 10 | 11 | 12 | 13 | 14 | 15 |
+|---|---|---|---|---|---|---|---|
+| Target (in game) | 52 | 22 | 16 | 13 | 11 | 9 | 7 |
+| Gate, seeds 1 2 3 (raw) | 49.5 49.8 47.0 | 25.4 24.0 24.1 | 19.1 22.9 21.6 | 15.2 15.8 15.3 | 14.1 14.2 13.3 | 9.7 8.2 9.5 | 8.4 8.4 8.8 |
+| Gate, calibrated | 49.7 | 23.7 | 16.3 | 11.9 | 10.7 | 7.0 | 6.6 |
+| In game, lamp off (before: p13, p14) | 52.9 (53.8) | 24.5 (24.0) | 15.1 (12.8) | 12.9 (12.4) | 9.8 (9.0) | 8.9 (8.5) | 5.3 (4.6) |
+| In game, base lamp | 71.8 | 46.6 | 40.2 | 34.4 | 21.2 | 28.1 | 16.8 |
+| Black crush, off / base lamp | 0.3 / 0.1 % | 7.1 / 1.3 % | 14.8 / 5.9 % | 26.0 / 6.1 % | 35.1 / 10.2 % | 49.3 / 15.3 % | 71.5 / 27.2 % |
+| Map entities (of 1,536) | 55-56 | 58-61 | 666-845 | 775-902 | 670-689 | 630-698 | 84-85 |
+
+Light: 11's lamps a sixth up (its caves' rock and concrete otherwise left it 13.6 in game); 13's three fifths up
+(the black ash floor took it to 7.6, two fifths up read 9.1), its fill now brighter than 12's; 15's torches 80 and
+180 (from 55 and 150), its rim glows 20; 12 and 14 on their targets in game unchanged in light. In game the order
+falls 11 > 12 > 13 > 14 > 15. The calibration predicts 11 and 13 within a point; it reads 12 a point low and 14 two
+low, since the gate cannot see their new slimes' light (12's skin is lit, 14's water self-lit), and 15 a point high.
+
+**In game, level 10's contract** (`.scratch/p15-contract.py`, `.scratch/p15-shots/d10/contract/`): the load reports
+`arena layout: boss at (4008 1536 16) yaw 180, 12 track points (5 stations), 3 mouths, missing: none`;
+`tf2_descent_boss_spawn` stands Major Crits and the Tank comes out of the lift along the first leg (at (5728,1560)
+eight seconds in); `tf2_descent_boss_arena drill 1` to `5` takes each pillar away and lands its rubble (no dark disc
+where the central one stood); `tf2_descent_boss_kill` reports the way down. This session's shots did not show the exit cover, but the cover is
+drawn: the game-logic session's lane (2026-11-16, fresh boots of levels 5 and 10 seed 1 at bf557ae17, no kills) found
+`descent_boss_exit` solid, not dormant, drawn on the client, its hole opened by Disable and closed by Enable, also
+after a kill. The shots missed it twice over: `tf2_descent_kill_robot 0..60` also kills the boss, which disables the
+exit, and the `exit-before-kill` camera (6672, 1080, 360) stands south of the platform's wall, outside the room, where
+no brush entity is sent. In game, level 10's cover top reads a shade darker than the platform round it (level 5's
+does not), so its hole still shows before the kill.
+
+**What still reads wrong:** the doorway camera can stand in a solid; level 15 reads 5 in game for its 7, most of its
+preview's cameras in its unlit rooms before the arena; 14's slime draws as flat green sheets; 13's lava pools are
+still rectangles under their lips; 12's concrete pillars read pale under the lamp.
+
+### 1.3j Level 5's hall lowered to 768 (brief p16, 2026-11-16)
+
+Branch `descent-mine-plan` from `bf557ae17`, map tools `dc1e00a` (the lock), debug. Build `.scratch/p16-round.sh`
+(round r1, `.scratch/p16-r1/`); in-game shots `.scratch/p16-shots/d05/` (`r1-off`, `r1-r0`: the preview's cameras,
+robots killed first, lamp off and at the base lamp, radius 480; `r1a-off`: the arena's own six views); the boss's
+before and after sheet `.scratch/p16-sheet-boss-scale.jpg`.
+
+**Why:** the game-logic session's ask. Sir Nukesalot (scale 1.9) read small in the 1,024-high hall, and past x1.90
+he outgrows the largest hull class the nav derives, so the hall comes down instead of the boss going up.
+
+**As built** (`ArenaShape.Of[5]`, commit `6b532258e`): the Magazine is 768 high (its roof's underside 752, 736 over the
+floor). What hangs from or measures against the roof follows it: the pilasters and their plates run floor to roof
+and the white work light's cord is stacked from the lamp to the roof by the dresser, the lamp's bottom still at 608
+(above the rocket air, as before), so its cord is 256 shorter; the warm fill is now set from the roof
+(`MagazineFillUnderRoof`, 96 under it), which puts it where it was, 640 over the floor. The red warning lamps stay at
+352 (over the shelves' air of 338, measured from the floor); the ring ledge at 96, the shelves at 224, the pillars,
+packs, barrels, mouths and the boss spot are unchanged, and so are the room's name (`arena_a-e1w0-h-2x2-j.s2.b1`: 768
+is still a hall), the `ARNA` section and the `descent_boss_*` names. The preview cameras stand at eye height and do
+not move; the arena views of `.scratch/p16-views.py` are all under 420. No roof props hang in the arena.
+
+**The fact** (`DescentBossArenaTests.The_magazine_is_768_high_with_rocket_air_over_its_floor_and_headroom_over_its_ledges`):
+the dressed arena is 768 high, the room lint's jump air holds (576 over half its floor, a straight run of 768), and
+every point standing on the ring ledge or a shelf has 114 of air to the next brush or the roof, with points on both.
+Red at `bf557ae17` (`Expected: 768, Actual: 1024`); each arm red under a mutation: a slab 76 over the west shelf (the
+shelf's points with 76 of air), one 94 over the north ledge, one at 500 over the middle of the floor (576 of air over
+6,366 of 14,114 floor columns). No fact pinned 1,024 for level 5.
+
+**Measured** (seeds 1-3; in game seed 1, as p15):
+
+| | Before (p15, 1,024) | After (768) |
+|---|---|---|
+| Gate brightness, seeds 1 2 3 (raw) | 49.5 49.8 47.0 | 49.8 50.1 47.3 |
+| Gate, calibrated (target 52 +-3) | 49.7 | 50.0 |
+| Clipped, max | 0.0024 | 0.0075 |
+| In game, lamp off | 52.9 | 53.6 |
+| In game, base lamp | 71.8 | 72.5 |
+| Black crush, off / base lamp | 0.3 / 0.1 % | 0.3 / 0.1 % |
+| The arena's own six views, lamp off | 78.4 | 81.2 |
+| Reach, nodes reached (seeds 1 2 3) | 4875 4875 4729 | 4877 4877 4731 |
+| Map entities; brushes | 56 56 55; 448 448 499 | 56 56 55; 448 448 499 |
+
+Reach, budget, the dress lint (the library builds with none) and the giant's flat walk (`DescentGiantNavTests`) pass;
+one exit trap at each seed, the hole under the cover. The light moved under a point on the level and three on the
+arena's own views (its walls and roof nearer its lamps): not retuned.
+
+**In game** (seed 1): the load reports `arena layout: boss at (4096 1024 16) yaw 207, 0 track points (0 stations), 3
+mouths, missing: none`; `tf2_descent_boss_spawn` stands the level's boss (row 0) on his spot; `tf2_descent_boss` reads
+`arena room 3, post (4096,1024,16)` and `the way down: CLOSED`, and after `tf2_descent_boss_kill` `the way down: open`
+with the hole under `descent_boss_exit` open (`.scratch/p16-shots/d05/boss/after-exit-after-kill.jpg`). The 1,024 build
+of the same seed was shot from the same three points (900 from him between the pillars, the server at
+`host_timescale 0.05` so he stays on his spot) before the 768 one was installed.
+
+**What still reads wrong:** at 900 he still reads small: the hall is about 1,900 across, and a lower roof changes the
+walls behind him more than his size against the floor; the roof over the middle is
+lit warmer and brighter now that it is 144 over the work light; the red lamps now sit half way up the walls rather
+than high on them.
+
+### 1.3l Level 5 as a square maze round a narrowed Magazine (brief p18, 2026-11-20, rulings M35 and M36)
+
+Branch `descent-mine-plan` from `225fe2e96`, map tools `dc1e00a` (the lock), debug. Builds `.scratch/p18-round.sh`
+(rounds r1 to r3, `.scratch/p18-rN/`), review log `.scratch/p18-REVIEW.md` (three rounds), in-game shots
+`.scratch/p18-shots/d05/`. Commit `5c6c9325d` (the maze, the arena, the facts).
+
+**The kit (M36).** The locked map tools take a 512 cell: a 1 by 1 corridor of 512 and a 2 by 2 hall of 512 packed in
+3.4 s and linked (`.scratch/p18-probe`); nothing in `RoomTypes.cs` or `SocketKit.Validate` sets a least cell. Level 5
+builds on `RoomKit.MazeCell` (512) with the normal door (208 by 192, the Magazine's timber frame); every other depth
+keeps 1,024 (their libraries are byte for byte as before at depths 1, 3, 6, 10, 12 and 15).
+
+**The layout.** Laid by the map generator (`MazeLevel`, `DescentLevel.Lay`), not the rules module's boss row: the lift's
+last station, the quiet lobby and an antechamber (each 2 by 2, their doors on the first cell edge of their walls) west of
+a 10 by 10 block; the block's centre 2 by 2 is the arena, one room of the family `arena`; the way down (2 by 2) east of
+it, its one door west into the arena's east door; the other 92 cells are maze rooms, one each. The doors between maze
+cells are a seeded spanning tree (randomised Kruskal) and 6 loop doors between cells 8 or more apart along the tree; the
+antechamber enters on a seeded row of the block's west side; the maze opens into the arena by exactly two doors, north
+(its west cell) and south (its east cell). Seeds 1 to 3: 97 rooms, 103 joints, 6 loops, 16, 22 and 20 dead ends, entry
+rows 4, 6, 5; 55 or 56 breakables of 96. The M16 budget does not count the maze; the level stays under 255 rooms.
+
+**A maze cell** (`MazeShape`): one corridor junction, 256 wide from the middle to each door, rock in the corners, a
+solid roof at 384 (room height 400): a timber set where each arm leaves the hub; its shape is its door mask's, so the
+family is every mask once a variant, unturned, in the connector family its doors make (`stub`, `drift`, `bend`, `tee`,
+`cross`, variants `mazea`, `mazeb`): 30 rooms. `a` is the bare tunnel (now and then a barrel marker); `b` holds a pack
+in its hub (a dead end a container at its end) and a powder barrel or crate on a breakable marker in a niche off a
+closed side; the dresser adds no breakable to a maze cell. Light: a dim warm fill in the hub (`MazeShape.Fill`) and a
+red warning lamp at every dead end, bend and tee; drifts and crosses have the fill alone. Maze rooms are tunnels to the
+jump rules (`RoomLint.JumpSpaceExempt`, by their `corridor` or `junction` tag).
+
+**The arena** (`ArenaShape.Magazine`): 2 by 2 cells of 512, 992 inside (from about 1,900), 768 high; its north-east
+corner blasted round to 224 with a bench of the ring ledge at 96 round it (a container, no stair: a Scout's), the
+south-west round to 160, the corners by the doors to 96; the ring ledge at 96 (S2) along the west wall, its stairs at the
+north end; rocket shelves at 224 (B1) on the north and south walls; four stone pillars 182 out on the axes; six red
+warning lamps on the flat walls at 352, the white work light on its cord over the middle, the warm fill under the roof.
+The boss in the middle facing west (the maze's way in), track 0, three mouths at the edge facing in (east wall, by the
+north-west stairs, south-east). The rocket air (576 over half the floor, a straight 768 along y = middle - 112) holds
+(`DescentBossArenaTests`). `descent_boss_exit` stays the way down's: see below.
+
+**The way down.** The brief put `descent_boss_exit` in the arena. The server reads a room whose cells are the way down
+(`room_role down`, every cell of it in the `.nav3d`) as the exit before it reads its family
+(`LevelReader.RoleOf`), so an arena holding the way down is no arena to it. The coordinator's ruling (2026-11-20): the
+way down stays its own room (`exit_breachw`, 2 by 2 on the 512 kit, its cover the hole's), beside the arena on the side
+away from the way in, joined to the arena alone through a third arena door; the maze still opens into the arena by two.
+
+**Measured** (seeds 1 to 3, round r3):
+
+| | Before (p16, 2x2 hall on 1,024) | After (maze, 512 kit) |
+|---|---|---|
+| Gate brightness, seeds 1 2 3 (raw) | 49.8 50.1 47.3 | 48.4 48.3 49.8 |
+| Gate, calibrated (target 52 +-3) | 50.0 | 49.7 |
+| Preview views, linear mean: arena / maze cells | 0.052 / (none) | 0.051 / 0.010 to 0.017 |
+| Reach, nodes reached (seeds 1 2 3) | 4877 4877 4731 | 11520 11643 11694 |
+| Map entities (of 1,536); brushes (of 8,192) | 56 56 55; 448 448 499 | 392 399 397; 4906 4902 4824 |
+| Library: rooms, pack | 11, 76 MB | 37, 144 MB (pack 22 to 37 s) |
+| In game, lamp off: level / maze / arena | 53.6 / (none) / 81.2 (its six views) | 53.0 / 40.9 / 78.3 |
+| In game, base lamp: level / maze / arena | 72.5 | 78.5 / 74.9 / 107.8 |
+| Black crush, off / base lamp | 0.3 / 0.1 % | 0.1 / 0.1 % |
+
+The maze's fill was tuned in three rounds: at 14 the gate read 43.0 (maze views black, 0.94 to 0.996 of their pixels
+under the preview's floor), at 30 with lamps at the bends 47.1, at 48 49.7. In game the maze reads half the arena's
+light, not dark: the gate holds the level at 52, and five of its eleven views are maze.
+
+**In game** (seed 1, `.scratch/p18-ingame.py`, shots `.scratch/p18-shots/d05/r1/`): the load reports `97 rooms (0
+derived), 103 doors, ... exit at (6640 2696 48) in room 48 to tf2_descent-6, boss arena room 47, arena layout: boss
+at (5632 2560 16) yaw 180, 0 track points (0 stations), 3 mouths, missing: none`. `tf2_descent_boss_spawn` stands Sir
+Nukesalot (row 0) on his post in arena room 47; `tf2_descent_boss` reads the way down CLOSED, and with the camera in
+the arena the fight engaged (heroes in the arena 1, bars sent 1); after `tf2_descent_boss_kill` the way down is open
+and the hole in the way down's room opens (`exit-before.jpg`, `exit-after.jpg`). The route from the way in to the
+arena's north door, 15 cells, shot cell by cell (`route*.jpg`). The boss beside the old hall's 900:
+`.scratch/p18-sheet-boss-scale.jpg`.
+
+**Facts** (`DescentMazeLevelTests`, `DescentMazeNavTests`; each red under a mutation, `.scratch/p18-mut-*.log`): the
+block is 10 by 10 with every cell covered once (Block 17); one `arena` room on the centre 2 by 2 (the arena one cell
+east); under 255 rooms and 96 breakables (Block 17); the same seed the same maze, another another (the seed dropped);
+every maze cell reached from the way in (no tree doors); a spanning tree with its loops; the arena entered by exactly
+two maze doors, north and south (a third, west); the way down touching the arena, its one door into it (moved two
+rows); every maze cell its mask's room, unturned (the doors dropped from the lookup); the family every mask once a
+variant (the north stub dropped); a cell's corridor and roof (a wider hub); the Magazine 2 by 2 of 512 with its boss
+at the centre facing west (the boss 64 east); three mouths at the edge facing in (turned out); the jump air rule
+passing over a tunnel by its role (the exemption taken out); over the built `.nav3d` of seeds 1 to 3, the 92 by 156
+hull walks from the way in to every maze cell and every pack in the maze, and a 200-wide hull stays in its first
+cell (the walk is held by the doorways). Facts that pinned level 5's old row now take the maze's layout
+(`DescentLevel.Lay`) or leave level 5 to these.
+
+**What the server side may need:** `LevelReader.RoleOf` reads a cell's transit role before its family, so a room
+that is both the arena and the way down is read as the exit: the way down stays its own room until it reads the
+family `arena` first and the exit from the `exit_down` marker. The rules module's boss row (`LevelLayout.BossRow`,
+`LargerArenaRow`) lays level 5 as one row: the host laying a level from this library would need the block
+(`MazeLevel`) in the rules module.
+
+**What still reads wrong:** the maze reads half the arena's light in game, not dark (the gate's 52 holds it); the
+arena's four pillars stand close round the boss; a small grey box stands on the arena's floor at its first pack spawn
+(the game's; it is in p16's shots of the old hall too).
+
 ### 1.2 Defaults I chose (overrule by editing this table)
 
 | # | Gap | Default |
@@ -1030,11 +1598,12 @@ offline from the preview's room views, re-encoded to the game's gamma):
 
 | Level | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Target | 100 | 70 | 55 | 40 | - | 32 | 27 | 24 | 20 | - | 16 | 13 | 11 | 9 | - |
+| Target | 100 | 70 | 55 | 40 | 52 | 32 | 27 | 24 | 20 | 22 | 16 | 13 | 11 | 9 | 7 |
 
-The boss levels (5, 10, 15) get a target when their arenas are themed. The
+The boss levels' targets (5, 10, 15; brief p13) are their arenas' set
+lighting, held by the gate to the target alone, out of the falling order. The
 gate holds each depth's mean over seeds 1 to 3 within 3 of its target and
-falling strictly from each level to the next. The miner's lamp (M9, M29,
+falling strictly from each level to the next (between the boss levels). The miner's lamp (M9, M29,
 M30) lights the hero's surroundings on top. (The first table, on the
 lightmap mean's scale: 100, 85, 70, 60, 52, 42, 35, 30, 25, 22, 19, 16, 13,
 10, 7.) The lava level (13) is the one to watch: its lava glows, so its fill
@@ -1074,18 +1643,31 @@ at yet; Phase 3 onward opens each one's preview before using it.
 | Light (in game, M30) | 100: warm white, daylight down the shaft | 70: white with shadowed side bays | 55: lantern pools | 40: sodium yellow, dusty fog |
 | Way down | Cage | Cage | Cage | Cage |
 
-**Level 5, the Powder Magazine. Boss: Sir Nukesalot.** A 2x2 arena on the 1024 kit.
+**Level 5, the Powder Magazine. Boss: Sir Nukesalot.** A 2x2 arena on a 512 kit at the centre of a 10 by 10 maze (brief p18).
 
 - The level: the lift's last station, an antechamber, the arena. A fixed row
   of three or four rooms; the antechamber is drawn from several variants and
   the arena's dressing and cover are seeded.
-- The arena: a round blasted chamber about 1900 across and 1024 high, the
-  mine's explosives store. Stone pillars for cover from his cannonballs. A
+- The arena: a round blasted chamber about 1900 across and 768 high (1024
+  until brief p16), the mine's explosives store. Stone pillars for cover from his cannonballs. A
   ring ledge at 96 (Scout) and shelves at 224 (blast jump) give ways out of
   his reach. Powder barrels on barrel markers.
 - Light 52: red warning lamps, one white work light over the centre.
 - The way down: his death blast collapses the floor of the lift shaft. The
   hole is the exit, and the reason the lift goes no further.
+- As built (brief p13, section 1.3g): blasted rock over brick, round-cornered, six
+  stone pillars, the ring ledge at 96 along the north and round two curves,
+  shelves at 224, red lamps high on the walls with a warm fill, one white light
+  on a cable over the middle; the way down covered by `descent_boss_exit`.
+  Measures 49 (gate) and 54 in game. Brief p15 (section 1.3i): timber posts up
+  the 512-high rooms and the antechamber octagon's corners; 50 (gate,
+  calibrated) and 53 in game. Brief p16 (section 1.3j): the hall 768 high, not
+  1024, so Sir Nukesalot (x1.9, the largest the nav's hulls hold) reads
+  larger against it; the rocket air (576) and the shelves' air hold; 50
+  (gate, calibrated) and 54 in game. Brief p18 (section 1.3l, M35, M36): the arena narrowed to 2 by 2 cells
+  of a 512 kit (992 inside, 768 high) at the centre of a 10 by 10 square maze of 512 cells, one room each, a
+  spanning tree with six loops, two doors into the arena; the way down beside the arena, its one door into it;
+  50 (gate, calibrated) and 53 in game, the maze 41 and the arena 78.
 
 ### Act II: the breakthrough (6 to 10). No lift; ramps and collapsed floors.
 
@@ -1131,6 +1713,18 @@ town, opened by the level 5 kill.
 - Light 22: the candles are gone; cold white robot work lights and the
   Tank's own glow.
 - The way down: the bore hole the Tank came up.
+- As built (brief p13, section 1.3g): the track a spiral of 10,550 from the
+  robots' lift (`mine_elevator`, the Tank's start) past four outer pillars to
+  the central one, worn into the floor; catwalks at 384 over its north and south
+  legs, rock steps at 96 and 144, cover beside each leg, the pillars and their
+  rubble named brushes, two planked tunnel mouths in the east wall
+  (`tank_entrance_rottenburg` exists and fits a mouth but is no static prop and
+  has no collision: the static planks stand in it). Measures 24 (gate) and 24
+  in game. Brief p15 (section 1.3i): the track a counter-clockwise spiral of
+  10,720 (out of the lift turned 90 at the east wall, round the outer ring,
+  then in inside its own first leg to the central pillar's west side), the
+  cover and rubble lumps of rock, each pillar's rubble off its box, pillars and
+  the exit cover casting no shadow, the lift lit; 24 (gate) and 24 in game.
 
 ### Act III: below (11 to 15). Drops, sumps and slides.
 
@@ -1147,6 +1741,11 @@ town, opened by the level 5 kill.
 | Lamps | `props_spytech/hanging_ceiling_lamp`, half of them dead; red emergency light | `props_swamp/bug_zapper`; the slime's own green | `props_viaduct_event/underworld_torch01`; lava glow | A few glows only |
 | Light (in game, M30) | 16: flicker and red | 13: sick green | 11: red on black | 9: black-green |
 | Way down | A waste chute (slide) | A dive into a sump | A fissure drop | A slide of slime into the pit |
+| Walls, as built (`Themes/ActThree.cs`, `palettes/d11-d14.tsv`, brief p14; p15's changes in section 1.3i) | rusted orange `metal/wall026` over dark perforated `swamp/metal/swampmetal001` to 192, a `swampmetal001` roof, `metal/metalgrate011a` grating for every deck, stair and catwalk, `metal/ibeam001b` sets, pilasters and roof beams | red-brown `swamp/brick/swampbrickwall001` over the green `swamp/concrete/swampcrete001` lining to 160, a concrete vault, rusted `swampmetal001` walkways and pipe-top pillars | black `nature/underworld_rockwall001`, grey `nightfall/cliffwall` ledges, pillars and arches | mossy `nature/rockwall006a` over black `swamp/nature/swampmud004` to 128, pale `swamp/nature/karst_rock001` ledges and pillars, `swampcobblewall001` arches |
+| Floor, as built | worn `swamp/tile/floor_tile_002a_worn` | `swamp/nature/swampmud003`; slime `descent/sump_slime` (from `swamp/water/water_murky`, a sick yellow-green fog) | `nature/blendcobblestone_underworld001`; lava `nature/underworld_lava002` (a non-solid skin, self-lit) | `nature/blendmudmud001a`; slime `descent/pit_slime` (level 15's) |
+| Props, as built | consoles, cabinets and non-solid pipework on the walls, MvM barrel crates and steel tanks in corners, tank machines and drums on the floor, oil drums and Mann Co. crates (breakables), triple pipes under the roof, the halls' gantry | red pipes rising into the walls, round drains, chemical barrels, timber debris, open drums (breakables) and rope, white pipe under the roof | black spires and horns of rock (`halloween_rock006`, `009`, a fang `001` on a hall's focus), gargoyles, boulders | rock spires by the walls, karst rocks, flat slabs and stones, fungi, stalactites hung from the roofs |
+| Lamps, as built | `hanging_ceiling_lamp` (half dead, `LampKind.Dead`), the same shade on cords in halls (half dead); red `props_spytech/siren` emergency lamps where the dead leave the floor dark; a dim cold fill | `props_swamp/bug_zapper` under the roof, `light_industrialbell01_on` on cords in tall rooms; the slime's green glow; a dim green fill | `underworld_torch01` on stakes in 2-3 pools, `props_medieval/sconce` on the walls, `props_medieval/brazier` hung on chains in tall rooms; the lava's glow; a dim red fill | `shroom_ref_01_cluster` fungi glowing on the floor in 2-3 pools and on open floor, and as brackets on the walls; the slime's glow; a faint fill |
+| Hazards, as built | none | slime in the pools, the flooded galleries and the floors of pits, chimneys, caverns, grottos, stopes and chasms the route does not need | lava in the pools, the flooded galleries, every chasm leap's gap and the floors of caverns, grottos, stopes, chimneys and pits | slime as at 12, in caverns, grottos, pits, chimneys, stopes and chasms |
 
 Level 11's arrival is the second camp (M10), opened by the level 10 kill.
 
@@ -1162,6 +1761,15 @@ Level 11's arrival is the second camp (M10), opened by the level 10 kill.
   can switch on in stages.
 - Light 7: the darkest place in the game. Torches on the platform only.
 - This is the bottom. What his death opens is the RPG plan's business.
+- As built (brief p13, section 1.3g): a lake of black slime round a platform
+  a step up, its east, north and south sections named brushes for phases 2 to
+  4 with staged slime under them, islands, pillar tops at 96 and 144, ledges at
+  224 and 384, six torches on what never breaks away, a faint green glow over
+  the slime. Measures 7 (gate) and 5 in game. Brief p15 (section 1.3i): the
+  torches 96 in from any edge a section drops from, the slime's surface a faint
+  self-lit green (`descent/pit_slime` fog `14 24 9`), low green glows along its
+  rim, a brown mud floor (`swamp/nature/swampmud003`); 7 (gate, calibrated) and
+  5 in game.
 
 ## 8. The town and the ways down
 
@@ -1329,20 +1937,20 @@ facts and the three gates. "Not done" is what is left.
 | A3 | Displacement floors, walls and (new) roofs (`Brush.DisplacedBox`, `DisplacedWall`, `DisplacedUnder`). | |
 | A4 | Wedges, stairs, prisms, ring walls, convex columns, chamfers and rounded corners. | |
 | A5 | `JumpTable`, read by every jump feature. | |
-| A6 | Every family of section 5, with a one-door variant of every chamber, hall and shaft; the crypt (new); grottos with rounded corners, rough rock along the walls between their sockets, a lumpy roof and stalactites (brief p4). | Act III dressing of them; caverns c and d keep flat walls where their doors leave no span for rock. |
+| A6 | Every family of section 5, with a one-door variant of every chamber, hall and shaft; the crypt (new); grottos with rounded corners, rough rock along the walls between their sockets, a lumpy roof and stalactites (brief p4). | Caverns c and d keep flat walls where their doors leave no span for rock; Act III's grottos and caverns are drawn in its themes' surfaces (a factory's at level 11). |
 | A7 | Ways in and down by act, the two camps, antechambers. | |
 | A8 | Placeholder arenas as 2x2, 3x3 and 4x4 rooms on the normal kit with only their row's sockets (M27); the oversized kits gone. | The Phase 6 arenas, the Bore's track, the breakaway platform. |
-| A9 | Act I's four themes (`Themes/ActOne.cs`, `palettes/d01-d04.tsv`), after the third review (M27): a door frame per theme (the farm model at 1, brush frames at 2 to 4), pendants, the halls' set pieces. Act II's four (`Themes/ActTwo.cs`, `palettes/d06-d09.tsv`, brief p4): their own surfaces, lamps, light colour, fog, water and door frames (a broken timber set, a rock arch, a rusted steel flood door, a carved stone arch). | Depths 5 and 10 to 15 are the grey. |
-| A10 | The dressing pass: lamps by the route and a cover pass by the lint's own `lit` rule, pools hung from sets or on crates, work lamps, pendants on cords in tall rooms, track on the doors' axes with sidings, sets, pilasters, trim bands and a lower wall band, clutter in groups, machines sized to the room, nothing cutting floor off; larger rooms dressed whole (M27) with their set pieces (a centrepiece on the plinth, a headframe, an overhead crane, a pipe run at height, track through level 2's yard kept per joined socket); a jump room's floor dressed but for 128 round each jump ledge (M28); posts lining a great hall's walls under a plate, lagging in the bays; lamp pools round a larger room's walls; Act II's standing water, roof-hung stalactites, broken sets. | Handrails on ledges and decks (they stand in the air a ledge's jump needs). |
+| A9 | Act I's four themes (`Themes/ActOne.cs`, `palettes/d01-d04.tsv`), after the third review (M27): a door frame per theme (the farm model at 1, brush frames at 2 to 4), pendants, the halls' set pieces. Act II's four (`Themes/ActTwo.cs`, `palettes/d06-d09.tsv`, brief p4): their own surfaces, lamps, light colour, fog, water and door frames (a broken timber set, a rock arch, a rusted steel flood door, a carved stone arch). The boss levels' three (`Themes/Bosses.cs`, brief p13). Act III's four (`Themes/ActThree.cs`, `palettes/d11-d14.tsv`, brief p14, section 1.3h): their surfaces, lamps (level 11's half failed), fills, fog, hazard floors and door frames. | |
+| A10 | The dressing pass: lamps by the route and a cover pass by the lint's own `lit` rule, pools hung from sets or on crates, work lamps, pendants on cords in tall rooms, track on the doors' axes with sidings, sets, pilasters, trim bands and a lower wall band, clutter in groups, machines sized to the room, nothing cutting floor off; larger rooms dressed whole (M27) with their set pieces (a centrepiece on the plinth, a headframe, an overhead crane, a pipe run at height, track through level 2's yard kept per joined socket); a jump room's floor dressed but for 128 round each jump ledge (M28); posts lining a great hall's walls under a plate, lagging in the bays; lamp pools round a larger room's walls; Act II's standing water, roof-hung stalactites, broken sets; Act III's hazard floors off the route under volumes of their kind with their glow, failed lamps and the emergency lamps after them, fungi on open floor (brief p14). | Handrails on ledges and decks (they stand in the air a ledge's jump needs). |
 | A11 | `info_poi` markers of every kind, map labels and markers. | |
 | A12 | `library.json` with tags, weights, depths, jump, low, markers, doors, height, focus and a preview camera. | |
 | A13 | `make descent-rooms` and `make descent-level`. | |
 | A14 | Level 1's sky shaft under the town's sun and sky; work floods at its foot. | The sun still cannot reach the cage down 192 of shaft. |
 | A15 | Door frames lining each half of a joined doorway (the farm model as a static prop, or a theme's brush frame as one non-solid `func_brush` per joined socket), sill planks, cap panels (M23, M27); level 2's frames lay planks across the threshold; Act II's (brief p4) a broken timber set with a cracked sagging head (6), a natural rock arch with haunched corners (7), a rusted steel flood-door frame with steel on its sill (8), a carved stone arch on plinths with a keystone (9). | |
-| B1 | Lint facts per rule, plus a giant's reach of every pack spawn; the room lint and the dress lint read a larger room's whole footprint and every socket (M27). | |
+| B1 | Lint facts per rule, plus a giant's reach of every pack spawn; the room lint and the dress lint read a larger room's whole footprint and every socket (M27); `hazard_path`: no hazard volume is the only way between two doors (brief p14). | |
 | B2 | `DescentPaletteTests` against the database at `~/assetdb`, at depths 1-4 and 6-9, a water material held to the `water` usage. | |
 | B3 | `DescentMineShaftTests` holds the town to `MineShaft`; level 1's way in is built from the same class. | No fact reads level 1's library for the same values. |
-| B4 | `make descent-brightness`, with every room's view under 2 % white (M27: level 1's shaft foot was white while the level's share passed). | Depths 5 and 10 to 15 (still grey); the gate's default depths are 1-4 and 6-9. |
+| B4 | `make descent-brightness`, with every room's view under 2 % white (M27: level 1's shaft foot was white while the level's share passed). | The gate's default depths are 1-4 and 6-9; name 5, 10 and 15 (each to its own target) and 11 to 14 (brief p14) to gate them. |
 | B5 | `make descent-reach`, reading every island (`tools/descent-islands`) and accepting a trap only inside the exit's volume. | The per-class report (Scout, Soldier, Demoman floor) of Phase 7. |
 | B6 | `make descent-budget`, with the fog and tone map controllers checked against the library. | |
 | C1 | `LevelLayout`: free-form growth to the room budget (M19), no hallway dead ends (M18), a room at every tunnel's end and no capped door (M20), the adaptive mix (M21); rooms larger than one cell (M25, `DepthTable.BigRoomsAt`), laid off a fill room and counted once; chosen sockets in the name codec. | A larger room on the critical path of a normal level (they stand on branches); door slots. |

@@ -74,8 +74,10 @@ Also on the builder: `WithWater(area, z0, z1, material)` (a water volume,
 kept in `Room.Water`, not solid to the lint), `WithHazard(kind, mins, maxs)`
 (a hazard volume of a `hazards.json` kind: a `trigger_multiple` nothing fires,
 named `tf2_descent_hazard_<kind>`, a global name the link keeps and the game's
-`HazardService` finds; a theme's `PoolHazard` puts one over each pool's basin,
-slime at level 12's grey only: levels 1 to 9 hold none), `WithSkyCeiling(area)` (the
+`HazardService` finds; levels 1 to 11 hold none), `HazardFloor(area)` (the
+theme's hazard floor there: Act III's slime standing as a liquid or lava laid
+as a non-solid skin, with its volume; pools, flooded galleries and, at level
+13, a chasm leap's gap take it), `WithSkyCeiling(area)` (the
 ceiling slab is sky there and the library gets the town's sun), and for a
 transition room `WithTransitionBox`, `WithButton` and `WithHallTrigger`, which
 put its volume and what fires it where the station wants them.
@@ -150,7 +152,7 @@ var b = new RoomBuilder("gallery_b", kit, theme)
 socket on every cell edge of its perimeter (`east0` to `east{n-1}` and so
 on, counted from the room's south on east and west walls and its west on
 north and south walls), each framed, sill-planked and capped as any door,
-and its open floor is the whole interior (`Body`). `WithSockets((face,
+and its open floor is the whole interior (`Body`) unless it takes an outline (level 5's rooms, below). `WithSockets((face,
 edge)...)` keeps only some of them (a boss arena opens where its row joins
 it, which packs in a third of the time and space): the other edges are
 plain wall, with no brush the shape of a door box (the tools count one as a
@@ -170,7 +172,79 @@ the whole footprint and every socket (`Room.Sockets`, `PlugBox`,
 loading dock, a plinth yard, a gallery over the doors), `grotto` (2x2 and
 3x3 caverns, 6 on: rounded corners, rough rock along the walls between the
 sockets, a roof hanging in lumps, stalactites), `flood` (2x2 flooded gallery, 8 on), `arena` (level
-5's 2x2, 10's 3x3, 15's 4x4).
+5's 2x2, 10's 3x3, 15's 4x4; below, Boss arenas).
+
+## Boss arenas (`Shapes/ArenaShape.cs`, `Arena.cs`, brief p13)
+
+Each arena lights itself (`WithOwnLamps`: the dresser keeps the shape's
+fills, hangs each lamp it asks for with `WithLampSite`, a kind of its theme's
+`ArenaLamps`, and none of the theme's own; the dress lint's `dress_lamp_site`
+refuses a lamp asked for that did not fit), stands its theme's `SetPieces`
+(`WithSetPiece`, placed first; a non-solid one, a hollow frame like the
+robots' lift, is held to the cell and its support, not to the clearances) and
+keeps its `KeepClear` boxes free of dressing (`dress_keep_clear`). It tells
+the server's boss encounter (the game-logic session's contract) where the boss
+stands and faces (`WithBossSpot`, also the arena's first pack marker, the
+server's fallback), the Tank's track (`WithTrack`, `TrackPoint`: stations and
+the final one) and the robots' mouths by leg (`WithMouth`): `library.json`'s
+`arena` entry, which `descent-level` turns into the level's frame as
+`<level>.arena` (`DescentLevel.ArenaFile`) and `tools/descent-room-light`
+writes into the `.map2d` as the section `ARNA` (`tools/descent-arena`). The
+brushes the encounter switches are `func_brush`es named by `BossNames`
+(`WithNamedBrush`; the exit cover over a boss level's way down, the Bore's
+pillars and their rubble, the Pit's platform sections) and staged hazard
+volumes (`WithStagedHazard`). `TankTrack.Collisions` sweeps the MvM Tank's
+hull along the track against everything solid at any time;
+`tools/descent-breakables obstacles` and `reach` read a built level's
+`.nav3d`: its named obstacles, and whether a hull walks to points with the
+pillars falling one by one. The server's graph keeps one obstacle per nav
+leaf, so no leaf may lie inside two switched brushes' boxes: each pillar's
+rubble lies on one side of its box, 32 or more off it, its heaps
+overlapping into one heap (brief p15, `DescentArenaNavTests` over the built
+`.nav3d`). A pillar and the exit cover cast no shadow
+(`WithNamedBrush(..., castsShadow: false)`): a casting pillar left a dark
+disc on the floor when it fell, and a casting cover was lit a shade under
+the floor round it. The Bore's cover and rubble are `Parts.Rock` lumps (an
+uneven polygon drawn in toward a point off its middle), its track a spiral
+winding in counter-clockwise, its lift turned to open on the first leg and
+lit from before it. Dressing keeps `BossNames.PlatformEdge` off every
+platform section that breaks away (the dresser refuses it; level 15's
+torches stood at the core's edge and floated once a section dropped).
+The Magazine (level 5) is narrowed to 2 by 2 cells of the 512 kit, 992
+inside, at the centre of the maze (brief p18, above); it is 768 high, not 1,024 (brief p16): Sir Nukesalot,
+at the largest scale the nav's hulls hold, read small in the taller hall,
+and 768 still holds the rocket air (576) over the floor and 114 over its
+ledges at 96 and 224 (`DescentBossArenaTests`). Its warm fill hangs
+`MagazineFillUnderRoof` under the roof; the pilasters and the work light's
+cord follow the roof by themselves.
+
+## Level 5's maze (`MazeLevel.cs`, `Shapes/MazeShape.cs`, brief p18, M35, M36)
+
+Level 5 is the one level on another kit: `RoomKit.MazeCell`, a 512 cell with the
+normal door (208 by 192, framed). Its other rooms keep their size as rooms of 2
+by 2 cells (`Parts.Seat`, `Parts.SpanCells`: the way in, the quiet lobby, the
+antechambers and the way down, each socket on its wall's first cell edge; a
+larger room may take an outline, `WithOutline`, like a room of one cell). The
+level is laid by the map generator, not the rules module's boss row
+(`DescentLevel.Lay` sends depth 5 to `MazeLevel.Plan`): the row's three rooms
+west of a 10 by 10 block whose centre 2 by 2 is the arena, one room of the
+family `arena` (doors north and south into the maze, east into the way down);
+the way down 2 by 2 east of it, its one door into the arena; every other cell
+of the block a maze room of its own, so the automap shows the maze cell by cell.
+The maze is a seeded spanning tree over the cells (randomised Kruskal) with
+`MazeLevel.Loops` loop doors between cells at least `LoopSpan` apart along the
+tree; the antechamber enters it on a seeded row of its west side; leaves are its
+dead ends (M35 lifts M18 here). A maze cell is one corridor junction,
+`MazeShape.Width` (256) wide from its middle to each door, rock in its corners,
+a solid roof at 384 (`Height` 400); its shape is its door mask's, so the family
+builds every mask once a variant, unturned, in the connector family its doors
+make (`stub`, `drift`, `bend`, `tee`, `cross`, variant `mazea`/`mazeb`): `a`
+the bare tunnel, `b` a pack (a dead end's container) and a breakable in a niche
+off a closed side (`WithBreakable`; the dresser adds none to a maze cell, so 92
+cells share the level's 96). A maze cell lights itself: a dim warm fill, and a
+red warning lamp at a dead end, a bend and a tee. Maze cells are tunnels to the jump
+rules (`RoomLint.JumpSpaceExempt`: a corridor or junction is passed over by the
+jump air rule).
 
 ## Jump features (`JumpFeatures`, plan §4.3)
 
@@ -199,6 +273,29 @@ south). A feature refuses a ledge without 114 of clear air above it.
   (`at.Z` is the surface's height) with a standing player's room above.
 - `WithMapMarker(at, icon, label)` and `WithMapLabel("Hall")` for the level
   map.
+- **Breakables** (ruling M34, brief p12, `Breakables.cs`): crates and
+  barrels a hit breaks belong to one manager entity per level on the
+  server, which draws, collides and breaks them, so a room writes no prop
+  for one. A theme's prop names the breakable it becomes
+  (`PropModel.Breakable`: Act I's powder crate and oil drum, level 8's open
+  drum); where the dresser stands one as clutter (a corner pile, a wall or
+  floor piece, a companion; never a lantern's stand) it writes an
+  `info_poi` `descent_mark_breakable_crate` or `_barrel` instead, its
+  `origin` the server's model's foot (a crate's origin; the floor under a
+  barrel's middle, the server lifting its model 30), `angles` `0 yaw 0`,
+  fitted by the server's box (`Breakables.Crate`, `Breakables.Barrel`:
+  `miningcrate001`, `wooden_barrel`). A room takes at most
+  `Breakables.CapAt(depth)`: 8, or the level cap of 96 shared over the
+  depth's exact room budget if that is less (5 at level 1, 4 at 2, 3 at 3,
+  4, 6 and 7, 2 at 8 and 9), so no level of the depth can hold more than
+  96 whatever rooms it draws; neither link can turn a point back into a
+  prop, so the cap is held here. Past it the theme's prop stays.
+  `library.json` counts each room's (`breakables`) and `descent-level`
+  refuses a level over 96. A breakable is solid to every rule (the dress
+  lint's pieces, the giant's flat walk, the cut-off rules) and stands
+  where the room compile's standing agent (32 by 72) fits in its voxel,
+  which the compile asks of every point (`dress_breakable`); `marker_floor`
+  leaves it to that rule.
 - `WithLamp(at, lamp?)`: `Lamp.Default` (warm white, 200, half at 256, gone
   at 768) is measured to light a grey room without clipping; `new Lamp(colour,
   brightness, half, zero)` for a theme's own. A lamp lights its room and the
@@ -210,13 +307,16 @@ south). A feature refuses a ledge without 114 of clear air above it.
 
 ## Themes and dressing (`Themes/`, `Dressing/`)
 
-- **A depth's theme** (`RoomTheme.ForDepth`, `DescentRooms.ThemeFor`):
+- **A depth's theme** (`RoomTheme.ForDepth`, `DescentRooms.ThemeFor`; a
+  theme's `Caves` draws and dresses its `CaveFamilies` instead, level 11's
+  grottos and flooded galleries in rock and concrete, brief p15):
   Act I's four in `Themes/ActOne.cs` (surfaces, door frame, lamp kinds,
   props by role, fog, tone map, wetness, sun and sky, the way in's theme),
   Act II's four in `Themes/ActTwo.cs` (levels 6 to 9: the Breakthrough,
-  Dripstone, the Sunken Galleries, the Buried Chapel); depths 5 and 10 to 15
-  are `RoomTheme.Grey` until their acts are themed (12's with slime in its
-  pools, `RoomTheme.GreySump`). A theme may name its
+  Dripstone, the Sunken Galleries, the Buried Chapel), the boss levels' three
+  in `Themes/Bosses.cs` (5 the Powder Magazine, 10 the Bore, 15 the Pit, brief
+  p13), Act III's four in `Themes/ActThree.cs` (levels 11 to 14: Robot Works,
+  the Sump, Brimstone, the Rot, brief p14). A theme may name its
   own water (`Water`, a `water` shader material: the pools' and flooded
   galleries'), water standing on its rooms' floors (`Standing`: a depth,
   kept clear of every door, in some families or all), and a larger room's
@@ -314,9 +414,45 @@ south). A feature refuses a ledge without 114 of clear air above it.
   each door of a cavern and from over its frame to the roof, and over each of a
   grotto's sockets, so no cave wall stands flat floor to roof round its doors
   (cavern d's walls are its rounded corners and its necks, and keep them).
+- **Act III's hazards and failed lamps** (brief p14, `Dressing/RoomDresser.ActThree.cs`):
+  a theme's `HazardFloor` (a `hazards.json` kind, its surface, liquid or a
+  skin, its glow, its families) lies in its pools' basins, its flooded
+  galleries' water and, when it says `Chasms`, a chasm leap's gap (the shapes
+  lay it with `RoomBuilder.HazardFloor`), and the dresser lays it on the floor
+  of its families' rooms that the way between the doors does not need: the
+  largest rectangles left free by the giant's lane and two columns more, the
+  doors' approaches, every marker (`HazardFromMarker`) and a blast ledge's
+  take-off, at most `MaxAreas` a room, each kept only while a giant still
+  walks dry from door to door and to every pack (`KeepsWay`); each under its
+  volume, nothing standing on it, its own light (`Glow`, a fill with no
+  fixture) over it every `GlowPitch`. The room lint's `hazard_path` holds it.
+  A lava skin is one non-solid `func_brush` of the self-lit material with a
+  `_minlight`, so the preview, which draws by the lightmap alone, sees it lit.
+  `LampKind.Dead` lets a share of the theme's own lamps along the path hang
+  with no light (level 11, marked `descent_dead`, which the dress lint's
+  `dress_lamp_light` lets through); the floor they leave dark is lit first by
+  the theme's `CoverLamps` alone (its red emergency lamps).
+  `HazardFloor.Lips` sets low lumps of rock (a step high at most) round each
+  area the dresser lays, so a pool reads as a pool in a cave floor rather
+  than a laid slab (level 13's lava, brief p15).
+  `LampKind.FreeStanding` lets the cover pass stand a floor lamp on open floor
+  (level 14's fungi in a cave's middle); a floor lamp never stands in a
+  ledge's air or a solid one in a corridor's lane, so a theme of floor lamps
+  needs wall cover lamps hung over a walkway's air (13's sconces, 14's wall
+  fungi at 128).
+- **Breakables in the preview**: neither linked map holds a breakable, so
+  `tools/descent-preview-spawns` (run on the preview's map) has
+  `tools/descent-breakables preview` read the points from the preview's
+  `.nav3d`, as the server reads them, and stand the server's models there
+  as solid static props casting no shadow (the lightmaps are baked without
+  them, as the game's are), and rebinds the preview's `.map2d` to the new
+  map; the sheets and the reach gate's walker see them.
+  `tools/descent-breakables list <map.nav3d>` prints a level's breakables.
 - **Preview cameras** (`PreviewCamera`): each room's `library.json` entry
   carries a camera at a player's eye in a corner of its body that sees its
-  focus; `descent-level` turns it with the room. `descent-level` also renders
+  focus, in open air (`PreviewCamera.InOpenAir`: a larger room's corner
+  camera walks in toward its focus out of whatever solid stands there, brief
+  p15); `descent-level` turns it with the room. `descent-level` also renders
   every placed room's camera (`.roomcams`, `DescentLevel.RoomCameras`) and
   `tools/descent-room-light` writes each room's light, on the gate's scale,
   into the level's `.map2d` as a section `LITE` that today's readers skip:
@@ -325,23 +461,33 @@ south). A feature refuses a ledge without 114 of clear air above it.
   views are cut to one (`tools/descent-preview-spawns` keeps the arrival).
 - **The gates** (`tools/descent-gate`, `make descent-brightness`,
   `descent-reach`, `descent-budget`, `DESCENT_DEPTHS=1,2,3,4,6,7,8,9
-  DESCENT_SEEDS=1,2,3`; level 5's boss row stays out of the brightness order
-  until its arena is themed): brightness is what a player sees, offline: the
+  DESCENT_SEEDS=1,2,3`; name 5, 10 and 15 for the boss levels, each held to
+  its own target, 52, 22 and 7, and left out of the falling order, `BOSS`;
+  name 11 to 14 for Act III, 16, 13, 11 and 9):
+  brightness is what a player sees, offline: the
   mean over the preview's room views of each tile's luma re-encoded to the
   game's 2.2 gamma (the preview's label and orange scale figure left out),
   over seeds, level 1 = 100 (`LEVEL1_VIEW`); each depth within 3 of its
-  in-game target (plan section 6, M30) and falling strictly, nothing clipped
+  in-game target (plan section 6, M30) and falling strictly, the figure first
+  multiplied by its act's `CALIBRATION` (brief p15: the game's own reading of
+  each act over the gate's, from the in-game measurements of p10 to p14: Act
+  I 1.019, Act II 0.969, Act III 0.769; the table prints the raw figure
+  beside the `game` one it predicts), nothing clipped
   in the lightmap or in any room's view (its rendered pixels under 2 % white),
   a Heavy reaches every room's floor,
   entities and brushes stay in budget. The preview gets a camera on one
   joined doorway (`DescentLevel.DoorwayCamera`, a tracked room's first).
   What the gate cannot see (brief p11, plan 1.3e): the preview draws no
-  water surface and no fog, and draws a face from inside a solid. The game
+  water surface and no fog, and draws a face from inside a solid. A
+  worldvertextransition material on a plain brush draws its second layer in
+  game (the Rot's and the Pit's mud floors drew twigs): use a lit one. The game
   read level 8 9 over the gate while its water's fog was light, and reads
   level 6 6 under it, half of that a doorway camera standing inside a
   stair block and half a per-level residual (level 4 2.5 under, level 1
-  1.7 over); fog moved levels 4 and 6 in game by under a point. Check a
-  level's change in game, not only in the gate.
+  1.7 over); fog moved levels 4 and 6 in game by under a point. Act III reads
+  25 to 30 % darker in game than in the gate (brief p14: game over gate 0.76,
+  0.90, 0.70, 0.78 at 11 to 14), so a dark level's gate sits toward the top of
+  its tolerance. Check a level's change in game, not only in the gate.
 
 ## Lint (`RoomLint.Check`)
 
@@ -359,6 +505,7 @@ Each rule is measured from the brushes and markers, on 16-unit columns:
 | `door_path` | two doors a giant (92 by 156) cannot walk between on steps of 18 (M8: no jump, not even a crouch-jump; stairs and ramps are walked), or a pack spawn on the floor no giant walks to from a door |
 | `marker_count` | a combat room without 2 to 4 pack spawns at least 192 from every door and 1 or 2 pieces of furniture on its floor; a corridor or junction with more than one pack; a quiet room with any |
 | `lit` | walkable floor beyond every light's reach (half way from its half-light to its zero distance; a `light_spot` only inside its outer cone): the path is lit (§6) |
+| `hazard_path` | two doors a giant (92 by 156) walks between only through an always-on hazard volume (slime, lava): a hazard floor is never the only way through (brief p14) |
 
 ## Testing and looking
 
