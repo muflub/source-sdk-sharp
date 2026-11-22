@@ -270,7 +270,7 @@ public sealed class SqliteExperienceStoreTests : ExperienceStoreContract, IDispo
     }
 
     [Fact]
-    public async Task AToolsMergeWaitsForAGamesWriteToEndRatherThanFailing()
+    public void AToolsMergeWaitsForAGamesWriteToEndRatherThanFailing()
     {
         // The game's worker holds the write lock a moment (a round's flush): the tool's merge waits within the busy timeout.
         string path = NewPath();
@@ -278,14 +278,18 @@ public sealed class SqliteExperienceStoreTests : ExperienceStoreContract, IDispo
         Assert.True(game.Merge(Key, Rounds(1), HalfLife));
         using SqliteConnection holder = SqliteFile.Open(path);
         SqliteFile.Scalar(holder, "BEGIN IMMEDIATE");
-        Task release = Task.Run(async () =>
+        // Released from a thread of its own, not the pool: under a full test run the
+        // pool's queue held a Task.Run past the 2 s busy timeout (failed twice at load
+        // over 100, 2026-11-15) and the merge was refused before the lock ever lifted.
+        var release = new Thread(() =>
         {
-            await Task.Delay(300);
+            Thread.Sleep(300);
             SqliteFile.Scalar(holder, "COMMIT");
-        });
+        }) { IsBackground = true };
+        release.Start();
         using SqliteExperienceStore tool = SqliteExperienceStore.Open(path);
         Assert.True(tool.Merge(Key, Delta(d => d.Add(PracticeRow, new LinkStat(40d, 36d, 80d, 2000d))), HalfLife));
-        await release;
+        release.Join();
         Assert.Equal(0, tool.BusyFailures);
         Assert.Equal(36d, game.Load(Key, HalfLife).Links[PracticeRow].Successes);
     }

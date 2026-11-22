@@ -32,7 +32,15 @@ public sealed class LocalWeaponSelection(IEngineHud screen, IClientStandalones s
     public void Select(int weaponType)
     {
         if (weapons.ByIndex(weaponType) is { } weapon)
+        {
             send.SendSelection("ss_use " + weapon.Name);
+
+            // The client's half of the press: hold the pick for the next
+            // replayed command, whose tick clock carries the deploy the
+            // server stamps inside that command (ClientArsenal's held
+            // selection; the ItemMeterTime of the pyro/heavy misses).
+            arsenal.PredictHeldSelect(weaponType);
+        }
     }
 
     public void LastWeapon() => send.SendSelection("lastinv");

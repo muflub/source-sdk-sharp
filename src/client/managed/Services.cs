@@ -259,6 +259,19 @@ public interface ILocalArsenal
     /// serves the unheld answer.
     /// </summary>
     SourceSharp.Shared.WeaponNetState? ActiveWeaponState => null;
+
+    /// <summary>
+    /// The HUD's slot press for a carried weapon (a <c>cs_key slotN</c> the
+    /// selection HUD answers): the pick is held for the next replayed command,
+    /// whose tick clock then carries the deploy — the clock the server's run of
+    /// that command stamps the deploy's meters with (<c>ItemMeterTime</c>). The
+    /// press itself lands between two commands, where the stamp would be the
+    /// frame's clock, behind the server's write by the ack batch (pyro's
+    /// <c>ItemMeterTime=40.32|40.275</c> miss of the plain-life boots). An
+    /// arsenal that runs no prediction answers nothing: the server's word
+    /// still arrives on the next decode.
+    /// </summary>
+    void PredictHeldSelect(int typeIndex) { }
 }
 
 /// <summary>

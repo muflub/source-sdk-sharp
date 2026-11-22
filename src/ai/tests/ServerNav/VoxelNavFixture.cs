@@ -47,6 +47,14 @@ internal sealed class VoxelNavFixture(int cellsX, int cellsY, int heightVoxels)
 
     public Nav3dBspBinding? Bsp { get; set; }
 
+    /// <summary>
+    /// Whether a free run is cut into leaves where its voxels' clearance records differ, as
+    /// map-tools' writer keys a run (a maximal stack of voxels with the same key): the voxels over
+    /// a step's top, whose records no longer hold the step, are a leaf of their own above the one
+    /// on the floor. Off, a run is one leaf whose record is its bottom voxel's.
+    /// </summary>
+    public bool SplitByRecord { get; set; }
+
     public VoxelNavFixture Solid(float x0, float y0, float z0, float x1, float y1, float z1)
     {
         _solids.Add(new Box(x0, y0, z0, x1, y1, z1));
@@ -91,7 +99,7 @@ internal sealed class VoxelNavFixture(int cellsX, int cellsY, int heightVoxels)
                 for (int x = 0; x < CellVoxels; x++)
                 {
                     int gx = cx * CellVoxels + x, gy = cy * CellVoxels + y;
-                    foreach ((int lo, int hi) in Runs(gx, gy))
+                    foreach ((int lo, int hi) in SplitByRecord ? Runs(gx, gy).SelectMany(r => Split(gx, gy, r.Lo, r.Hi)) : Runs(gx, gy))
                     {
                         byte[] record = Record(gx, gy, lo);
                         string key = Convert.ToHexString(record);
@@ -140,6 +148,23 @@ internal sealed class VoxelNavFixture(int cellsX, int cellsY, int heightVoxels)
 
     private bool SolidAt(int gx, int gy, int z)
         => z < 0 || _solids.Exists(s => s.Overlaps(gx * Voxel, gy * Voxel, z * Voxel, (gx + 1) * Voxel, (gy + 1) * Voxel, (z + 1) * Voxel));
+
+    /// <summary>The run <paramref name="lo"/> to <paramref name="hi"/> cut where its voxels' records differ (<see cref="SplitByRecord"/>).</summary>
+    private IEnumerable<(int Lo, int Hi)> Split(int gx, int gy, int lo, int hi)
+    {
+        int start = lo;
+        byte[] record = Record(gx, gy, lo);
+        for (int z = lo + 1; z <= hi; z++)
+        {
+            byte[] next = Record(gx, gy, z);
+            if (next.AsSpan().SequenceEqual(record))
+                continue;
+            yield return (start, z - 1);
+            (start, record) = (z, next);
+        }
+
+        yield return (start, hi);
+    }
 
     private IEnumerable<(int Lo, int Hi)> Runs(int gx, int gy)
     {

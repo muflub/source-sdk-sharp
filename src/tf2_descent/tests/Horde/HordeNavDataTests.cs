@@ -79,6 +79,34 @@ public sealed class HordeNavDataTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// Every class reaches every room of a built level whose pool rooms stand their walkways 64
+    /// over the floor up a flight from each door: the derivation stands a hull on the highest step
+    /// under its box. While it raised them one step only, every extra hull reached 20 of depth 8
+    /// seed 1's 37 rooms and 21 of depth 9's (measured 2026-11-15 over 16a29fcd6's derivation).
+    /// </summary>
+    private void EveryClassReachesEveryRoomOf(int depth)
+    {
+        var files = LevelFixture.Built(depth, 1);
+        LevelData data = files.Read();
+        HordeLevel level = LevelAdapters.ToHorde(data);
+        HordeNavData nav = HordeNavData.Derive(files.Nav3d);
+        var arrival = new AiVector(data.Arrivals[0].Position.X, data.Arrivals[0].Position.Y, data.Arrivals[0].Position.Z);
+        Assert.Contains(data.Rooms, r => r.Name.StartsWith("pool", StringComparison.Ordinal));
+        foreach (var cls in new[] { ClearanceClass.Stand, ClearanceClass.Hull2, ClearanceClass.Hull3, ClearanceClass.Hull4, ClearanceClass.Hull5 })
+        {
+            var reached = RoomsReached(nav, level, nav.CellAt(arrival, cls), cls);
+            output.WriteLine($"{HordeHulls.NameOf(cls)}: {reached.Count} of {level.RoomCount} rooms");
+            Assert.Equal(level.RoomCount, reached.Count);
+        }
+    }
+
+    [BuiltLevelFact(8, 1)]
+    public void Every_class_reaches_every_room_of_depth_8_seed_1_pools_included() => EveryClassReachesEveryRoomOf(8);
+
+    [BuiltLevelFact(9, 1)]
+    public void Every_class_reaches_every_room_of_depth_9_seed_1_pools_included() => EveryClassReachesEveryRoomOf(9);
+
+    /// <summary>
     /// The room table of depth 1 seed 1 (the output): for each room, the cells each class stands on
     /// and how many of them it reaches from the arrival. Scale 1.6 and up plans by the x1.75 class,
     /// above 1.75 by x1.90: both miss rooms 6, 16 and 17, and every door of those rooms fits either

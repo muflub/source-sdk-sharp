@@ -136,6 +136,12 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     // a script-less row says anyway.
     private readonly WeaponScriptDatabase? _scripts;
 
+    // The engine's globals, for the tick interval the command clock is built
+    // from: the first prediction stamps its weapon timers on the same tick
+    // clock the server's run of the command reads them on. Null in a rig
+    // without globals: the frame's clock stands, as it did before the ask.
+    private readonly IEngineEnvironment? _environment;
+
     // The compare's own record keeper, the player ring's twin: the misprediction
     // line's values read through it.
     private readonly PredictionErrorRing _errorRing;
@@ -151,7 +157,8 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
                          ILocalWeaponClips? localWeaponClips = null,
                          ILocalItemMeters? localItemMeters = null,
                          ViewmodelSkin? viewmodelSkin = null,
-                         WeaponScriptDatabase? scripts = null)
+                         WeaponScriptDatabase? scripts = null,
+                         IEngineEnvironment? environment = null)
     {
         _localWeapons = localWeapons;
         _localAmmoPools = localAmmoPools;
@@ -159,6 +166,7 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         _localItemMeters = localItemMeters;
         _viewmodelSkin = viewmodelSkin;
         _scripts = scripts;
+        _environment = environment;
         _fx = fx;
         _log = log;
         _world = world;
@@ -199,7 +207,25 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     /// replayed command, after its movement.
     /// </summary>
     public void OnPlayerCommand(EntityHandle player, in UserCmd cmd, int phase, bool firstTime)
-        => OnPlayerCommand(player, in cmd, phase, firstTime, _clock.Now);
+    {
+        // The command's own clock: the PREDICTED TICK BASE times the tick's
+        // interval -- stock's CPrediction::RunCommand (prediction.cpp:894)
+        // sets curtime from m_nTickBase, and the server runs the same command
+        // on its own tick base times the same interval (ServerPlayerCommands's
+        // Prepare, the clock the movement already takes as CurTime). The
+        // command's TickCount is NOT that clock: it is the engine tick at the
+        // command's creation, and a command whose creation tick differs from
+        // the tick base must still land its stamps on the base. So the stamps
+        // both sides write inside the command (ItemMeterTime's) match. Without
+        // the working player's base or the engine's globals (a test rig) the
+        // frame's clock stands: the shape a rig without a tick source has
+        // always answered with.
+        float commandTime = WorkingPlayer is { TickBase: var tickBase }
+                            && _environment?.Globals is { IsAvailable: true } globals
+            ? tickBase * globals.IntervalPerTick
+            : _clock.Now;
+        OnPlayerCommand(player, in cmd, phase, firstTime, commandTime);
+    }
 
     /// <summary>
     /// The replay's form: <paramref name="commandTime"/> is the replayed
@@ -233,8 +259,21 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         // has to land on the bytes the server's run wrote (the deploy clocks
         // were the ss_weapon misprediction).
         if (cmd.WeaponSelect != 0)
+        {
             MirrorDeploy(cmd.WeaponSelect - 1, commandTime);
-
+        }
+        else if (firstTime && _pendingHeldSelect >= 0)
+        {
+            // The HUD's slot press, held between commands, is answered here —
+            // on this command's clock: the server reads the press's command
+            // inside the run of this one and stamps the deploy's meters with
+            // its clock, so the mirror stamps on the same one. Stamped at the
+            // press itself the meter rode the frame's clock, behind the
+            // server's write by the ack batch (ItemMeterTime=40.32|40.275).
+            int held = _pendingHeldSelect;
+            _pendingHeldSelect = -1;
+            MirrorDeploy(held, commandTime);
+        }
         if (_weapon.WeaponTypeId < 0)
             return;
 
@@ -391,6 +430,18 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     // press away from an item that carries holster_anim_time, every press
     // until then writes nothing; zero is no window (see MirrorDeploy).
     private float _holsterUntil;
+
+    // The HUD's slot press held for the next replayed command (held weapon
+    // type from the selection HUD's Select; -1 none). The server answers the
+    // press's ss_use inside the next command's run, stamping its clocks on
+    // that command's tick base, so the mirror holds its pick for the replay
+    // too — stamped at the press itself it rides the frame's clock, behind by
+    // the ack batch. Consumed by the long replay's first prediction, beside
+    // the WeaponSelect branch.
+    private int _pendingHeldSelect = -1;
+
+    /// <summary>Hold the HUD's slot press for the next replayed command.</summary>
+    public void PredictHeldSelect(int typeIndex) => _pendingHeldSelect = typeIndex;
 
     private void MirrorDeploy(int typeIndex, float now)
     {
