@@ -266,7 +266,7 @@ help:
 	@echo "  make town                            generate and compile tf2_descent_town into the tf2_descent mod"
 	@echo "  make descent-rooms [DEPTH=n]         write and pack depth n's Descent room library (MAPTOOLS_DIR=...)"
 	@echo "  make descent-level DEPTH=n SEED=s    lay out, link and preview a Descent level from it"
-	@echo "  make descent-install DEPTH=n SEED=s  link that level into the tf2_descent mod's pool/maps (map tf2_descent-n-ss)"
+	@echo "  make descent-install DEPTH=n SEED=s  copy that level into the tf2_descent mod's pool/maps (map tf2_descent-n-ss)"
 	@echo "  make descent-brightness|descent-reach|descent-budget [DESCENT_DEPTHS=1,2,3,4,6,7,8,9] [DESCENT_SEEDS=1,2,3]"
 	@echo "                                       the Descent levels' gates (tools/descent-gate; MAPTOOLS_DIR=...)"
 	@echo "  make mod-image [CONFIG=release] [MOD_IMAGE=ref]      build (never push) the hosted mod image"
@@ -716,7 +716,9 @@ ai-nav-tf:
 # not four of one wall), sets every face's side flag in both maps from its node
 # (tools/descent-face-sides: the linker writes it wrong in every turned room,
 # whose walls the game then draws only from behind; the preview does not cull
-# by it), and previews that with where a Heavy can go and a
+# by it; the same step writes the rewritten map's checksum into the .map2d the
+# link wrote beside it, and --check then fails on a wrong flag or a stale
+# .map2d), and previews that with where a Heavy can go and a
 # camera in a corner of each family's first room (MapGen writes them beside
 # the level file, dNN/tf2_descent-n-ss.cameras). The map tools are $(MAPTOOLS_DIR), the
 # checkout at maptools.lock (the kit's doors stand on the floor by its
@@ -768,11 +770,13 @@ descent-level: descent-view
 	    -out $(DESCENT_D)/maps/$(DESCENT_LEVEL).bsp > $(DESCENT_D)/$(DESCENT_LEVEL).link.log 2>&1 || { tail -20 $(DESCENT_D)/$(DESCENT_LEVEL).link.log; exit 1; }
 	@grep 'map entities' $(DESCENT_D)/$(DESCENT_LEVEL).link.log
 	@tools/descent-face-sides $(DESCENT_D)/maps/$(DESCENT_LEVEL).bsp >> $(DESCENT_D)/$(DESCENT_LEVEL).link.log 2>&1 || { tail -5 $(DESCENT_D)/$(DESCENT_LEVEL).link.log; exit 1; }
+	@tools/descent-face-sides --check $(DESCENT_D)/maps/$(DESCENT_LEVEL).bsp >> $(DESCENT_D)/$(DESCENT_LEVEL).link.log 2>&1 || { tail -5 $(DESCENT_D)/$(DESCENT_LEVEL).link.log; exit 1; }
 	@echo "==> ssmap link $(DESCENT_LEVEL) for the preview"
 	@$(SSMAP_DESCENT) link $(DESCENT_D)/$(DESCENT_LEVEL).yaml -rooms $(DESCENT_D)/$(DESCENT_LIB).roompack \
 	    -out $(DESCENT_D)/maps/$(DESCENT_LEVEL)-preview.bsp > $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log 2>&1 || { tail -20 $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log; exit 1; }
 	@tools/descent-preview-spawns $(DESCENT_D)/maps/$(DESCENT_LEVEL)-preview.bsp >> $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log 2>&1 || { tail -5 $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log; exit 1; }
 	@tools/descent-face-sides $(DESCENT_D)/maps/$(DESCENT_LEVEL)-preview.bsp >> $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log 2>&1 || { tail -5 $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log; exit 1; }
+	@tools/descent-face-sides --check $(DESCENT_D)/maps/$(DESCENT_LEVEL)-preview.bsp >> $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log 2>&1 || { tail -5 $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log; exit 1; }
 	@echo "==> ssmap preview $(DESCENT_LEVEL) -movement heavy"
 	@cams=(); while IFS= read -r c; do cams+=(-camera "$$c"); done < $(DESCENT_D)/$(DESCENT_LEVEL).cameras; \
 	$(SSMAP_DESCENT) preview $(DESCENT_D)/maps/$(DESCENT_LEVEL)-preview.bsp -game "$(DESCENT_GAME)" -movement heavy "$${cams[@]}" \
@@ -784,19 +788,26 @@ descent-level: descent-view
 	@echo "==> $(DESCENT_D)/$(DESCENT_LEVEL)-preview/sheet.png"
 
 # `make descent-install DEPTH=n SEED=s` puts a linked level where the game
-# finds it: its .bsp, .nav3d and .map2d (the host's levelFiles) linked into
+# finds it: its .bsp, .nav3d and .map2d (the host's levelFiles) copied into
 # the tf2_descent mod's pool/maps, which its gameinfo searches and the
 # same-process hop (LevelHop) links into, so `map tf2_descent-n-ss` loads
-# it. Links, not copies: a rebuilt level is the one the game loads next. A
-# game started with -instance links the mod's entries when it starts, so make
-# pool/ (this does) before such a game starts.
+# it. Copies, not links: tools/setup owns the symlinks under bin/<config>/mods
+# and calls any other one stale, so a link here failed the setup check every
+# build and launch target runs, and `make setup` deleted it. A rebuilt level
+# needs installing again. Each copy is a new file (rm, then cp without -p),
+# so it has a fresh mtime and cp never writes through an old link into the
+# level it points at. The setup check runs last, so an install that leaves
+# anything setup would remove fails here. A game started with -instance links
+# the mod's entries when it starts, so make pool/ (this does) before such a
+# game starts.
 DESCENT_POOL := $(CURDIR)/bin/$(CONFIG)/mods/tf2_descent/pool/maps
 descent-install:
 	@for f in bsp nav3d map2d; do test -f $(DESCENT_D)/maps/$(DESCENT_LEVEL).$$f || { \
 	    echo "error: no $(DESCENT_D)/maps/$(DESCENT_LEVEL).$$f: make descent-level DEPTH=$(DEPTH) SEED=$(SEED) first"; exit 1; }; done
 	@mkdir -p $(DESCENT_POOL)
-	@for f in bsp nav3d map2d; do ln -sfn $(DESCENT_D)/maps/$(DESCENT_LEVEL).$$f $(DESCENT_POOL)/$(DESCENT_LEVEL).$$f; done
-	@echo "==> map $(DESCENT_LEVEL) (linked into $(DESCENT_POOL))"
+	@for f in bsp nav3d map2d; do rm -f $(DESCENT_POOL)/$(DESCENT_LEVEL).$$f && cp $(DESCENT_D)/maps/$(DESCENT_LEVEL).$$f $(DESCENT_POOL)/$(DESCENT_LEVEL).$$f || exit 1; done
+	$(call require-setup,$(CONFIG))
+	@echo "==> map $(DESCENT_LEVEL) (copied into $(DESCENT_POOL))"
 
 # The Descent levels' gates (plan tasks B4-B6), tools/descent-gate: each builds
 # DESCENT_DEPTHS' libraries and DESCENT_SEEDS' levels of each with the two

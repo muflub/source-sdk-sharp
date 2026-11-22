@@ -7,6 +7,8 @@ using SourceSharp.Shared;
 
 using TF2.Descent.Rules;
 using TF2.Descent.Rules.Hero;
+using TF2.Descent.Rules.World;
+using TF2.Descent.Server.Lamp;
 using TF2.Server.Player;
 
 namespace TF2.Descent.Server.Hero;
@@ -80,12 +82,13 @@ public sealed class HeroStatsCommand(SvCheatsConVar cheats, Heroes heroes, HeroA
 
         log.Msg(Describe(slot, hero, hero.Stats!, attributes.Of(slot),
                          resupply.MaxHealth(hero.Player), movement.MaxSpeedScale(slot, 0f, ducking: false, groundMaterial: 0),
-                         entities.GetHealth(hero.Player), rules.Heroes.ArmourReduction(hero.Stats!.Armour, levels.LevelOf(EntityHandle.None))));
+                         entities.GetHealth(hero.Player), rules.Heroes.ArmourReduction(hero.Stats!.Armour, levels.LevelOf(EntityHandle.None)),
+                         rules.Content.Lamp));
     }
 
     /// <summary>The console line: every number the rules derived, then TF's.</summary>
     public static string Describe(int slot, HeroComponent hero, HeroStats st, HeroTFAttributes? tf, int tfMaxHealth, float tfMaxSpeed,
-                                  int health, double armourReduction)
+                                  int health, double armourReduction, LampSettings lamp)
     {
         var c = CultureInfo.InvariantCulture;
         var line = new StringBuilder();
@@ -96,6 +99,7 @@ public sealed class HeroStatsCommand(SvCheatsConVar cheats, Heroes heroes, HeroA
         line.Append(c, $" rocket {st.DamageMultiplier("blast", "projectile"):0.####} action {st.DamageMultiplier("action"):0.####} | resist");
         line.Append(c, $" fire {st.Resist("fire"):0.####} blast {st.Resist("blast"):0.####} bullet {st.Resist("bullet"):0.####} shock {st.Resist("shock"):0.####}");
         line.Append(c, $" | regen {st.LifeRegenPerSecond:0.###}/s leech {st.LifeLeech:0.####} mana regen {st.ManaRegenPerSecond:0.###}/s mana leech {st.ManaLeech:0.####}");
+        line.Append(c, $" | {HeroLamps.Describe(st, lamp)}");
         line.Append(c, $" | TF add_maxhealth {(tf is { } a ? a.AddMaxHealth.ToString("0.##", c) : "none")}");
         line.Append(c, $" movespeed x{(tf is { } b ? b.MoveSpeedFactor.ToString("0.####", c) : "none")}");
         line.Append(c, $" max health {tfMaxHealth} max speed {tfMaxSpeed:0.##} health {health}\n");

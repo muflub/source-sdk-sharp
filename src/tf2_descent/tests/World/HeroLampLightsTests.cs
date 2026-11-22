@@ -160,6 +160,105 @@ public sealed class HeroLampLightsTests
             Assert.Equal((float)LampRules.PitchOf(rules, LampRules.PitchSteps(rules, pitch)), n.PitchOf(LampRules.PitchSteps(rules, pitch)), 4);
     }
 
+    /// <summary>The light's linear intensity per channel as the engine reads it: colour times two to the exponent.</summary>
+    private static double[] Intensity(DynamicLight l) =>
+        [l.Red * Math.Pow(2, l.Exponent), l.Green * Math.Pow(2, l.Exponent), l.Blue * Math.Pow(2, l.Exponent)];
+
+    [Fact]
+    public void Each_heroes_lamp_reaches_as_far_as_his_wire_says()
+    {
+        _heroes.List.AddRange([Hero(1) with { Radius = 900f }, Hero(2)]);
+
+        _lamps.ClientThink(0.016f);
+
+        Assert.Equal([900f, (float)Rules.Content.Lamp.Light.Radius], _sink.Lit.Select(l => l.Radius));   // 2 has none written: lamp.json's
+    }
+
+    [Fact]
+    public void A_lamp_at_lamp_jsons_brightness_is_one_light_for_the_world_and_models()
+    {
+        _heroes.List.Add(Hero(2) with { Brightness = 1f });
+
+        _lamps.ClientThink(0.016f);
+
+        var light = Assert.Single(_sink.Lit);
+        Assert.Equal((0, 0), (light.Flags, light.IsElight));
+    }
+
+    [Fact]
+    public void A_brighter_lamp_lights_the_world_brighter_and_models_at_lamp_jsons_intensity()
+    {
+        var n = Rules.Content.Lamp.Light;
+        _heroes.List.Add(Hero(2) with { Brightness = 1.6f, Radius = 800f });
+
+        _lamps.ClientThink(0.016f);
+
+        Assert.Equal(2, _sink.Lit.Count);
+        var world = Assert.Single(_sink.Lit, l => l.Key == HeroLampLights.KeyOf(2));
+        var models = Assert.Single(_sink.Lit, l => l.Key == HeroLampLights.ModelKeyOf(2));
+        Assert.Equal((int)DynamicLightFlags.NoModelIllumination, world.Flags);
+        Assert.Equal((int)DynamicLightFlags.NoWorldIllumination, models.Flags);
+        Assert.Equal((0, 0), (world.IsElight, models.IsElight));   // both dlights: static props take no elight
+        Assert.Equal((n.Red, n.Green, n.Blue, n.Exponent), (models.Red, models.Green, models.Blue, models.Exponent));
+        double[] baseI = Intensity(models), brightI = Intensity(world);
+        for (int c = 0; c < 3; c++)
+            Assert.Equal(1.6, brightI[c] / baseI[c], 1);   // every channel 1.6 times: brighter, the hue kept
+        Assert.Equal((800f, 800f), (world.Radius, models.Radius));
+        Assert.Equal((world.OriginX, world.InnerAngle, world.OuterAngle), (models.OriginX, models.InnerAngle, models.OuterAngle));
+    }
+
+    [Fact]
+    public void A_lamp_back_at_lamp_jsons_brightness_puts_its_models_light_out_once()
+    {
+        _heroes.List.Add(Hero(2) with { Brightness = 1.5f });
+        _lamps.ClientThink(0.016f);
+
+        _heroes.List[0] = Hero(2) with { Brightness = 1f };
+        _lamps.ClientThink(0.016f);
+        _lamps.ClientThink(0.016f);
+
+        Assert.Equal([HeroLampLights.ModelKeyOf(2)], _sink.Out);
+        Assert.Equal([2], _lamps.Lit);   // the lamp itself stays lit
+    }
+
+    [Fact]
+    public void A_brighter_lamp_that_goes_dark_puts_out_both_its_lights()
+    {
+        _heroes.List.Add(Hero(2) with { Brightness = 2f });
+        _lamps.ClientThink(0.016f);
+
+        _heroes.List[0] = Hero(2, on: false) with { Brightness = 2f };
+        _lamps.ClientThink(0.016f);
+
+        Assert.Equal([HeroLampLights.KeyOf(2), HeroLampLights.ModelKeyOf(2)], _sink.Out.Order());
+    }
+
+    [Fact]
+    public void The_colour_at_lamp_jsons_brightness_is_lamp_jsons()
+    {
+        var n = Rules.Content.Lamp.Light;
+
+        Assert.Equal((n.Red, n.Green, n.Blue, n.Exponent), _content.Numbers.Colour(1f));
+    }
+
+    [Fact]
+    public void Twice_the_brightness_is_one_step_of_the_exponent_with_the_colour_kept()
+    {
+        var n = Rules.Content.Lamp.Light;
+
+        Assert.Equal((n.Red, n.Green, n.Blue, n.Exponent + 1), _content.Numbers.Colour(2f));
+        Assert.Equal((n.Red, n.Green, n.Blue, n.Exponent - 1), _content.Numbers.Colour(0.5f));
+    }
+
+    [Fact]
+    public void A_wire_with_nothing_written_is_lamp_jsons_lamp()
+    {
+        var n = _content.Numbers;
+
+        Assert.Equal((n.Radius, 1f), (n.RadiusOf(0), n.BrightnessOf(0)));
+        Assert.Equal((864f, 1.3f), (n.RadiusOf(864), n.BrightnessOf(130)));
+    }
+
     [Fact]
     public void L_lights_the_lamp_and_takes_only_tf2s_second_drop_item_key()
     {

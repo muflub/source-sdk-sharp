@@ -6,6 +6,7 @@ using SourceSharp.Server;
 using SourceSharp.Shared;
 
 using TF2.Descent.Rules;
+using TF2.Descent.Rules.Hero;
 using TF2.Descent.Rules.World;
 using TF2.Descent.Server.Hero;
 using TF2.Descent.Server.Level;
@@ -133,7 +134,11 @@ public sealed class HeroLamps(IDescentModeState mode, Heroes heroes, TF2DescentR
             Publish(hero);
     }
 
-    /// <summary>The hero's lamp onto his networked state: lit or not, and his look while lit.</summary>
+    /// <summary>
+    /// The hero's lamp onto his networked state: lit or not, his look while lit, and its range and
+    /// brightness from his stats (lamp.json's lamp before his stats are known), which every client
+    /// draws his lamp with (L11: what he has equipped is seen by all).
+    /// </summary>
     public void Publish(HeroComponent hero)
     {
         if (hero.State is not { } state)
@@ -142,6 +147,31 @@ public sealed class HeroLamps(IDescentModeState mode, Heroes heroes, TF2DescentR
         state.LampOn = lit;
         if (lit)
             state.LampPitch = LampRules.PitchSteps(Lamp, world.Pitch(hero.Player));
+        state.LampRadius = LampRules.WireRadius(RadiusOf(hero));
+        state.LampBrightness = LampRules.WireBrightness(BrightnessOf(hero));
+    }
+
+    /// <summary>How far the hero's lamp reaches: his stats' (<see cref="Rules.Hero.HeroStats.LampRadius"/>), else lamp.json's.</summary>
+    public double RadiusOf(HeroComponent hero) => hero.Stats?.LampRadius ?? Lamp.Light.Radius;
+
+    /// <summary>How bright the hero's lamp is, as a multiplier on lamp.json's light: his stats', else 1.</summary>
+    public double BrightnessOf(HeroComponent hero) => hero.Stats?.LampBrightness ?? 1;
+
+    /// <summary>
+    /// The hero's lamp stats as one phrase (the dev prints'): his radius and brightness, each with
+    /// its bonus, what the bonus comes from (each counting contribution by its source) and the
+    /// ceiling that holds it.
+    /// </summary>
+    public static string Describe(HeroStats stats, LampSettings lamp) =>
+        string.Create(CultureInfo.InvariantCulture,
+            $"lamp radius {stats.LampRadius:0} ({stats.LampRangeBonus:+0.##;-0.##;+0} %: {Sources(stats, lamp.Range.Stat)}; {lamp.Range.Min:0.##}..{lamp.Range.Max:+0.##}) " +
+            $"brightness x{stats.LampBrightness:0.##} ({stats.LampBrightnessBonus:+0.##;-0.##;+0} %: {Sources(stats, lamp.Brightness.Stat)}; {lamp.Brightness.Min:0.##}..{lamp.Brightness.Max:+0.##})");
+
+    private static string Sources(HeroStats stats, string stat)
+    {
+        var from = stats.From(stat).Select(c => string.Create(CultureInfo.InvariantCulture,
+            $"{c.Source.Kind.ToString().ToLowerInvariant()} {c.Source.Id} {c.Amount:+0.##;-0.##;+0}")).ToList();
+        return from.Count == 0 ? "nothing" : string.Join(", ", from);
     }
 
     /// <summary>Every hero's lamp, as lines: switch, lit, the wire's state and look.</summary>
@@ -156,7 +186,9 @@ public sealed class HeroLamps(IDescentModeState mode, Heroes heroes, TF2DescentR
             sb.Append(CultureInfo.InvariantCulture,
                 $"[TF2Descent/Lamp]   player {hero.PlayerIndex}: switch {(SwitchOf(hero.PlayerIndex) ? "on" : "off")}{(_switch.ContainsKey(hero.PlayerIndex) ? " (his)" : " (depth's)")}, " +
                 $"{(world.IsAlive(hero.Player) ? "alive" : "dead")}{(hero.Downed ? ", downed" : "")}, wire {(s is null ? "none" : s.LampOn ? "lit" : "dark")}" +
-                $"{(s is { LampOn: true } ? $" pitch {LampRules.PitchOf(Lamp, s.LampPitch):0.#}" : "")}\n");
+                $"{(s is { LampOn: true } ? $" pitch {LampRules.PitchOf(Lamp, s.LampPitch):0.#}" : "")}" +
+                $"{(s is null ? "" : $" radius {s.LampRadius} brightness {s.LampBrightness} %")}" +
+                $"{(hero.Stats is { } st ? $"; {Describe(st, Lamp)}" : "")}\n");
         }
 
         return sb.ToString();

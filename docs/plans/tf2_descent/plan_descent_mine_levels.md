@@ -54,6 +54,7 @@ nothing more.
 | M27 | (2026-11-10, the coordinator's brief p3c for the user) Act I's third review: the 2x2 halls become set pieces (a loading dock, a plinth yard, a gallery over the doors) dressed by their theme (track through level 2's yard, a timber headframe at 3, machines and an overhead crane at 2 and 4); tall rooms hang lamps on long cords; one door frame per theme (level 1 the farm frame, 2 a steel channel with planks across its thresholds, 3 a timber set, 4 a heavy steel frame with the stripe on its head); the boss arenas move to the 1024 kit as 2x2, 3x3 and 4x4 rooms that open only where their row joins them, and the oversized kits go. |
 | M28 | (user, 2026-11-10, relayed by the coordinator during brief p4) "dont need to keep floor totally clear for rocket jumping": in any room with jump spots the dresser may put ordinary clutter on the floor (crates, carts, machines, heaps, not only low pieces). Kept clear only what a jump physically needs: the take-off patch under or beside each ledge (about 128 across, `RoomDresser.TakeOff`), each ledge's landing floor and the air between them, and the giant's lane door to door. A jump room's brushes still keep §4.1's clear air, measured by `RoomLint.CheckJumpClearAir`. Applies to Acts I and II. |
 | M26 | (2026-11-10, same brief) Act I's second review: level 1's way in is the Collar's concrete with the town's rock as one band; level 1 hangs boards, a clock and signs on its walls; level 2's track is one line through the tunnels and yards, meeting at the cell faces, with curves and buffer stops, and concrete stairs and square piers; level 3 is broken by a grey seam, paler timber, a darker floor and a cool fill; level 4 keeps one hazard stripe at door heads and deck edges, under paler sodium. |
+| M29 | (user, 2026-11-13, relayed by the coordinator in brief p6) "build the miner lamp (which can have brightness increase and range increase from skills and itmes) then remeasure". The levels are not relit until the real lamp (HE10) is measured in game; its brightness and range upgrades are the game-logic session's. Measured in section 1.3d (brief p6). |
 
 ### 1.3 Measured in Phase 0 (2026-11-10)
 
@@ -315,6 +316,109 @@ them non-solid ("SOLID_VPHYSICS static prop with no vphysics model!", 51 at
 level 6, 5 at 7, 39 at 9). They are non-solid in the themes now, and the
 palette fact refuses a solid model without collision; the libraries built
 before it still carry the old flag until rebuilt.
+
+**With the miner's lamp (brief p6, 2026-11-13, M29).** Levels 1-4 and 6-9
+(seed 1) were rebuilt (libraries and levels) and shot again in a tf2_descent
+listen server (debug, `abb6628f3`, unhosted: the player is a hero, red
+soldier) from the same 14 cameras, each twice: the hero's lamp off and on
+(`tf2_descent_lamp 1 off|on`, the server's own switch; `tf2_descent_lamps`
+reports the wire lit before every lit pass). Every horde robot is killed
+first (their fire set the hero alight and killed him five times in the first
+pass, and a dead hero's lamp is dark). Shots: `.scratch/p6-shots/` (504, index
+`index.tsv`). The measure is p5's (mean Rec.709 luma over the 4:3 centre),
+plus the share of pixels under luma 0.02 (black crush) and the mean of the
+frame's lower half (the floor). Levels 4 and 6-9 were shot again with the
+lamp at radius x1.5 and x2 (1080, 1440) and brightness x1.5 and x2 (below).
+Two fixes the game-logic session asked for came first: `make descent-install`
+copies the level into `pool/maps` (its links failed the setup check every
+build runs, and `make setup` deleted them), and `tools/descent-face-sides`
+writes the rewritten map's checksum into the `.map2d` (every level had shipped
+a stale one; `LevelReader` does not check it today).
+
+| Level | 1 | 2 | 3 | 4 | 6 | 7 | 8 | 9 |
+|---|---|---|---|---|---|---|---|---|
+| p5, no lamp (same measure, p5's shots) | 0.359 | 0.251 | 0.206 | 0.131 | 0.119 | 0.099 | 0.091 | 0.062 |
+| Lamp off | 0.357 | 0.251 | 0.205 | 0.131 | 0.111 | 0.098 | 0.089 | 0.062 |
+| Lamp on | 0.495 | 0.366 | 0.297 | 0.204 | 0.213 | 0.201 | 0.191 | 0.242 |
+| Radius x1.5 | | | | 0.261 | 0.272 | 0.257 | 0.231 | 0.330 |
+| Radius x2 | | | | 0.309 | 0.322 | 0.305 | 0.264 | 0.396 |
+| Brightness x1.5 | | | | 0.226 | 0.237 | 0.223 | 0.206 | 0.279 |
+| Brightness x2 | | | | 0.245 | 0.256 | 0.240 | 0.218 | 0.307 |
+| Lamp off, level 1 = 100 | 100 | 70 | 57 | 37 | 31 | 27 | 25 | 17 |
+| Lamp on, level 1 lamp off = 100 | 138 | 102 | 83 | 57 | 60 | 56 | 53 | 68 |
+| Radius x1.5 / x2 | | | | 73 / 86 | 76 / 90 | 72 / 85 | 65 / 74 | 92 / 111 |
+| Brightness x1.5 / x2 | | | | 63 / 69 | 66 / 72 | 62 / 67 | 58 / 61 | 78 / 86 |
+| Black crush, off / on (% of pixels) | 0.1 / 0.1 | 0.2 / 0.1 | 0.2 / 0.1 | 0.8 / 0.3 | 2.7 / 0.4 | 7.5 / 0.3 | 2.1 / 1.0 | 12.0 / 1.9 |
+| Floor luma, off / on | 0.363 / 0.606 | 0.272 / 0.451 | 0.162 / 0.330 | 0.107 / 0.224 | 0.076 / 0.233 | 0.047 / 0.187 | 0.066 / 0.237 | 0.045 / 0.289 |
+
+The scaled runs' black crush stays within 0.4 points of the base lamp's; their floor luma, x1.5 / x2 radius, then x1.5 / x2 brightness: level
+4 0.308 / 0.369, 0.261 / 0.291; 6 0.321 / 0.387, 0.271 / 0.303; 7 0.255 /
+0.307, 0.217 / 0.241; 8 0.283 / 0.314, 0.259 / 0.275; 9 0.409 / 0.495, 0.343 /
+0.385.
+
+Lamp off matches p5 to 2 % on every level but 6 (0.111 against 0.119): there
+two cameras now see other rooms (cam6 and cam7; the rebuilt library dresses
+them differently), and the other twelve agree to about 3 %. The rebuilt libraries 6,
+7 and 9 load with no "SOLID_VPHYSICS static prop with no vphysics model" line
+(51, 5 and 39 in p5).
+
+- **The lamp equalises Act II.** Lit, levels 4 and 6-9 all land at 53 to 68,
+  and level 9 (narrow crypts, walls close) is the brightest of them: near the
+  hero the lamp, not the level, sets the brightness. The level's own light
+  decides only what is seen beyond about 500 units, and the colour.
+- **Which level needs it.** 1-4 read without it. 6 is dim but readable
+  (crush 2.7 %). 7 is the first that needs it: its caverns' floor is 0.047
+  and 7.5 % of the frame is black. 8 is borderline (floor 0.066). 9 is
+  unplayable without it (12 % black) and comfortable with it.
+- **It washes out the level's colour near the hero.** Level 7's blue rock
+  turns warm grey within the lamp (and the far walls too at radius x2), level
+  8's green survives only beyond the lamp and round its lanterns, level 9's
+  candle brown becomes neutral grey cobble at the hero's feet. Walls within
+  about 150 units clip to near white (sand or beige) at every depth; the door
+  arches, already pale (`_minlight 0.35`), go white.
+- **What it looks like.** No cone: the world's lightmaps ignore a dlight's
+  cone angles (stock engine, `gl_lightmap.cpp` `AddSingleDynamicLight` only
+  skips a surface facing the light's own direction; the angles reach models
+  only, `lightcache.cpp`), so on walls and floor the lamp is a hemisphere in
+  front of the hero, a broad pool with no edge that fades with distance. The
+  ceiling is unlit whenever the view pitches down (it faces along the light).
+  Props and barrels take the cone. Water (7, 8) takes no lamp light: the
+  surface stays dark, and level 8's lit floor reads as brown mud.
+- **Range matters more than brightness.** The world dlight's light at
+  distance d is the colour times 2^exponent times ((radius / d)^2 - 1) / 256
+  (the same file; maps of version 20), so a larger radius brightens every lit
+  point as well as reaching further: x1.5 radius gives at least 2.25 times the
+  light everywhere, more than x2 brightness, and the shots agree (radius x1.5
+  beats brightness x2 on every level). Brightness x2 buys only 14 to 27 % more
+  luma because the near walls already clip; to the eye it brightens what was
+  lit and leaves the far half of the room dark. Range x2 lights the far floor
+  and the far walls of mid-sized rooms (and greys them). How brightness was
+  scaled: the colour bytes are clamped to 255 (`shell_standalone_client.cpp`,
+  `DynamicLightUpdate`) and 255/226/178 is at the cap, so x2 is exponent 4 and
+  x1.5 is exponent 4 with the colour at three quarters (191/170/134).
+  `DynamicLight` has no intensity of its own, only colour and exponent. No
+  radius cap in this path; the falloff scale is capped at 2, which binds only
+  within about 32 units.
+- **Frame rate**, lamp off / on, medians of 10 alternations of 4 s, fps_max 0,
+  debug, `abb6628f3`: level 4's hall 283 / 262 (load 21 to 33), level 7's
+  grotto 369 / 332 (load 20). Under a box load of 50 to 135 the cost looked
+  larger and noisier (229 / 193 and 331 / 138 at the same spots).
+- **A party's lamps** were not shown: a bot is never a hero
+  (`HeroComponents`), so another hero's lamp needs a second client.
+
+**The brightness table, given the lamp** (a recommendation, not applied): in
+game, the level's own light (lamp off), level 1 = 100: 2 70, 3 55, 4 40, 6
+32, 7 27, 8 24, 9 20, 11 16, 12 13, 13 11 (lava glow on top), 14 9. Act I
+stays near what it measures, since the lamp is on from depth 1 and lifts 4 to
+57. Act II stays near what it measures too: near the hero it reads right
+with the lamp, and the dark beyond the lamp is the mood. Level 9 rises from
+17 to 20 because 12 % of its frame is black beyond the lamp. Act III may fall
+to about half of 9 because the lamp guarantees the floor near the hero (lit
+floor luma 0.18 or more on every level measured); 11 to 14 are not built, so
+those four are extrapolated. The lamp is the bigger lever: at base it already
+washes the levels' colour near the hero, so a dimmer base lamp with its
+upgrades spent on range keeps more of each level's look than more brightness
+would.
 
 ### 1.2 Defaults I chose (overrule by editing this table)
 

@@ -181,6 +181,20 @@ public static class LampRules
         return 1 + d * ((lit ? s.Sight.LampOn : s.Sight.LampOff) - 1);
     }
 
+    /// <summary>The widest radius the wire carries (13 bits); validation keeps every lamp within 4,096.</summary>
+    public const int WireRadiusMost = 8191;
+
+    /// <summary>The highest brightness the wire carries, in percent (9 bits).</summary>
+    public const int WireBrightnessMost = 511;
+
+    /// <summary>A lamp's radius as the wire carries it: whole units, at least 1 (0 is "not written").</summary>
+    public static ushort WireRadius(double radius) =>
+        double.IsNaN(radius) ? (ushort)1 : (ushort)Math.Clamp(Math.Round(radius, MidpointRounding.AwayFromZero), 1, WireRadiusMost);
+
+    /// <summary>A lamp's brightness multiplier as the wire carries it: whole percent, at least 1 (0 is "not written").</summary>
+    public static ushort WireBrightness(double brightness) =>
+        double.IsNaN(brightness) ? (ushort)100 : (ushort)Math.Clamp(Math.Round(brightness * 100, MidpointRounding.AwayFromZero), 1, WireBrightnessMost);
+
     /// <summary>The most steps the wire carries: what its field's width must hold.</summary>
     public static int MaxSteps(LampSettings s) => (int)Math.Round(-2 * PitchFloor / s.PitchStep, MidpointRounding.AwayFromZero);
 }

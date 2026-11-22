@@ -41,6 +41,15 @@ public sealed class DescentDarkConVar : FloatConVar { }
 /// so the darkness is the depth's, from lamp.json's table (lit to depth 10: the lamp changes
 /// nothing there), or <see cref="DescentDarkConVar"/>'s when it is set. A player with no hero
 /// component carries no lamp: his lamp counts as out.
+///
+/// <para><b>The lamp's range and brightness do not enter the fold</b> (the lampstat lane's
+/// choice, 2026-11-13). The design's darkness is a multiplier on a robot's range (B.3) and its
+/// row 11 rules the light radius "skip the stat, keep the mood"; the user's ruling builds the stat
+/// for the hero's view. A lit lamp already gives him away in full (<see cref="LampSight.LampOn"/>
+/// 1: a robot sees him from its own whole range), so a brighter lamp cannot make him harder to see,
+/// and a longer one lets HIM see further, not the robots: the fold reads only whether the lamp is
+/// lit. A ceiling lamp is seen exactly as a bare one; a lamp out is seen as lamp.json's
+/// <see cref="LampSight.LampOff"/> whatever its stats.</para>
 /// </summary>
 [SideService(Side.Server, As = [typeof(IHeroVisibility)])]
 public sealed class HeroVisibility(HeroLamps lamps, Heroes heroes, ILampWorld world, TF2DescentRules rules, DescentDarkConVar dark) : IHeroVisibility
@@ -60,5 +69,6 @@ public sealed class HeroVisibility(HeroLamps lamps, Heroes heroes, ILampWorld wo
 
     public string Describe(EntityHandle hero) =>
         string.Create(CultureInfo.InvariantCulture,
-            $"scale {SightScale(hero):0.00}: darkness {Darkness:0.00} ({(Overridden ? "tf2_descent_dark" : $"depth {world.Depth}, lamp.json")}), lamp {(Lit(hero) ? $"lit (x{Lamp.Sight.LampOn:0.00} in the black)" : $"out (x{Lamp.Sight.LampOff:0.00} in the black)")}");
+            $"scale {SightScale(hero):0.00}: darkness {Darkness:0.00} ({(Overridden ? "tf2_descent_dark" : $"depth {world.Depth}, lamp.json")}), lamp {(Lit(hero) ? $"lit (x{Lamp.Sight.LampOn:0.00} in the black)" : $"out (x{Lamp.Sight.LampOff:0.00} in the black)")}" +
+            $"{(heroes.Of(hero.EntryIndex) is { } h ? $", its range {lamps.RadiusOf(h):0} and brightness x{lamps.BrightnessOf(h):0.##} not counted" : "")}");
 }

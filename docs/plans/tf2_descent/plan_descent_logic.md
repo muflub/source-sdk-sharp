@@ -3,16 +3,13 @@
 Measured at `ce143b36b` (main, 2026-11-10). Reviewed and committed that day
 ("commit it and start on CR").
 
-**Status, 2026-11-13.** On main at `6875df092`: 62 of the 66 packages, and
-every hero, horde, world and UI package. CR1, CR3 to CR6, CR8 to CR10; every
-rules package but RU14 (its retune and model are held on `descent-ru-d` for
-a ruling); HE0 to HE10 with the class gate; HO0 to HO13; WO1 to WO9; UI1 to
-UI7. Ruled and not built: CR2. Started 2026-11-13 on the user's rulings
-(L14 to L16), from `1e8404f81`: RU14 with boss balance, CR7, CR11, and a
-lane for four known defects; a whole run follows. Section 4.7 says what each landed package gave and
-found. Each part of section 5's milestones has been seen live in an unhosted
-game, one package's proof at a time; no whole run has been played through in
-one sitting, and nothing has been run hosted.
+**Status, 2026-11-14.** On main at `fe9337f46`: 65 of the 66 packages (CR2 is
+ruled and not built). The wave of 2026-11-13 (rulings L14 to L17) landed
+CR7, CR11, RU14 with the bosses rebalanced, four defect fixes and the lamp's
+two stats; a lane is playing one whole run end to end. Section 4.7 says what
+each landed package gave and found. Nothing has been run hosted. The host
+and map sessions have the asks of section 7 (sent 2026-11-13; their answers
+are recorded there).
 
 The design is `plan_tf2_rpg.md` (rulings R1 to R29, defaults D1 to D25,
 appendices A to D). This file does not restate it. It says what to build in
@@ -47,6 +44,7 @@ their row, so the two plans do not both assign them.
 | L14 | **(2026-11-13)** The economy retune and model land as a starting point: a gate that still fails stays a skipped fact with its numbers, and boss balance is done with it. | RU14 (branch `descent-ru14`, carrying `c5e116065` and `f7de49543` from `descent-ru-d`). |
 | L15 | **(2026-11-13)** CR7 (lag compensation for opted-in entities) and CR11 (pose parameters on the server) start. | Core packages; lanes `descent-cr7`, `descent-cr11`. |
 | L16 | **(2026-11-13)** The known defects are fixed first, then one whole run is played end to end; the asks of section 7 are sent to the host and map sessions. | Lane `descent-defects`; the run after it lands. The asks went that day to `source-sdk-map-tools-af`, `source-sdk-sharp-26` and `source-sdk-sharp-46` (which session makes the levels was not known). |
+| L17 | **(2026-11-13, said to the mine-levels session and relayed by it)** "build the miner lamp (which can have brightness increase and range increase from skills and itmes) then remeasure". | Lamp range and lamp brightness are hero stats (lane `descent-lampstat`). Replaces Appendix D.2 row 11 ("skip the stat") for the hero's own view; robots' sight still reads only whether the lamp is lit. |
 
 ### 0.2 What the tree has that `plan_tf2_rpg.md` did not know
 
@@ -321,9 +319,10 @@ not: the body sets its bounds to the scaled hull itself
 Animation is the client's. The entity block networks origin, angles, model,
 skin and bounds, and no sequence, cycle, scale or pose parameter: the body's
 own net state carries scale, sequence, a restart serial and the pose
-parameters (36 bytes in the spike), and the client plays them. The server
-cannot pose a skeleton today (CR11), so until it can a hit is tested against
-the unposed hitboxes.
+parameters (36 bytes in the spike), and the client plays them. Since CR11
+(`e34bd6bb2`, 2026-11-14) the server holds the same pose parameters on the
+body's skeleton, so a hit is tested against the posed hitboxes; the overlay
+gestures (an attack's layer) are still the client's alone.
 
 ### 3.8 Fighting
 
@@ -914,6 +913,81 @@ Seams by name, for the packages that build on them; then what did not hold.
   first time it is asked. The composition fact that guards the session and
   the downed state against a constructor cycle stops at a chain.
 
+**Landed 2026-11-13 and 14 (`8ca876d53` to `9a51b5088`, then `fe9337f46`).**
+
+- CR7 (`9da21f59a`, `8ca876d53`): a `ScriptedEntity` opts into the lag
+  compensation (`LagCompensated`, `LagCompensationMaxSpeed`,
+  `RestartLagHistory`; `ILagCompensatedEntities`), is recorded and rewound as
+  a player is, and `ILagCompensationTargets` is asked with
+  `LagCompensationTarget.OptedIn`. A robot body opts in while lent and alive
+  and starts a fresh history at each lend and park. Recording 49 entities
+  costs 9 to 17 us a tick over the fake world (release, a scratch bench) and
+  allocates nothing. Live: a robot crossing the hero's view was rewound 46
+  units for the probe and put back. Not shown live: a fair hit count with and
+  without it (a lagged client's shot could not be timed). Left for the
+  performance pass: `Collect` walks every live managed entity a frame.
+- CR11 (`e34bd6bb2` and the Descent commits after it): the pose-parameter
+  calls answer on the server with stock's rules, the bone cache's key holds a
+  pose generation (a rewind that changed only the poses was traced against
+  stale bones before), poses ride a hot reload, and a robot body sets its four
+  dials on the server as it writes them to its net state. Live: a body leaned
+  45 degrees moves its head hitbox to where the client draws it (the old
+  place hits the wall, the new one the body). One posed setup is about 67 us
+  (release, managed-only bench). **Not measured:** the horde's release tick
+  with posed bodies (the disk was full). Found: a built sentry's turret does
+  not follow its aim, because `TFBaseObject` never plays `ACT_OBJ_RUNNING`
+  (the TF2 port session has it) and the core's model change does not reset
+  the sequence to 0 as stock's `SetModel` does (no owner; asked of the user).
+- The four defects (`c94691f02` to `b615d6fa5`). A robot idle at its post
+  turns to its post's yaw. A corpse whose level is gone goes to a Lost and
+  Found (the design's R5 / D6: reclaim in town for 25 % of sell value;
+  `IItemLedger.CorpsesLost`, `tf2_descent_town_reclaim`; the host has the
+  same in SDK 2.6.0, not yet called). Giants: `IHullReach` keeps a robot over
+  scale 1 off a floor its hull cannot reach, and one hunting off its floor
+  holds at the nearest place (`PathAnswer.Nearest`); the cut on depth 1 is
+  the wide drift rooms' solid floor rails and posts, which the mine-levels
+  session is making passable. Stalls: a body sat on a ledge lower than a step
+  (the accept sweep now tries across and down), and a hero last seen in the
+  air was never searched for (arrival is measured on the floor plane); a
+  robot that follows a path and does not move for 5 s is logged once as
+  `STALLED FOLLOWER`. **Found joining it and fixed:** the place a hit from
+  out of sight is looked for at was worked out again at every decide, so it
+  kept ahead of the robot (a pack hurt once walked 5,000 units; on main the
+  same fault stood robots still, 48 of 58 path searches unreachable), and a
+  goal off the floor was never searched. Open: a third kind of stall at floor
+  height in the wide drift rooms; a far robot walked home keeps its walking
+  yaw until it has a body; boss adds are not asked the reach; a reclaim the
+  hero cannot pay for says nothing in the console.
+- RU14 (`7c20dd57b` to `9a51b5088`): the held retune and the economy model
+  carried onto today's content, the bosses in the model as `bosses.json`
+  scripts them, and three families of gates. Passing: threat per XP 1.176
+  (band 1.25), a solo hero clears every depth and boss, the Sergeant beats a
+  fourth Artillery (un-skipped), crates dearer than play, no boss hit over
+  half a hero's life (the largest is a tenth), every build wins each boss
+  alone, a party of four is not trivial. **Skipped with their numbers, not
+  loosened:** the first three builds within 25 % (1.458), a Stock weapon
+  costing the Gunman most, and the depth-10 solo fight's length (M14's 10 to
+  20 minutes is longer than a solo hero survives). Numbers changed beyond the
+  carried retune: Sir Nukesalot life 1600 and damage 24, Major Crits 8000 and
+  12, Captain Punch 12600 and 60, the Tank slower with longer stops, and **a
+  level gives 18 life, not 2, for all nine classes** (solo deaths a run fell
+  from 28-81 to 8-27). One live boss fight said nothing about the boss: the
+  hero died in seconds to the arena's pack and his own rockets. The model
+  fights the pack and then the boss; in the game they stand together.
+- The lamp's stats (L17, `fe9337f46`): `lamp_radius_pct` and
+  `lamp_brightness_pct` over `lamp.json`'s light, each with a floor and a
+  ceiling there (range 360 to 1,080 units round 720; brightness x0.5 to x2);
+  two affixes on hats and trinkets (Radiant, of Light) and a five-rank skill,
+  Lamplighter, on the Mercenary tab (52 ranks now). Every number is
+  provisional. On every client by the hero's own state. Brightness scales
+  the world's light only (a second dlight keeps models at the base, so the
+  view model is not whitened further); range is the radius for both. The
+  mine-levels session measured that range is the lever and brightness is
+  nearly spent at the base, and will recommend a dimmer base lamp to the
+  user.
+- The box: the disk filled on 2026-11-13 (349 GB of lane worktrees). 44
+  spent lane worktrees were retired (each tip tagged `archive/<branch>`).
+
 **For every lane.** A wall-clock bound in a fact fails on a loaded box: the
 horde's stall fact failed three landings at 255 to 440 ms against 250 and
 now holds the decide at a gate instead. Two lanes that each register a
@@ -988,7 +1062,7 @@ Nothing here is done by a lane of this plan.
 |---|---|---|
 | X1 | host | `KillRoll(instanceSeed, killSeq, robotTemplate, depth, partySize)` has no player and no magic-find input. R4 rolls items once per eligible player, and *Scavenger* raises drop chance. Until answered, RU4 rolls once per (kill, player) by advancing `killSeq` per roll, and *Scavenger* affects Australium found only through the split. |
 | X2 | host | `RoomInfo` carries no door sockets (already noted in the mine plan). |
-| X3 | host | Field repair fits `Craft("field_repair", ...)` as the contract stands; confirm the host has no fixed recipe list that would refuse it. |
+| X3 | host | Field repair. **Answered 2026-11-13:** the host keeps no recipe list, so `Craft("field_repair", ...)` would pass, but a craft terminates its inputs and mints a new item (a new id). A field repair must change the same item, so it needs a repair kind on `IGameRules.Repair` (in place, `Items.Mutate`) with the kit as a terminated input. Not a recipe. |
 | X4 | host | RU13 made an empty `CheckpointEvidence` earn nothing, so the host's admin edit of a character (which passes none) can no longer raise XP or level. Either the admin path passes evidence, or the contract tells a checkpoint from an edit. The evidence is at most 16 KiB. |
 | X5 | host | No `IGameRules` member reports the rules' content hash; the host can log it only by reaching into the concrete type. |
 | Y1 | map session | What a linked level ships that the server can read at load: rooms and their bounds, door links, marker positions. Whether the server should rebuild the layout from Rules (`GenerateLayout` needs the library's room list) or read a sidecar. WO1 waits on this. |
@@ -1028,16 +1102,24 @@ Nothing here is done by a lane of this plan.
    clone) as the reference for what each does.
 7. Appendix D's undecided rows: quests and story (2), elixirs (7), named
    uniques (10).
-8. **Waiting on the user** (2026-11-11): the economy retune and model on
-   `descent-ru-d` (two of its gates still fail); whether plain TF2 always
-   sends attribute lists; giants for the classes with no giant model
-   (Engineer, Medic, Sniper, Spy): scale the ordinary model or drop them;
-   whether C, I and K may take three of TF2's binds; Australium split at
-   the drop instead of on collection; whether one robot's blast should hurt
-   another robot (it does not, since `a04ae8d77`'s stack); what an unarmed
-   hero fights with after a death (the polish lane proposes the class's
-   stock melee as a fallback that is no item); M for the automap takes a
-   fourth TF2 bind; whether CR7 and CR11 (core packages) should start.
+8. **Waiting on the user** (2026-11-14). Ruled 2026-11-13 and gone from
+   this list: the retune (L14), CR7 and CR11 (L15). Still open from before:
+   whether plain TF2 always sends attribute lists; giants for the classes
+   with no giant model (Engineer, Medic, Sniper, Spy): scale the ordinary
+   model or drop them; Descent's keys taking six of TF2's binds (C, I, K, M,
+   L, P); Australium split at the drop instead of on collection; whether one
+   robot's blast should hurt another robot (it does not); the class's stock
+   melee as an unarmed hero's fallback; the 60 s respawn-blind ceiling. New
+   from this wave: the core's model change resetting the sequence to 0 as
+   stock does (it reaches every entity; no session owns that code); a level
+   giving 18 life for all nine classes; the boss fight bands (depth 5 one to
+   four minutes, depth 15 two to eight) and what to do about depth 10's (M14
+   asks ten to twenty minutes, which a solo hero does not survive); the two
+   skipped build gates; whether the first reclaim from the Lost and Found
+   is free (a hero with no Australium cannot pay the fee on a starting kit);
+   Lamplighter as a new skill (52 Mercenary ranks) and robots' sight
+   ignoring the lamp's stats; the base lamp's strength (the mine-levels
+   session recommends a dimmer base with the range bought back).
 9. **Robot traces pass robots** (the team rule above) for every trace a body
    makes, attacks included: a robot's rocket or bullet will not stop on
    another robot, as a teammate's does not in TF2. L12 (a robot is hurt by
