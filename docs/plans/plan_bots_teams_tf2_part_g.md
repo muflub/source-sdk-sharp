@@ -771,6 +771,21 @@ Everything below is on local main; nothing is pushed.
 | Gr, a file per sealed space and a smaller room (offline) | `3ae8d86c7` (9 commits) | a hull navigation cut into a file per room and a room index; a derived graph with a teleport's cells left out and flat floor merged in blocks; tools `ai-replay navsplit` and `navcells`. Nothing in the game calls it |
 | G9, a jump to a health pack | `7b3cc109c` (15 commits) | a planned jump may leave the bot under the floor of 90 when a pack or a cabinet it may use is within 384 u on foot of the landing, it lands with 50 or more, and the place pays the rest; the bot takes the pack next; `ai_tf_feel_jumphealth`; `ss_ai_tf_pack`, the gate's sixth jump map. Pogo measured and left out |
 | Gc, both on a control-point map | `9e7e450ef` (20 commits) | with a teammate on a level of control points and no flag, a bot holds the points or the team for a stretch; the team stance gathers at a rally called where the team is and pushes the point together (the rally and push of the main plan's C.6.1); `/ai/points`; `cp_granary` joins `TF_NAV_MAPS` |
+| G9b, a jump to a health pack is sought | `adeaf141a` (11 commits) | the level's set proposes links that land by a pack or cabinet, and a route weighs a link whose landing pays for it by its seconds; ctf_2fort gives the rule nowhere (its nearest landing is 784 u from a pack), cp_granary has 9 of its 46 links by a pack (`tools/ai-replay jumps --heals`) |
+| navbuild, a TF2 map's navigation on load | `376013ae0` (2 commits) | TF2 registers a build policy (`TFNavBuilds`), so a map with no `.nav3d` has one built in the server, byte-identical to the offline build (cp_granary, cp_badlands); a build past `ai_nav_build_max_mb` (6,144) of managed heap is stopped and refused (jump_academy2: 1,647 of 16,384 cells at 6.2 GiB) |
+| Gfight, moving while shooting | `19c5b15ca` (6 commits) | the fight's strafe, crouch and cover are the core's (HL2MP's replays unchanged); a fighting Soldier sidesteps on most stretches, reverses like a person, hops and crouches at times, reloads in cover; moving on 66.0 % of firing ticks (47.5 % before; the user's HL2MP sessions 65.6 %); `ai_tf_feel_fight`; `tools/ai-replay fight` |
+| Gobj, the way to the objective | `c07364b03` (9 commits) | a moved spawn door keeps its doorway a way through (`NavObstacleField`; bots had rerouted round the room); a rally is called at the team's front and only within 2,000 u of the point; teammates stand at least 200 u apart; median ratio of nearing to walking 0.93-0.97 (0.72-0.81 before); time to the first capture not shortened (both teams now contest mid) |
+
+**Landed with them (2026-11-16, main `d3274954c`, one gate for 68 commits).** The user's play reports of
+2026-11-15, each its own lane: the control point's view bob (client prediction of the capture area,
+`3fbedca7f`), the kick for too many commands (Options' Apply forwarded unknown settings, `e37f9cfb2`), the
+enemy's respawn-room visualizer drawn as a red sprite (`09207eee3`; the panel the user saw is the map's own wired
+glass, as stock), the Create Server combo box (`3047faf24`), the loading screen on `+map` (`178730d0f`), the
+spectator modes and TF2's freeze cam (`054dcf7a0`), and two flaky AI facts (`d3274954c`). Open from them: bots
+strafing into walls (a move is sent on 83 % of firing ticks, the body moves on 66 %); one route per team (a
+per-life cost field through `TFNavProfile.HazardFor` proposed); a bot looping at a spawn door on "heard
+something"; the respawn wave's 6.4 s not following `spec_freeze_time`; a store busy at open refuses for the
+session (asked the user).
 
 **The physics changed under the jump (F231, the TF2 port's lane).** A TF2
 player now carries TF2's hull (48 × 48 × 82, 62 ducked), not HL2's box, so a

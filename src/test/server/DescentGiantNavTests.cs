@@ -21,9 +21,10 @@ public sealed class DescentGiantNavTests(DescentLibraries libs) : IClassFixture<
 
     /// <summary>
     /// The families whose way between doors climbs stairs: a pool's walkways stand 64 over its
-    /// floor, up a flight from each door. The navigation raises a wider hull one step only
-    /// (docs/todo.md, "a hull wider than the game's cannot climb stairs"), so no room of stairs
-    /// passes this walk until the navigation stands a hull on the highest step under it.
+    /// floor, up a flight from each door. This walk never raises its box, so no room of stairs
+    /// passes it. The game's navigation stands a hull on the highest step under its box, and over
+    /// it every class reaches every room of depth 8 and 9 seed 1, pools included
+    /// (HordeNavDataTests in the Descent tests).
     /// </summary>
     private static readonly string[] Climbs = ["pool"];
 

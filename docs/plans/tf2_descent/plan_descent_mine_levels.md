@@ -1,6 +1,6 @@
 # plan_descent_mine_levels.md: the fifteen levels of the Descent mine shaft
 
-Status: reviewed and committed 2026-11-10. Phases 0 to 2 done; Phase 3 (Act I) built and reviewed from its preview sheets on 2026-11-10 (section 1.3a, section 11's status table), a third review pass the same day (brief p3c: the great halls' interiors, a door frame per theme, the boss arenas on the 1024 kit), waiting on the user's checkpoint; Phase 4 (Act II, levels 6 to 9) built and reviewed from its sheets in three rounds and two more on levels 8 and 9 (brief p4, section 1.3c), with the three Act I leftovers of that brief.
+Status: reviewed and committed 2026-11-10. Brief p9 (2026-11-14): the brightness gate on the game's scale, Act II's second look pass, and the logic session's asks (section 1.3e). Phases 0 to 2 done; Phase 3 (Act I) built and reviewed from its preview sheets on 2026-11-10 (section 1.3a, section 11's status table), a third review pass the same day (brief p3c: the great halls' interiors, a door frame per theme, the boss arenas on the 1024 kit), waiting on the user's checkpoint; Phase 4 (Act II, levels 6 to 9) built and reviewed from its sheets in three rounds and two more on levels 8 and 9 (brief p4, section 1.3c), with the three Act I leftovers of that brief.
 
 This plan designs the fifteen dungeon levels of TF2 Descent as one mine shaft
 under the town: what each level looks and plays like, the room shapes they are
@@ -421,6 +421,307 @@ washes the levels' colour near the hero, so a dimmer base lamp with its
 upgrades spent on range keeps more of each level's look than more brightness
 would.
 
+### 1.3e Act II's second look pass and the logic session's asks (brief p9, 2026-11-14)
+
+Branch `descent-mine-plan` from `c7b689ffe`, map tools 3551fa8, debug, box load 50 to 150 throughout. Builds:
+`.scratch/p9-round.sh` (r0 the base, r1 to r4 the passes; previews, logs and level files kept in
+`.scratch/p9-rN/`); review log `.scratch/p9-REVIEW.md`; shots `.scratch/p9-shots/dNN/<run>/` (the 14
+preview cameras in game, lamp off, robots killed first; `lamp.json` is still radius 720 here, so no
+lamp-on pass at M30's base).
+
+**The brightness gate measures what a player sees** (`tools/descent-gate brightness`, Part A). Each
+level's figure is the mean over the preview's room views (the spawn view and every room camera) of
+each tile's mean Rec.709 luma after re-encoding its sRGB pixels to a pure 2.2 power (the game's LDR
+path multiplies texture and lightmap in gamma space; the preview applies the sRGB curve, whose
+linear toe draws the darks darker than the game), the label band and the orange scale figure left
+out; a depth's figure is the mean over its seeds, scaled by level 1's (`LEVEL1_VIEW` 0.3308, r0).
+Candidates against p6's in-game shots (the same cameras, seed 1, lamp off), level 1 = 100:
+
+| Level | 1 | 2 | 3 | 4 | 6 | 7 | 8 | 9 |
+|---|---|---|---|---|---|---|---|---|
+| Game (p6) | 100 | 70 | 57 | 37 | 31 | 27 | 25 | 17 |
+| Lightmap mean (the old gate) | 100 | 89 | 89 | 64 | 44 | 39 | 34 | 32 |
+| Lightmap median | 100 | 85 | 77 | 64 | 47 | 40 | 28 | 16 |
+| Floor lightmap mean (faces up) | 100 | 97 | 87 | 57 | 38 | 33 | 30 | 27 |
+| Albedo (texdata reflectivity) x lightmap at 2.2 | 100 | 62 | 65 | 44 | 36 | 37 | 27 | 30 |
+| Preview tile, sRGB luma (p5's) | 100 | 69 | 52 | 31 | 27 | 21 | 15 | 12 |
+| Preview tile at 2.2 | 100 | 72 | 56 | 37 | 34 | 28 | 21 | 19 |
+| **Preview tile at 2.2, figure out (chosen)** | 100 | 71 | 56 | 36 | 33 | 27 | 20 | 18 |
+
+No lightmap statistic can tell level 2 from 3 (the same light, darker materials); a fitted mapping
+from the lightmap mean cannot either. The chosen figure is within 2 of the game at every level but 8,
+where the preview draws the water as a dark sheet (5 under). The targets are the in-game table of
+M30: 100 / 70 / 55 / 40 / - / 32 / 27 / 24 / 20, and 16 / 13 / 11 / 9 for 11 to 14 (5, 10 and 15
+have none until their arenas are themed); tolerance 3 points: r0's seeds 1 to 3 read 102.4 98.2 99.4
+/ 74.4 72.8 77.7 / 57.0 57.0 56.6 / 37.2 40.7 38.5 / 34.0 33.7 32.8 / 27.4 26.2 27.2 / 20.4 22.9 19.0 /
+18.3 16.8 18.9, a pooled standard deviation of 1.6 a seed, 0.9 for the three seeds' mean the gate
+holds; 3 is three of those. The order still falls strictly (E6). `tools/descent-room-light` measures
+every room the same way (below).
+
+The final build (seeds 1 to 3; levels 1 to 4 at r3, 6 to 9 at r4 and r5, every level from the tip's
+code; `.scratch/p9-final/`, `.scratch/p9-gate-*.log`): brightness ok, reach ok, budget ok at all 24.
+
+| Level | 1 | 2 | 3 | 4 | 6 | 7 | 8 | 9 |
+|---|---|---|---|---|---|---|---|---|
+| Gate, r0 (the base, seeds 1-3) | 100 | 75.0 | 56.8 | 38.8 | 33.5 | 26.9 | 20.8 | 18.0 |
+| Gate, final | 100.5 | 69.1 | 57.4 | 39.8 | 32.3 | 27.4 | 24.7 | 22.1 |
+| Seeds, final | 98.3 102.9 100.5 | 70.7 69.6 66.9 | 59.6 58.4 54.1 | 38.8 41.2 39.3 | 34.0 31.0 31.9 | 28.5 26.5 27.1 | 25.7 24.9 23.5 | 22.5 21.5 22.3 |
+| Target (M30) | 100 | 70 | 55 | 40 | 32 | 27 | 24 | 20 |
+| Map entities, final | 146-164 | 180-190 | 243-251 | 257-278 | 300-372 | 309-320 | 439-504 | 455-573 |
+| Map entities, r0 | 107-136 | 175-190 | 244-246 | 266-277 | 299-374 | 765-816 | 423-498 | 402-505 |
+
+Level 1's rise is the lit slab in each joined doorway (one entity each); level 9's the candles' lights.
+
+**The look** (Part B; before and after shots in `.scratch/p9-shots/`):
+
+- **Door frames take their room's light.** `BrushFrame.MinLight` per theme (Act I 0.35, level 2 and 4
+  0.3, 6 0.25, 7 0.11, 8 0.12, 9 0.06): a frame's lightmap over its level's wall median, seed 1, was
+  1.72 / 1.79 / 2.11 / 2.71 / 3.93 / 8.14 at levels 2, 4, 6, 7, 8, 9 (`.scratch/p9-frames.py`);
+  final (seed 1): 1.57 at 2, 1.51 at 4, 1.99 at 6, 1.74 at 7, 1.54 at 8, 1.63 at 9 (over the same material in
+  the world: 1.82, 1.66, 1.44, 1.39, 2.11, 1.22). Level 6's walls fell with its dimmer lamps after its
+  floor was set; it stays the highest.
+- **The doorway's black strip.** A slab over the let-down floor under the plug, a unit proud of the
+  sill: part of a brush frame (`BrushFrame.SillSlab`, the post's surface), and for the farm frame
+  model of level 1 a non-solid `func_brush` of its own with Act I's frame light (one entity per joined
+  socket: level 1 links 146 to 164 map entities, was 107 to 136). The farm frame's head still draws dark
+  in game (the model is lit from inside the plug): H9.
+- **Water that reads as water** (levels 7 and 8). Tried in game on patched copies of the installed
+  maps: a reflecting water (`_rt_WaterReflection`, entities not reflected) with a short green fog over a
+  wet rock bed reads as murky water with the gallery mirrored in it and the bed showing near; refraction
+  alone over gravel reads as a flat green floor; TF2's water_murky over the mud read as a mud floor.
+  Level 8's water is `descent/sunken_water` (made from water_murky: fog 30 44 30 to 64, reflection
+  tinted .6 .7 .6) over a floor of `descent/sunken_bed` (TF2's rockfloor003a without its `$envmap`);
+  level 7's `descent/dripstone_water` (water_well's blue, fog to 80, reflecting). A bed brush under
+  the water was tried and dropped (a giant's flat walk reads any solid above the floor as a wall).
+- **Fog that fades far rooms** rather than blanking them: the grey panels in level 6's doorways were
+  the next room washed to the fog's grey (58 60 66). Each Act II fog is now near its level's darks and
+  starts later, still closing in from level 4's: 6 `22 23 27` 640-2400 0.55, 7 `16 20 28` 576-2240 0.6,
+  8 `16 22 16` 512-2048 0.65, 9 `12 10 9` 448-1856 0.7 (tried in game: `fog_override`, shots
+  `fog-f1`, `fog-f2`, `fog-new`).
+- **Cave walls.** Rough rock beside each door of cavern c and over its frames to the roof, and over every
+  socket of a grotto, in the theme's larger wall in rooms of several cells (`CavernShape.RockAround`,
+  `RockOverDoor`). Cavern d keeps its walls: they are its rounded corners and its necks, and rock over
+  its necks took its one stalactite and cut a giant's way through it.
+- **Level 7's entities**: one row of caged bulbs every 448 (was every 288, a row every 640 up the tall
+  walls) and one cold fill a cell (was every 512): 309 to 320 map entities (764 to 816).
+- **Level 9's candles**: `RoutePools`, candle clusters on the floor by the walls in 3 to 5 pools along
+  each room's route and round the naves (light 70, 128 to 640), and the arches at 0.06.
+
+**The logic session's asks** (Part C; plan_descent_logic Y4, Y5 and the hazards):
+
+- **A light level per room** (Y5). `descent-level` renders every placed room's own corner camera
+  (`.roomcams`), and `tools/descent-room-light` writes, into the level's `.map2d`, a section `LITE` that
+  every reader of today skips (Map2dReader skips tags it does not know): uint32 version (1), uint32 count
+  (the `.map2d`'s room count), then per room in the ROOM section's order (a `LevelRoom.Id`) float32
+  light (level 1 = 100 on the gate's scale; NaN unmeasured) and uint32 flags (1: dark by design, no
+  light entity inside its cells; 2: measured). The game's `LevelReader` reads such a file unchanged
+  (checked on a level of r1). The reader change, for the logic lanes: `LevelRoom` gains `float? Light`
+  and `bool DarkByDesign`; `LevelReader` finds the `LITE` entry in the `.map2d`'s directory (after the
+  96-byte header, 12-byte entries: tag, offset, length), checks version 1 and count, and sets each
+  room's two. No room of levels 1 to 9 is dark by design (the `lit` lint lights every floor).
+  Final seed 1, rooms measured / light range / mean (the level's figure for comparison): level 1 18 /
+  71-142 / 95.3, 2 21 / 56-104 / 71.8, 3 27 / 29-96 / 56.8, 4 27 / 25-51 / 39.8, 6 27 / 20-52 / 31.0,
+  7 32 / 17-41 / 25.9, 8 37 / 13-41 / 22.7, 9 37 / 10-31 / 21.4; no room dark by design.
+- **Props in the nav** (Y4). Not true as asked: static props reach no room's nav, with the game's
+  content mounted or not. The room compile builds each room's nav from its world brushes and its
+  entity obstacles (`RoomLibraryCompiler` calls `RoomNavBuilder.Build` over `NavGeometry.FromBsp` with
+  the hulls of `NavModelBounds.PropModels`, which lists door and physics entities only); only
+  `LevelNavFromBsp` (`ssmap nav3d` on a whole map) takes the static prop lump. Measured on r1's linked
+  levels (`.scratch/p9-propnav`): level 1 seed 1 holds 256 solid static props, and the nav is open 32
+  above the origin of every oil drum (42 of 42) and mining crate (28 of 28), inside them; level 3 seed 1,
+  51 of 51 crates. Without the content (the mod's gameinfo in a folder whose content paths hold
+  nothing) the pack refuses all 70 of 70 rooms of depth 1 and of depth 3, so there is no build to
+  compare. Nothing is missing from the build line; the fix is the map tools' (H10).
+- **No pack in sight of the way in.** The arrival rooms held no pack; the rooms beside them did:
+  level 3 seed 1's nearest was 846 from the arrival, in the gallery one door away. The layout now puts
+  only quiet rooms beside the way in (twins of the first drift, bend, tee, cross and stub with no pack
+  spawn, the codec's flag `q`), nowhere else, and a boss level's row takes the quiet drift as a lobby
+  between its way in and its antechamber (whose packs were in the arrival's line of sight at all three
+  boss depths). Nearest pack to the arrival, horizontal distance, seeds 1, 2, 3 (`.scratch/p9-packs.py`,
+  before r0, after r1's levels):
+
+| Level | 1 | 2 | 3 | 4 | 6 | 7 | 8 | 9 |
+|---|---|---|---|---|---|---|---|---|
+| Before | 1008 801 961 | 737 785 1058 | 846 673 801 | 638 925 830 | 688 547 557 | 740 750 705 | 716 761 781 | 609 939 881 |
+| After | 1864 1225 1131 | 1142 1539 1404 | 1224 1216 840 | 873 1429 1523 | 1205 1219 460 | 1739 1152 955 | 1269 1137 1475 | 1268 1766 1482 |
+
+  Every one after is two doors away or more; level 6 seed 3's 460 stands in the next cell with a wall
+  between (no door), level 3 seed 3's 840 in a hall two doors away. Facts: `DescentArrivalTests` (no pack in
+  the way in or a room one door from it, every depth 1 to 15, 20 seeds), and the 200-seed sweep refuses a
+  quiet fallback.
+- **Hazard volumes** (M1 of the logic plan). `RoomBuilder.WithHazard(kind, mins, maxs)` writes a
+  `trigger_multiple` nothing fires (spawnflags 0), named `tf2_descent_hazard_<kind>`: a global name the
+  link keeps as written, which `HazardService` finds with `FindAllByName` and reads by its origin and
+  bounds (`EngineHazardWorld.MapVolumes`). A theme's `PoolHazard` puts one over each pool's basin; no
+  level 1 to 9 has one (the plan puts no lava or slime above the Sump); level 12's grey
+  (`RoomTheme.GreySump`) holds slime in its pools as the proof: its seed 1, linked as the host links it,
+  carries 6 `tf2_descent_hazard_slime` volumes (`trigger_multiple`, `*23` and on).
+
+**In game** (brief p9, Part D: the final seed-1 levels installed, debug at 96e0f6e0e, the 14 preview
+cameras, lamp off; mean Rec.709 luma over the 4:3 centre as p6; shots `.scratch/p9-shots/dNN/final/`,
+before `.../r0/` for 6 to 9 and p6's for 1 to 4; `.scratch/p9-shots/summary.tsv`):
+
+| Level | 1 | 2 | 3 | 4 | 6 | 7 | 8 | 9 |
+|---|---|---|---|---|---|---|---|---|
+| Before (p6 / r0), level 1 = 100 | 100 | 70 | 57 | 37 | 31 | 27 | 25 | 17 |
+| Final, luma | 0.348 | 0.244 | 0.219 | 0.126 | 0.097 | 0.100 | 0.120 | 0.079 |
+| Final, level 1 = 100 | 100 | 70 | 63 | 36 | 28 | 29 | 35 | 23 |
+| Black crush % before / final (6 to 9) | | | | | 2.8 / 5.9 | 7.5 / 7.2 | 2.0 / 1.9 | 11.9 / 5.4 |
+| Floor luma before / final (6 to 9) | | | | | 0.077 / 0.068 | 0.047 / 0.053 | 0.066 / 0.124 | 0.044 / 0.070 |
+
+The game and the gate part at level 8: the reflecting water draws the lit walls into the floor, which
+the preview draws as a dark sheet, so level 8 reads 35 in game for the gate's 25 (target 24). Level 6
+reads 28 for 32: its darker fog takes far rooms to black (crush 2.8 to 5.9 %). Level 3's cameras moved
+with its new layouts (the quiet rooms change every level's draw), so its 63 is not the same views as
+p6's 57. Level 9 rose from 17 to 23 with its candle pools, black crush halved. Not retuned here: the
+lamp-on reshoot at M30's base comes next, with `lamp.json` at 480.
+
+**The lamp at M30's base, in game (brief p10, 2026-11-15).** Branch `descent-mine-plan` at `91a97e9e1`,
+debug, `lamp.json` radius 480, exponent 3, colour 255 226 178. The levels are p9's final seed-1 builds
+(the installed `.map2d` files carry `LITE`, and each installed `.bsp` and `.map2d` is byte for byte its
+build in `bin/debug/descent-rooms`), so nothing was rebuilt. The 14 preview cameras, robots killed first,
+in five passes: lamp off; lit at `lamp_radius_pct` 0, 50 and 125 (radius 480, 720 and 1,080); and, on
+levels 7 and 9, radius 0 with `lamp_brightness_pct` 100 (`tf2_descent_contrib 1 <stat> <n>` after
+`tf2_descent_contrib_clear 1`; `tf2_descent_lamps` showed the hero alive and the wire at the radius and
+brightness wanted before each pass and twice during it). Shots `.scratch/p10-shots/dNN/<pass>/` (476,
+index `index.tsv`), measured as p6 (`.scratch/p10-measure.py`, `p10-table.py`). Lamp off is p9's
+in-game figure exactly (level 1 0.3477 both; 100 / 70 / 63 / 36 / 28 / 29 / 35 / 23), so the passes
+differ only in the lamp.
+
+| Level | 1 | 2 | 3 | 4 | 6 | 7 | 8 | 9 |
+|---|---|---|---|---|---|---|---|---|
+| Lamp off, level 1 = 100 | 100 | 70 | 63 | 36 | 28 | 29 | 35 | 23 |
+| Radius 480 (the base) | 122 | 90 | 81 | 49 | 45 | 40 | 58 | 49 |
+| Radius 720 (the old base) | 144 | 103 | 90 | 59 | 57 | 51 | 69 | 67 |
+| Radius 1,080 (the ceiling) | 173 | 121 | 104 | 76 | 75 | 66 | 83 | 92 |
+| Radius 480, brightness x2 | | | | | | 47 | | 61 |
+| Black crush %, off / 480 / 720 / 1,080 | 0.0 / 0.0 / 0.0 / 0.0 | 0.2 / 0.1 / 0.1 / 0.1 | 0.3 / 0.1 / 0.0 / 0.0 | 2.1 / 0.3 / 0.2 / 0.2 | 5.9 / 2.9 / 2.4 / 2.1 | 7.2 / 1.0 / 0.3 / 0.1 | 1.9 / 0.9 / 0.7 / 0.5 | 5.4 / 1.5 / 0.8 / 0.5 |
+| Floor luma, off / 480 / 720 / 1,080 | .344 / .474 / .594 / .752 | .254 / .372 / .434 / .519 | .179 / .293 / .348 / .419 | .100 / .170 / .226 / .307 | .068 / .162 / .223 / .305 | .053 / .115 / .164 / .234 | .123 / .256 / .307 / .362 | .070 / .212 / .300 / .418 |
+
+At brightness x2 (radius 480) black crush is 0.7 % on level 7 and 1.3 % on 9, floor luma 0.151 and
+0.278. The old base lands near p6's lamp-on figures for the levels as they stood then (4 59 for 57,
+9 67 for 68; 7 51 for 56, its lights cut in p9).
+
+- **Playable at the base, level by level.** 1 to 3 read without the lamp; it only warms them. 4 (49,
+  crush 0.3 %) and 9 (49, floor 0.212: the crypts' walls are within reach) are comfortable. 8 reads 58,
+  the brightest of Act II lit, because its lit mud floor and the reflecting water carry it; one camera
+  (cam6) has a wooden step filling half the frame, which goes near white when lit. 6 (45) lights the
+  floor near the hero, but 2.1 to 2.9 % of its frame stays black at every radius: that is the far rooms
+  in its fog (and cam13's drop), beyond any lamp. **Level 7 first wants an upgrade**: lit it reads 40,
+  the lowest, and its floor 0.115, the darkest lit floor of any level (half level 9's), because its
+  caverns and grotto are wider than 480 reaches; the walls of the grotto stay as dark with the lamp as
+  without (`d07/r0/cam1`). It is playable (crush 1.0 %), not comfortable.
+- **What the ceiling buys over the base, to the eye.** Act II goes from 40-58 to 66-92 (x1.4 to x1.9),
+  the floor near the hero doubles, and the far floor and the near walls of mid-sized rooms light; the
+  walls of the big caverns stay dark. Close walls and stairs clip to white (level 9's cam2 and cam10,
+  level 7's cam13), as at 720. Brightness x2 at 480 buys about two thirds of what radius 720 buys
+  (7: 47 against 51; 9: 61 against 67) and keeps a little more colour.
+- **The level's own colour.** Measured as the mean colour of the frame, and of its upper (far) and lower
+  (near) halves. Level 7 stays blue at the base: blue over red 1.18 (1.49 lamp off), the far half 1.31,
+  the floor near the hero neutral (1.02); at 1,080 the frame is neutral (0.96) and the near rock warm
+  grey (`d07/r125/cam3`); it crosses neutral at about +95 %. Level 8 keeps its green only far off: green
+  over red 1.03 at the base (1.21 off), the near half 1.02 (1.32 off), since the lit floor is grey-brown
+  mud; 0.98 at 1,080. Level 9 stays candle brown above the floor at the base (blue over red 0.36 in the
+  far half, 0.18 off), but its cobbles are grey at any radius (near half 0.67 at 480, 0.78 at 1,080).
+- **Frame rate**, level 7's grotto (cam1, 3200 5248), `fps_max 0`, medians of 4 s alternations, debug,
+  `91a97e9e1`, the box shared with two other games: off / 1,080 809 / 290 (10 pairs, load 92 falling to 27,
+  GPU 99 % at the end); again at load 70 to 80, 261 / 142 (8 pairs). Smaller radii, at load about 20: 480
+  678 / 442, 720 771 / 313 (6 pairs each). As frame time the lamp costs about 0.8 ms at 480, 1.9 ms at
+  720 and 2.2 to 3.2 ms at 1,080. One more 1,080 run (load spiking to 85, off 169) was thrown out.
+
+**Recommendations** (not applied):
+
+- **The base stays 480.** It lights the floor near the hero on every level (0.115 or more), cuts Act II's
+  black to 1 to 3 %, and keeps levels 7 and 9 their colours beyond about one room width.
+- **The ceiling comes down from +125 % (1,080) to +90 % (912)** if it is reachable in Act II. At 1,080
+  level 9 reads 92, brighter than level 2 lamp off (70) and level 3 lit at the base (81), level 7 loses
+  its blue (0.96, past neutral at about +95 %), and the lamp costs about three times its base in frame
+  time (2.2 against 0.8 ms in the grotto). If the top upgrades come only in Act III, where the levels are
+  darker (16 to 9) and sight darkness starts (`lamp.json` `sight`), 1,080 can stay; measure there first.
+- **Level 8's own light: in game 35 to 24** on the level 1 = 100 scale (agreeing with p9's read). Lit at
+  the base it reads 58, above 6 (45), 7 (40) and 9 (49). The excess is the reflecting water (the gate's
+  figure, which draws the water as a dark sheet, is already 24.7); so the lever is the water's reflection
+  (`descent/sunken_water`'s tint), and only failing that the lights, which by themselves would need the
+  gate's figure near 17.
+- **Level 6's own light: in game 28 to 32** (also p9's read). Its gate figure is 32.3 already; what is
+  missing is the far rooms going to black in its fog (crush 5.9 % off, still 2.1 % at 1,080), so the
+  lever is the fog (start later than 640, or the colour lifted from `22 23 27`), not the lamps.
+- **Level 4: in game 36 to 40** (gate 39.8); minor. Levels 7 (29 for 27) and 9 (23 for 20) are within
+  the gate's tolerance of 3 and stay; level 7 is not raised for the lamp's sake, since the lamp's upgrade
+  is its remedy.
+
+**Levels 4, 6 and 8 to their light targets (brief p11, 2026-11-15).** The user ruled that these three
+levels' own light moves to M30's in-game target. Branch `descent-mine-plan` from `6b09663d7`, debug, seed 1,
+the 14 preview cameras, robots killed first, measured as p10 (mean Rec.709 luma over the 4:3 centre, level 1
+= 100 at 0.3477; `.scratch/p11-cams.py` sets each camera's game figure beside its gate tile). Rebuilt at
+the tip first (`.scratch/p11-round.sh r0`): every level of depths 1, 4, 6 and 8, seeds 1 to 3, came out byte
+for byte the installed build, and the shots gave p10's figures again (level 1 0.3477; 4, 6, 8 at 36.3,
+27.9, 34.6 lamp off). Shots `.scratch/p11-shots/dNN/<run>-<pass>/` (`before-`, the trials, and the final
+`r1-` for 4, `r2-` for 6 and 8).
+
+| Level | 4 | 6 | 8 |
+|---|---|---|---|
+| In game, lamp off, before / after | 36.3 / 38.0 | 27.9 / 30.0 | 34.6 / 26.0 |
+| In game, lamp radius 480, before / after | 48.6 / 50.0 | 44.8 / 46.4 | 57.7 / 51.6 |
+| Gate, before / after | 39.8 / 41.5 | 32.3 / 34.3 | 24.7 / 23.0 |
+| Gate seeds 1 2 3, after | 40.5 42.9 41.0 | 35.9 33.0 33.9 | 24.0 23.2 21.9 |
+| Black crush % lamp off, before / after | 2.1 / 1.9 | 5.9 / 5.1 | 1.9 / 3.6 |
+| Floor luma lamp off, before / after | .100 / .105 | .068 / .074 | .123 / .073 |
+| Target (M30) | 40 | 32 | 24 |
+
+All three are inside their targets' 3 in game and in the gate, which still passes at every depth (levels 7 and
+9 are untouched: their themes, libraries and builds did not change, so they were not reshot; the gate reads
+them 27.4 and 22.1 as before). Reach and budget pass at 4, 6 and 8 (map entities unchanged: 257 to 278,
+300 to 372, 439 to 504).
+
+- **Level 8: the water's fog, not its reflection.** On the installed map with the material reloaded in game
+  (`mat_reloadmaterial`): fog `16 24 16` and tint .4/.48/.4 read 29.4; fog `10 15 10` with tint .28/.34/.28
+  read 27.3 and with .5/.6/.5 28.0; fog `6 9 6` 27.2 (black crush 10 %). The tint moves the figure under a
+  point; the fog colour moved it six. At `30 44 30` the water drew its fog colour as a lit teal sheet over
+  half of every flooded view (the near water read about (22, 34, 20)), since 16 units of water seen from a
+  player's eye is mostly fog within a few hundred units. Now `descent/sunken_water` has fog `10 15 10` and
+  its reflection tinted `[.5 .6 .5]`, and the Sunken lamps are a seventh under p9's (posts 74, cover and
+  pendants 39, fill 15). It still reads as water: dark, rippling, the lanterns and lit walls mirrored in
+  its middle distance, and the lamp shows the rock bed under it near the hero (`d08/r2-r0/cam5`). The worst
+  camera, cam5 (the chasm's flooded floor, 15.5 over its gate tile), went from 33.5 to 20.9 (gate tile 16.7):
+  `d08/before-off/cam5.jpg` and `d08/r2-off/cam5.jpg`. Lamp on it reads 51.6, still the brightest of Act II
+  lit at the base, now by less (p10: 58).
+- **Why the gate missed level 8.** The preview draws no water surface, so its flooded floors are black
+  where the game drew the water's fog colour: per camera the game read 8.9 over the gate, up to 15.5 on the
+  flooded views and 0 to 5 on the dry ones. With the water dark the game reads 2.0 over the gate (dry
+  views +3 to +5, such as the spawn's walls round the lamp posts). The gate's figure for level 8 was right
+  about the level's light; it could not see the water.
+- **Level 6: fog cannot do it.** On the installed map with `fog_override`: no fog read 28.0, fog `34 36 42`
+  448-2400 0.55 read 28.1, `40 42 48` 384-2400 0.6 28.3, `46 48 54` 512-2400 0.6 28.3 (from 27.9): the
+  rooms the cameras see sit inside the fog's start, and the far end of a drift changes little
+  (`.scratch/p11-cmp-d06-cam3-fog.jpg`). p10's black is not fog: 28 % of cam13 is the inside of a block
+  (below) and the rest is near shadow in the caverns and the chasm. So the Breakthrough's lamps rose a
+  seventh over p9's (floor lanterns 206, wall lanterns 155, work lamps 67, fill 31); the fog is unchanged.
+  The darkest camera, cam6 (cavern c), went from 17.7 to 19.2 (black 10.6 to 8.3 %), the same look
+  slightly lifted: `d06/before-off/cam6.jpg`, `d06/r2-off/cam6.jpg`.
+- **Why the gate reads level 6 high.** The game is 6.0 under the gate at seed 1, in two parts. The
+  doorway camera (cam13, `DescentLevel.DoorwayCamera`, 320 into the room from a joined door and 96 aside,
+  at eye height whatever stands there) stands inside the stope's stair block: the game culls the block's
+  faces from inside and draws void (21.5), the preview draws them and reads the tile 63.1. That is 3.0 of
+  the 6.0 and an error of the instrument, not of the level (open below). The other 13 views read 3.4
+  under their tiles, as level 4's read 2.5 under (and level 1 1.7 over, level 8's dry views 3 to 5 over):
+  a per-level residual the gate's 2.2 re-encoding leaves (materials, props), not fog (level 4 without fog
+  reads 35.4, its warm fog lifting it 0.9).
+- **Level 4: lights.** The Mill's lamps a tenth over p9's (goosenecks 79, work floods 110, pendants 50):
+  in game 36.3 to 38.0, the gate 39.8 to 41.5. Because the gate reads level 4 2.5 over the game, 40 in game
+  would put the gate at about 44, past its 43; 38 / 41.5 leaves each inside. The darkest camera, cam4 (a
+  stub, 23.8 to 25.1): `d04/before-off/cam4.jpg`, `d04/r1-off/cam4.jpg`; to the eye the far wall and the
+  floor near the lamps lift a little, the look is the same.
+
+Open: the doorway camera should stand in open air (level 6 seed 1's stands inside a stair block, and the
+preview's tile then reads three times the game); level 6 sits 2 under its target in game and 2.3 over in
+the gate, level 4 2 under and 1.5 over, so neither can reach its target in game without the gate leaving its
+tolerance until the gate reads the game's per-level residual or the camera moves. Tests at `83bfb12e1`:
+`make managed-test FILTER='FullyQualifiedName~Descent'` 1,072 passed; `make descent-test` 3,836 passed and
+one failed, `HordeNavDataTests.Every_class_reaches_every_room_of_depth_9_seed_1_pools_included`, which
+asserts that this tree's built level 9 seed 1 holds a pool room: it holds none (the layout from the d09
+library at this code is byte for byte the built one), and this brief did not touch level 9.
+
 ### 1.2 Defaults I chose (overrule by editing this table)
 
 | # | Gap | Default |
@@ -430,7 +731,7 @@ would.
 | E3 | Layout | The Descent rules module lays levels out (`TF2DescentRules.GenerateLayout`), not the tools' own generator, because boss placement, the low-room rule and the per-depth sizes are game rules. |
 | E4 | R19's 60 % jump-room share | Held per act (levels 1-5, 6-10, 11-15), not per level, so level 1 can be hallways and level 9 can be low crypts. |
 | E5 | Ladders | Not climbable. Stock TF2 has no ladder movement, so ladders are dressing and every descent is a ramp, stair, drop or lift. |
-| E6 | Brightness target | The mean lightmap brightness of a level, as `ssmap preview` reports it, falls strictly from each level to the next (section 6). |
+| E6 | Brightness target | What a player sees, offline (brief p9, section 1.3e): the preview's room views re-encoded to the game's 2.2 gamma, level 1 = 100, within 3 of each level's in-game target (section 6, M30) and falling strictly from each level to the next. Was the mean lightmap brightness as `ssmap preview` reports it, which cannot tell level 2 from 3. |
 | E8 | Doors in the layout | The host's `RoomInfo` carries no doors, so a room's doors, height class and jump tiers ride in its name, `<family>_<variant>-<doors>-<height>[-<flags>]` (`gallery_b-nesw-h-j`), by one codec in the rules module (`TF2.Descent.Rules.Layout.RoomName`). The host contract change (G1) stays the cleaner follow-up. |
 | E9 | Jump-spot minimums | Two Scout spots and two blast spots on a normal level, except level 1 (one Scout spot, no blast spot) and level 9 (one of each), so level 1 is hallways and level 9 low crypts. |
 | E7 | Asset choice | Every material and model a level uses is a row in the asset database, recorded in a per-level palette file that a test checks. |
@@ -719,16 +1020,21 @@ The mood is carried by five things that all move one way with depth:
 | Order | Straight, square, signed | Broken, organic, no right angles |
 | Lamps | Electric lamps every 256 | A few fires and glows |
 
-**The brightness target.** `ssmap preview` reports lightmap statistics for a
-map. Taking level 1's mean as 100, each level's target is:
+**The brightness target.** The level's own light as the game shows it, lamp
+off, level 1 = 100 (ruling M30; brief p9, section 1.3e: the gate reads it
+offline from the preview's room views, re-encoded to the game's gamma):
 
 | Level | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Target | 100 | 85 | 70 | 60 | 52 | 42 | 35 | 30 | 25 | 22 | 19 | 16 | 13 | 10 | 7 |
+| Target | 100 | 70 | 55 | 40 | - | 32 | 27 | 24 | 20 | - | 16 | 13 | 11 | 9 | - |
 
-The gate is that the measured figure falls strictly from each level to the
-next, over several seeds of each. The lava level (13) is the one to watch:
-its lava glows, so its fill light has to be lower than 12's.
+The boss levels (5, 10, 15) get a target when their arenas are themed. The
+gate holds each depth's mean over seeds 1 to 3 within 3 of its target and
+falling strictly from each level to the next. The miner's lamp (M9, M29,
+M30) lights the hero's surroundings on top. (The first table, on the
+lightmap mean's scale: 100, 85, 70, 60, 52, 42, 35, 30, 25, 22, 19, 16, 13,
+10, 7.) The lava level (13) is the one to watch: its lava glows, so its fill
+light has to be lower than 12's.
 
 **How each level gets there:**
 
@@ -761,7 +1067,7 @@ at yet; Phase 3 onward opens each one's preview before using it.
 | Floor | `concrete/concretefloor002b` | `nature/gravelground001` with track on every door's axis | `coalmines/dirtground004` | `nature/gravelcoal001` (black coal) |
 | Props | lockers, switchgear, signs, powder crates, cement sacks, cable drums, white pipes | sheets, hand trucks, rope drums, signs, cable conduits, ore carts on sidings, service pipes | lagging, barrels, crates, woodpiles | welders, switchgear, hazard drums, ducts, generators in large rooms only, triple pipes |
 | Lamps | `props_mining/industrial_ceiling_lamp` every 256, bulkheads up tall walls; work floods at the shaft foot | `props_lights/flood_light_left001` as spots, side bays dark | `props_2fort/lantern001` in 3 to 5 pools a room, hung from sets or on crates, hung on walls where dark | `props_gameplay/security_fence_light01` sodium, one cold white flood per large room |
-| Light | 100: warm white, daylight down the shaft | 85: white with shadowed side bays | 70: lantern pools | 60: sodium yellow, dusty fog |
+| Light (in game, M30) | 100: warm white, daylight down the shaft | 70: white with shadowed side bays | 55: lantern pools | 40: sodium yellow, dusty fog |
 | Way down | Cage | Cage | Cage | Cage |
 
 **Level 5, the Powder Magazine. Boss: Sir Nukesalot.** A 2x2 arena on the 1024 kit.
@@ -787,10 +1093,10 @@ at yet; Phase 3 onward opens each one's preview before using it.
 | Height | Chamber and hall | Hall and shaft: the most vertical level | Chamber and hall | Low; the deliberate ground-game level |
 | Jumps | Chasm leap, rubble steps | Every tier; roof galleries | Stepping pillars over water | Few: nave ledges only |
 | Walls (as built, `Themes/ActTwo.cs`, `palettes/d06-d09.tsv`) | `nature/rockwall003` over a pale `winter/rockwall014` band, burnt `cp_manor/wood_beam03_burnt` sets (some fallen in), `cp_manor/wood_floor01` decks | pale `nature/blendrockgroundwallisland_interior02` limestone over wet `nature/cliffface002a` at the foot, `nature/blendrockgroundwallisland` ledges and spires | mossy `nature/rockwall006a` over a green `swamp/concrete/swampcrete001` lining, `swamp/wood/swampwall015` plank decks, rusted `swamp/metal/swampmetal001` | `medieval/stonewall001a` over a burnt `cp_manor/wood_wall002_burnt` wainscot, `medieval/stonetrim001a` columns, bands and tombs, `medieval/cobblestone002` vault |
-| Floor | `nature/blendgroundtogravel007` (dark rubble) | `nature/dirtfloor005b`; pools of `water/water_well` standing in the caves | `swamp/nature/blendswampmudtodirt001` under 16 of standing `swamp/water/water_murky` | `koth_viaduct_event/viaduct_cobblestone001` |
+| Floor | `nature/blendgroundtogravel007` (dark rubble) | `nature/dirtfloor005b`; pools of `descent/dripstone_water` (water_well's, reflecting) standing in the caves | `descent/sunken_bed` (wet rock, TF2's `nature/rockfloor003a` without `$envmap`) under 16 of standing `descent/sunken_water` (water_murky's, green, reflecting); brief p9 | `koth_viaduct_event/viaduct_cobblestone001` |
 | Props | boulders and rubble, broken boards, `wooden_barrier01`, level 4's fuse boxes and hazard drums left behind, dead lanterns on the walls, a collapse heaped in a grotto | flowstone columns and stalagmite bosses (`props_mining/rock001`, `rock002`), rock spills, `props_island/stalagtites_med` and `_small` hung from the roofs | hand pumps, drain grates, karst rocks, a rowing boat, open drums, rope | upright coffins, headstones, monuments, laid coffins, cobwebs, a statue or gargoyle on a nave's focus, burnt-down candles |
-| Lamps | `props_2fort/lantern001` in 2 or 3 pools a room, far apart; `props_hydro/construction_light` work lamps hung on cables in tall rooms; a cold grey fill | `props_c17/light_cagelight02_on` strung along the walls, hung under the roof and on cables where the walls' string leaves the middle dark; a cold blue fill | `props_swamp/lamp_post001` by the walls, `light_industrialbell01_on` over the middles and the tall galleries' water; a green fill off the water | `props_manor/wall_candelabra_01` on the walls, `chandelier_01` under the vault and on chains in the naves, a `props_medieval/brazier` in each large room; no fill |
-| Light (target) | 42: cold grey with warm lantern pools | 35: blue-white | 30: dim green | 25: candle orange in black |
+| Lamps | `props_2fort/lantern001` in 2 or 3 pools a room, far apart; `props_hydro/construction_light` work lamps hung on cables in tall rooms; a cold grey fill | `props_c17/light_cagelight02_on` in one row along the walls every 448, hung under the roof and on cables where the walls' string leaves the middle dark; a cold blue fill, one a cell (brief p9) | `props_swamp/lamp_post001` by the walls, `light_industrialbell01_on` over the middles and the tall galleries' water; a green fill off the water | `props_manor/wall_candelabra_01` on the walls, `chandelier_01` under the vault and on chains in the naves, a `props_medieval/brazier` in each large room, `props_halloween/candle_cluster` in 3 to 5 pools on the floor along each room's route (brief p9); no fill |
+| Light (target, in game, M30) | 32: cold grey with warm lantern pools | 27: blue-white | 24: dim green | 20: candle orange in black |
 | Way down | Rubble ramp into the cave | Rope-line stair down a shaft | A sump: a drained shaft with a stair | A broken crypt floor |
 
 Level 6's arrival is a camp (M10): a lit, dressed room with a hoist to the
@@ -835,7 +1141,7 @@ town, opened by the level 5 kill.
 | Floor | `metal/metalgrate011a`, `swamp/tile/floor_tile_002a_worn` | `swamp/nature/swampmud003`; slime `nature/toxicslime002a` | `nature/blendcobblestone_underworld001`; lava `nature/underworld_lava002` | `nature/blendmudmud001a`; water `water/water_underworld` |
 | Props | `props_trainyard/blast_furnace002`, `props_powerhouse/powerhouse_turbine`, `props_well/overhead_crane` | `props_mining/industrial_pipe01_256_01`, `props_farm/sewer_grate_end01`, `props_swamp/oildrum_open` | `props_viaduct_event/underworld_bridge04`, `props_halloween/halloween_rock001`, `props_manor/gargoyle_01` | `props_swamp/shroom_ref_01_cluster`, `props_swamp/rock003_swamp`, `props_halloween/skull_island_horns` |
 | Lamps | `props_spytech/hanging_ceiling_lamp`, half of them dead; red emergency light | `props_swamp/bug_zapper`; the slime's own green | `props_viaduct_event/underworld_torch01`; lava glow | A few glows only |
-| Light | 19: flicker and red | 16: sick green | 13: red on black | 10: black-green |
+| Light (in game, M30) | 16: flicker and red | 13: sick green | 11: red on black | 9: black-green |
 | Way down | A waste chute (slide) | A dive into a sump | A fissure drop | A slide of slime into the pit |
 
 Level 11's arrival is the second camp (M10), opened by the level 10 kill.
@@ -1105,7 +1411,8 @@ Requests to that session; this plan changes nothing there.
 | H6 | Faces for a joined doorway's sides, sill and head, or socket furniture kept on both sides | Each joined door costs two `func_brush` entities today |
 | H7 | `ssmap link` writes a turned room's face side flags inverted against their nodes; the engine culls by them | Found in game (brief p5, section 1.3d) at 7cdfe4d and 3551fa8; `tools/descent-face-sides` rewrites them after each link |
 | H8 | `ssmap link` keeps a joined socket's plug faces (nodraw-flagged); the engine draws any world face | Found in game (brief p5); the plug material is `$no_draw` |
-| H9 | A joined doorway's let-down floor under the plug keeps the black lightmap of the room's own compile | Found in game (brief p5): a black strip across every doorway; relight or drop the dip |
+| H9 | A joined doorway's let-down floor under the plug keeps the black lightmap of the room's own compile | Found in game (brief p5): a black strip across every doorway; relight or drop the dip. Worked round in the rooms (brief p9): a lit slab over the dip; the farm frame model's head (level 1) still draws dark, a prop lit from inside the plug |
+| H10 | A room's navigation leaves out its static props: `RoomLibraryCompiler` builds it from the world and entity obstacles only (`NavGeometry.FromBsp`, `NavModelBounds.PropModels`); `LevelNavFromBsp` takes the static prop lump | Measured (brief p9, section 1.3e): the nav is open inside every solid crate and drum of levels 1 and 3; without the game content the pack refuses every room |
 
 ### Order
 

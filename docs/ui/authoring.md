@@ -202,6 +202,7 @@ a column. Faded text (`.Opacity`) is linted at full strength.
 | `ui.FormGrid()` | label column + field column (form binding arrives in U4). |
 | `ui.TextField(key, text, placeholderToken, caret, selStart, selLength)` | a one-line field; with a caret it shows the caret and selection and keeps the caret in view. |
 | `ui.Checkbox(key, token, on)`, `ui.Dropdown(key, labelToken, value)` | filter and options fields (display and hit-testing; editing arrives with input in U3). |
+| `ui.Choice(key, chosen, count, names, tokens)` | the working dropdown: answers the choice. Its open list is as wide as the field, at most `UiFormWidgets.ChoiceRows` (12, stock ComboBox's) rows, under the field or above it, scrolling; it holds the keyboard (arrows, Page Up/Down, Home/End, Enter, Escape), and a longer list filters as the player types. Closed and focused, the arrows step the choice. |
 | `ui.Tooltip(key, box, hovered, token)` | a short note under an element after the pointer rests on it (stock vgui's 500 ms); pass the element's own hover; previews pass `delaySeconds: 0`. |
 | `ui.Progress(fraction, token)` | a refresh or download in progress. |
 | `ui.VirtualList(key, count, rowDu, rowPanel, followEnd)` | long lists (the server browser's 2,000 servers, the console log, which follows its end). |

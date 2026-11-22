@@ -71,7 +71,11 @@ camera looks (the body's middle by default). A family's variants differ in
 outline as well as in doors: a fact refuses two variants with one outline.
 
 Also on the builder: `WithWater(area, z0, z1, material)` (a water volume,
-kept in `Room.Water`, not solid to the lint), `WithSkyCeiling(area)` (the
+kept in `Room.Water`, not solid to the lint), `WithHazard(kind, mins, maxs)`
+(a hazard volume of a `hazards.json` kind: a `trigger_multiple` nothing fires,
+named `tf2_descent_hazard_<kind>`, a global name the link keeps and the game's
+`HazardService` finds; a theme's `PoolHazard` puts one over each pool's basin,
+slime at level 12's grey only: levels 1 to 9 hold none), `WithSkyCeiling(area)` (the
 ceiling slab is sky there and the library gets the town's sun), and for a
 transition room `WithTransitionBox`, `WithButton` and `WithHallTrigger`, which
 put its volume and what fires it where the station wants them.
@@ -117,7 +121,16 @@ var b = new RoomBuilder("gallery_b", kit, theme)
   joined_<wall>`), which cost no entity; and a wall panel `func_brush` 2 in
   front of the plug kept only where it is capped (a plug's face cannot be
   lit: `RoomBuilder.CapThickness`), one entity per capped socket. Neither
-  casts shadows. `WithoutDoorFrames()` is for test fixtures only.
+  casts shadows. The faces inside a doorway were in the plug when the room was
+  lit, so a brush frame carries its theme's `_minlight` (`BrushFrame.MinLight`,
+  about one and a half times its walls' light: Act I 0.35, levels 2 and 4 0.3,
+  6 0.25, 7 0.11, 8 0.12, 9 0.06), and a slab over the let-down floor under the
+  plug, in the post's surface, a unit proud of the sill (`BrushFrame.SillSlab`);
+  a model frame's doorway takes the same slab as its own non-solid `func_brush`
+  (`RoomBuilder.SillSlabPiece`, Act I's floor of light, one entity per joined
+  socket). The dip and the sill plates on it drew as a black strip across every
+  joined doorway; the farm frame model's head still draws dark at level 1 (a
+  prop lit from inside the plug: map tools H9). `WithoutDoorFrames()` is for test fixtures only.
 - **Brushes**: `WithBox(mins, maxs, surface?)` for a box in the theme's block
   surface, `WithBrush` / `WithBrushes` for anything from `Brush`:
   `Brush.Wedge` (a ramp rising toward a `Compass` heading), `Brush.Stairs`,
@@ -202,12 +215,29 @@ south). A feature refuses a ledge without 114 of clear air above it.
   props by role, fog, tone map, wetness, sun and sky, the way in's theme),
   Act II's four in `Themes/ActTwo.cs` (levels 6 to 9: the Breakthrough,
   Dripstone, the Sunken Galleries, the Buried Chapel); depths 5 and 10 to 15
-  are `RoomTheme.Grey` until their acts are themed. A theme may name its
+  are `RoomTheme.Grey` until their acts are themed (12's with slime in its
+  pools, `RoomTheme.GreySump`). A theme may name its
   own water (`Water`, a `water` shader material: the pools' and flooded
   galleries'), water standing on its rooms' floors (`Standing`: a depth,
   kept clear of every door, in some families or all), and a larger room's
   wall drawn larger (`LargeWall`: a 2048 wall at a cell's scale tiles into
-  bricks). Every
+  bricks, and a larger room's rough rock is drawn in it). A theme's own
+  materials beside its plug (`Extra`, `OwnMaterial`, written into
+  `game/mod_tf2_descent/materials/descent` by `MapGen descent-materials`):
+  `OwnMaterial.Water` is a water that reads as water in an LDR map with no
+  cubemap (the scene reflected, `_rt_WaterReflection` without entities, a
+  short tinting fog, TF2's rippling normal map; levels 7 and 8; keep its fog
+  colour near the level's darks: within a few hundred units the water a
+  player sees is mostly that fog, and level 8's at `30 44 30` drew a lit
+  teal sheet that read 35 in game for its 24, brief p11), and
+  `OwnMaterial.Plain` a lit brush material copied without its `$envmap` (the
+  map tools' cubemap fix-up throws on one in a room with no cubemap); each is
+  listed in its palette as the TF2 material it is made from
+  (`RoomTheme.AssetOf`): level 8's floor is such a copy of TF2's wet rock,
+  the bottom its water and the lamp show (a bed brush under the water, a unit
+  proud of the floor, was tried and dropped: a giant's flat walk reads any
+  solid above the floor as a wall). `RoutePools` sets a second lamp kind in pools along each
+  room's route (level 9's candle clusters on the floor by the walls). Every
   asset a theme names is a row of `Themes/palettes/dNN.tsv` and of the asset
   database (`DescentPaletteTests`); add the row when you add the asset.
 - **A shape draws in the theme's surfaces and nothing else.** It may place
@@ -272,18 +302,46 @@ south). A feature refuses a ledge without 114 of clear air above it.
   low rooms. Clutter keeps off decks' and pits' edges, and a solid piece that
   would cut floor off a giant's walk is refused or taken out again
   (`dress_cut_off`).
+- **Quiet rooms** (brief p9): `RoomCatalogue.QuietTwins` adds a twin of the
+  first room of the drift, bend, tee, cross and stub families with no pack
+  spawn (`RoomEntry.Quiet`, the codec's flag `q`: `drift_aq-ew-l-q`; the lint
+  refuses a pack in one), and the layout places them beside the way in and
+  nowhere else, so no pack spawns in the arrival room or a room one door from
+  it; a boss level's row takes the quiet drift as a lobby between its way in
+  and its antechamber. A family's preview camera looks at its ordinary room
+  before its quiet twin.
+- **Caves** (`CavernShape.RockAround`, `RockOverDoor`): rough rock runs beside
+  each door of a cavern and from over its frame to the roof, and over each of a
+  grotto's sockets, so no cave wall stands flat floor to roof round its doors
+  (cavern d's walls are its rounded corners and its necks, and keep them).
 - **Preview cameras** (`PreviewCamera`): each room's `library.json` entry
   carries a camera at a player's eye in a corner of its body that sees its
-  focus; `descent-level` turns it with the room. The preview's own spawn
+  focus; `descent-level` turns it with the room. `descent-level` also renders
+  every placed room's camera (`.roomcams`, `DescentLevel.RoomCameras`) and
+  `tools/descent-room-light` writes each room's light, on the gate's scale,
+  into the level's `.map2d` as a section `LITE` that today's readers skip:
+  per room in the `.map2d`'s room order a float (level 1 = 100) and flags
+  (1 dark by design: no light of its own; 2 measured). The preview's own spawn
   views are cut to one (`tools/descent-preview-spawns` keeps the arrival).
 - **The gates** (`tools/descent-gate`, `make descent-brightness`,
   `descent-reach`, `descent-budget`, `DESCENT_DEPTHS=1,2,3,4,6,7,8,9
   DESCENT_SEEDS=1,2,3`; level 5's boss row stays out of the brightness order
-  until its arena is themed): brightness falls strictly from depth to depth with
-  nothing clipped, in the level's lightmap and in every room's view (its
-  rendered pixels under 2 % white), a Heavy reaches every room's floor,
+  until its arena is themed): brightness is what a player sees, offline: the
+  mean over the preview's room views of each tile's luma re-encoded to the
+  game's 2.2 gamma (the preview's label and orange scale figure left out),
+  over seeds, level 1 = 100 (`LEVEL1_VIEW`); each depth within 3 of its
+  in-game target (plan section 6, M30) and falling strictly, nothing clipped
+  in the lightmap or in any room's view (its rendered pixels under 2 % white),
+  a Heavy reaches every room's floor,
   entities and brushes stay in budget. The preview gets a camera on one
   joined doorway (`DescentLevel.DoorwayCamera`, a tracked room's first).
+  What the gate cannot see (brief p11, plan 1.3e): the preview draws no
+  water surface and no fog, and draws a face from inside a solid. The game
+  read level 8 9 over the gate while its water's fog was light, and reads
+  level 6 6 under it, half of that a doorway camera standing inside a
+  stair block and half a per-level residual (level 4 2.5 under, level 1
+  1.7 over); fog moved levels 4 and 6 in game by under a point. Check a
+  level's change in game, not only in the gate.
 
 ## Lint (`RoomLint.Check`)
 
@@ -299,7 +357,7 @@ Each rule is measured from the brushes and markers, on 16-unit columns:
 | `inside_cell` | a brush or entity outside the cell |
 | `frame_clear` | a door without one frame and its sill planks kept where it is joined, a solid frame, or a kit whose frame leaves less than a giant's 92 by 156 |
 | `door_path` | two doors a giant (92 by 156) cannot walk between on steps of 18 (M8: no jump, not even a crouch-jump; stairs and ramps are walked), or a pack spawn on the floor no giant walks to from a door |
-| `marker_count` | a combat room without 2 to 4 pack spawns at least 192 from every door and 1 or 2 pieces of furniture on its floor; a corridor or junction with more than one pack |
+| `marker_count` | a combat room without 2 to 4 pack spawns at least 192 from every door and 1 or 2 pieces of furniture on its floor; a corridor or junction with more than one pack; a quiet room with any |
 | `lit` | walkable floor beyond every light's reach (half way from its half-light to its zero distance; a `light_spot` only inside its outer cone): the path is lit (§6) |
 
 ## Testing and looking

@@ -486,7 +486,12 @@ What they found that later packages must hold to:
   doors, and tags it as arena-bound otherwise (RPG plan 5d). A giant that
   follows a hero down a flight needs a derivation rule that stands a wide
   hull across several steps; that is the AI coordinator's to design and was
-  put to that session on 2026-11-11.
+  put to that session on 2026-11-11. Landed on branch `descent-giant-stairs`
+  (2026-11-15): a hull stands on the highest step under its box, each rise
+  within a step, exact where a step's top lies on a voxel boundary. Every
+  class now reaches all 37 rooms of depth 8 and 9 seed 1, pools included;
+  what is left is in docs/todo.md ("a wide hull on a step whose top is
+  inside a voxel").
 - **A recording of a session with callouts off does not replay as it ran.**
   `AiReplayer` builds its own session with the team layer on. HO4 agrees the
   replayer's change with the AI coordinator before its record and replay
