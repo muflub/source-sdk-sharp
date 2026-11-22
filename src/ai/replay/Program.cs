@@ -163,6 +163,63 @@ if (args.Length >= 2 && args[0] == "threat")
     return 0;
 }
 
+if (args.Length >= 2 && args[0] == "fight")
+{
+    var all = new List<FightMotionRow>();
+    AiDecisionTree? tree = null;
+    foreach (string rec in args.Skip(1))
+    {
+        using FileStream input = File.OpenRead(rec);
+        (List<FightMotionRow> rows, AiDecisionTree? recTree) = AiFightMotion.Read(input);
+        tree ??= recTree;
+        all.AddRange(rows);
+        Console.WriteLine($"ai-replay: fight {Path.GetFileName(rec)}");
+        Console.Write(AiFightMotion.Table(rows, recTree));
+    }
+
+    if (args.Length > 2)
+    {
+        Console.WriteLine($"ai-replay: fight, {args.Length - 1} recordings together");
+        Console.Write(AiFightMotion.Summary(all, tree));
+    }
+
+    return 0;
+}
+
+if (args.Length >= 2 && args[0] == "searches")
+{
+    foreach (string rec in args.Skip(1))
+    {
+        using FileStream input = File.OpenRead(rec);
+        Console.WriteLine($"ai-replay: searches {Path.GetFileName(rec)}");
+        List<SearchStretch> stretches = SearchStretchTool.Read(input);
+        Console.Write(SearchStretchTool.Table(stretches));
+        if (stretches.Count > 0 && stretches[0].Seconds > SearchStretchTool.LongSeconds)
+            Console.Write(SearchStretchTool.Track(stretches[0]));
+    }
+
+    return 0;
+}
+
+if (args.Length >= 5 && args[0] == "fightstill")
+{
+    NavLoadResult stillNav = CostTool.LoadNav(args[1], Path.GetFileNameWithoutExtension(args[2]), args[2], args[3]);
+    if (stillNav.Nav is not { } stillLoaded)
+    {
+        Console.Error.WriteLine($"ai-replay: {stillNav.Refusal}");
+        return 1;
+    }
+
+    foreach (string rec in args.Skip(4))
+    {
+        using FileStream input = File.OpenRead(rec);
+        Console.WriteLine($"ai-replay: fightstill {Path.GetFileName(rec)}");
+        Console.Write(FightStillTool.Table(FightStillTool.Read(input, stillLoaded.Nav.Graph)));
+    }
+
+    return 0;
+}
+
 if (args.Length >= 2 && args[0] == "jank")
 {
     int empty = 0;

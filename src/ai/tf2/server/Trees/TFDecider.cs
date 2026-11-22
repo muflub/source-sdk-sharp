@@ -110,6 +110,7 @@ public sealed partial class TFDecider : IDecider
         StartFeel(setup.Seed);
         StartExperience(setup.Seed);
         StartPrefire(setup.Seed);
+        StartFight(setup.Seed);
         StartPoints(setup.Seed);
         StartRoles(CtfRoleSplit);
         _launcher = KindNamed(SoldierLauncher);
@@ -188,6 +189,7 @@ public sealed partial class TFDecider : IDecider
         ReadCourse();
         ReadPoints();
         ChooseTarget();
+        SettleOwnNoise();
         _interrupted = NoteInterrupts();
         SeeThings();
         _tree.Decide(this, _run, tick);
@@ -366,7 +368,7 @@ public sealed partial class TFDecider : IDecider
 
     private float SurviveUtility()
     {
-        if (Carrying || !(WantsHealth || JumpHealDue) || !HealPlace(out _))
+        if (Carrying || !(WantsHealth || JumpHealDue || PackLinkPlace(out _)) || !HealPlace(out _))
             return 0f;
         return _targetSighted ? 0.82f : 0.9f;
     }
@@ -426,7 +428,8 @@ public sealed partial class TFDecider : IDecider
 
     /// <summary>
     /// The nearest health pack, or the team's own resupply cabinet, within <see cref="HealReach"/>. First, the place a
-    /// jump by health owes (lane G9, <see cref="JumpHealDue"/>): the bot takes the pack its jump landed by.
+    /// jump by health owes (lane G9, <see cref="JumpHealDue"/>): the bot takes the pack its jump landed by. A pack a link near
+    /// the bot lands by, when that way is the shorter (lane G9b, <see cref="PackLinkPlace"/>).
     /// </summary>
     private bool HealPlace(out AiVector at)
     {
@@ -459,6 +462,8 @@ public sealed partial class TFDecider : IDecider
                 (best, at) = (d, mid);
         }
 
+        if (PackLinkPlace(out AiVector via, best))
+            (best, at) = (0f, via);
         return best < HealReach;
     }
 
@@ -468,8 +473,11 @@ public sealed partial class TFDecider : IDecider
     {
         if (!_targetSighted)
             return false;
-        Strafe(-0.6f);
         _verdict = "launcher dry";
+        if (Feel.Fight)
+            LoadInCover();
+        else
+            Strafe(-0.6f);
         return true;
     }
 
@@ -477,7 +485,10 @@ public sealed partial class TFDecider : IDecider
     private bool FightAtRange()
     {
         float approach = _targetDist > FightFar ? 0.8f : _targetDist < FightNear ? -0.6f : 0f;
-        Strafe(approach);
+        if (Feel.Fight)
+            FightStep(approach);
+        else
+            Strafe(approach);
         _verdict = approach > 0f ? "closing" : approach < 0f ? "backing off" : "holding range";
         return true;
     }

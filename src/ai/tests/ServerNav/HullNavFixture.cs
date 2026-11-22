@@ -8,7 +8,7 @@ namespace SourceSharp.Ai.Tests.ServerNav;
 /// from boxes named by hand, for the facts that read one through the real
 /// reader: 16-unit voxels, the grid's low corner at the origin, the widths 32
 /// and 48. A box is added to a cell (cells in rising order) with a key; a key
-/// is its flags, its floor and a ceiling per width.
+/// is its flags, its floor and a ceiling per width (and, under a sloped brush, its overhang record).
 /// </summary>
 internal sealed class HullNavFixture(int cellsX, int cellsY, int cellVoxels, int columnVoxels)
 {
@@ -18,6 +18,7 @@ internal sealed class HullNavFixture(int cellsX, int cellsY, int cellVoxels, int
     private readonly List<int> _cellOfBox = new();
     private readonly List<NavHullKey> _keys = new();
     private readonly List<NavHullShut> _shuts = new();
+    private readonly List<NavHullOverhang> _overhangs = new();
     private readonly List<Nav3dObstacle> _obstacles = new();
     private readonly List<NavHullJump> _jumps = new();
 
@@ -28,14 +29,25 @@ internal sealed class HullNavFixture(int cellsX, int cellsY, int cellVoxels, int
     /// <summary>A key: what a box's voxels are, the floor under its bottom, and the ceiling a 32-wide and a 48-wide body meet.</summary>
     public uint Key(NavHullFlags flags, float floor, float ceiling32, float ceiling48)
     {
-        _keys.Add(new NavHullKey(flags, 256, floor, Ceilings(ceiling32, ceiling48), (uint)_shuts.Count, 0));
+        _keys.Add(new NavHullKey(flags, 256, floor, Ceilings(ceiling32, ceiling48), (uint)_shuts.Count, 0, (uint)_overhangs.Count, 0));
+        return (uint)(_keys.Count - 1);
+    }
+
+    /// <summary>
+    /// A key as <see cref="Key"/> under a sloped brush: every width passes under it with its top at
+    /// most <paramref name="under"/> and stands clear over it with its feet at least <paramref name="over"/>.
+    /// </summary>
+    public uint KeyUnderOverhang(NavHullFlags flags, float floor, float ceiling32, float ceiling48, double under, double over)
+    {
+        _keys.Add(new NavHullKey(flags, 256, floor, Ceilings(ceiling32, ceiling48), (uint)_shuts.Count, 0, (uint)_overhangs.Count, 1));
+        _overhangs.Add(new NavHullOverhang([.. Widths.Select(_ => under)], [.. Widths.Select(_ => over)]));
         return (uint)(_keys.Count - 1);
     }
 
     /// <summary>A key as <see cref="Key"/>, whose ceilings with <paramref name="obstacle"/> shut are the two given.</summary>
     public uint KeyShutBy(NavHullFlags flags, float floor, float ceiling32, float ceiling48, int obstacle, float shut32, float shut48)
     {
-        _keys.Add(new NavHullKey(flags, 256, floor, Ceilings(ceiling32, ceiling48), (uint)_shuts.Count, 1));
+        _keys.Add(new NavHullKey(flags, 256, floor, Ceilings(ceiling32, ceiling48), (uint)_shuts.Count, 1, (uint)_overhangs.Count, 0));
         _shuts.Add(new NavHullShut((uint)obstacle, Ceilings(shut32, shut48)));
         return (uint)(_keys.Count - 1);
     }
@@ -88,6 +100,7 @@ internal sealed class HullNavFixture(int cellsX, int cellsY, int cellVoxels, int
             Boxes = [.. _boxes],
             Keys = _keys,
             Shuts = _shuts,
+            Overhangs = _overhangs,
             Obstacles = _obstacles,
             Jumps = _jumps,
             Bsp = Bsp,

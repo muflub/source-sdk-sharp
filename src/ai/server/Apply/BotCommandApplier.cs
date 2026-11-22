@@ -139,7 +139,9 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
 
         bot!.Intent = intent;
         bot.LastSeq = intent.Seq;
-        if (intent.Action.OneShotSeq > bot.LastOneShot)
+        // A one-shot is one not taken last: a brain numbers its own from 1 upward, and a brain made again (a room installed,
+        // a new level) numbers them from 1 again, under the old brain's last, so "newer" is "other", not "greater".
+        if (intent.Action.OneShotSeq > 0 && intent.Action.OneShotSeq != bot.LastOneShot)
         {
             bot.OneShots.Enqueue(intent.Action);
             bot.LastOneShot = intent.Action.OneShotSeq;

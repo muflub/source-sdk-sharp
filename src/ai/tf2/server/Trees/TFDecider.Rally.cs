@@ -17,10 +17,13 @@ public enum TFTeamPlay : byte
 /// through the team layer's delay), coming <see cref="RallyLatePerTeamwork"/> a point of Teamwork under the cap late and
 /// not at all at Teamwork <see cref="RallyIgnoreTeamwork"/> or under; with none, one it calls itself
 /// (<see cref="CalloutKind.Rally"/>; any bot that heeds a rally calls one, see <see cref="RallyIgnoreTeamwork"/>) at <see cref="RallySpot"/>:
-/// where its team is (the middle of itself and the teammates it can place, <see cref="TeamMiddle"/>),
-/// moved toward the point it would push only as far as stays out of every enemy's last-seen sight, at most
-/// <see cref="RallyAdvanceUnits"/> and never within <see cref="RallyShortUnits"/> of the point (the third pass). A bot
-/// that places no teammate calls none: it has no team to gather, and takes the points. Two rallies called within
+/// at its team's front (the one of itself and the teammates it can place nearest the point it would push,
+/// <see cref="TeamFront"/>; lane Gobj, where the third pass took their middle), and only with that front within
+/// <see cref="RallyFrontUnits"/> of the point (further, the bot goes to the front instead: "to the front"), moved toward
+/// the point only as far as stays out of every enemy's last-seen sight, at most <see cref="RallyAdvanceUnits"/> and never
+/// within <see cref="RallyShortUnits"/> of the point (the third pass), held back to it from a front nearer. A bot
+/// that places no teammate calls none: it has no team to gather, and takes the points once within the front's reach of the
+/// point (further, it goes to the front as a team would). Two rallies called within
 /// <see cref="RallyClashSeconds"/> of each other: the lower slot's. On its way there it keeps with its group as a
 /// pusher does (<see cref="TeammateFarBehind"/>, <see cref="PushWaitMostSeconds"/> a rally at most); at the rally it
 /// waits, and the Fight branch takes what it sees.</item>
@@ -85,6 +88,16 @@ public sealed partial class TFDecider
     /// </summary>
     public const float RallyAdvanceUnits = 600f, RallyAdvanceStep = 150f, RallyShortUnits = 900f;
 
+    /// <summary>
+    /// A rally is called only near the front (lane Gobj): with the team's front (the one of the bot and the teammates it
+    /// can place nearest the point it would push, <see cref="TeamFront"/>) within this of the point. Further, the team is
+    /// still on its way from its spawn or far behind, and a gathering there waits too far back (cp_granary, the base: a
+    /// rally called 1,200 u behind the teammates in front, a team 6,000 u from the point gathering by its spawn); the team
+    /// stance goes to the front instead, and calls its rally there. About two thirds of a 5-point map's point-to-point
+    /// distance (cp_granary's 2,950 u), and over <see cref="RallyShortUnits"/> and a step.
+    /// </summary>
+    public const float RallyFrontUnits = 2000f;
+
     /// <summary>A rally's place is the nearest walkable cell within this of the line's spot.</summary>
     public const float RallySnapUnits = 256f;
 
@@ -147,6 +160,9 @@ public sealed partial class TFDecider
 
     public int PushesTimedOut { get; private set; }
 
+    /// <summary>Lane Gobj: decides the team stance went to the front because its team's front was further than <see cref="RallyFrontUnits"/> from the point.</summary>
+    public int ToFrontDecides { get; private set; }
+
     /// <summary>Third pass: rallies not called for want of a teammate to gather (the bot took the points), stretches of the points taken after a push, pushes joined back from the dead, and rocket jumps begun in a push.</summary>
     public int AloneToPoints { get; private set; }
 
@@ -156,8 +172,14 @@ public sealed partial class TFDecider
 
     public int PushJumps { get; private set; }
 
-    /// <summary>Whether the bot is gathering or pushing: its stretch holds and no pull moves it.</summary>
-    private bool InTeamPlay => _pushing || (_rallyHeld && RallyLive(_rally));
+    /// <summary>
+    /// Whether the bot is gathering, pushing or on its way to the front to call a rally (lane Gobj: without the last a
+    /// stretch ran out on the way, and the team stance's share fell to 0.27 and 0.30 of bot-seconds on cp_granary): its
+    /// stretch holds and no pull moves it.
+    /// </summary>
+    private bool InTeamPlay => _pushing || (_rallyHeld && RallyLive(_rally)) || _toFront;
+
+    private bool _toFront;
 
     /// <summary>
     /// The team stance's body each decide: a push goes on until it is over; else a push heard joins it; else the rally
@@ -166,6 +188,7 @@ public sealed partial class TFDecider
     private void ReadTeamPlay()
     {
         _play = TFTeamPlay.None;
+        _toFront = false;
         HearRally();
         if (_cameBack && CameBack())
             return;
@@ -214,10 +237,22 @@ public sealed partial class TFDecider
 
         if (_p.Teamwork > RallyIgnoreTeamwork && PushGoal() is { } goal)
         {
-            TeamMiddle(out int placed);
+            AiVector front = TeamFront(goal.Position, out int placed);
+            // Far from the point: no rally here; to the front, where one is called. Alone too (the team, wherever it is, is
+            // going there): when going to the front needed a teammate placed at every decide, one decide with nobody in
+            // view or seen lately sent the bot to the points, and the team stance's share fell to 0.24 to 0.30 on cp_granary.
+            // Not alone while the Course branch has given the stage up: the bot has no way to the point.
+            if (Flat(front, goal.Position) > RallyFrontUnits && (placed > 1 || _now >= _courseQuitUntil))
+            {
+                ToFrontDecides++;
+                _toFront = true;
+                (_teamPlaceKnown, _teamPlace, _teamWhy) = (true, goal.Position, "to the front");
+                return;
+            }
+
             if (placed > 1)
             {
-                CallRally(goal);
+                CallRally(goal, front);
                 return;
             }
 
@@ -250,14 +285,15 @@ public sealed partial class TFDecider
     }
 
     /// <summary>
-    /// The middle of the bot and the teammates it can place as the team stance does (<see cref="ReadTeamPlace"/>): in sight,
-    /// or seen within <see cref="TeamSeenSeconds"/> at a place the bot has not come to without seeing it there
-    /// (<paramref name="placed"/> of them, itself counted). Round 2 of the third pass placed only those seen within
-    /// <see cref="RallySeenSeconds"/>, and a bot in the team stance found itself alone 10 to 12 times a run.
+    /// The team's front for <paramref name="point"/> (lane Gobj): of the bot and the teammates it can place as the team
+    /// stance does (<see cref="ReadTeamPlace"/>: in sight, or seen within <see cref="TeamSeenSeconds"/> at a place the bot
+    /// has not come to without seeing it there; <paramref name="placed"/> of them, itself counted), the one nearest the
+    /// point on the ground plane.
     /// </summary>
-    private AiVector TeamMiddle(out int placed)
+    private AiVector TeamFront(AiVector point, out int placed)
     {
-        AiVector sum = _self.Origin;
+        AiVector best = _self.Origin;
+        float bestD = Flat(best, point);
         int n = 1;
         Blackboard board = _memory.Board;
         for (int s = 0; s < board.Slots; s++)
@@ -265,18 +301,25 @@ public sealed partial class TFDecider
             KnownActor a = board.Actor(s);
             if (!a.Known || a.Dead || a.Id == _bot || !_memory.IsFriend(a))
                 continue;
+            AiVector at;
             if (_view.TryActor(a.Id, out ActorFacts drawn))
-                sum += drawn.Origin;
+                at = drawn.Origin;
             else if (a.EverSeen && (_now - a.LastSeenTick) * _tick < TeamSeenSeconds && _self.Origin.DistanceTo(a.LastSeenPos) >= GatherArriveUnits)
-                sum += a.LastSeenPos;
+                at = a.LastSeenPos;
             else
                 continue;
             n++;
+            float d = Flat(at, point);
+            if (d < bestD)
+                (bestD, best) = (d, at);
         }
 
         placed = n;
-        return sum * (1f / n);
+        return best;
     }
+
+    /// <summary>The distance on the ground plane.</summary>
+    private static float Flat(AiVector a, AiVector b) => new AiVector(a.X - b.X, a.Y - b.Y, 0f).Length;
 
     /// <summary>
     /// A rally heard (or said) since the last decide is held when the bot holds none live, or when it clashes with the one
@@ -396,9 +439,9 @@ public sealed partial class TFDecider
         return taken;
     }
 
-    private void CallRally(Objective goal)
+    private void CallRally(Objective goal, AiVector front)
     {
-        AiVector place = RallySpot(goal.Position);
+        AiVector place = RallySpot(goal.Position, front);
         int travel = (int)MathF.Ceiling(MathF.Min(_self.Origin.DistanceTo(place) / RallyRunSpeed, RallyTravelMostSeconds));
         Say(CalloutKind.Rally, place, travel);
         _memory.Said(CalloutKind.Rally, place, _now);
@@ -417,15 +460,20 @@ public sealed partial class TFDecider
     }
 
     /// <summary>
-    /// Where a rally is called: at the team's middle (<see cref="TeamMiddle"/>), on a walkable cell of its piece of the
-    /// map; then toward <paramref name="point"/> by steps of <see cref="RallyAdvanceStep"/>, each kept only while no
-    /// enemy's last-seen place sees it, up to <see cref="RallyAdvanceUnits"/> and not within <see cref="RallyShortUnits"/>
-    /// of the point. The middle itself, seen or not, when no step is out of sight.
+    /// Where a rally is called: at the team's <paramref name="front"/> (lane Gobj; the third pass called it at the team's
+    /// middle, behind its front), held back to <see cref="RallyShortUnits"/> from the point when the front is nearer it,
+    /// on a walkable cell of its piece of the map; then toward <paramref name="point"/> by steps of
+    /// <see cref="RallyAdvanceStep"/>, each kept only while no enemy's last-seen place sees it, up to
+    /// <see cref="RallyAdvanceUnits"/> and not within <see cref="RallyShortUnits"/> of the point. The start itself, seen or
+    /// not, when no step is out of sight.
     /// </summary>
-    private AiVector RallySpot(AiVector point)
+    private AiVector RallySpot(AiVector point, AiVector front)
     {
-        AiVector middle = TeamMiddle(out _);
-        AiVector at = Snap(middle, middle) ?? middle;
+        AiVector middle = front;
+        float toPoint = Flat(front, point);
+        if (toPoint < RallyShortUnits && toPoint > 1f)
+            middle = point + new AiVector(front.X - point.X, front.Y - point.Y, 0f) * (RallyShortUnits / toPoint) + new AiVector(0f, 0f, front.Z - point.Z);
+        AiVector at = Snap(front, middle) ?? middle;
         var dir = new AiVector(point.X - middle.X, point.Y - middle.Y, 0f);
         float length = dir.Length;
         float most = MathF.Min(RallyAdvanceUnits, length - RallyShortUnits);
@@ -555,7 +603,7 @@ public sealed partial class TFDecider
     /// <summary>A death ends a push (C.6.1: until it is taken, lost or they die); the stance stays, and back from the dead the bot looks for its team's push (<see cref="CameBack"/>).</summary>
     private void TeamPlayDied()
     {
-        _pushing = false;
+        (_pushing, _toFront) = (false, false);
         _cameBack = true;
     }
 
@@ -587,9 +635,9 @@ public sealed partial class TFDecider
             float mine = _self.Origin.DistanceTo(at);
             int sinceLast = _now - _pushLastDecide;
             _pushLastDecide = _now;
-            if (mine < ArriveUnits)
+            if (mine < ArriveUnits + PointStandUnits)
             {
-                (_hasGoal, _goal) = (true, at);
+                StandApart(at, PointStandUnits);
                 _verdict = "on the point in the push";
                 return true;
             }
@@ -621,7 +669,7 @@ public sealed partial class TFDecider
 
         if (_self.Origin.DistanceTo(_rally.Place) < GatherArriveUnits)
         {
-            (_hasGoal, _goal) = (true, _rally.Place);
+            StandApart(_rally.Place, GroupStandUnits);
             _verdict = "at the rally";
             return true;
         }

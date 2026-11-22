@@ -199,6 +199,82 @@ public sealed class JumpHealthRuleTests
         Assert.False(set.Links.Admits(g, 0, ClearanceClass.Stand, hurt), "the control: the set as found keeps the floor");
     }
 
+    // ------------------------------------------------------------------ what a route weighs (lane G9b)
+
+    [Fact]
+    public void ALinkByAPackWeighsItsBlastLessThePackAndTheWalkThereAndBackAndOneByNothingOrAnotherTeamsCabinetItsCost()
+    {
+        var (set, plans, heals, _) = Links();
+        float[] weights = heals.Weights(set, plans, Soldier, Costs);
+        // The small pack gives back all of the 40 (no fall: a drop of 100 u); the walk of 64 u there and back is 0.53 s, at 0.03 s a point 17.8.
+        float walk = JumpHeals.DetourShare * 64f / Costs.RunSpeed / Costs.HealthSeconds;
+        Assert.Equal(walk, weights[0], 3);
+        Assert.Equal((40f, 40f), (weights[1], weights[2]));
+    }
+
+    [Fact]
+    public void APackTooFarForWhatItGivesBackLeavesTheLinkWeighingItsCost()
+    {
+        var (g, ids) = Rows();
+        JumpHeals heals = JumpHeals.Of(g, [PackAt(ids, g, 0, 0, ItemKind.HealthSmall)]);
+        JumpLink Jump(int from, int to)
+            => new(ids[from, 0], ids[to, 0], new JumpRecipe(new Vector(0f, 0f, 0f), new Vector(100f, 0f, 0f), 64f, 45f, 180f, 0, true), JumpFamily.Forward, 0.95f, 1f, 0.8f, 40f, 2f);
+        JumpLinkSet set = JumpLinkSet.Of(g, [Jump(16, 12), Jump(16, 3)], Costs);
+        float[] weights = heals.Weights(set, [TFJumpAdvicePlan(), TFJumpAdvicePlan()], Soldier, Costs);
+        // 384 u away the walk there and back is 3.2 s, worth 107 points: more than the 40 the pack saves.
+        Assert.Equal(40f, weights[0]);
+        Assert.True(weights[1] < 40f, $"the control: 96 u away the pack is worth the walk ({weights[1]})");
+    }
+
+    [Fact]
+    public void ASetWithWeightsCostsEachLinkAtItsWeightAndSpendsItsSpend()
+    {
+        var (set, plans, heals, g) = Links();
+        float[] weights = heals.Weights(set, plans, Soldier, Costs);
+        JumpLinkSet spent = set.WithSpends(g, heals.Spends(set, plans, Soldier, Floor), Costs, weights);
+        Assert.Equal(Costs.Cost(spent.Links[0] with { Health = weights[0] }), spent.Links.CostOf(0));
+        Assert.True(spent.Links.CostOf(0) < set.Links.CostOf(0), "the link by the pack is cheaper to a route");
+        Assert.Equal((set.Links.CostOf(1), set.Links.CostOf(2)), (spent.Links.CostOf(1), spent.Links.CostOf(2)));
+        Assert.Equal((0f, 40f), (spent.Links[0].Health, spent.Links[1].Health));
+    }
+
+    /// <summary>The walk to a place from a cell, bounded: along the row, 32 u a cell; round the far end to the row under it, none within a bound shorter than that walk.</summary>
+    [Fact]
+    public void TheWalkToAPlaceIsTheGraphsAndNoneOverTheBound()
+    {
+        var (g, ids) = Rows();
+        JumpHeals heals = JumpHeals.Of(g, [PackAt(ids, g, 0, 0)]);
+        Assert.Equal(15f * 32f, heals.WalkTo(0, ids[15, 0], 1000f));
+        Assert.Null(heals.WalkTo(0, ids[15, 0], 400f));
+        Assert.Null(heals.WalkTo(0, ids[0, 2], 1000f));
+        Assert.NotNull(heals.WalkTo(0, ids[0, 2], 2000f));
+    }
+
+    /// <summary>A jump is a way to a place only when no walk from its start gets there in the jump's seconds and the walk from its landing.</summary>
+    [Fact]
+    public void AJumpIsTheWayToAPlaceOnlyWhenNoWalkGetsThereSooner()
+    {
+        var (g, ids) = Rows();
+        JumpHeals heals = JumpHeals.Of(g, [PackAt(ids, g, 0, 0)]);
+        // A jump of 1 s (240 u) landing 64 u from the pack: from the row under it (a long walk round) it is the way; from 8 cells along the row (a walk of 256 u, under the jump's 240 u and 64 u more) it is not; from 10 (320 u) it is.
+        JumpPlan plan = TFJumpAdvicePlan() with { Seconds = 1f, Heals = heals.NearCell(ids[2, 0]) };
+        Assert.Single(heals.JumpWays(plan, ids[0, 2], 240f));
+        Assert.Empty(heals.JumpWays(plan, ids[8, 0], 240f));
+        Assert.Single(heals.JumpWays(plan, ids[10, 0], 240f));
+    }
+
+    [Fact]
+    public void TheBookSaysWhetherALandingIsWithinAWalkOfAPlaceAndNothingBeforeItKnowsThePlaces()
+    {
+        var (g, ids) = Rows();
+        var book = new JumpBook(new JumpBookSettings());
+        JumpHealPlace pack = PackAt(ids, g, 0, 0);
+        Assert.Null(book.LandedBy(Centre(g, ids[3, 0]), pack.At));
+        book.Heals = JumpHeals.Of(g, [pack]);
+        Assert.Equal((true, false, false), (book.LandedBy(Centre(g, ids[3, 0]), pack.At), book.LandedBy(Centre(g, ids[0, 2]), pack.At),
+                                            book.LandedBy(Centre(g, ids[3, 0]), pack.At + new AiVector(500f, 0f, 0f))));
+    }
+
     [Fact]
     public void AStretchsPlanAnsweredAfterTheLevelsPlacesAreKnownCarriesThoseByItsTouch()
     {

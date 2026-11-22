@@ -82,14 +82,14 @@ public static class NavSizeTool
                 stands += stand ? 1 : 0;
                 if (!stand && hull is not null && source is NavHullNavSource boxes)
                 {
-                    float ceiling = hull.Ceiling(boxes.BoxOf(leaf), hull.WidthIndex(numbers.HullWidth));
-                    sloped += float.IsFinite(ceiling) && ceiling <= l.FloorZ ? 1 : 0;
+                    // A key's overhang records are its sloped brushes (.navhull version 2).
+                    sloped += hull.Key((int)hull.Box(boxes.BoxOf(leaf)).Key).OverhangCount > 0 ? 1 : 0;
                 }
             }
 
             return (walkable, stands, sloped);
         }, r => string.Create(CultureInfo.InvariantCulture, $"{r.walkable:N0} leaves on a walkable floor, {r.stands:N0} hold the crouched hull on it")
-                + (hull is null ? "" : string.Create(CultureInfo.InvariantCulture, $", {r.sloped:N0} have the hull's ceiling at or under the floor (a sloped brush in its footprint: the file fits the hull at no height there)")));
+                + (hull is null ? "" : string.Create(CultureInfo.InvariantCulture, $", {r.sloped:N0} of those that do not are beside a sloped brush (their key has overhang records)")));
         if (last < 2)
             return new NavSizeReport(steps, null, null, 0);
 

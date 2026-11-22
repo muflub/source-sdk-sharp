@@ -4,6 +4,7 @@
   tools/ai-nav-build MAP [--config debug] [--mod test] [--maptools DIR] [--force]
                                                       build MOD/maps/MAP.nav3d
   tools/ai-nav-build MAP --hull [--widths 32,48] ...  build MOD/maps/MAP.navhull
+  tools/ai-nav-build MAP --hull --rooms ...            and cut it into rooms
   tools/ai-nav-build --self-test
 
 --mod names the mod (bin/<config>/mods/<mod>, default test): its bsp is
@@ -21,6 +22,14 @@ which holds a map too tall for a .nav3d (a jump map's 2,048 voxels against a
 hull and the 32 it drops past a ledge as; 32 for the core game), or --widths;
 the loader refuses a file without a width its game asks, naming the widths to
 build with. The stamp is MOD/maps/MAP.navhull.stamp and also names the widths.
+
+--rooms (with --hull) cuts a map whose hull navigation is over the leaf limit
+into a file per sealed space (plan_bots_teams_tf2_part_g R.2 item 2):
+`ai-replay navsplit rooms` writes MOD/maps/MAP.rN.navhull, the room index
+MAP.navrooms and the room table MAP.navrooms.json, which the game loads a room
+at a time; a map within the limit gets none (and loses a stale table). Its
+stamp, MAP.navrooms.stamp, names the .navhull's sha256: a changed hull cuts
+again; a change to the rules alone needs --force.
 
 --maptools DIR builds with the map-tools tree at DIR instead of the one
 maptools.lock pins (a branch not yet merged): no lock check, and the stamp
@@ -207,6 +216,58 @@ def build(repo, mod, name, ssmap, force=False, out=print, bsp_dirs=(), maptools=
     return "built"
 
 
+def rooms(repo, mod, name, game, splitter, force=False, out=print):
+    """Cut MOD/maps/NAME.navhull into rooms with SPLITTER (the replay tool's
+    `navsplit rooms` command line, the arguments after it appended) unless
+    its stamp says the cut is of this hull. Answers 'cut' or 'current'."""
+    maps = os.path.join(mod, "maps")
+    hull = os.path.join(maps, name + ".navhull")
+    stamp_path = os.path.join(maps, name + ".navrooms.stamp")
+    table = os.path.join(maps, name + ".navrooms.json")
+    if not os.path.exists(hull):
+        raise BuildError(f"no {hull}: build it with --hull first")
+    bsp = next((b for b in (os.path.join(d, name + ".bsp") for d in (maps, *mod_bsp_dirs(mod))) if os.path.exists(b)), None)
+    if bsp is None:
+        raise BuildError(f"no {name}.bsp for {hull}")
+    want = {"navhull_sha256": sha256(hull)}
+    have = read_stamp(stamp_path)
+    if not force and have is not None and have.get("navhull_sha256") == want["navhull_sha256"] \
+            and (have.get("table_sha256") == "none" or (os.path.exists(table) and have.get("table_sha256") == sha256(table))):
+        out(f"ai-nav-build: {name}'s rooms are current (navhull {want['navhull_sha256'][:12]})")
+        return "current"
+    if os.path.exists(stamp_path):
+        os.remove(stamp_path)
+    cmd = splitter + [game, hull, bsp, maps]
+    out("ai-nav-build: " + " ".join(shlex.quote(c) for c in cmd))
+    p = subprocess.run(cmd, capture_output=True, text=True)
+    for line in (p.stdout + p.stderr).splitlines():
+        if "room table" in line or "no rooms" in line or "error" in line.lower():
+            out("  " + line.strip())
+    if p.returncode != 0:
+        raise BuildError(f"navsplit rooms {name} failed (rc={p.returncode}):\n{(p.stdout + p.stderr)[-2000:]}")
+    stamp = dict(want, table_sha256=sha256(table) if os.path.exists(table) else "none")
+    with open(stamp_path, "w") as f:
+        json.dump(stamp, f, indent=1, sort_keys=True)
+        f.write("\n")
+    return "cut"
+
+
+def mod_bsp_dirs(mod):
+    """The content map dirs of the mod at MOD (bin/<config>/mods/<mod>): where its downloaded maps are."""
+    config_dir = os.path.dirname(os.path.dirname(mod))
+    return [os.path.join(config_dir, d) for d in CONTENT_MAPS.get(os.path.basename(mod), ())]
+
+
+def default_splitter(config):
+    """The replay tool's `navsplit rooms`, built for CONFIG."""
+    cfg = "Release" if config == "release" else "Debug"
+    project = os.path.join(ROOT, "src", "ai", "replay", "SourceSharp.Ai.Replay.csproj")
+    p = subprocess.run([DOTNET, "build", project, "-c", cfg, "-v", "q", "--nologo"], capture_output=True, text=True)
+    if p.returncode != 0:
+        raise BuildError(f"the replay tool does not build:\n{(p.stdout + p.stderr)[-2000:]}")
+    return [DOTNET, os.path.join(ROOT, "bin", config, "tools", "ai-replay", "SourceSharp.Ai.Replay.dll"), "navsplit", "rooms"]
+
+
 def default_ssmap(repo, maptools_dir=None):
     if os.environ.get("SSMAP"):
         return shlex.split(os.environ["SSMAP"])
@@ -381,6 +442,36 @@ def self_test():
             f.write('"libraryfolders"\n{\n "0"\n {\n  "path"  "' + lib + '"\n }\n}\n')
         expect("or from a Steam library", engine_dir({}, os.path.join(tmp, "home")) == os.path.join(lib, "steamapps", "common", "Source SDK Base 2013 Multiplayer"))
         expect("and is none without either", engine_dir({}, os.path.join(tmp, "nohome")) is None)
+        # Rooms: a hull cut by the splitter (a stand-in writing a table), current until the hull changes.
+        room_mod = os.path.join(tmp, "rooms-mod")
+        os.makedirs(os.path.join(room_mod, "maps"))
+        with open(os.path.join(room_mod, "maps", "r.bsp"), "wb") as f:
+            f.write(b"VBSP r")
+        with open(os.path.join(room_mod, "maps", "r.navhull"), "wb") as f:
+            f.write(b"hull one")
+        cuts = os.path.join(tmp, "cuts")
+        splitter = os.path.join(tmp, "fake-split")
+        with open(splitter, "w") as f:
+            f.write("#!/usr/bin/env python3\nimport sys, os\nargs = sys.argv[1:]\n"
+                    f"open({cuts!r}, 'a').write('x')\n"
+                    "assert args[0] == 'tf2' and args[1].endswith('r.navhull') and args[2].endswith('r.bsp')\n"
+                    "open(os.path.join(args[3], 'r.navrooms.json'), 'w').write(open(args[1]).read())\n")
+        os.chmod(splitter, 0o755)
+
+        def cut_runs():
+            return len(open(cuts).read()) if os.path.exists(cuts) else 0
+
+        expect("--rooms cuts the hull", rooms(repo, room_mod, "r", "tf2", [splitter], out=quiet) == "cut" and cut_runs() == 1
+               and read_stamp(os.path.join(room_mod, "maps", "r.navrooms.stamp"))["navhull_sha256"] == sha256(os.path.join(room_mod, "maps", "r.navhull")))
+        expect("a second cut is a no-op", rooms(repo, room_mod, "r", "tf2", [splitter], out=quiet) == "current" and cut_runs() == 1)
+        with open(os.path.join(room_mod, "maps", "r.navhull"), "wb") as f:
+            f.write(b"hull two")
+        expect("a changed hull cuts again", rooms(repo, room_mod, "r", "tf2", [splitter], out=quiet) == "cut" and cut_runs() == 2
+               and open(os.path.join(room_mod, "maps", "r.navrooms.json")).read() == "hull two")
+        with open(os.path.join(room_mod, "maps", "r.navrooms.json"), "w") as f:
+            f.write("edited")
+        expect("a table edited behind the stamp cuts again", rooms(repo, room_mod, "r", "tf2", [splitter], out=quiet) == "cut" and cut_runs() == 3)
+        expect("without a hull it fails", _fails(lambda: rooms(repo, room_mod, "absent", "tf2", [splitter], out=quiet)))
     print(f"ai-nav-build self-test: {'FAILED ' + str(len(failures)) if failures else 'ok'}")
     return 1 if failures else 0
 
@@ -418,8 +509,15 @@ def main(argv):
                 print("ai-nav-build: warning: no engine install found (SOURCESHARP_ENGINE_DIR, or Steam's Source SDK Base 2013 "
                       "Multiplayer): HL2 content the mod mounts from it is missing from the nav", file=sys.stderr)
             game = mount_root(os.path.join(ROOT, "bin", config, "nav-mounts"), os.path.join(ROOT, "bin", config, "mods"), mod_id, engine)
+        splitter = None
+        if "--rooms" in argv:
+            if hull is None:
+                raise BuildError("--rooms cuts a hull navigation: give --hull too")
+            splitter = default_splitter(config)
         for name in names:
             build(ROOT, mod, name, ssmap, force="--force" in argv, bsp_dirs=bsp_dirs, maptools=identity, game=game, hull=hull)
+            if splitter is not None:
+                rooms(ROOT, mod, name, "tf2" if mod_id.startswith("tf2") else "hl2mp", splitter, force="--force" in argv)
     except BuildError as e:
         print(f"ai-nav-build: {e}", file=sys.stderr)
         return 1

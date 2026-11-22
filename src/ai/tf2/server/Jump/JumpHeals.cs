@@ -137,6 +137,65 @@ public sealed class JumpHeals
             yield return at.Index;
     }
 
+    /// <summary>
+    /// The walk on foot from cell <paramref name="cell"/> to place <paramref name="place"/>, when it is no more than
+    /// <paramref name="most"/>; null when it is more, or there is none (lane G9b): a flood back from the place's cells as
+    /// <see cref="Of"/> floods, bounded by <paramref name="most"/>.
+    /// </summary>
+    public float? WalkTo(int place, int cell, float most)
+    {
+        if ((uint)place >= (uint)_places.Length || (uint)cell >= (uint)_graph.CellCount)
+            return null;
+        if (_walks[place].TryGetValue(cell, out float near))
+            return near <= most ? near : null;
+        var obstacles = new NavObstacleState(_graph.ObstacleCount) { OpenDoors = true };
+        var cost = new Dictionary<int, float>();
+        var open = new PriorityQueue<int, float>();
+        foreach (int seed in SeedsOf(_graph, _places[place]))
+        {
+            if (cost.TryAdd(seed, 0f))
+                open.Enqueue(seed, 0f);
+        }
+
+        while (open.TryDequeue(out int at, out float c))
+        {
+            if (c > cost[at])
+                continue;
+            if (at == cell)
+                return c;
+            foreach (NavEdge e in _graph.EdgesTo(at))
+            {
+                if (!_graph.Passable(e, ClearanceClass.Stand, obstacles))
+                    continue;
+                float next = c + e.Cost;
+                if (next > most || (cost.TryGetValue(e.From, out float had) && had <= next))
+                    continue;
+                cost[e.From] = next;
+                open.Enqueue(e.From, next);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Of the places by <paramref name="plan"/>'s landing (<see cref="JumpPlan.Heals"/>), those the jump is the quicker way to
+    /// from the cell <paramref name="start"/> it starts in (lane G9b): no walk of the jump's seconds at
+    /// <paramref name="runSpeed"/> and the place's walk from the landing gets there.
+    /// </summary>
+    public ImmutableArray<JumpHeal> JumpWays(JumpPlan plan, int start, float runSpeed)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        ImmutableArray<JumpHeal>.Builder? ways = null;
+        foreach (JumpHeal h in plan.Heals)
+        {
+            if (WalkTo(h.Place, start, (plan.Seconds * runSpeed) + h.Walk) is null)
+                (ways ??= ImmutableArray.CreateBuilder<JumpHeal>()).Add(h);
+        }
+
+        return ways is null ? [] : ways.ToImmutable();
+    }
+
     /// <summary>The places within the walk of the cell <paramref name="landing"/> stands in, nearest first; none off the graph.</summary>
     public ImmutableArray<JumpHeal> Near(AiVector landing)
     {
@@ -193,5 +252,53 @@ public sealed class JumpHeals
         }
 
         return spends;
+    }
+
+    /// <summary>
+    /// How many times its walk a detour from a landing to a heal place and back to the way costs, at most: there and back
+    /// again (a way that goes on past the place costs less).
+    /// </summary>
+    public const float DetourShare = 2f;
+
+    /// <summary>
+    /// The health each of <paramref name="set"/>'s links is weighed at by a route search (lane G9b): what its blast costs a
+    /// player of <paramref name="maxHealth"/> once a place by its landing that any player may use has given health back, the
+    /// place taken next. The place gives back up to what it pays (<see cref="JumpHealthRule.Pays"/>), so the blast and the
+    /// worst fall less that, never under 0; the walk there and back (<see cref="DetourShare"/> times the place's walk, at
+    /// <paramref name="costs"/>' run speed) is weighed as the health those seconds are worth
+    /// (<see cref="NavLinkCosts.HealthSeconds"/>). The least of that and the blast's whole cost: a place too far for its pay is
+    /// not worth the walk, and the link weighs what it did. A link by no such place weighs its cost.
+    /// <para>
+    /// Whatever the player's health, taking the place leaves it no worse than the blast less the pay: from full it lands at
+    /// full less the blast and the pack makes it up to what it pays; under the floor the same. So one weight serves every bot.
+    /// </para>
+    /// </summary>
+    public float[] Weights(JumpLinkSet set, IReadOnlyList<JumpPlan> plans, int maxHealth, NavLinkCosts costs)
+    {
+        ArgumentNullException.ThrowIfNull(set);
+        ArgumentNullException.ThrowIfNull(plans);
+        ArgumentNullException.ThrowIfNull(costs);
+        var weights = new float[set.Links.Count];
+        for (int i = 0; i < weights.Length; i++)
+        {
+            float cost = set.JumpOf(i).Health, weight = cost;
+            ImmutableArray<JumpHeal> near = NearCell(set.Links[i].To);
+            if (!near.IsEmpty && costs.HealthSeconds > 0f && costs.RunSpeed > 0f)
+            {
+                float fall = JumpHealthRule.Fall(plans[i], maxHealth);
+                foreach (JumpHeal h in near)
+                {
+                    if (h.Cabinet && h.Team != 0)
+                        continue;
+                    float back = MathF.Max(0f, cost + fall - JumpHealthRule.Pays(h.Cabinet, h.Kind, maxHealth));
+                    float walk = DetourShare * h.Walk / costs.RunSpeed / costs.HealthSeconds;
+                    weight = MathF.Min(weight, back + walk);
+                }
+            }
+
+            weights[i] = weight;
+        }
+
+        return weights;
     }
 }

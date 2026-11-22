@@ -16,9 +16,11 @@ namespace TF2.Descent.Tests.Horde;
 ///
 /// <para>
 /// The committed level is depth 1 as generated before 50cefc6c3 (2026-11-14), kept on purpose
-/// (Level/Fixtures/README.md): its wide drift rooms have solid floor rails that cut the two largest
-/// hull classes off from three rooms. A level built today has none; these facts are about what the
-/// derivation does with a cut floor, not about the level the game ships.
+/// (Level/Fixtures/README.md): its wide drift rooms have solid 8-unit floor rails. Since the
+/// derivation asks a hull's fit on a step from the voxel over its feet (ruling 2026-11-15) the
+/// giants stand on those rails, so every class reaches every room, as in a level built today
+/// (whose rails are not solid). The cut floor the reach and path facts need is a level of their
+/// own (<see cref="CutFloorLevel"/>).
 /// </para>
 /// </summary>
 public sealed class HordeNavDataTests(ITestOutputHelper output)
@@ -59,22 +61,20 @@ public sealed class HordeNavDataTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// In the committed level the two largest giants' classes reach 15 of the 18 rooms (HO0
-    /// measured the same). What stops them is the wide drift rooms' solid 8 x 8 floor rails and the
-    /// posts between the tracks (found 2026-11-13 by probing the .nav3d: a box 84 wide overlaps a
-    /// rail, and the clearance records hold no solid's top, so the nav cannot say "feet on the
-    /// rail"). It was first read as the stairs limit of docs/todo.md, which it is not.
+    /// The two largest giants' classes reach all 18 rooms. Until 2026-11-15 they reached 15: the
+    /// wide drift rooms' 8-unit floor rails top out inside a voxel, and the derivation answered a
+    /// hull standing on such a step as blocked, which cut rooms 6, 16 and 17 off (first read as
+    /// the rails being in the way, 2026-11-13). Asked from the voxel over the feet, the giants stand
+    /// on the rails as the game's movement puts them.
     /// </summary>
     [Fact]
-    public void The_two_largest_giant_classes_reach_15_of_the_18_rooms()
+    public void The_two_largest_giant_classes_reach_every_room_standing_on_the_floor_rails()
     {
-        var stand = RoomsReached(Nav, FixtureLevel, Nav.CellAt(Arrival, ClearanceClass.Stand), ClearanceClass.Stand);
         foreach (var cls in new[] { ClearanceClass.Hull4, ClearanceClass.Hull5 })
         {
             var giant = RoomsReached(Nav, FixtureLevel, Nav.CellAt(Arrival, cls), cls);
-            output.WriteLine($"{HordeHulls.NameOf(cls)}: {giant.Count} rooms; missing {string.Join(", ", stand.Except(giant).Select(r => $"{r} {Data.Rooms[r].Name}"))}");
-            Assert.Equal(15, giant.Count);
-            Assert.Subset(stand, giant);
+            output.WriteLine($"{HordeHulls.NameOf(cls)}: {giant.Count} rooms");
+            Assert.Equal(FixtureLevel.RoomCount, giant.Count);
         }
     }
 
@@ -109,18 +109,18 @@ public sealed class HordeNavDataTests(ITestOutputHelper output)
 
     /// <summary>
     /// The room table of depth 1 seed 1 (the output): for each room, the cells each class stands on
-    /// and how many of them it reaches from the arrival. Scale 1.6 and up plans by the x1.75 class,
-    /// above 1.75 by x1.90: both miss rooms 6, 16 and 17, and every door of those rooms fits either
-    /// hull, so no door keeps them out; what does is written where the standing class's way in
-    /// leaves the giant's reach (the cells, their floors and the free space over them).
+    /// and how many of them it reaches from the arrival. Every class reaches cells in every room;
+    /// until 2026-11-15 the x1.75 and x1.90 classes reached none in rooms 6, 16 and 17 (see
+    /// <see cref="The_two_largest_giant_classes_reach_every_room_standing_on_the_floor_rails"/>).
     /// </summary>
     [Fact]
-    public void The_giant_classes_miss_rooms_6_16_and_17_and_every_door_of_those_fits_their_hulls()
+    public void The_room_table_of_depth_1_seed_1_has_every_class_reaching_cells_in_every_room()
     {
         var nav = Nav;
         var level = FixtureLevel;
         var classes = new[] { ClearanceClass.Stand, ClearanceClass.Hull2, ClearanceClass.Hull3, ClearanceClass.Hull4, ClearanceClass.Hull5 };
         var reached = classes.Select(c => nav.Reachable(nav.CellAt(Arrival, c), c)).ToArray();
+        var unreached = new List<string>();
         for (int r = 0; r < level.RoomCount; r++)
         {
             var row = new System.Text.StringBuilder(FormattableString.Invariant($"room {r,2} {Data.Rooms[r].Name,-16}"));
@@ -137,85 +137,14 @@ public sealed class HordeNavDataTests(ITestOutputHelper output)
                 }
 
                 row.Append(FormattableString.Invariant($" | {HordeHulls.NameOf(classes[k])} {reach}/{stands}{(reach == 0 ? " UNREACHED" : "")}"));
+                if (reach == 0)
+                    unreached.Add($"{HordeHulls.NameOf(classes[k])} in room {r}");
             }
 
             output.WriteLine(row.ToString());
         }
 
-        var stand = RoomsReached(nav, level, nav.CellAt(Arrival, ClearanceClass.Stand), ClearanceClass.Stand);
-        var parent = StandParents(nav, nav.CellAt(Arrival, ClearanceClass.Stand));
-        foreach (var (cls, scale) in new[] { (ClearanceClass.Hull4, 1.75f), (ClearanceClass.Hull5, 1.9f) })
-        {
-            bool[] giant = nav.Reachable(nav.CellAt(Arrival, cls), cls);
-            var missing = stand.Except(RoomsReached(nav, level, nav.CellAt(Arrival, cls), cls)).OrderBy(r => r).ToArray();
-            Assert.Equal(new[] { 6, 16, 17 }, missing);
-            foreach (int r in missing)
-            {
-                Frontier(nav, level, parent, giant, cls, scale, r);
-                foreach (int d in level.DoorsOf(r))
-                {
-                    var door = level.Doors[d];
-                    output.WriteLine(FormattableString.Invariant(
-                        $"{HordeHulls.NameOf(cls)}: room {r} door {d} to room {door.Other(r)} at ({door.Position.X:0},{door.Position.Y:0},{door.Position.Z:0}) {door.Width:0} wide, {door.Height:0} high; hull {HordeHulls.StandWidth * scale:0} by {HordeHulls.StandHeight * scale:0}"));
-                    Assert.True(door.Width >= HordeHulls.StandWidth * scale && door.Height >= HordeHulls.StandHeight * scale,
-                                $"room {r}'s door {d} is {door.Width} by {door.Height}, the hull {HordeHulls.StandWidth * scale} by {HordeHulls.StandHeight * scale}");
-                }
-            }
-        }
-    }
-
-    /// <summary>The standing class's way from the arrival into room <paramref name="r"/>, written out where it leaves the giant's reach: the cells, their floors, and the free space over the first refused one.</summary>
-    private void Frontier(HordeNavData nav, HordeLevel level, int[] parent, bool[] giant, ClearanceClass cls, float scale, int r)
-    {
-        int end = -1;
-        for (int i = 0; i < parent.Length && end < 0; i++)
-            if (parent[i] != -2 && level.RoomAt(nav.Graph.Cell(i).Centre + new AiVector(0f, 0f, 1f)) == r)
-                end = i;
-        var way = new List<int>();
-        for (int c = end; c >= 0; c = parent[c])
-            way.Add(c);
-        way.Reverse();
-        int last = way.FindLastIndex(c => giant[c]);
-        var sb = new System.Text.StringBuilder();
-        for (int k = Math.Max(0, last - 1); k < Math.Min(way.Count, last + 4); k++)
-        {
-            var cell = nav.Graph.Cell(way[k]);
-            sb.Append(FormattableString.Invariant(
-                $" [room {level.RoomAt(cell.Centre + new AiVector(0f, 0f, 1f))} ({cell.Centre.X:0},{cell.Centre.Y:0}) floor {cell.FloorZ:0} {(giant[way[k]] ? "reached" : cell.Admits(cls) ? "stands, not joined" : "refused")}]"));
-        }
-
-        output.WriteLine($"{HordeHulls.NameOf(cls)}: way into room {r}: {way.Count} cells, the giant's reach ends at cell {last}:{sb}");
-        if (last < 0 || last + 1 >= way.Count)
-            return;
-        var first = nav.Graph.Cell(way[last + 1]);
-        float half = HordeHulls.StandWidth * scale / 2f, lowFree = float.MaxValue;
-        AiVector lowAt = default;
-        for (float dx = -half; dx <= half; dx += nav.Columns.VoxelSize)
-        {
-            for (float dy = -half; dy <= half; dy += nav.Columns.VoxelSize)
-            {
-                var q = new AiVector(first.Centre.X + dx, first.Centre.Y + dy, first.FloorZ);
-                float h = FreeHeight(nav, q);
-                if (h < lowFree)
-                    (lowFree, lowAt) = (h, q);
-            }
-        }
-
-        output.WriteLine(FormattableString.Invariant(
-            $"{HordeHulls.NameOf(cls)}: room {r}: over the first refused cell ({first.Centre.X:0},{first.Centre.Y:0},{first.FloorZ:0}) the voxel columns are free {FreeHeight(nav, first.Centre):0} high; under the hull's whole box the least is {lowFree:0} at ({lowAt.X:0},{lowAt.Y:0})"));
-    }
-
-    /// <summary>How high the voxel columns are free over <paramref name="at"/>'s floor (0 in solid).</summary>
-    private static float FreeHeight(HordeNavData nav, AiVector at)
-    {
-        var cols = nav.Columns;
-        foreach (var span in cols.Spans(cols.ColumnX(at.X), cols.ColumnY(at.Y)))
-        {
-            if (span.Bottom <= at.Z + 19f && span.Top >= at.Z + 19f)
-                return span.Top - at.Z;
-        }
-
-        return 0f;
+        Assert.Empty(unreached);
     }
 
     [Fact]
@@ -247,29 +176,6 @@ public sealed class HordeNavDataTests(ITestOutputHelper output)
     {
         var e = Assert.Throws<InvalidDataException>(() => HordeNavData.Derive([1, 2, 3, 4]));
         Assert.NotEmpty(e.Message);
-    }
-
-    /// <summary>Each cell's parent on a breadth-first walk of the standing class from <paramref name="from"/>: -1 the start, -2 not reached.</summary>
-    private static int[] StandParents(HordeNavData nav, CellId from)
-    {
-        var parent = new int[nav.Graph.CellCount];
-        Array.Fill(parent, -2);
-        parent[from.Index] = -1;
-        var queue = new Queue<int>();
-        queue.Enqueue(from.Index);
-        while (queue.Count > 0)
-        {
-            int at = queue.Dequeue();
-            foreach (var e in nav.Graph.EdgesFrom(at))
-            {
-                if (parent[e.To] != -2 || !nav.Graph.Passable(e, ClearanceClass.Stand, nav.Open))
-                    continue;
-                parent[e.To] = at;
-                queue.Enqueue(e.To);
-            }
-        }
-
-        return parent;
     }
 
     /// <summary>The level's rooms holding a cell of <paramref name="cls"/> reached from <paramref name="from"/>.</summary>

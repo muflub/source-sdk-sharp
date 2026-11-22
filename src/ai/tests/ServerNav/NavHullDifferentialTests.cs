@@ -159,22 +159,21 @@ internal sealed class NavGraphDiff
 /// files or in neither.
 /// <list type="bullet">
 /// <item><b>ss_ai_tf_jump</b> (every brush axis-aligned): the same graph, cell for cell and edge
-/// for edge (15,679 cells and 119,523 edges at map-tools 3551fa8).</item>
-/// <item><b>ctf_2fort</b>: the same but at leaves whose clearance record lists a sloped brush
-/// (a ramp, a roof, a displacement's hull). There the <c>.nav3d</c> reader tests the body's box
-/// against the brush at the height asked, and the hull file keeps one number, the head room over
-/// the voxel's bottom: the two agree at a voxel's bottom (32,185,712 asks, none differ) and part
-/// where the derivation asks at the floor under the voxel (the hull stands a body in 16,788 of
-/// 892,152 asks where the <c>.nav3d</c> does not) or a step over it, the wide hull's stair rule
-/// (the <c>.nav3d</c> fits one in 7,290 of 673,060 asks where the hull does not). In the graphs:
-/// 2,043 of the <c>.nav3d</c>'s 162,712 cells are missing from the hull's and 59 of the hull's
-/// 160,728 from the <c>.nav3d</c>'s, 37 differ in class; 11,646 of 1,158,283 edges are only the
-/// <c>.nav3d</c>'s (every one at such a cell but one) and 5,586 of 1,152,223 only the hull's (308
-/// at such a cell, the rest a two-column move over a column whose crossing the two answer apart),
-/// and 181 are of another type or carry another obstacle. The facts hold the shape of that, not
-/// the counts: every cell that differs is on such a leaf, every edge that differs touches one, and
-/// both are under two in a hundred. It is not a harmless two in a hundred: the cells the hull lacks
-/// are rows of the map's stairs, and its graph cuts each spawn from the far flag.</item>
+/// for edge (15,679 cells and 119,523 edges at map-tools 3551fa8 and at dc1e00a).</item>
+/// <item><b>ctf_2fort</b>, <c>.navhull</c> version 2 (map-tools dc1e00a, PR #153): every cell and
+/// edge of the <c>.nav3d</c>'s graph is in the hull's, and the hull's joins each spawn to both flags
+/// as the <c>.nav3d</c>'s does. Version 2 keeps, per sloped brush a body can meet, the highest top
+/// that passes under it and the lowest feet that stand over it, so a fit at any feet is the
+/// <c>.nav3d</c>'s; version 1 kept one head room at the voxel's bottom, and its graph lacked 2,043
+/// of the <c>.nav3d</c>'s 162,712 cells (rows of the stairs) and 11,646 of its edges, and cut each
+/// spawn from the far flag. What still parts them, all at leaves whose clearance record lists a
+/// sloped brush: the hull's graph has 521 cells more (163,233), 4,869 edges more (1,163,152; 4,592
+/// of them at those cells) and 582 of another type, where a hull box spans two <c>.nav3d</c>
+/// leaves (at x −1712, y −3728, floor 958.7 the box runs from 960 to 992 and the <c>.nav3d</c>'s
+/// leaf from 960 to 976), so a question asked leaf by leaf up the body sees one leaf in the hull
+/// and two in the <c>.nav3d</c>. The facts hold that shape: nothing of the <c>.nav3d</c>'s graph is
+/// missing, every cell that differs is on such a leaf, every edge that differs touches one, and
+/// both are under two in a hundred.</item>
 /// </list>
 /// </summary>
 public sealed class NavHullDifferentialTests
@@ -315,20 +314,33 @@ public sealed class NavHullDifferentialTests
         Assert.True(d.EdgesOnlyA.Count + d.EdgesOnlyB.Count + d.EdgesChanged.Count < d.EdgesA / 50, d.ToString());
     }
 
+    [PerTreeHullNavFact(Fort)]
+    public void OnTwoFortEveryCellOfTheNav3dsGraphIsInTheHullsAsItIs()
+    {
+        NavGraphDiff d = FortMap.Value.Diff;
+        Assert.True(d.CellsA > 100_000, d.ToString());
+        Assert.True(d.OnlyA.Count + d.Changed.Count == 0, d.ToString());
+    }
+
+    [PerTreeHullNavFact(Fort)]
+    public void OnTwoFortEveryEdgeOfTheNav3dsGraphIsInTheHulls()
+    {
+        NavGraphDiff d = FortMap.Value.Diff;
+        Assert.True(d.EdgesA > 1_000_000, d.ToString());
+        Assert.True(d.EdgesOnlyA.Count == 0, d.ToString());
+    }
+
     /// <summary>
-    /// What the difference costs, and why the loader takes a map's <c>.nav3d</c> before its hull
-    /// navigation (<see cref="NavLoader"/>): the cells the hull's graph lacks are rows of 2fort's
-    /// stairs, and without them neither team's spawn has a way to the other base's flag, where the
-    /// <c>.nav3d</c>'s graph joins all four (TF2NavTests). A tripwire: when this fails, map-tools'
-    /// hull file answers a sloped brush as its <c>.nav3d</c> does, and the loader's order can turn.
+    /// What version 1 cost and version 2 gives back: the hull's graph joins each team's spawn to
+    /// both flags as the <c>.nav3d</c>'s does (TF2NavTests). Over a version 1 file it joined each flag
+    /// to its own base's spawn only, so <see cref="NavLoader"/> takes a map's <c>.nav3d</c> first.
     /// </summary>
     [PerTreeHullNavFact(Fort)]
-    public void TheHullsGraphOfTwoFortCutsEachSpawnFromTheFarFlagWhereTheNav3dsJoinsThem()
+    public void TheHullsGraphOfTwoFortJoinsEachSpawnToBothFlagsAsTheNav3dsDoes()
     {
         Pair p = FortMap.Value;
         Assert.Equal([true, true, true, true], Ways(p.FromNav3d.Graph));
-        // Flag by flag, spawn by spawn: each flag is joined to its own base's spawn only.
-        Assert.Equal([true, false, false, true], Ways(p.FromHull.Graph));
+        Assert.Equal([true, true, true, true], Ways(p.FromHull.Graph));
     }
 
     private static bool[] Ways(NavGraph g)

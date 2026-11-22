@@ -351,22 +351,29 @@ public sealed class TFJumps : IFrameLifecycle, IGameLifecycle, IDebugRouteProvid
     /// <summary>
     /// A set of links as it is published (lane G9): each link's plan with the heal places by its landing
     /// (<see cref="JumpPlan.Heals"/>), and, with <c>ai_tf_feel_jumphealth</c> on, each link spending what its landing's place
-    /// does not give back (<see cref="JumpHeals.Spends"/>, a Soldier's health against the floor); off, or with no link that lands
-    /// by health, the set as found.
+    /// does not give back (<see cref="JumpHeals.Spends"/>, a Soldier's health against the floor) and weighed at what its blast
+    /// costs once that place has given health back (lane G9b, <see cref="JumpHeals.Weights"/>), so a route to or past a pack
+    /// takes it; off, or with no link that lands by health, the set as found.
     /// </summary>
     private (JumpLinkSet Set, JumpPlan[] Plans) Publishable(NavGraph graph, JumpLinkSet set, IReadOnlyList<JumpPlan> plans, JumpHeals heals, NavLinkCosts costs)
     {
         var withHeals = new JumpPlan[plans.Count];
         for (int i = 0; i < withHeals.Length; i++)
+        {
             withHeals[i] = plans[i] with { Heals = heals.NearCell(set.Links[i].To) };
+            if (!withHeals[i].Heals.IsEmpty)
+                withHeals[i] = withHeals[i] with { JumpWays = heals.JumpWays(withHeals[i], set.Links[i].From, costs.RunSpeed) };
+        }
+
         if (!_jumpHealth)
             return (set, withHeals);
         float[] spends = heals.Spends(set, withHeals, _jumpHealthMax, Trees.TFDecider.RocketJumpHealthFloor);
+        float[] weights = heals.Weights(set, withHeals, _jumpHealthMax, costs);
         // No link lands by health: the set as found, its hash and every mask over it as they were.
         for (int i = 0; i < spends.Length; i++)
         {
-            if (spends[i] < set.JumpOf(i).Health)
-                return (set.WithSpends(graph, spends, costs), withHeals);
+            if (spends[i] < set.JumpOf(i).Health || weights[i] < set.JumpOf(i).Health)
+                return (set.WithSpends(graph, spends, costs, weights), withHeals);
         }
 
         return (set, withHeals);
@@ -380,6 +387,17 @@ public sealed class TFJumps : IFrameLifecycle, IGameLifecycle, IDebugRouteProvid
         int n = 0;
         for (int i = 0; i < set.Links.Count; i++)
             n += set.Links[i].Health < set.JumpOf(i).Health ? 1 : 0;
+        return n;
+    }
+
+    /// <summary>Links of the published set weighed under their blast's cost (lane G9b): those by a place that gives the health back, worth its walk.</summary>
+    private int LinksWeighedByHealth()
+    {
+        if (_linkSet is not { } set)
+            return 0;
+        int n = 0;
+        for (int i = 0; i < set.Links.Count; i++)
+            n += set.Links.CostOf(i) < _linkCosts.Cost(set.Links[i] with { Health = set.JumpOf(i).Health }) - 0.01f ? 1 : 0;
         return n;
     }
 
@@ -525,7 +543,7 @@ public sealed class TFJumps : IFrameLifecycle, IGameLifecycle, IDebugRouteProvid
             json.Append(i == 0 ? "" : ",").Append(CultureInfo.InvariantCulture,
                 $"{{\"index\":{i},\"from\":{l.From},\"to\":{l.To},\"start\":[{l.Start.X:F1},{l.Start.Y:F1},{l.Start.Z:F1}],\"takeoff\":[{j.Recipe.Takeoff.X:F1},{j.Recipe.Takeoff.Y:F1},{j.Recipe.Takeoff.Z:F1}],"
                 + $"\"landing\":[{j.Recipe.Landing.X:F1},{j.Recipe.Landing.Y:F1},{j.Recipe.Landing.Z:F1}],\"family\":\"{j.Family}\",\"rise\":{j.Recipe.Landing.Z - j.Recipe.Takeoff.Z:F0},"
-                + $"\"origin\":\"{(j.Practiced ? "practice" : j.Shown ? "shown" : "shape")}\",\"seconds\":{j.Seconds:F3},\"health\":{j.Health:F1},\"spend\":{l.Health:F1},\"robustness\":{j.Robustness:F2},\"walk_seconds\":{(j.WalkSeconds is { } w ? w.ToString("F2", CultureInfo.InvariantCulture) : "null")}}}");
+                + $"\"origin\":\"{(j.Practiced ? "practice" : j.Shown ? "shown" : "shape")}\",\"seconds\":{j.Seconds:F3},\"health\":{j.Health:F1},\"spend\":{l.Health:F1},\"cost_seconds\":{set.Links.CostOf(i) / _linkCosts.RunSpeed:F2},\"robustness\":{j.Robustness:F2},\"walk_seconds\":{(j.WalkSeconds is { } w ? w.ToString("F2", CultureInfo.InvariantCulture) : "null")}}}");
         }
 
         return json.Append(']').ToString();
@@ -605,7 +623,7 @@ public sealed class TFJumps : IFrameLifecycle, IGameLifecycle, IDebugRouteProvid
             + $"\"ai.jump.begun\":{_program.Begun},\"ai.jump.unknown\":{_program.Unknown},\"ai.jump.ended\":{t.Ended},"
             + $"\"ai.jump.landed.near\":{t.LandedNear},\"ai.jump.landed.short\":{t.LandedShort},\"ai.jump.landed.elsewhere\":{t.LandedElsewhere},"
             + $"\"ai.jump.called_off.view\":{t.ViewLate},\"ai.jump.called_off.astray\":{t.Astray},\"ai.jump.fizzled\":{t.Fizzled},\"ai.jump.fizzled.felt\":{t.FizzledFelt},\"ai.jump.died\":{t.Died},\"ai.jump.timed_out\":{t.TimedOut},\"ai.jump.moved\":{t.Moved},\"ai.jump.reset\":{t.Reset},"
-            + $"\"ai.jump.predicted\":{t.Predicted},\"ai.jump.book.advised\":{b.Advised},\"ai.jump.book.asked\":{b.Asked},\"ai.jump.book.dropped\":{b.Dropped},"
+            + $"\"ai.jump.predicted\":{t.Predicted},\"ai.jump.book.calls\":{b.Calls},\"ai.jump.book.covered\":{b.Covered},\"ai.jump.book.advised\":{b.Advised},\"ai.jump.book.asked\":{b.Asked},\"ai.jump.book.dropped\":{b.Dropped},"
             + $"\"ai.jump.book.planned\":{b.Planned},\"ai.jump.book.refused\":{b.Refused},\"ai.jump.book.plans\":{b.Plans},\"ai.jump.book.waiting\":{b.Waiting},");
         foreach (JumpRefusal why in Enum.GetValues<JumpRefusal>())
         {
@@ -616,7 +634,7 @@ public sealed class TFJumps : IFrameLifecycle, IGameLifecycle, IDebugRouteProvid
         json.Append(CultureInfo.InvariantCulture,
             $"\"ai.jump.work.pieces\":{d.Planned + d.Predicted},\"ai.jump.work.flights\":{d.Flights},\"ai.jump.work.floods\":{d.Floods},\"ai.jump.work.cpu.us\":{d.WorkMicros:F0},"
             + $"\"ai.jump.work.faults\":{d.Faults},\"ai.jump.open.ms\":{_openMs:F1},"
-            + $"\"links.jump_health\":{(_jumpHealth ? "true" : "false")},\"links.by_health\":{LinksByHealth()},\"heals.places\":{_heals?.Places.Count ?? 0},"
+            + $"\"links.jump_health\":{(_jumpHealth ? "true" : "false")},\"links.by_health\":{LinksByHealth()},\"links.weighed_by_health\":{LinksWeighedByHealth()},\"heals.places\":{_heals?.Places.Count ?? 0},"
             + $"\"links.state\":{AiJson.Quote(_linkState)},\"links\":{_linkSet?.Links.Count ?? 0},\"links.shape\":{(_linkOutcome is { } lo ? lo.Set.Links.Count : 0)},\"links.from_cache\":{(_linkOutcome?.FromCache == true ? "true" : "false")},"
             + $"\"links.cpu.ms\":{_linkOutcome?.CpuMs ?? 0d:F1},\"links.pass.ms\":{_linkOutcome?.PassMs ?? 0d:F1},\"links.candidates\":{_linkOutcome?.Candidates ?? 0},\"links.flights\":{_linkOutcome?.Flights ?? 0},\"links.seeds\":{_linkSeeds},\"links.skip\":{AiJson.Quote(_linkSkip?.ToString() ?? "")},"
             + $"\"ai.jump.link.begun\":{_program.LinksBegun},\"ai.jump.link.reported\":{_desk.Book.RouteCounts.Notes},\"ai.jump.link.advised\":{_desk.Book.RouteCounts.Advised},"

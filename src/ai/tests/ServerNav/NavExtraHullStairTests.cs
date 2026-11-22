@@ -19,10 +19,13 @@ namespace SourceSharp.Ai.Tests.ServerNav;
 /// game's, which reaches the step two up) and an 86-unit one. With treads one voxel deep, on the
 /// fixture's uncut leaves, nobody climbs, the game's own hull included: a leaf's record names a
 /// step beside by its bottom, so no body is ever clear of it by being raised.</item>
-/// <item>A record keeps a solid's bottom, so the voxel that holds a step's top answers the step as
-/// a wall: standing on a step is exact when its top lies on a voxel boundary (16 on the default
-/// grid, as the Descent pool rooms' at depths 8 and 9) and blocked when it lies inside a voxel (a one-unit sill at a
-/// ctf_2fort spawn's door).</item>
+/// <item>A record keeps a solid's bottom, so the voxel that holds a step's top would answer the
+/// step as a wall: the fit on a step is asked of the first voxel at or above the feet (ruling
+/// 2026-11-15), so a step is stood on whether its top lies on a voxel boundary (16 on the default
+/// grid, as the Descent pool rooms' at depths 8 and 9) or inside a voxel (a one-unit sill at a
+/// ctf_2fort spawn's door). What that lower voxel holds above the feet is not asked: a solid
+/// that is no floor and tops out inside it, within the box, is missed (a false yes); one that
+/// tops out above it is seen.</item>
 /// <item>The one-step raise is held on the hand-built source the wide hull's own facts use
 /// (<see cref="NavStairStandingTests"/>), whose steps hold no box at their own floor and any box a
 /// step up, whatever its width: there every extra hull with the head room is stood on the steps
@@ -31,10 +34,13 @@ namespace SourceSharp.Ai.Tests.ServerNav;
 /// 7ee026d58b2a, TF2's numbers, from each flag): 29 by 50 is admitted in every cell and has all
 /// four ways from a spawn to a flag (43,258 cells reached, the game's own); 49 by 83 is admitted
 /// in 90.5 % of the 162,712 cells and reaches 29,259 (on one step only, 90.3 % and 3,523 and
-/// 3,529) but still none of the four ways: a one-unit sill at the blue spawn's door (-1608 -1440, top
-/// 257), inside a voxel; 86 by 145 is admitted in 67.1 % and reaches 31 cells from a flag, with
-/// none of the four. A hull of the game's own size is admitted in 160,775 cells, 9 more than the
-/// 160,766 the game's own body stands in: the body keeps the one-step rule.</item>
+/// 3,529) but none of the four ways while a step's top inside a voxel is answered blocked: a
+/// one-unit sill at the blue spawn's door (-1608 -1440, top 257); 86 by 145 is admitted in 67.1 %
+/// and reaches 31 cells from a flag, with none of the four. A hull of the game's own size is
+/// admitted in 160,775 cells, 9 more than the 160,766 the game's own body stands in: the body
+/// keeps the one-step rule. With the fit asked from the voxel over the feet (ruling 2026-11-15):
+/// 49 by 83 is admitted in 91.1 % and has all four ways (30,484 cells reached from a flag); 86
+/// by 145 is admitted in 73.2 % and reaches 43 cells from a flag, with none of the four.</item>
 /// </list>
 /// </summary>
 public sealed class NavExtraHullStairTests
@@ -104,10 +110,10 @@ public sealed class NavExtraHullStairTests
     /// from x 512 up to <paramref name="top"/>: the game's own 48-unit box touches it and stands,
     /// the 49-unit one overlaps it.
     /// </summary>
-    private static NavCell BesideARaise(float top)
+    private static NavCell BesideARaise(float top, Func<VoxelNavFixture, VoxelNavFixture>? more = null)
     {
         var f = new VoxelNavFixture(4, 1, 24) { SplitByRecord = true }.Solid(0, 0, 0, 1024, 256, Floor).Solid(512, 0, Floor, 1024, 256, top);
-        NavGraph g = Derive(f);
+        NavGraph g = Derive(more is null ? f : more(f));
         CellId at = g.FindCell(new AiVector(488f, 120f, Floor + 1f));
         Assert.True(at.IsValid && g.Cell(at).Admits(Body) && g.Cell(at).FloorZ == Floor, "the game's own body stands beside the raise");
         return g.Cell(at);
@@ -118,12 +124,34 @@ public sealed class NavExtraHullStairTests
     public void ALedgeTwoStepsHighIsNoStepToStandOn() => Assert.False(BesideARaise(Floor + 32f).Admits(Middle));
 
     /// <summary>
-    /// The limit the file sets (a record keeps a solid's bottom): a step whose top lies inside a
-    /// voxel, a sill one unit high as at a ctf_2fort spawn's door, is held in the record of the
-    /// voxel the feet stand in, so the hull standing on it is answered blocked.
+    /// A step whose top lies inside a voxel, a sill one unit high as at a ctf_2fort spawn's door,
+    /// is held in the record of the voxel the feet stand in; the fit is asked of the voxel above
+    /// (ruling 2026-11-15), so the hull is stood on it. Asked of the voxel holding the feet, it was
+    /// answered blocked.
     /// </summary>
     [Fact]
-    public void AHullIsNotStoodOnASillWhoseTopIsInsideAVoxel() => Assert.False(BesideARaise(Floor + 1f).Admits(Middle));
+    public void AHullIsStoodOnASillWhoseTopIsInsideAVoxel() => Assert.True(BesideARaise(Floor + 1f).Admits(Middle));
+
+    /// <summary>
+    /// The post beside the sill: 16 across at x 448 to 464, y 112 to 128, a voxel's gap from the
+    /// cell's column, so the game's own 48-unit box clears it and the 49-unit one reaches half a
+    /// unit into it; from the floor up to <paramref name="top"/>, its top no floor.
+    /// </summary>
+    private static Func<VoxelNavFixture, VoxelNavFixture> Post(float top) => f => f.NoFloor(448, 112, Floor, 464, 128, top);
+
+    /// <summary>
+    /// The rule's known false yes: a solid that is no floor (here a post whose top is not
+    /// walkable) topping out inside the voxel over the step's top, within the box, is not asked,
+    /// so the hull standing on the sill (feet at 17, a post up to 28 in its box) is admitted.
+    /// </summary>
+    [Fact]
+    public void AHullIsStoodOnASillBesideAPostThatIsNoFloorWhenThePostTopsOutInsideTheVoxel()
+        => Assert.True(BesideARaise(Floor + 1f, Post(Floor + 12f)).Admits(Middle));
+
+    /// <summary>The control for the false yes: the same post up to 40, over the voxel the feet are in, is in the record asked, and the hull is refused.</summary>
+    [Fact]
+    public void AHullIsNotStoodOnASillBesideAPostThatTopsOutAboveThatVoxel()
+        => Assert.False(BesideARaise(Floor + 1f, Post(Floor + 24f)).Admits(Middle));
 
     /// <summary>The control for the sill: the same raise to a voxel's boundary, a step of 16, is stood on.</summary>
     [Fact]

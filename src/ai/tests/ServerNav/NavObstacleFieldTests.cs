@@ -307,6 +307,28 @@ public sealed class NavObstacleFieldTests
         Assert.True(state.CellBlocked(cells[15, 5]));
     }
 
+    /// <summary>
+    /// Lane Gobj (the user: "bots dont take the direct path to the door way and instead walk around the room"): a door on
+    /// its way open, still over its doorway (a TF2 spawn door rising as a teammate comes), leaves the doorway a way through;
+    /// live on cp_granary a bot whose corridor ran through a rising door went round to the room's other door.
+    /// </summary>
+    [Fact]
+    public void ADoorOnItsWayOpenLeavesItsDoorwayAWayThrough()
+    {
+        var (field, world, _, g, cells) = Rig();
+        AiVector doorway = g.Cell(cells[5, 5]).Centre;
+        world.Put(Crate, doorway, ObstacleBodyKind.Door);
+        field.OnLevelStart();
+        NavObstacleState state = field.StateFor(Bot);
+        Assert.False(state.CellBlocked(cells[5, 5]));
+
+        // Risen 30 u: still over the doorway's floor, below a standing body's height.
+        world.Move(Crate, doorway + new AiVector(0f, 0f, 30f));
+        Ticks(field);
+
+        Assert.False(state.CellBlocked(cells[5, 5]));
+    }
+
     [Fact]
     public void AGoneBodyLeavesItsCellsOnceItsPlaceIsSeen()
     {

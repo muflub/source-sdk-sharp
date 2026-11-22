@@ -15,8 +15,9 @@ namespace SourceSharp.Ai.Tests.ServerNav;
 /// to the box (no width when it reaches into the footprint) and the box's
 /// bottom; dominated corners are dropped. A dynamic obstacle's box gives
 /// dynamic corners and stays open space.</item>
-/// <item>A leaf is grounded and walkable when the voxel under it is solid; its
-/// floor is the highest solid top under it. Ladder and water boxes flag the
+/// <item>A leaf is grounded and walkable when the voxel under it is solid (grounded only
+/// when that voxel holds a <see cref="NoFloor"/> solid); its floor is the highest solid top
+/// under it. Ladder and water boxes flag the
 /// leaves they overlap.</item>
 /// <item>Jump links follow map-tools' linker (LevelNavLinker.FindJumps): two
 /// walkable floors up to six columns apart along an axis, within the jump
@@ -33,6 +34,7 @@ internal sealed class VoxelNavFixture(int cellsX, int cellsY, int heightVoxels)
     private readonly List<(Box Box, string Name, string ClassName, Nav3dObstacleKind Kind)> _obstacles = new();
     private readonly List<Box> _ladders = new();
     private readonly List<Box> _water = new();
+    private readonly List<Box> _noFloors = new();
 
     public readonly record struct Box(float X0, float Y0, float Z0, float X1, float Y1, float Z1)
     {
@@ -59,6 +61,16 @@ internal sealed class VoxelNavFixture(int cellsX, int cellsY, int heightVoxels)
     {
         _solids.Add(new Box(x0, y0, z0, x1, y1, z1));
         return this;
+    }
+
+    /// <summary>
+    /// A solid whose top is no floor (a steep face's top, a rail too thin to stand on): the leaves
+    /// grounded on it are grounded and not walkable.
+    /// </summary>
+    public VoxelNavFixture NoFloor(float x0, float y0, float z0, float x1, float y1, float z1)
+    {
+        _noFloors.Add(new Box(x0, y0, z0, x1, y1, z1));
+        return Solid(x0, y0, z0, x1, y1, z1);
     }
 
     public VoxelNavFixture Obstacle(string name, string className, Nav3dObstacleKind kind, float x0, float y0, float z0, float x1, float y1, float z1)
@@ -198,7 +210,9 @@ internal sealed class VoxelNavFixture(int cellsX, int cellsY, int heightVoxels)
 
         var flags = Nav3dLeafFlags.None;
         if (grounded)
-            flags |= Nav3dLeafFlags.GroundedPlayer | Nav3dLeafFlags.GroundedNpc | Nav3dLeafFlags.WalkablePlayer | Nav3dLeafFlags.WalkableNpc;
+            flags |= Nav3dLeafFlags.GroundedPlayer | Nav3dLeafFlags.GroundedNpc;
+        if (grounded && !_noFloors.Exists(b => b.Overlaps(x0, y0, z0 - Voxel, x1, y1, z0)))
+            flags |= Nav3dLeafFlags.WalkablePlayer | Nav3dLeafFlags.WalkableNpc;
         bool ladder = _ladders.Exists(b => Touches(b, x0, y0, z0, x1, y1, z1));
         bool water = _water.Exists(b => Touches(b, x0, y0, z0, x1, y1, z1));
         if (ladder)

@@ -9,8 +9,11 @@ using SourceSharp.MapTools.Nav;
 
 namespace SourceSharp.Ai.Server.Nav;
 
-/// <summary>How a build runs (plan_bots_teams_tf2 E.3 step 3): its threads, its wall-clock cap, its leaf cap, and whether the floor check follows.</summary>
-public sealed record NavBuildSettings(int Threads, TimeSpan Timeout, int MaxLeaves, bool Check = false)
+/// <summary>
+/// How a build runs (plan_bots_teams_tf2 E.3 step 3): its threads, its wall-clock cap, its leaf cap, whether the floor
+/// check follows, and the managed memory the process may reach while the cells are built (0 for no cap).
+/// </summary>
+public sealed record NavBuildSettings(int Threads, TimeSpan Timeout, int MaxLeaves, bool Check = false, int MaxMegabytes = NavBuildSettings.DefaultMaxMegabytes)
 {
     /// <summary><c>ai_nav_build_threads 0</c>: half the processors, at least one.</summary>
     public static int DefaultThreads => Math.Max(1, Environment.ProcessorCount / 2);
@@ -19,6 +22,13 @@ public sealed record NavBuildSettings(int Threads, TimeSpan Timeout, int MaxLeav
 
     /// <summary>About 25 times dm_lockdown's 156,159 leaves.</summary>
     public const int DefaultMaxLeaves = 4_000_000;
+
+    /// <summary>
+    /// The managed heap a build may take the process to: about three times what cp_granary's and cp_badlands' builds
+    /// reach (1.8 and 1.2 GiB, 2026-11-15). The leaf cap is read only once the build is whole, and jump_academy2_rc9a's
+    /// 16,384 cells had taken 16 GiB at half of them when the process was killed: this stops such a map first.
+    /// </summary>
+    public const int DefaultMaxMegabytes = 6144;
 }
 
 /// <summary>
@@ -101,10 +111,13 @@ public abstract record NavBuildOutcome
 }
 
 /// <summary>
-/// The worker threads a build runs on: its own, at below-normal priority, so
-/// the build never takes the game thread or the bots' pool and loses every
-/// contest for a core. The builder's parallel loop runs on this scheduler
-/// (it schedules on the current one), so its degree is these threads.
+/// The threads a build is driven from: its own, at below-normal priority, so
+/// the build never runs on the game thread. The builder's parallel loops do
+/// not run here: map-tools gives them a <see cref="ParallelOptions"/> without
+/// a scheduler, which is <see cref="TaskScheduler.Default"/>, so the cells are
+/// built on the process's thread pool, at most <see cref="NavBuildSettings.Threads"/>
+/// at once (measured on cp_granary, 2026-11-15: the pool grew by 13 threads
+/// for the build and gave them back after).
 /// </summary>
 internal sealed class NavBuildThreads : TaskScheduler, IDisposable
 {
@@ -174,6 +187,8 @@ public sealed class NavBuildJob
     private readonly INavProfile? _profile;
     private readonly CancellationTokenSource _cancel = new();
     private readonly CancellationTokenSource _timeout = new();
+    private readonly CancellationTokenSource _memory = new();
+    private long _overBytes;
     private readonly NavBuildThreads _threads;
     private readonly Task<NavBuildOutcome> _task;
     private readonly long _start = Stopwatch.GetTimestamp();
@@ -241,6 +256,13 @@ public sealed class NavBuildJob
     /// <summary>How many of its threads are alive: 0 once stopped or released.</summary>
     internal int ThreadsAlive => _threads.Alive;
 
+    /// <summary>
+    /// Whether the process's managed heap, <paramref name="bytes"/>, is over the build's cap of
+    /// <paramref name="maxMegabytes"/> MiB (0 for none): asked after each cell, so a map too big to build is
+    /// refused before it takes the server's memory, not after, as the leaf cap would.
+    /// </summary>
+    public static bool OverMemory(long bytes, int maxMegabytes) => maxMegabytes > 0 && bytes > (long)maxMegabytes << 20;
+
     /// <summary>Refuses a navigation of more leaves than the cap allows, by name (E.3 step 3).</summary>
     public static void CheckLeaves(int leaves, int max)
     {
@@ -264,6 +286,7 @@ public sealed class NavBuildJob
         _threads.Dispose();
         _cancel.Dispose();
         _timeout.Dispose();
+        _memory.Dispose();
         return inTime;
     }
 
@@ -275,12 +298,13 @@ public sealed class NavBuildJob
         _threads.Dispose();
         _cancel.Dispose();
         _timeout.Dispose();
+        _memory.Dispose();
     }
 
     private NavBuildOutcome Run()
     {
         Volatile.Write(ref _builtOn, Environment.CurrentManagedThreadId);
-        using var either = CancellationTokenSource.CreateLinkedTokenSource(_cancel.Token, _timeout.Token);
+        using var either = CancellationTokenSource.CreateLinkedTokenSource(_cancel.Token, _timeout.Token, _memory.Token);
         CancellationToken token = either.Token;
         try
         {
@@ -289,6 +313,12 @@ public sealed class NavBuildJob
         catch (OperationCanceledException) when (_cancel.IsCancellationRequested)
         {
             return new NavBuildOutcome.Cancelled();
+        }
+        catch (OperationCanceledException) when (_memory.IsCancellationRequested)
+        {
+            (int done, int total) = Cells;
+            return new NavBuildOutcome.Failed(string.Create(CultureInfo.InvariantCulture,
+                $"the build took the server's managed memory to {Volatile.Read(ref _overBytes) >> 20:N0} MiB at {done:N0} of {total:N0} cells, over ai_nav_build_max_mb {_settings.MaxMegabytes:N0}"), Retry: false);
         }
         catch (OperationCanceledException) when (_timeout.IsCancellationRequested)
         {
@@ -340,6 +370,13 @@ public sealed class NavBuildJob
                 int seen;
                 while ((seen = Volatile.Read(ref _done)) < done && Interlocked.CompareExchange(ref _done, done, seen) != seen)
                 {
+                }
+
+                long heap = GC.GetTotalMemory(forceFullCollection: false);
+                if (OverMemory(heap, _settings.MaxMegabytes) && !_memory.IsCancellationRequested)
+                {
+                    Volatile.Write(ref _overBytes, heap);
+                    _memory.Cancel();
                 }
             },
         };
@@ -401,6 +438,171 @@ public sealed class NavBuildJob
         return (word, line);
     }
 
+}
+
+/// <summary>How a room job ended: the room's navigation, ready to install, or why not.</summary>
+public abstract record NavRoomOutcome
+{
+    /// <summary>
+    /// The room derived (or read from the cache), with its sight table when one was asked for; the milliseconds the
+    /// file's open, the graph (derived or read) and the sight took on the job's threads.
+    /// </summary>
+    public sealed record Ready(int Region, LoadedNav Nav, NavSight? Sight, double OpenMs, double GraphMs, double SightMs) : NavRoomOutcome;
+
+    /// <summary>The room's file could not be used; the room is not asked for again this level.</summary>
+    public sealed record Failed(int Region, string Reason) : NavRoomOutcome;
+
+    /// <summary>The level went before the room was ready.</summary>
+    public sealed record Cancelled(int Region) : NavRoomOutcome;
+}
+
+/// <summary>
+/// One room of a level in rooms made ready off the main thread (plan_bots_teams_tf2_part_g R.2 items 3, 4, 4a and 4b),
+/// on threads of its own at below-normal priority as a build's (<see cref="NavBuildThreads"/>): the room's file, read on
+/// the main thread through the engine's file seam, opened and bound to the map; its graph read from the cache by the
+/// file's hash, or derived a tile at a time with its fail floors left out and flat floor merged
+/// (<see cref="NavGraphReduce.DeriveCoarse"/>, the tiles on the job's threads) and cached; and its sight table, only
+/// when the main thread asked for one (an enemy of a bot is in the room). The main thread installs what it answers.
+/// </summary>
+public sealed class NavRoomJob
+{
+    private readonly NavRoomsLevel _level;
+    private readonly NavRoom _room;
+    private readonly byte[] _bytes;
+    private readonly bool _sight;
+    private readonly NavGraphCache? _cache;
+    private readonly INavProfile? _profile;
+    private readonly int _threadCount;
+    private readonly CancellationTokenSource _cancel = new();
+    private readonly NavBuildThreads _threads;
+    private readonly Task<NavRoomOutcome> _task;
+    private readonly long _start = Stopwatch.GetTimestamp();
+
+    private NavRoomJob(NavRoomsLevel level, NavRoom room, byte[] bytes, bool sight, NavGraphCache? cache, INavProfile? profile, int threads)
+    {
+        _level = level;
+        _room = room;
+        _bytes = bytes;
+        _sight = sight;
+        _cache = cache;
+        _profile = profile;
+        _threadCount = Math.Max(1, threads);
+        _threads = new NavBuildThreads(_threadCount);
+        _task = Task.Factory.StartNew(Run, CancellationToken.None, TaskCreationOptions.None, _threads);
+    }
+
+    /// <summary>Starts making <paramref name="room"/> of <paramref name="level"/> ready from its file's <paramref name="bytes"/>, on <paramref name="threads"/> threads.</summary>
+    public static NavRoomJob Start(NavRoomsLevel level, NavRoom room, byte[] bytes, bool sight, NavGraphCache? cache, INavProfile? profile, int threads)
+    {
+        ArgumentNullException.ThrowIfNull(level);
+        ArgumentNullException.ThrowIfNull(room);
+        ArgumentNullException.ThrowIfNull(bytes);
+        return new NavRoomJob(level, room, bytes, sight, cache, profile, threads);
+    }
+
+    public int Region => _room.Region;
+
+    public bool Done => _task.IsCompleted;
+
+    /// <summary>The outcome; only once <see cref="Done"/>.</summary>
+    public NavRoomOutcome Outcome => _task.Result;
+
+    public double Seconds => Stopwatch.GetElapsedTime(_start).TotalSeconds;
+
+    /// <summary>Cancels the job and joins its threads; one not stopped within <paramref name="wait"/> is waited for regardless, and answers false.</summary>
+    public bool Stop(TimeSpan wait)
+    {
+        _cancel.Cancel();
+        bool inTime = ((IAsyncResult)_task).AsyncWaitHandle.WaitOne(wait);
+        if (!inTime)
+            _task.Wait();
+        _threads.Dispose();
+        _cancel.Dispose();
+        return inTime;
+    }
+
+    /// <summary>Joins the threads of a job that has finished.</summary>
+    public void Release()
+    {
+        if (!_task.IsCompleted)
+            throw new InvalidOperationException("a running room job is stopped, not released");
+        _threads.Dispose();
+        _cancel.Dispose();
+    }
+
+    private NavRoomOutcome Run()
+    {
+        CancellationToken token = _cancel.Token;
+        try
+        {
+            return Make(token);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            return new NavRoomOutcome.Cancelled(_room.Region);
+        }
+        catch (OutOfMemoryException)
+        {
+            return new NavRoomOutcome.Failed(_room.Region, "out of memory");
+        }
+        catch (Exception e)
+        {
+            return new NavRoomOutcome.Failed(_room.Region, $"{e.GetType().Name}: {e.Message}");
+        }
+    }
+
+    private NavRoomOutcome Make(CancellationToken token)
+    {
+        long start = Stopwatch.GetTimestamp();
+        string fileName = NavLoader.RoomPath(_room.File);
+        NavHullReader reader;
+        try
+        {
+            reader = NavHullReader.Open(_bytes);
+        }
+        catch (InvalidDataException e)
+        {
+            return new NavRoomOutcome.Failed(_room.Region, $"{fileName} cannot be read: {e.Message}");
+        }
+
+        if (!reader.MatchesBsp(_level.Bsp))
+            return new NavRoomOutcome.Failed(_room.Region, $"{fileName} was built from another map than {NavLoader.BspPath(_level.Map)}");
+        NavFile file = NavFile.Of(reader, fileName);
+        var source = (NavHullNavSource)file.Source;
+        NavNumbers numbers = _profile?.Numbers(source.JumpHeight) ?? NavNumbers.Stock(source.JumpHeight);
+        if (NavHullNavSource.MissingWidth(reader, numbers, fileName) is { } missing)
+            return new NavRoomOutcome.Failed(_room.Region, missing);
+        double openMs = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+
+        start = Stopwatch.GetTimestamp();
+        string name = Path.GetFileNameWithoutExtension(_room.File);
+        string key = NavLoader.RoomKey(NavGraphCache.NumbersKey(numbers, source.JumpHeight));
+        string navSha = BuiltNavStore.Sha256(_bytes);
+        DerivedNav? derived = _cache?.TryRead(name, _level.BspSha256, navSha, key);
+        bool fromCache = derived is not null;
+        if (derived is null)
+        {
+            derived = NavGraphReduce.DeriveCoarse(source, numbers, NavEdgeCosts.Default, [.. _level.Entities.Hurt, .. _room.FailVolumes], _level.Entities.LadderClimbs,
+                                                  threads: _threadCount, scheduler: _threads, cancel: token);
+            token.ThrowIfCancellationRequested();
+            try
+            {
+                _cache?.Write(name, _level.BspSha256, navSha, derived, key);
+            }
+            catch (IOException)
+            {
+                // An unwritable cache costs the next visit a derive, nothing else.
+            }
+        }
+
+        double graphMs = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+        token.ThrowIfCancellationRequested();
+        start = Stopwatch.GetTimestamp();
+        NavSight? sight = _sight ? NavSight.Build(derived.Graph, file.Space) : null;
+        double sightMs = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+        var nav = new LoadedNav(name, file, derived, _level.Entities, _level.BspSha256, navSha, fromCache, graphMs, key);
+        return new NavRoomOutcome.Ready(_room.Region, nav, sight, openMs, graphMs, sightMs);
+    }
 }
 
 /// <summary>The version of map-tools' <c>SourceSharp.MapTools</c> the server builds with: what a build's stamp names.</summary>

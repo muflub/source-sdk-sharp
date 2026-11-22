@@ -120,6 +120,16 @@ public class JumpBookTests
         Assert.Equal((1, 1L, 1), (cues, book.Counts.Asked, book.Counts.Waiting));
     }
 
+    /// <summary>Every ask is counted (lane G9b), and of them those a waiting ask covers: the queue's own count says only how many were queued.</summary>
+    [Fact]
+    public void EveryAskIsCountedAndThoseAWaitingAskCovers()
+    {
+        var book = new JumpBook(new JumpBookSettings());
+        for (int i = 0; i < 10; i++)
+            book.Advise(Ask(500f + i * 8f, tick: 100 + i * 6));
+        Assert.Equal((10L, 1L, 9L), (book.Counts.Calls, book.Counts.Asked, book.Counts.Covered));
+    }
+
     [Fact]
     public void AStretchFurtherOnIsAnotherStretch()
     {

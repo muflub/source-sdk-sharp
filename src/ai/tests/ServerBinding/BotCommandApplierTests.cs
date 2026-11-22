@@ -539,6 +539,28 @@ public class BotCommandApplierTests
         Assert.Equal(0, Tick().WeaponSelect);
     }
 
+    /// <summary>
+    /// A bot's brain made again (a level in rooms installing another room, plan_bots_teams_tf2_part_g R.2 item 6; a new
+    /// level) numbers its one-shots from 1 again, under the old brain's last: each is a one-shot the applier has not
+    /// taken. Live on jump_academy2_rc9a, a Soldier carried into easywalls stood at a blast link's start, its tree began
+    /// the link (the doing said "rocket jump") and the ability never reached the program (ai.jump.begun 0, the
+    /// applier's programs 0): the one-shot's number was under the last one the old brain's had reached.
+    /// </summary>
+    [Fact]
+    public void ABrainMadeAgainHasItsOneShotsTakenThoughNumberedFromOneAgain()
+    {
+        Submit(MoveIntent.Hold, action: new ActionIntent(ActionKind.SelectWeapon, FireStyle.Tap, 2, OneShotSeq: 40));
+        Assert.Equal(7, Tick().WeaponSelect);
+
+        // The new brain's first one-shot: number 1.
+        Submit(MoveIntent.Hold, action: new ActionIntent(ActionKind.SelectWeapon, FireStyle.Tap, 2, OneShotSeq: 1));
+        Assert.Equal(7, Tick().WeaponSelect);
+
+        // Its own repeat in a newer intent is still not taken twice.
+        Submit(MoveIntent.Hold, action: new ActionIntent(ActionKind.SelectWeapon, FireStyle.Tap, 2, OneShotSeq: 1));
+        Assert.Equal(0, Tick().WeaponSelect);
+    }
+
     [Fact]
     public void AnEmptySlotSelectsNothing()
     {

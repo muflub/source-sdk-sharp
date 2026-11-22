@@ -38,16 +38,44 @@ public sealed record JumpPlacesReport(string Map, NavGraph Graph, VoxelColumns C
 public static class JumpPlacesTool
 {
     /// <summary>Runs the pass on the map; <paramref name="candidateLimit"/> caps the searches (0: none), <paramref name="cancel"/> stops it between candidates.</summary>
+    /// <param name="room">
+    /// A level in rooms: <paramref name="nav"/> is that room's own <c>.navhull</c>, its graph derived as the game derives a room
+    /// (its fail floors out, merged as it derives, <see cref="NavGraphReduce.DeriveCoarse"/>), and the pass seeded as the
+    /// game seeds it: the spawns on the room's graph, then, with <paramref name="roomWaysIn"/>, the room's ways in.
+    /// </param>
     public static JumpPlacesReport Measure(string map, byte[] nav, byte[] bsp, string soldierScript, Func<double> cpuMicros, int candidateLimit = 0,
-                                           CancellationToken cancel = default)
+                                           CancellationToken cancel = default, NavRoom? room = null, bool roomWaysIn = false, TextWriter? explain = null)
     {
         ArgumentNullException.ThrowIfNull(cpuMicros);
         double t0 = cpuMicros();
-        var source = new Nav3dNavSource(Nav3dReader.Open(nav));
+        INavSource source;
+        NavGraph graph;
         MapEntities entities = MapEntities.Read(bsp);
-        NavGraph graph = NavGraphFromNav3d.Derive(source, TFNavProfile.ModNumbers, NavEdgeCosts.Default, entities.Hurt, entities.LadderClimbs).Graph;
+        if (room is null)
+        {
+            source = new Nav3dNavSource(Nav3dReader.Open(nav));
+            graph = NavGraphFromNav3d.Derive(source, TFNavProfile.ModNumbers, NavEdgeCosts.Default, entities.Hurt, entities.LadderClimbs).Graph;
+        }
+        else
+        {
+            source = NavHullNavSource.Over(NavHullReader.Open(nav));
+            graph = NavGraphReduce.DeriveCoarse(source, TFNavProfile.ModNumbers, NavEdgeCosts.Default, [.. entities.Hurt, .. room.FailVolumes], entities.LadderClimbs,
+                                                threads: Math.Max(1, Environment.ProcessorCount / 4)).Graph;
+        }
+
         double t1 = cpuMicros();
-        IReadOnlyList<int> seeds = Seeds(JumpRoutesTool.ReadEntities(bsp), graph);
+        var seeded = Seeds(JumpRoutesTool.ReadEntities(bsp), graph).ToList();
+        if (room is not null && roomWaysIn)
+        {
+            // As TFJumps seeds a room: the ways in after the spawns, a cell once.
+            foreach (AiVector way in room.WaysIn.Concat(room.Kept.Where(k => k.To == room.Region && k.Destination is not null).Select(k => k.Destination!.Value)).Distinct())
+            {
+                if (NavPoints.CellNear(graph, way, ClearanceClass.Stand) is { IsValid: true } cell && !seeded.Contains(cell.Index))
+                    seeded.Add(cell.Index);
+            }
+        }
+
+        IReadOnlyList<int> seeds = seeded;
         VoxelColumns columns = VoxelColumns.FromNav(source);
         double t2 = cpuMicros();
 
@@ -75,6 +103,22 @@ public static class JumpPlacesTool
         {
             result = new JumpPlacesResult([], [], 0, default);
             cancelled = true;
+        }
+
+        if (explain is not null)
+        {
+            // Each candidate's search again, said: what it found, how robust, where its flight comes to rest.
+            var searchAgain = new JumpSearch(new JumpFlier(sims.Create(columns, launcher), limits), walk, settings);
+            float tolerance = (JumpPlacesSettings.Of(TFNavProfile.ModNumbers)).Tolerance;
+            foreach (JumpCandidate c in result.Candidates)
+            {
+                JumpSearchResult r = searchAgain.Find(new JumpAsk(c.Takeoff, c.Landing, tolerance, c.Families));
+                string what = r.Found is { } f
+                    ? string.Create(CultureInfo.InvariantCulture, $"found {f.Family}, robustness {f.Robustness:F2} (keep {settings.Keep:F2}), rockets {f.Recipe.Rockets}, rests at {searchAgain.Fly(f.Recipe).Rest}")
+                    : "none";
+                explain.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                    $"  candidate {c.Kind} {c.From}->{c.To} rise {c.Rise:F0} distance {c.Distance:F0} families {c.Families}: {r.Flights} flights, {what}"));
+            }
         }
 
         double t5 = cpuMicros();
@@ -180,7 +224,7 @@ public static class JumpPlacesTool
         ArgumentNullException.ThrowIfNull(error);
         if (args.Length < 6)
         {
-            error.WriteLine("usage: ai-replay jumps <map.nav3d> <map.bsp> <soldier.txt> <out.json> <build> <commit> [candidate-limit] [routes]");
+            error.WriteLine("usage: ai-replay jumps <map.nav3d> <map.bsp> <soldier.txt> <out.json> <build> <commit> [candidate-limit] [routes] [heals]");
             return 2;
         }
 
@@ -194,14 +238,29 @@ public static class JumpPlacesTool
         {
             string map = Path.GetFileNameWithoutExtension(args[0]);
             int limit = args.Length > 6 ? int.Parse(args[6], CultureInfo.InvariantCulture) : 0;
-            JumpPlacesReport report = Measure(map, File.ReadAllBytes(args[0]), File.ReadAllBytes(args[1]), args[2], clock, limit);
+            string[] tokens = args.Length > 7 ? args[7..] : [];
+            NavRoom? room = null;
+            if (args[0].EndsWith(".navhull", StringComparison.Ordinal) && map.Contains(".r", StringComparison.Ordinal))
+            {
+                // A room's own file beside its level's room table: measured as the game makes the room.
+                string level = map[..map.LastIndexOf(".r", StringComparison.Ordinal)];
+                string table = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(args[0]))!, NavSplitTool.RoomFiles(level).Table);
+                room = NavRoomTable.FromJson(File.ReadAllText(table)).Rooms.FirstOrDefault(r => r.File == Path.GetFileName(args[0]))
+                       ?? throw new InvalidDataException($"{table} has no room {Path.GetFileName(args[0])}");
+            }
+
+            JumpPlacesReport report = Measure(map, File.ReadAllBytes(args[0]), File.ReadAllBytes(args[1]), args[2], clock, limit, room: room,
+                                              roomWaysIn: tokens.Contains("roomseeds"), explain: tokens.Contains("explain") ? output : null);
             output.Write(Text(report, args[4], args[5]));
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(args[3]))!);
             File.WriteAllText(args[3], Json(report, args[4], args[5]));
             output.WriteLine($"  written     {args[3]}");
-            if (args.Length > 7 && args[7] == "routes")
+            string[] flags = args.Length > 7 ? args[7..] : [];
+            if (flags.Contains("routes"))
                 output.Write(JumpRoutesTool.Text(report, JumpRoutesTool.ReadEntities(File.ReadAllBytes(args[1])), OfflineTF2.Classes(args[2])[TFClass.Soldier].MaxSpeed,
                                                  Path.ChangeExtension(args[3], ".png")));
+            if (flags.Contains("heals"))
+                output.Write(JumpHealsTool.Text(report, File.ReadAllBytes(args[1]), args[2]));
             return report.Cancelled ? 1 : 0;
         }
         catch (Exception e) when (e is InvalidDataException or IOException or ArgumentException)

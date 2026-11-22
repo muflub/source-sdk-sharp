@@ -124,7 +124,11 @@ public sealed class AiReplayCursor
         _session = new AiSession(new InlineTransport(), new Capture(_replayed), Header.Slots, Header.SightedCapacity) { TeamCallouts = Header.TeamCallouts };
         _next = 0;
         At = null;
+        _lastWorld = null;
     }
+
+    // The world the last World or NavChange record built the brains' over: a NavChange moves it to another graph.
+    private AiRecordedWorld? _lastWorld;
 
     private void Apply(AiRecordType type, byte[] payload)
     {
@@ -141,6 +145,18 @@ public sealed class AiReplayCursor
                 _session.World = new MemoryWorld(known.Map, graph, known.TickSeconds, id => id.ToString(), sight, new ChokeSlot());
                 _session.Curves = known.CurvesJson.Length > 0 ? SkillCurves.Parse(known.CurvesJson) : null;
                 _session.Deciders = _deciders;
+                _lastWorld = known;
+                break;
+            case AiRecordType.NavChange:
+                AiRecordedNavChange change = AiRecordFormat.ReadNavChange(r);
+                if (_nav is null || _lastWorld is null)
+                    break;
+                AiRecordedWorld moved = _lastWorld with { NavGraphHash = change.NavGraphHash, Nav = change.Nav };
+                (NavGraph? roomGraph, ICellSight? roomSight) = _nav(moved);
+                if (roomGraph?.Hash != change.NavGraphHash)
+                    throw new InvalidDataException($"the recording's navigation moved to {change.Nav}, graph {change.NavGraphHash:x16}; the one at hand is {roomGraph?.Hash ?? 0:x16}");
+                _session.World = new MemoryWorld(moved.Map, roomGraph, moved.TickSeconds, id => id.ToString(), roomSight, new ChokeSlot());
+                _lastWorld = moved;
                 break;
             case AiRecordType.BotAdded:
                 (ActorId bot, ulong seed, byte[] skills, AiVector? home) = AiRecordFormat.ReadBotAdded(r);

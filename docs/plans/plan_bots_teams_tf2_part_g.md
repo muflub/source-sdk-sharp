@@ -824,10 +824,13 @@ map's `.nav3d` first and its `.navhull` only when no `.nav3d` binds;
 `tools/ai-nav-build --hull`, `make ai-nav-tf HULL=1`; `NavHullDifferentialTests`
 compares the two graphs on the maps a tree has both of; `tools/ai-replay
 navsize` says what a load costs step by step. Found on the way and fixed in
-map-tools PR #153 (not merged at this writing; navhull v2, MapFormats 1.0.8):
-`FitsAt` on sloped brushes. When it merges the lock bump is the TF2 AI
-session's, v1 files are refused, and the differential is run again on
-ctf_2fort before the order is switched to prefer `.navhull`.
+map-tools PR #153 (navhull v2, MapFormats 1.0.8, MapTools 1.0.6; the lock
+moved to it at dc1e00a, 2026-11-15): `FitsAt` on sloped brushes. v1 files are
+refused and rebuilt; run again on ctf_2fort, the differential finds every cell
+and edge of the `.nav3d`'s graph in the hull's and each spawn joined to both
+flags, with 521 cells and 4,869 edges more in the hull's (where a box spans two
+`.nav3d` leaves). Switching `NavLoader.Order` to prefer `.navhull` is a ruling
+still to make.
 
 **`jump_academy2_rc9a` does not load as one graph.** Its `.navhull` builds in
 84 s and 2.5 GB (26.9 MB; 3.9 M boxes). Read through the adapter it is 12.7 M

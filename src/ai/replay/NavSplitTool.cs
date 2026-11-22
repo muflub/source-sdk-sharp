@@ -51,6 +51,8 @@ public static class NavSplitTool
                 return Check(args[1], args[2], args[3], int.Parse(args[4], CultureInfo.InvariantCulture), args[5], output);
             if (args.Length >= 4 && args[0] == "graph")
                 return Graph(args[1], args[2], args[3], output);
+            if (args.Length >= 5 && args[0] == "rooms")
+                return Rooms(args[1], args[2], args[3], args[4], args.Length > 5 ? int.Parse(args[5], CultureInfo.InvariantCulture) : Math.Max(1, Environment.ProcessorCount / 2), output);
         }
         catch (Exception e) when (e is InvalidDataException or IOException or ArgumentException or FormatException)
         {
@@ -60,11 +62,12 @@ public static class NavSplitTool
 
         error.WriteLine("usage: ai-replay navsplit write <map.navhull> <map.bsp> <out-dir> [counted|all|r,r,..] [same|none|deflate]");
         error.WriteLine($"       ai-replay navsplit graph <{CostTool.Hl2mp}|{CostTool.TF2}> <map.nav3d|map.navhull> <map.bsp>");
+        error.WriteLine($"       ai-replay navsplit rooms <{CostTool.Hl2mp}|{CostTool.TF2}> <map.navhull> <map.bsp> <out-dir> [threads]");
         error.WriteLine($"       ai-replay navsplit check <{CostTool.Hl2mp}|{CostTool.TF2}> <map.navhull> <map.bsp> <region> <part.navhull>");
         return 2;
     }
 
-    private static int Write(string navPath, string bspPath, string outDir, string which, string codec, TextWriter output)
+    private static int Write(string navPath, string bspPath, string outDir, string which, string codec, TextWriter output, bool table = true)
     {
         string map = Path.GetFileNameWithoutExtension(navPath);
         byte[] nav = File.ReadAllBytes(navPath), bsp = File.ReadAllBytes(bspPath);
@@ -119,9 +122,111 @@ public static class NavSplitTool
         foreach (string line in IndexChecks(reader, regions, index, survey, NavRoomsTool.ReadEntities(bsp)))
             output.WriteLine(line);
 
+        if (!table)
+            return 0;
         string tableFile = Path.Combine(outDir, map + ".navrooms.json");
         File.WriteAllText(tableFile, JsonSerializer.Serialize(RoomTable(map, survey, chosen, NavRoomsTool.ReadEntities(bsp), reader, regions), new JsonSerializerOptions { WriteIndented = true }));
         output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  room table: {new FileInfo(tableFile).Length:N0} bytes, {Path.GetFileName(tableFile)}"));
+        return 0;
+    }
+
+    /// <summary>The file names of a map in rooms: its index and its table.</summary>
+    public static (string Index, string Table) RoomFiles(string map) => (map + ".navrooms", map + ".navrooms.json");
+
+    /// <summary>
+    /// <c>navsplit rooms</c>: what the navigation build makes of a map's hull navigation (plan_bots_teams_tf2_part_g
+    /// R.2 items 1, 2 and 7). Under the leaf limit (<see cref="NavBuildSettings.DefaultMaxLeaves"/>) the map loads whole
+    /// and nothing is written (a room table already there is removed). Over it, the counted regions are written a file
+    /// each, with the index, and the table (<see cref="NavRoomTable"/>): each room's ways in, its teleports back, sorted
+    /// into fail floors and kept ones on the room's own graph (<see cref="NavRoomTeleports.Classify"/>), its exits and its
+    /// capture areas.
+    /// </summary>
+    private static int Rooms(string game, string navPath, string bspPath, string outDir, int threads, TextWriter output)
+    {
+        string map = Path.GetFileNameWithoutExtension(navPath);
+        byte[] nav = File.ReadAllBytes(navPath), bsp = File.ReadAllBytes(bspPath);
+        NavHullReader reader = NavHullReader.Open(nav);
+        long leaves = NavHullNavSource.Over(reader).LeafCount;
+        (string indexName, string tableName) = RoomFiles(map);
+        if (leaves <= NavBuildSettings.DefaultMaxLeaves)
+        {
+            foreach (string stale in (string[])[indexName, tableName])
+                File.Delete(Path.Combine(outDir, stale));
+            output.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                $"ai-replay navsplit rooms {map}: {leaves:N0} leaves, within {NavBuildSettings.DefaultMaxLeaves:N0}: the map loads whole, no rooms written"));
+            return 0;
+        }
+
+        int rc = Write(navPath, bspPath, outDir, "counted", "same", output, table: false);
+        if (rc != 0)
+            return rc;
+        var clock = Stopwatch.StartNew();
+        NavHullRegions regions = NavHullRegions.Of(reader);
+        IReadOnlyList<RoomEntity> entities = NavRoomsTool.ReadEntities(bsp);
+        IReadOnlyList<IReadOnlyList<HurtVolume>> brushes = NavCellsTool.BrushBoxes(bsp);
+        RoomsSurvey survey = NavRoomsTool.Survey(reader, regions, entities);
+        MapEntities mapEntities = MapEntities.Read(bsp);
+        var named = new Dictionary<string, RoomEntity>(StringComparer.Ordinal);
+        foreach (RoomEntity e in entities)
+        {
+            if (e.TargetName is { } n)
+                named.TryAdd(n, e);
+        }
+
+        int[] regionOf = [.. entities.Select(e => NavRoomsTool.Counted.Contains(e.ClassName) ? NavRoomsTool.RegionOf(reader, regions, e) : -1)];
+        var rooms = new List<NavRoom>();
+        foreach (int region in CountedRegions(survey))
+        {
+            string file = PartName(map, region);
+            var source = NavHullNavSource.Over(NavHullReader.Open(File.ReadAllBytes(Path.Combine(outDir, file))));
+            NavNumbers numbers = game == CostTool.TF2 ? TFNavProfile.ModNumbers : NavNumbers.Stock(source.JumpHeight);
+            var ways = new List<AiVector>();
+            var spawns = new List<AiVector>();
+            var resets = new List<NavRoomTeleport>();
+            var exits = new List<NavRoomTeleport>();
+            var captures = new List<HurtVolume>();
+            for (int i = 0; i < entities.Count; i++)
+            {
+                RoomEntity e = entities[i];
+                if (regionOf[i] != region)
+                    continue;
+                switch (e.ClassName)
+                {
+                    case "info_teleport_destination":
+                        ways.Add(e.Origin);
+                        break;
+                    case "info_player_teamspawn" or "info_player_deathmatch":
+                        ways.Add(e.Origin);
+                        spawns.Add(e.Origin);
+                        break;
+                    case "trigger_capture_area" when e.Mins is { } lo && e.Maxs is { } hi:
+                        captures.Add(new HurtVolume(lo, hi));
+                        break;
+                    case "trigger_teleport":
+                        RoomEntity? d = e.Target is { } t && named.TryGetValue(t, out RoomEntity? x) ? x : null;
+                        int to = d is null ? -1 : NavRoomsTool.RegionOf(reader, regions, d);
+                        var teleport = new NavRoomTeleport(e.TargetName, e.Target, to, d?.Origin, brushes[i]);
+                        (to == region ? resets : exits).Add(teleport);
+                        break;
+                }
+            }
+
+            DerivedNav graph = NavGraphReduce.DeriveCoarse(source, numbers, NavEdgeCosts.Default, mapEntities.Hurt, mapEntities.LadderClimbs, threads: threads);
+            bool[] fail = NavRoomTeleports.Classify(graph.Graph, ways, [.. resets.Select(t => t.Brushes)]);
+            rooms.Add(new NavRoom(region, file, source.LeafCount, ways, [.. resets.Where((_, i) => fail[i])], [.. resets.Where((_, i) => !fail[i])], exits, captures)
+            {
+                Spawns = spawns,
+            });
+            output.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                $"  r{region}: {graph.Graph.CellCount:N0} cells merged, {ways.Count} ways in; teleports back {resets.Count}: {fail.Count(f => f)} fail floors, {fail.Count(f => !f)} kept"
+                + $"{(fail.Any(f => !f) ? " (" + string.Join(", ", resets.Where((_, i) => !fail[i]).Select(t => t.Name ?? t.Target ?? "?")) + ")" : "")}; {exits.Count} exits"));
+        }
+
+        var tableOut = new NavRoomTable(map, NavRoomTable.RulesRevision, leaves, rooms);
+        string tablePath = Path.Combine(outDir, tableName);
+        File.WriteAllText(tablePath, tableOut.ToJson());
+        output.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"  room table: {rooms.Count} rooms, the start r{tableOut.StartRoom?.Region ?? -1} ({tableOut.StartRoom?.Spawns.Count ?? 0} spawns), {rooms.Sum(r => r.Fails.Count)} fail floors, {rooms.Sum(r => r.Kept.Count)} kept teleports back, {new FileInfo(tablePath).Length:N0} bytes, made in {clock.Elapsed.TotalSeconds:F1} s on {threads} thread(s)"));
         return 0;
     }
 

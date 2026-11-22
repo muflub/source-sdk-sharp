@@ -23,8 +23,9 @@ public sealed record NavHullPart(NavHullLevel Level, int FirstColumn, int FirstR
 /// region's boxes, ascending in the whole file, are in cell order in the cut one). A leaf of
 /// <see cref="NavHullNavSource"/> over the part is therefore the leaf
 /// <see cref="NavRegionSource"/> numbers the same in the region of the whole file.</item>
-/// <item><b>Keys and shut records</b> are those the region's boxes name, renumbered in the order
-/// its boxes first name them.</item>
+/// <item><b>Keys, and their shut and overhang records</b>, are those the region's boxes name,
+/// renumbered in the order its boxes first name them: a key's records follow it, so a fit or a
+/// stand answers the same in the part as in the whole file.</item>
 /// <item><b>Obstacles</b> are all the whole file's, in its order, so a graph obstacle is the same
 /// record in both; one whose cell is outside the cut grid is placed in its first cell (a reader
 /// finds an obstacle's boxes by the shut records, not by its cell).</item>
@@ -64,6 +65,7 @@ public static class NavHullSplit
         var keyOf = new Dictionary<uint, uint>();
         var keys = new List<NavHullKey>();
         var shuts = new List<NavHullShut>();
+        var overhangs = new List<NavHullOverhang>();
         for (int i = 0; i < boxes.Length; i++)
         {
             int box = boxes[i], cell = reader.BoxCell(box);
@@ -75,9 +77,11 @@ public static class NavHullSplit
                 NavHullKey k = level.Keys[(int)b.Key];
                 key = (uint)keys.Count;
                 keyOf[b.Key] = key;
-                keys.Add(k with { ShutFirst = (uint)shuts.Count });
+                keys.Add(k with { ShutFirst = (uint)shuts.Count, OverhangFirst = (uint)overhangs.Count });
                 for (uint s = 0; s < k.ShutCount; s++)
                     shuts.Add(level.Shuts[(int)(k.ShutFirst + s)]);
+                for (uint o = 0; o < k.OverhangCount; o++)
+                    overhangs.Add(level.Overhangs[(int)(k.OverhangFirst + o)]);
             }
 
             outBoxes[i] = b with { Key = key };
@@ -143,6 +147,7 @@ public static class NavHullSplit
             Boxes = outBoxes,
             Keys = keys,
             Shuts = shuts,
+            Overhangs = overhangs,
             Obstacles = obstacles,
             Jumps = jumps,
             Bsp = level.Bsp,

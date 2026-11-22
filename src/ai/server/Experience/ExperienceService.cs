@@ -53,6 +53,7 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
     private double _sinceFlush;
     private bool _roundOver;
     private string? _saidRefusal;
+    private string? _saidWaiting;
     private readonly ExperienceRouteSlot _routeSlot = routeSlot ?? new ExperienceRouteSlot();
     private MapExperience? _pending;
     private Task<ExperienceRoutes>? _routeWork;
@@ -203,6 +204,9 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
             return;
         double seconds = _lastSample < 0 || tick < _lastSample ? 0d : Math.Min(MaxSampleSeconds, (tick - _lastSample) * (double)ServerAiSession.TickSeconds);
         _lastSample = tick;
+        // A store waiting on a busy file: the worker looks whether it attached, even when nothing is gathered.
+        if (_worker.Status?.Waiting is not null)
+            _worker.CheckAttach();
 
         // The mode names the key: the level's first sample opens it, and a mode switched under the level opens the next.
         string mode = game.Mode;
@@ -476,10 +480,29 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
         return index is >= 1 and < VisionPass.Slots && players.GetHandle(index) == who;
     }
 
-    /// <summary>A refusal the worker met is said once, on the game's thread.</summary>
+    /// <summary>
+    /// What the worker met is said once, on the game's thread: a store waiting on a busy file, then that it attached;
+    /// and a refusal.
+    /// </summary>
     private void Say()
     {
-        if (_worker.Status?.Refusal is not { } refusal || refusal == _saidRefusal)
+        ExperienceStatus? status = _worker.Status;
+        if (status?.Waiting is { } waiting)
+        {
+            if (waiting != _saidWaiting)
+            {
+                _saidWaiting = waiting;
+                log.Msg($"[SourceSharp/Ai] experience: {waiting}; the game goes on without it until it attaches\n");
+            }
+        }
+        else if (_saidWaiting is not null && status is not null)
+        {
+            _saidWaiting = null;
+            if (status.Refusal is null)
+                log.Msg(string.Create(CultureInfo.InvariantCulture, $"[SourceSharp/Ai] experience: {status.Path} attached ({status.Counts.Rows} rows for {status.Key.Map} {status.Key.Mode})\n"));
+        }
+
+        if (status?.Refusal is not { } refusal || refusal == _saidRefusal)
             return;
         _saidRefusal = refusal;
         Refusals++;
@@ -493,7 +516,9 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
     /// <c>/ai/experience</c>: whether the store is on and where, the key, the
     /// rows per table the store held at its last load or flush, the snapshot
     /// the brains read, the last flush and the refusal. Read from what the
-    /// worker last said: the route never asks the store.
+    /// worker last said: the route never asks the store. <c>state</c> is off,
+    /// memory (refused), waiting (a busy file retried in the background, said
+    /// in <c>waiting</c>) or on.
     /// </summary>
     public string Json()
     {
@@ -502,7 +527,7 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
         ExperienceCounts rows = status?.Counts ?? default;
         return AiJson.Write(new
         {
-            state = _path is null ? "off" : status is { MemoryOnly: true } ? "memory" : "on",
+            state = _path is null ? "off" : status is { MemoryOnly: true } ? "memory" : status is { Waiting: not null } ? "waiting" : "on",
             off = Off,
             path = _path ?? "",
             learn = learn.Value,
@@ -517,6 +542,8 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
             flushes = _worker.Flushes,
             last_flush_seconds_ago = status?.SecondsSinceFlush ?? -1d,
             refusal = status?.Refusal ?? "",
+            waiting = status?.Waiting ?? "",
+            attaches = _worker.Attaches,
         });
     }
 
@@ -548,7 +575,7 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
     /// <summary>The feed's part of <c>/ai/counters</c>, with its comma.</summary>
     public string Counters()
         => string.Create(CultureInfo.InvariantCulture,
-            $"\"ai.experience.on\":{(_path is null ? 0 : 1)},\"ai.experience.memory_only\":{(_worker.Status is { MemoryOnly: true } ? 1 : 0)},\"ai.experience.frames\":{_worker.Frames},\"ai.experience.events\":{_worker.Events},"
+            $"\"ai.experience.on\":{(_path is null ? 0 : 1)},\"ai.experience.memory_only\":{(_worker.Status is { MemoryOnly: true } ? 1 : 0)},\"ai.experience.waiting\":{(_worker.Status is { Waiting: not null } ? 1 : 0)},\"ai.experience.attaches\":{_worker.Attaches},\"ai.experience.frames\":{_worker.Frames},\"ai.experience.events\":{_worker.Events},"
             + $"\"ai.experience.flushes\":{_worker.Flushes},\"ai.experience.rows.merged\":{_worker.RowsMerged},\"ai.experience.loads\":{_worker.Loads},\"ai.experience.merge_failures\":{_worker.MergeFailures},"
             + $"\"ai.experience.refusals\":{Refusals},\"ai.experience.dropped\":{_worker.Dropped},\"ai.experience.faults\":{_worker.Faults},\"ai.experience.main_thread_work\":{_worker.RanOnOwner},"
             + $"\"ai.experience.snapshot.rows\":{Slot.Current.Rows},\"ai.experience.routes.sides\":{_routeSlot.Current.Roles.Count},\"ai.experience.routes.cells\":{_routeSlot.Current.Costed},"

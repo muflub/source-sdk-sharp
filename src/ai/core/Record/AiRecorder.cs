@@ -76,6 +76,13 @@ public sealed class AiRecorder : IAiRecordSink
         End(AiRecordType.World);
     }
 
+    /// <summary>The brains' world moved to another graph (format 9): written before the bots made again over it.</summary>
+    public void NavChange(in AiRecordedNavChange change)
+    {
+        AiRecordFormat.Write(Begin(), change);
+        End(AiRecordType.NavChange);
+    }
+
     public void UserCmd(in AiUserCmd cmd)
     {
         AiRecordFormat.Write(Begin(), _actors is null ? cmd : _actors.Map(cmd));

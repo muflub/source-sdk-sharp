@@ -23,6 +23,13 @@ public sealed class AiNavBuildTimeoutConVar : IntConVar { }
 [ConVar("ai_nav_build_max_leaves", "4000000", Help = "A built navigation with more leaves than this is refused", Min = 1)]
 public sealed class AiNavBuildMaxLeavesConVar : IntConVar { }
 
+/// <summary>
+/// <c>ai_nav_build_max_mb</c>: a build that takes the server's managed heap past this many MiB while its cells are
+/// built is stopped and refused, naming it (a map too big to build whole); 0 for no cap.
+/// </summary>
+[ConVar("ai_nav_build_max_mb", "6144", Help = "A navigation build that takes the server's managed memory past this many MiB is stopped and refused; 0 = no cap", Min = 0)]
+public sealed class AiNavBuildMaxMbConVar : IntConVar { }
+
 /// <summary><c>ai_nav_build_check</c>: 1 runs the floor check (ssmap nav3d -check's) after a build, on the build's threads; it reports and never refuses.</summary>
 [ConVar("ai_nav_build_check", "0", Help = "1: check every standable place of a built navigation for a floor under it, after the build (reports, never refuses)")]
 public sealed class AiNavBuildCheckConVar : BoolConVar { }
@@ -30,11 +37,12 @@ public sealed class AiNavBuildCheckConVar : BoolConVar { }
 /// <summary>The build's knobs as one service: whether to build, and how.</summary>
 [SideService(Side.Server)]
 public sealed class NavBuildKnobs(AiNavBuildConVar build, AiNavBuildThreadsConVar threads, AiNavBuildTimeoutConVar timeout,
-                                  AiNavBuildMaxLeavesConVar leaves, AiNavBuildCheckConVar check)
+                                  AiNavBuildMaxLeavesConVar leaves, AiNavBuildCheckConVar check, AiNavBuildMaxMbConVar memory)
 {
     public bool Enabled => build.Value;
 
     public NavBuildSettings Settings => new(threads.Value > 0 ? threads.Value : NavBuildSettings.DefaultThreads,
                                             TimeSpan.FromSeconds(Math.Max(1, timeout.Value)),
-                                            leaves.Value > 0 ? leaves.Value : NavBuildSettings.DefaultMaxLeaves, check.Value);
+                                            leaves.Value > 0 ? leaves.Value : NavBuildSettings.DefaultMaxLeaves, check.Value,
+                                            Math.Max(0, memory.Value));
 }

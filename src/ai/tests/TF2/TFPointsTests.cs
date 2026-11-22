@@ -328,11 +328,42 @@ public sealed class TFPointsTests
     [Fact]
     public void WithTheTeamTheBotStaysThere()
     {
+        // With the teammate 250 u off, apart enough: it holds where it is.
         TFField f = Follower();
         f.Decider.HoldStance(TFStance.Team);
-        IntentCommand with = f.Step(Bot(At), Level(), Seen(MateId, At + new AiVector(150f, 0f, 0f)));
+        IntentCommand with = f.Step(Bot(At), Level(), Seen(MateId, At + new AiVector(250f, 0f, 0f)));
         Assert.Equal((TFDecider.TeamBranch, "with the team", MoveKind.Hold), (f.Branch, f.Decider.Doing.Verdict, with.Move.Kind));
     }
+
+    [Fact]
+    public void WithTheTeamTheBotStandsApartFromItsTeammate()
+    {
+        // Lane Gobj, the user: "and stand too close to each other". The teammate 100 u off: the bot steps to a spot at least
+        // 200 u from it (over a rocket's splash), within the team's reach of it.
+        TFField f = Follower();
+        f.Decider.HoldStance(TFStance.Team);
+        AiVector mate = At + new AiVector(100f, 0f, 0f);
+        IntentCommand with = f.Step(Bot(At), Level(), Seen(MateId, mate));
+        Assert.Equal((TFDecider.TeamBranch, "with the team", MoveKind.Follow), (f.Branch, f.Decider.Doing.Verdict, with.Move.Kind));
+        AiVector spot = f.Decider.Doing.Goal;
+        Assert.InRange(Flat(spot, mate), TFDecider.StandApartUnits, TFDecider.GroupStandUnits + TFDecider.StandArriveUnits);
+        // There, it holds.
+        Assert.Equal(MoveKind.Hold, f.Step(Bot(spot), Level(), Seen(MateId, mate)).Move.Kind);
+    }
+
+    [Fact]
+    public void OnThePointTwoTeammatesStandApartInsideItsArea()
+    {
+        // A teammate already on A: the bot takes a spot on A at least 200 u from it, within the area's reach of A's place.
+        TFField f = Field();
+        f.Decider.HoldStance(TFStance.Points);
+        IntentCommand on = f.Step(Bot(PointA + new AiVector(-60f, 0f, 0f), TFClass.Scout), Level(), Seen(MateId, PointA));
+        Assert.Equal((TFDecider.PointsBranch, "on the point", MoveKind.Follow), (f.Branch, f.Decider.Doing.Verdict, on.Move.Kind));
+        Assert.InRange(Flat(f.Decider.Doing.Goal, PointA), TFDecider.StandApartUnits - 32f, TFDecider.PointStandUnits + TFDecider.StandArriveUnits);
+        Assert.True(Flat(f.Decider.Doing.Goal, PointA) <= TFDecider.OnPointUnits);
+    }
+
+    private static float Flat(AiVector a, AiVector b) => new AiVector(a.X - b.X, a.Y - b.Y, 0f).Length;
 
     [Fact]
     public void ATeammatesCallForHelpIsWhereTheTeamIs()
@@ -368,14 +399,16 @@ public sealed class TFPointsTests
     [Fact]
     public void ATeammateNotSeenWhereItWasSeenIsNoLongerThere()
     {
+        // A 1,800 u past the teammate: within the front's reach, so the bot gathers (lane Gobj) and the team's place stands.
         TFField f = Field();
         f.Decider.HoldStance(TFStance.Team);
         var seen = new AiVector(1600f, 256f, 0f);
-        f.Step(Bot(At), Level(aAt: new AiVector(3800f, 256f, 0f)), Seen(MateId, seen));
-        f.Step(Bot(At), Level(aAt: new AiVector(3800f, 256f, 0f)));
+        var a = new AiVector(3400f, 256f, 0f);
+        f.Step(Bot(At), Level(aAt: a), Seen(MateId, seen));
+        f.Step(Bot(At), Level(aAt: a));
         Assert.Equal(seen, f.Decider.TeamPlace);
         // Come to the place, and the teammate is not in sight there: it has gone, and the bot has no team to stay with.
-        f.Step(Bot(seen + new AiVector(100f, 0f, 0f)), Level(aAt: new AiVector(3800f, 256f, 0f)));
+        f.Step(Bot(seen + new AiVector(100f, 0f, 0f)), Level(aAt: a));
         Assert.Null(f.Decider.TeamPlace);
     }
 
@@ -453,12 +486,12 @@ public sealed class TFPointsTests
         IntentCommand said = f.Step(Bot(At), Level(), Seen(MateId, MateBehind));
         Assert.Equal((CalloutKind.Rally, true, Red), (said.Say.Kind, said.Say.Text, said.Say.Team));
         Assert.True(said.Say.DelayTicks >= AiSession.CalloutMinDelayTicks);
-        // The middle of the bot and its teammate; A is too near to move it toward (within 900 u of the middle's way).
-        Near((At + MateBehind) * 0.5f, said.Say.Place);
+        // At the team's front, the bot itself (lane Gobj: not their middle), held back to 900 u short of A.
+        Near(PointA - new AiVector(TFDecider.RallyShortUnits, 0f, 0f), said.Say.Place);
         Assert.Equal((TFTeamPlay.Gather, 1, (AiVector?)said.Say.Place), (f.Decider.TeamPlay, f.Decider.RalliesCalled, f.Decider.RallyPlace));
-        // Its teammate now beside it (so it waits for nobody on the way).
+        // Its teammate now beside it, on the far side from the rally (so it waits for nobody on the way, and neither stands at it yet).
         for (int i = 0; i < Decides(1.5f); i++)
-            Assert.False(f.Step(Bot(At), Level(), Seen(MateId, At + new AiVector(0f, 100f, 0f))).Say.Says);
+            Assert.False(f.Step(Bot(At), Level(), Seen(MateId, At + new AiVector(100f, 100f, 0f))).Say.Says);
         Assert.Equal((TFDecider.TeamBranch, said.Say.Place, "to the rally", 1), (f.Branch, f.Decider.Doing.Goal, f.Decider.Doing.Verdict, f.Decider.RalliesCalled));
         IntentCommand at = f.Step(Bot(said.Say.Place), Level());
         Assert.Equal(("at the rally", MoveKind.Hold), (f.Decider.Doing.Verdict, at.Move.Kind));
@@ -506,7 +539,7 @@ public sealed class TFPointsTests
     [Fact]
     public void ATeammateSeenWithinTheTeamStancesSecondsIsGatheredWith()
     {
-        // Seen 10 s ago 800 u behind: placed, so the bot calls a rally at their middle rather than taking the points.
+        // Seen 10 s ago 800 u behind: placed, so the bot calls a rally (at the front, itself, held back 900 u short of A) rather than taking the points.
         TFField f = Field();
         f.Decider.HoldStance(TFStance.Points);
         f.Step(Bot(At), Level(), Seen(MateId, MateBehind));
@@ -515,26 +548,26 @@ public sealed class TFPointsTests
         f.Decider.HoldStance(TFStance.Team);
         IntentCommand said = f.Step(Bot(At), Level());
         Assert.Equal((CalloutKind.Rally, TFStance.Team, 0), (said.Say.Kind, f.Decider.Stance, f.Decider.AloneToPoints));
-        Near((At + MateBehind) * 0.5f, said.Say.Place);
+        Near(PointA - new AiVector(TFDecider.RallyShortUnits, 0f, 0f), said.Say.Place);
     }
 
     [Fact]
     public void TheRallyMovesTowardThePointOnlyAsFarAsStaysOutOfTheEnemysSight()
     {
-        // A at the far end; the bot at 1,000 u and its teammate at 1,200 u: their middle is 1,100 u.
-        var far = new AiVector(3800f, 256f, 0f);
+        // A at 3,000 u; the bot at 1,000 u and its teammate at 1,200 u: the team's front is the teammate, 1,800 u from A.
+        var far = new AiVector(3000f, 256f, 0f);
         var mate = new AiVector(1200f, 256f, 0f);
-        var middle = new AiVector(1100f, 256f, 0f);
+        AiVector middle = mate;
         NavGraph floor = TFField.Floor();
         // No enemy known to see anything: it moves the most, 600 u.
         var open = new TFField(mates: [Mate], floor: floor, tune: p => p with { GlanceRate = 0f, ScoreNoise = 0f });
         open.Decider.HoldStance(TFStance.Team);
         Near(middle + new AiVector(TFDecider.RallyAdvanceUnits, 0f, 0f), open.Step(Bot(At), Level(aAt: far), Seen(MateId, mate)).Say.Place);
-        // An enemy seen at B; the sight table has it see the cells from 1,380 u on: two steps of 150 u are out of sight.
+        // An enemy seen at B; the sight table has it see the cells from 1,480 u on: one step of 150 u is out of sight.
         var seen = new List<int>();
         for (int c = 0; c < floor.CellCount; c++)
         {
-            if (floor.Cell(c).Centre.X >= 1380f)
+            if (floor.Cell(c).Centre.X >= 1480f)
                 seen.Add(c);
         }
 
@@ -542,11 +575,77 @@ public sealed class TFPointsTests
         f.Decider.HoldStance(TFStance.Team);
         IntentCommand said = f.Step(Bot(At), Level(aAt: far), Seen(MateId, mate), Seen(Enemy, PointB, Blue));
         Assert.Equal(CalloutKind.Rally, said.Say.Kind);
-        Near(middle + new AiVector(2f * TFDecider.RallyAdvanceStep, 0f, 0f), said.Say.Place);
-        // Never within 900 u of the point: A at 1,700 u leaves no step.
+        Near(middle + new AiVector(TFDecider.RallyAdvanceStep, 0f, 0f), said.Say.Place);
+        // Never within 900 u of the point: A at 1,900 u, 700 u past the front, holds the rally back to 1,000 u and leaves no step.
         var near = new TFField(mates: [Mate], floor: floor, tune: p => p with { GlanceRate = 0f, ScoreNoise = 0f });
         near.Decider.HoldStance(TFStance.Team);
-        Near(middle, near.Step(Bot(At), Level(aAt: new AiVector(1900f, 256f, 0f)), Seen(MateId, mate)).Say.Place);
+        Near(new AiVector(1000f, 256f, 0f), near.Step(Bot(At), Level(aAt: new AiVector(1900f, 256f, 0f)), Seen(MateId, mate)).Say.Place);
+    }
+
+    [Fact]
+    public void ARallyIsCalledAtTheTeamsFrontNotItsMiddle()
+    {
+        // Lane Gobj. The bot at 1,000 u, its teammate ahead at 1,400 u, A at 3,000 u: the front is the teammate, and the
+        // rally goes on from it 600 u toward A (the middle, 1,200 u, would have it at 1,800 u; the bot itself at 1,600 u).
+        var a = new AiVector(3000f, 256f, 0f);
+        var ahead = new AiVector(1400f, 256f, 0f);
+        TFField f = Field();
+        f.Decider.HoldStance(TFStance.Team);
+        IntentCommand said = f.Step(Bot(At), Level(aAt: a), Seen(MateId, ahead));
+        Assert.Equal(CalloutKind.Rally, said.Say.Kind);
+        Near(ahead + new AiVector(TFDecider.RallyAdvanceUnits, 0f, 0f), said.Say.Place);
+    }
+
+    [Fact]
+    public void ATeamFarFromThePointGoesToTheFrontAndCallsNoRallyThere()
+    {
+        // Lane Gobj, the user's report: a team by its spawn after a round's start. The bot and its teammate at the west
+        // end, A 3,700 u off: no rally by the spawn; the team stance goes to the front.
+        var a = new AiVector(3800f, 256f, 0f);
+        var start = new AiVector(100f, 256f, 0f);
+        TFField f = Field();
+        f.Decider.HoldStance(TFStance.Team);
+        for (int i = 0; i < Decides(1.5f); i++)
+            Assert.False(f.Step(Bot(start), Level(aAt: a), Seen(MateId, start + new AiVector(0f, 100f, 0f))).Say.Says);
+        Assert.Equal((TFStance.Team, TFTeamPlay.None, 0, (AiVector?)a), (f.Decider.Stance, f.Decider.TeamPlay, f.Decider.RalliesCalled, f.Decider.TeamPlace));
+        Assert.Equal((TFDecider.TeamBranch, a, "to the front"), (f.Branch, f.Decider.Doing.Goal, f.Decider.Doing.Verdict));
+        Assert.True(f.Decider.ToFrontDecides > 0);
+        // Come within the front's reach of A (1,800 u), its teammate with it: the rally is called there.
+        var near = new AiVector(2000f, 256f, 0f);
+        IntentCommand said = f.Step(Bot(near), Level(aAt: a), Seen(MateId, near + new AiVector(0f, 100f, 0f)));
+        Assert.Equal((CalloutKind.Rally, 1), (said.Say.Kind, f.Decider.RalliesCalled));
+        Assert.True(Math.Abs(said.Say.Place.X - a.X) >= TFDecider.RallyShortUnits - 64f);
+        Assert.True(said.Say.Place.X >= near.X - 64f);
+    }
+
+    [Fact]
+    public void OnItsWayToTheFrontTheTeamStancesStretchHolds()
+    {
+        // Lane Gobj: the team far from A, the bot going to the front; past the longest stretch it is still in the team stance,
+        // though its drives would take the points at nine choices in ten.
+        var a = new AiVector(3800f, 256f, 0f);
+        var start = new AiVector(100f, 256f, 0f);
+        TFField f = Field(tune: p => p with { FightDrive = 3f, EscortDrive = 0.1f });
+        f.Decider.HoldStance(TFStance.Team);
+        for (int i = 0; i < Decides(TFDecider.StanceHoldMin + TFDecider.StanceHoldSpread + 2f); i++)
+            f.Step(Bot(start), Level(aAt: a), Seen(MateId, start + new AiVector(0f, 100f, 0f)));
+        Assert.Equal((TFStance.Team, 0, "to the front"), (f.Decider.Stance, f.Decider.StanceChanges, f.Decider.Doing.Verdict));
+    }
+
+    [Fact]
+    public void ABotFarFromThePointThatPlacesNoTeammateGoesToTheFrontInTheTeamStance()
+    {
+        // Lane Gobj: nobody placed and A 3,700 u off: the bot keeps the team stance and goes to the front; within the
+        // front's reach of A, still alone, it takes the points.
+        var a = new AiVector(3800f, 256f, 0f);
+        var start = new AiVector(100f, 256f, 0f);
+        TFField f = Field();
+        f.Decider.HoldStance(TFStance.Team);
+        for (int i = 0; i < Decides(1.5f); i++)
+            f.Step(Bot(start), Level(aAt: a));
+        Assert.Equal((TFStance.Team, 0, "to the front"), (f.Decider.Stance, f.Decider.AloneToPoints, f.Decider.Doing.Verdict));
+        f.Step(Bot(new AiVector(2000f, 256f, 0f)), Level(aAt: a));
+        Assert.Equal((TFStance.Points, 1), (f.Decider.Stance, f.Decider.AloneToPoints));
     }
 
     private sealed class Sees(params int[] cells) : ICellSight

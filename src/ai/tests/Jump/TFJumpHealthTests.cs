@@ -30,7 +30,7 @@ public sealed class TFJumpHealthTests
         var (g, ids) = Grids.Parse("..... .....");
         NavLinks links = NavLinks.Build(g, [new NavLink(ids[4, 0], ids[6, 0], NavLinkKind.Blast, 1f, cost, 1f, 0)], new NavLinkCosts { RunSpeed = 240f });
         var book = new JumpBook(new JumpBookSettings());
-        book.SetLinks(links, [TFJumpAdvice.Plan(id: NavLinks.Argument(0), health: cost) with { StartsStanding = true, Heals = [.. heals] }]);
+        book.SetLinks(links, [TFJumpAdvice.Plan(id: NavLinks.Argument(0), health: cost) with { StartsStanding = true, Heals = [.. heals], JumpWays = [.. heals] }]);
         return (book, links);
     }
 
@@ -265,6 +265,325 @@ public sealed class TFJumpHealthTests
         f.Step(TFField.Self(At, health: 0) with { Flags = SelfFlags.None }, TFField.Ctf());
         f.Step(TFField.Self(At, health: 0) with { Flags = SelfFlags.None }, TFField.Ctf());
         Assert.Equal(1, f.Decider.HealthJumpDeaths);
+    }
+
+    // ------------------------------------------------------------------ a plain jump by a pack (lane G9b)
+
+    /// <summary>Health the plain rule covers the link at, landing by the pack 30 under the maximum.</summary>
+    private const int Full = TFDecider.SoldierHealth;
+
+    /// <summary>Decides for up to the root's longest commitment (2.5 s) until the bot runs Survive; its branch and goal then.</summary>
+    private static (string Branch, AiVector Goal) UntilSurvive(TFField f, int health)
+    {
+        for (int i = 0; i * DecideSchedule.Period * 0.015f < 2.5f && f.Branch != TFDecider.Survive; i++)
+            f.Step(Still(health), TFField.Ctf());
+        return (f.Branch, f.Decider.Doing.Goal);
+    }
+
+    [Fact]
+    public void DownFromAPlainJumpByAPackWorthTakingTheBotTakesItNext()
+    {
+        var (f, book) = Standing(tune: Bold);
+        Assert.True(f.BeginsJump(f.Step(Still(Full), TFField.Ctf())));
+        Assert.Equal(0, f.Decider.HealthJumps);
+        Down(f, book, Full - (int)Cost);
+        Assert.Equal((TFDecider.Survive, Pack.Position), UntilSurvive(f, Full - (int)Cost));
+        Assert.Equal(1, f.Decider.PackJumps);
+
+        // The control: the same jump by no place, and the bot does not go for health at that health.
+        var (none, noBook) = Standing(heals: [], tune: Bold);
+        Assert.True(none.BeginsJump(none.Step(Still(Full), TFField.Ctf())));
+        Down(none, noBook, Full - (int)Cost);
+        Assert.NotEqual(TFDecider.Survive, UntilSurvive(none, Full - (int)Cost).Branch);
+    }
+
+    /// <summary>Down within half a small pack of its maximum (a hop that cost little), the place is not worth the walk: nothing is owed.</summary>
+    [Fact]
+    public void DownFromAPlainJumpNearlyFullThePackIsNotWorthTheWalk()
+    {
+        var (f, book) = Standing(tune: Bold, cost: 10f);
+        Assert.True(f.BeginsJump(f.Step(Still(Full), TFField.Ctf())));
+        Down(f, book, Full - 10);
+        Assert.NotEqual(TFDecider.Survive, UntilSurvive(f, Full - 10).Branch);
+        Assert.Equal(0, f.Decider.PackJumps);
+    }
+
+    [Fact]
+    public void WithTheSwitchOffAPlainJumpByAPackOwesNothing()
+    {
+        var (f, book) = Standing(tune: Bold, feel: TFFeelSwitches.All with { JumpHealth = false });
+        Assert.True(f.BeginsJump(f.Step(Still(Full), TFField.Ctf())));
+        Down(f, book, Full - (int)Cost);
+        Assert.NotEqual(TFDecider.Survive, UntilSurvive(f, Full - (int)Cost).Branch);
+        Assert.Equal(0, f.Decider.PackJumps);
+    }
+
+    [Fact]
+    public void TheHealAfterAPlainJumpByAPackIsCountedApartFromTheJumpsByHealth()
+    {
+        var (f, book) = Standing(tune: Bold);
+        f.Step(Still(Full), TFField.Ctf());
+        int landed = Full - (int)Cost;
+        Down(f, book, landed);
+        f.Step(Still(landed), TFField.Ctf());
+        f.Step(Still(Full), TFField.Ctf());
+        (int Landed, int After, float Seconds) heal = Assert.Single(f.Decider.PackJumpHeals);
+        Assert.Equal((landed, Full), (heal.Landed, heal.After));
+        Assert.Empty(f.Decider.HealthJumpHeals);
+    }
+
+    [Fact]
+    public void AJumpByHealthKeepsItsPlansSecondsAndTheWalksItReplaced()
+    {
+        var (f, _) = Standing();
+        f.Step(Still(UnderPlain), TFField.Ctf());
+        JumpPlan plan = f.Decider.LastJump!;
+        Assert.Equal((plan.Seconds, plan.WalkSeconds), Assert.Single(f.Decider.HealthJumpTimes));
+    }
+
+    [Fact]
+    public void DeathsAreCountedOnceALife()
+    {
+        var f = new TFField(tune: p => p with { GlanceRate = 0f });
+        f.Step(Still(Full), TFField.Ctf());
+        for (int i = 0; i < 3; i++)
+            f.Step(TFField.Self(At, health: 0) with { Flags = SelfFlags.None }, TFField.Ctf());
+        f.Step(Still(Full), TFField.Ctf());
+        f.Step(TFField.Self(At, health: 0) with { Flags = SelfFlags.None }, TFField.Ctf());
+        Assert.Equal(2, f.Decider.Deaths);
+    }
+
+    // ------------------------------------------------------------------ a jump to a pack, sought (lane G9b)
+
+    /// <summary>The field with link 0's plan (start at x 340, 40 u east of the bot) in the book and no report from the follower: the bot is not at its start.</summary>
+    private static TFField Near(JumpHeal[]? heals = null, Func<DecisionParams, DecisionParams>? tune = null, ItemSpawn[]? packs = null, TFFeelSwitches? feel = null)
+    {
+        var (book, _) = Book(heals ?? [HealAtPack]);
+        return new TFField(tune: tune ?? Bold, jumps: book, packs: packs ?? [Pack], feel: feel);
+    }
+
+    /// <summary>Decides for up to the root's longest commitment (Fetch's 2 s, and a little) until the bot runs Survive; its branch and goal then.</summary>
+    private static (string Branch, AiVector Goal) Twice(TFField f, SelfState self, ObjectiveKnowledge objectives)
+    {
+        for (int i = 0; i * DecideSchedule.Period * 0.015f < 2.5f && (i < 2 || f.Branch != TFDecider.Survive); i++)
+            f.Step(self, objectives);
+        return (f.Branch, f.Decider.Doing.Goal);
+    }
+
+    [Fact]
+    public void ABotOnItsErrandWithAPackOnItsWayByALinkNearItGoesForThePack()
+    {
+        TFField f = Near();
+        Assert.Equal((TFDecider.Survive, Pack.Position), Twice(f, Still(150), TFField.Ctf()));
+        Assert.Equal(1, f.Decider.PackLinkSeeks);
+    }
+
+    /// <summary>Going for the pack, at the start of the link the route to it takes, the bot begins that link (and is not turned back to its errand there).</summary>
+    [Fact]
+    public void GoingForAPackByALinkTheBotBeginsTheLinkAtItsStart()
+    {
+        var (book, links) = Book([HealAtPack]);
+        var f = new TFField(tune: Bold, jumps: book, packs: [Pack]);
+        Assert.Equal((TFDecider.Survive, Pack.Position), Twice(f, Still(150), TFField.Ctf()));
+        book.NoteRoute(f.Bot.Slot, new Tick(f.Tick), new NavLinkStep(0, links.Hash, Pack.Position, true));
+        Assert.True(f.BeginsJump(f.Step(Still(150), TFField.Ctf())));
+        Assert.Equal(1, f.Decider.PackLinkSeekJumps);
+        f.Step(Still(150), TFField.Ctf());
+        Assert.Equal(1, f.Decider.PackSeekEnds[(int)TFDecider.PackSeekEnd.Jumped]);
+    }
+
+    /// <summary>
+    /// A pack gone for a while by way of a link: down from the link beside it, the bot still goes for it (the heal branch's
+    /// patience starts again once the jump has had the bot: the going's seconds are not the visit's).
+    /// </summary>
+    [Fact]
+    public void DownFromALinkAPackLongGoneForIsNotGivenUpAtOnce()
+    {
+        var (book, links) = Book([HealAtPack]);
+        var f = new TFField(tune: Bold, jumps: book, packs: [Pack]);
+        Assert.Equal((TFDecider.Survive, Pack.Position), Twice(f, Still(150), TFField.Ctf()));
+        for (int i = 0; i * DecideSchedule.Period * 0.015f < TFDecider.HealPatienceSeconds - 3f; i++)
+            f.Step(Still(150), TFField.Ctf());
+        book.NoteRoute(f.Bot.Slot, new Tick(f.Tick), new NavLinkStep(0, links.Hash, Pack.Position, true));
+        Assert.True(f.BeginsJump(f.Step(Still(150), TFField.Ctf())));
+        Down(f, book, 120);
+        for (int i = 0; i * DecideSchedule.Period * 0.015f < 5f; i++)
+            f.Step(Still(120), TFField.Ctf());
+        Assert.Equal((TFDecider.Survive, Pack.Position, 0), (f.Branch, f.Decider.Doing.Goal, f.Decider.PackJumpMissed));
+    }
+
+    /// <summary>A link that comes down on its pack heals the bot at the touch, before the decide that sees it down: the heal is counted, not a pack gone.</summary>
+    [Fact]
+    public void ALandingOnThePackIsAHealNotAPackGone()
+    {
+        var (f, book) = Standing(tune: Bold);
+        f.Step(Still(UnderPlain), TFField.Ctf());
+        int low = UnderPlain - (int)Cost;
+        book.NoteRoute(f.Bot.Slot, new Tick(f.Tick), NavLinkStep.None);
+        for (int i = 0; i * DecideSchedule.Period * 0.015f <= TFDecider.RocketJumpBusySeconds - 0.3f; i++)
+            f.Step(TFField.Self(At + new AiVector(0f, 0f, 100f), health: low) with { Flags = SelfFlags.Alive }, TFField.Ctf());
+        // Down on the pack: healed as it touched, and the pack seen taken.
+        f.Memory.Board.SeeItem(0, false, new Tick(f.Tick), 0.015f);
+        for (int i = 0; i * DecideSchedule.Period * 0.015f <= 1f; i++)
+            f.Step(Still(low + 40), TFField.Ctf());
+        (int Landed, int After, float Seconds) heal = Assert.Single(f.Decider.HealthJumpHeals);
+        Assert.Equal((low, low + 40, 0), (heal.Landed, heal.After, f.Decider.HealthJumpGone));
+    }
+
+    /// <summary>The level's book, with what it says of where a bot came down set by the fact.</summary>
+    private sealed class LandedAdvisor(JumpBook book, bool? landed) : IJumpAdvisor
+    {
+        public JumpPlan? Advise(in JumpStretchAsk ask) => book.Advise(ask);
+
+        public JumpPlan? RouteLink(int slot, Tick tick, AiVector goal) => book.RouteLink(slot, tick, goal);
+
+        public NavLinkStep? RouteSaid(int slot, Tick tick, AiVector goal) => book.RouteSaid(slot, tick, goal);
+
+        public void LinkRefused(int slot, Tick tick, AiVector goal, JumpLinkRefusal why) => book.LinkRefused(slot, tick, goal, why);
+
+        public IReadOnlyList<JumpPlan> HealLinks => book.HealLinks;
+
+        public bool? LandedBy(AiVector landing, AiVector place) => landed;
+    }
+
+    /// <summary>A jump by health that came down nowhere near its place (it fizzled, or fell short of the ledge) owes no visit, and is counted.</summary>
+    [Fact]
+    public void AJumpThatCameDownNowhereNearItsPlaceOwesNoVisit()
+    {
+        foreach (bool landed in (bool[])[false, true])
+        {
+            var (book, links) = Book([HealAtPack]);
+            var f = new TFField(tune: Bold, jumps: new LandedAdvisor(book, landed), packs: [Pack]);
+            book.NoteRoute(f.Bot.Slot, new Tick(f.Tick), new NavLinkStep(0, links.Hash, TFField.BlueFlag, true));
+            Assert.True(f.BeginsJump(f.Step(Still(UnderPlain), TFField.Ctf())));
+            Down(f, book, UnderPlain - (int)Cost);
+            Assert.True(landed == (UntilSurvive(f, UnderPlain - (int)Cost).Branch == TFDecider.Survive), $"landed by its place {landed}");
+            Assert.Equal(landed ? 0 : 1, f.Decider.HealthJumpsOff);
+        }
+    }
+
+    [Fact]
+    public void AVisitTheBotsDeathEndsIsCountedLost()
+    {
+        var (f, book) = Standing(tune: Bold);
+        f.Step(Still(UnderPlain), TFField.Ctf());
+        Down(f, book, UnderPlain - (int)Cost);
+        f.Step(TFField.Self(At, health: 0) with { Flags = SelfFlags.None }, TFField.Ctf());
+        Assert.Equal((1, 0, 0), (f.Decider.HealthJumpLost, f.Decider.HealthJumpGone, f.Decider.HealthJumpUnhealed));
+    }
+
+    /// <summary>Once gone for, the pack is held while its route takes the bot away from the link it began by (another link to it, further off).</summary>
+    [Fact]
+    public void GoingForAPackIsHeldWhenTheBotIsFurtherFromTheLinkThanItBeganBy()
+    {
+        TFField f = Near();
+        Assert.Equal((TFDecider.Survive, Pack.Position), Twice(f, Still(150), TFField.Ctf()));
+        SelfState away = TFField.Self(At - new AiVector(TFDecider.PackLinkReach + 100f, 0f, 0f), health: 150);
+        Assert.Equal((TFDecider.Survive, Pack.Position), Twice(f, away, TFField.Ctf()));
+        Assert.Equal(1, f.Decider.PackLinkSeeks);
+
+        // The control: begun from there, it is not.
+        Assert.NotEqual(TFDecider.Survive, Twice(Near(), away, TFField.Ctf()).Branch);
+    }
+
+    /// <summary>An advisor that answers no stretch and offers one link to a pack, whatever its ways.</summary>
+    private sealed class OneHealLink(JumpPlan plan) : IJumpAdvisor
+    {
+        public JumpPlan? Advise(in JumpStretchAsk ask) => null;
+
+        public IReadOnlyList<JumpPlan> HealLinks => [plan];
+    }
+
+    /// <summary>A pack by a link's landing that a walk from the link's start gets to sooner (not one of its <see cref="JumpPlan.JumpWays"/>) is not gone for by way of the link.</summary>
+    [Fact]
+    public void APackAWalkGetsToSoonerIsNotSoughtByWayOfTheLink()
+    {
+        JumpPlan plan = TFJumpAdvice.Plan(id: NavLinks.Argument(0)) with { StartsStanding = true, Heals = [HealAtPack] };
+        var walked = new TFField(tune: Bold, jumps: new OneHealLink(plan), packs: [Pack]);
+        Assert.NotEqual(TFDecider.Survive, Twice(walked, Still(150), TFField.Ctf()).Branch);
+        var jumped = new TFField(tune: Bold, jumps: new OneHealLink(plan with { JumpWays = [HealAtPack] }), packs: [Pack]);
+        Assert.Equal(TFDecider.Survive, Twice(jumped, Still(150), TFField.Ctf()).Branch);
+    }
+
+    /// <summary>The book offers as links to health only those that are the way to a place by their landing.</summary>
+    [Fact]
+    public void TheBookOffersOnlyTheLinksThatAreTheWayToAPlace()
+    {
+        var (g, ids) = Grids.Parse("..... .....");
+        NavLinks links = NavLinks.Build(g, [new NavLink(ids[4, 0], ids[6, 0], NavLinkKind.Blast, 1f, Cost, 1f, 0), new NavLink(ids[3, 0], ids[6, 0], NavLinkKind.Blast, 1f, Cost, 1f, 1)],
+                                        new NavLinkCosts { RunSpeed = 240f });
+        var book = new JumpBook(new JumpBookSettings());
+        JumpPlan plan = TFJumpAdvice.Plan(id: NavLinks.Argument(0)) with { Heals = [HealAtPack] };
+        book.SetLinks(links, [plan, plan with { Id = NavLinks.Argument(1), JumpWays = [HealAtPack] }]);
+        Assert.Equal(NavLinks.Argument(1), Assert.Single(book.HealLinks).Id);
+    }
+
+    [Fact]
+    public void APackByALinkNotOnTheBotsWayIsLeftAlone()
+    {
+        // The enemy's flag west of the bot: the pack (east) is further from it than the bot is.
+        TFField f = Near();
+        Assert.NotEqual(TFDecider.Survive, Twice(f, Still(150), TFField.Ctf(blueAt: new AiVector(-2000f, 256f, 0f))).Branch);
+    }
+
+    [Fact]
+    public void ABotNearlyFullOrWithTheSwitchOffDoesNotGoForAPackByALink()
+    {
+        Assert.NotEqual(TFDecider.Survive, Twice(Near(), Still(185), TFField.Ctf()).Branch);
+        Assert.NotEqual(TFDecider.Survive, Twice(Near(feel: TFFeelSwitches.All with { JumpHealth = false }), Still(150), TFField.Ctf()).Branch);
+        Assert.Equal(TFDecider.Survive, Twice(Near(), Still(180), TFField.Ctf()).Branch);
+    }
+
+    [Fact]
+    public void ALinkWhoseStartIsOffTheBotsFloorIsNotItsWay()
+    {
+        SelfState above = TFField.Self(At + new AiVector(0f, 0f, TFDecider.PackLinkRise + 16f), health: 150);
+        Assert.NotEqual(TFDecider.Survive, Twice(Near(), above, TFField.Ctf()).Branch);
+    }
+
+    /// <summary>A bot whose health pays for the link neither plainly nor by the pack (it would land under the hard floor) does not go for it that way.</summary>
+    [Fact]
+    public void ALinkTheBotsHealthDoesNotPayForIsNotSought()
+    {
+        TFField f = Near();
+        Twice(f, Still((int)(JumpHealthRule.HardFloor + Cost) - 1), TFField.Ctf());
+        Assert.Equal(0, f.Decider.PackLinkSeeks);
+    }
+
+    /// <summary>Going for health, a pack beside the bot is taken before one a link lands by; with none near, the link's.</summary>
+    [Fact]
+    public void ABotGoingForHealthTakesAPackByALinkOnlyWhenThatWayIsShorter()
+    {
+        static DecisionParams Timid(DecisionParams p) => p with { GlanceRate = 0f, RetreatHealthPct = 0.6f, GiveUpHealth = 0.6f };
+        var beside = new ItemSpawn(1, "item_healthkit_small", ItemKind.HealthSmall, new AiVector(300f, 400f, 0f), 10f);
+        Assert.Equal((TFDecider.Survive, beside.Position), Twice(Near(tune: Timid, packs: [Pack, beside]), Still(100), TFField.Ctf()));
+        var far = new ItemSpawn(1, "item_healthkit_small", ItemKind.HealthSmall, new AiVector(300f, -2200f, 0f), 10f);
+        Assert.Equal((TFDecider.Survive, Pack.Position), Twice(Near(tune: Timid, packs: [Pack, far]), Still(100), TFField.Ctf()));
+    }
+
+    // ------------------------------------------------------------------ the refusal's facts (lane G9b)
+
+    [Fact]
+    public void ARefusalByHealthsFactsAreServedAsWords()
+    {
+        var (none, _) = Standing(heals: []);
+        Assert.False(none.BeginsJump(none.Step(Still(UnderPlain), TFField.Ctf())));
+        Assert.Equal($"plan {NavLinks.Argument(0)}: health {UnderPlain}, cost {Cost:F1}, no place by its landing", none.Decider.LastHealthRefusal);
+
+        var (gone, _) = Standing();
+        gone.Memory.Board.SeeItem(0, false, new Tick(gone.Tick), 0.015f);
+        Assert.False(gone.BeginsJump(gone.Step(Still(UnderPlain), TFField.Ctf())));
+        string words = gone.Decider.LastHealthRefusal;
+        Assert.StartsWith($"plan {NavLinks.Argument(0)}: health {UnderPlain}, cost {Cost:F1}, fall 0.0, 1 place(s) by its landing, 0 usable; first place HealthSmall at (1700 256 0), map pack 0, False back ", words);
+        Assert.EndsWith(", skipped False", words);
+    }
+
+    [Fact]
+    public void BeforeAnyRefusalNoWordsAreServed()
+    {
+        var (f, _) = Standing();
+        f.Step(Still(Full), TFField.Ctf());
+        Assert.Equal("", f.Decider.LastHealthRefusal);
     }
 
     // ------------------------------------------------------------------ the Course branch's wait

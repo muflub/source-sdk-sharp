@@ -237,6 +237,116 @@ public sealed class SqliteExperienceStoreTests : ExperienceStoreContract, IDispo
         Assert.Equal(8d, store.Load(Key, HalfLife).Cells[HereCell].Seconds);
     }
 
+    /// <summary>The retry's period in the facts, milliseconds: short, so a fact sees several tries in a second.</summary>
+    private const int FactRetryMs = 20;
+
+    /// <summary>How long a fact waits for the retry thread to do something before it fails.</summary>
+    private static readonly TimeSpan RetryDeadline = TimeSpan.FromSeconds(20);
+
+    /// <summary>A file of this build's schema holding one round of <see cref="Key"/>, and a connection holding its write lock (<c>BEGIN IMMEDIATE</c>).</summary>
+    private SqliteConnection HeldFile(out string path)
+    {
+        path = NewPath();
+        using (SqliteExperienceStore first = SqliteExperienceStore.Open(path))
+            Assert.True(first.Merge(Key, Delta(d => d.Add(HereCell, new CellStat(8d, 0d, 0d, 0d, 0d))), HalfLife));
+        SqliteConnection holder = SqliteFile.Open(path);
+        SqliteFile.Scalar(holder, "BEGIN IMMEDIATE");
+        return holder;
+    }
+
+    /// <summary>A game's open of a file another holds locked: retried at <see cref="FactRetryMs"/>, each try waiting 20 ms (the provider's floor is a second).</summary>
+    private static SqliteExperienceStore GamesOpen(string path) => SqliteExperienceStore.Open(path, SqliteSchema.Migrations, busyTimeoutMs: 20, retryPeriodMs: FactRetryMs);
+
+    /// <summary>
+    /// G.11's ruling (2026-11-16): a game's open of a file another process holds locked past the busy timeout is no
+    /// refusal. The store waits, answers as an empty store while it does (the file holds a round and a cell), and attaches
+    /// when the holder commits; from then on it reads and writes the file.
+    /// </summary>
+    [Fact]
+    public void AGamesOpenOfAHeldFileWaitsAnswersEmptyAndAttachesWhenTheHolderCommits()
+    {
+        using SqliteConnection holder = HeldFile(out string path);
+        using SqliteExperienceStore store = GamesOpen(path);
+        Assert.Null(store.Refusal);
+        Assert.Contains(path, store.Waiting);
+        Assert.Contains("is busy", store.Waiting);
+        Assert.Contains("retrying every 20 ms", store.Waiting);
+        Assert.DoesNotContain('\n', store.Waiting!);
+        MapExperience waiting = store.Load(Key, HalfLife);
+        Assert.True(waiting.IsEmpty);
+        Assert.Equal(0, waiting.Rounds);
+        Assert.Equal(default, store.Counts(Key));
+        Assert.Empty(store.Keys());
+        Assert.False(store.Merge(Key, Delta(d => d.Add(HereCell, new CellStat(1d, 0d, 0d, 0d, 0d))), HalfLife));
+        Assert.True(SpinWait.SpinUntil(() => store.Retries >= 1, RetryDeadline));
+        Assert.NotNull(store.Waiting);
+
+        SqliteFile.Scalar(holder, "COMMIT");
+        Assert.True(SpinWait.SpinUntil(() => store.Waiting is null, RetryDeadline), "the store never attached");
+        Assert.Null(store.Refusal);
+        Assert.Equal(8d, store.Load(Key, HalfLife).Cells[HereCell].Seconds);
+        Assert.True(store.Merge(Key, Delta(d => d.Add(HereCell, new CellStat(1d, 0d, 0d, 0d, 0d))), HalfLife));
+        Assert.Equal(9d, store.Load(Key, HalfLife).Cells[HereCell].Seconds);
+    }
+
+    /// <summary>A tool's open answers at once: the same held file is its refusal, and nothing retries.</summary>
+    [Fact]
+    public void AToolsOpenOfAHeldFileIsARefusal()
+    {
+        using SqliteConnection holder = HeldFile(out string path);
+        using SqliteExperienceStore store = SqliteExperienceStore.Open(path, SqliteSchema.Migrations, busyTimeoutMs: 20);
+        Assert.Contains("database is locked", store.Refusal);
+        Assert.Contains(path, store.Refusal);
+        Assert.Null(store.Waiting);
+        Assert.Equal(0, store.Retries);
+        SqliteFile.Scalar(holder, "COMMIT");
+    }
+
+    /// <summary>A real refusal is still one for a game's open: a newer build's file is refused at once, and nothing retries.</summary>
+    [Fact]
+    public void AGamesOpenOfANewerBuildsFileIsRefusedAndDoesNotRetry()
+    {
+        string path = NewPath();
+        SqliteExperienceStore.Open(path, [.. SqliteSchema.Migrations, Later]).Dispose();
+        using SqliteExperienceStore store = GamesOpen(path);
+        Assert.Contains("newer", store.Refusal);
+        Assert.Null(store.Waiting);
+        Thread.Sleep(FactRetryMs * 5);
+        Assert.Equal(0, store.Retries);
+    }
+
+    /// <summary>A file a newer build wrote while the game's store waited for it: the retry that finds it refuses the store.</summary>
+    [Fact]
+    public void ARetryThatFindsANewerBuildsFileRefusesTheStore()
+    {
+        using SqliteConnection holder = HeldFile(out string path);
+        using SqliteExperienceStore store = GamesOpen(path);
+        Assert.NotNull(store.Waiting);
+        SqliteFile.Scalar(holder, "UPDATE meta SET value = '9' WHERE key = 'schema_version'");
+        SqliteFile.Scalar(holder, "COMMIT");
+        Assert.True(SpinWait.SpinUntil(() => store.Waiting is null, RetryDeadline), "the retry never ended");
+        Assert.Contains("newer", store.Refusal);
+        Assert.True(store.Load(Key, HalfLife).IsEmpty);
+        Assert.Equal("9", Scalar(path, "SELECT value FROM meta WHERE key = 'schema_version'"));
+    }
+
+    /// <summary>Disposing a waiting store stops its retry and joins it: it tried while it waited, it tries no more, and the file, freed after, is not attached.</summary>
+    [Fact]
+    public void DisposingAWaitingStoreStopsItsRetry()
+    {
+        using SqliteConnection holder = HeldFile(out string path);
+        SqliteExperienceStore store = GamesOpen(path);
+        Assert.True(SpinWait.SpinUntil(() => store.Retries >= 1, RetryDeadline));
+        store.Dispose();
+        long tried = store.Retries;
+        SqliteFile.Scalar(holder, "COMMIT");
+        Thread.Sleep(FactRetryMs * 10);
+        Assert.Equal(tried, store.Retries);
+        Assert.Null(store.Waiting);
+        Assert.True(store.Load(Key, HalfLife).IsEmpty);
+        Assert.Null(store.Refusal);
+    }
+
     /// <summary>A practice row as the practice tool writes it (lane G8): Here to There, source Practice, its recipe's bytes.</summary>
     private static readonly LinkKey PracticeRow = new(3, Here, There, 1, LinkSource.Practice, new LinkRecipe([1, 2, 3]));
 
@@ -269,27 +379,48 @@ public sealed class SqliteExperienceStoreTests : ExperienceStoreContract, IDispo
         Assert.Equal(0, game.BusyFailures);
     }
 
+    /// <summary>How long the game's write holds the lock while the tool merges: well inside the busy timeout.</summary>
+    private const int WriteHoldMs = 300;
+
     [Fact]
     public void AToolsMergeWaitsForAGamesWriteToEndRatherThanFailing()
     {
-        // The game's worker holds the write lock a moment (a round's flush): the tool's merge waits within the busy timeout.
+        // The game's worker holds the write lock a moment (a round's flush) when the tool merges: the merge waits within the
+        // busy timeout. The tool's store is open before the write begins, as its open takes the lock itself to read the
+        // schema, so the merge is what waits. The write ends a moment after the merge is asked, on a thread of its own: a
+        // release on the thread pool came after the busy timeout when a loaded run kept the pool busy.
         string path = NewPath();
         using SqliteExperienceStore game = SqliteExperienceStore.Open(path);
         Assert.True(game.Merge(Key, Rounds(1), HalfLife));
+        using SqliteExperienceStore tool = SqliteExperienceStore.Open(path);
         using SqliteConnection holder = SqliteFile.Open(path);
         SqliteFile.Scalar(holder, "BEGIN IMMEDIATE");
-        // Released from a thread of its own, not the pool: under a full test run the
-        // pool's queue held a Task.Run past the 2 s busy timeout (failed twice at load
-        // over 100, 2026-11-15) and the merge was refused before the lock ever lifted.
-        var release = new Thread(() =>
+        using var asked = new ManualResetEventSlim();
+        long committing = 0;
+        Exception? failed = null;
+        var write = new Thread(() =>
         {
-            Thread.Sleep(300);
-            SqliteFile.Scalar(holder, "COMMIT");
-        }) { IsBackground = true };
-        release.Start();
-        using SqliteExperienceStore tool = SqliteExperienceStore.Open(path);
-        Assert.True(tool.Merge(Key, Delta(d => d.Add(PracticeRow, new LinkStat(40d, 36d, 80d, 2000d))), HalfLife));
-        release.Join();
+            try
+            {
+                asked.Wait();
+                Thread.Sleep(WriteHoldMs);
+                committing = System.Diagnostics.Stopwatch.GetTimestamp();
+                SqliteFile.Scalar(holder, "COMMIT");
+            }
+            catch (Exception e)
+            {
+                failed = e;
+            }
+        });
+        write.Start();
+        asked.Set();
+        bool merged = tool.Merge(Key, Delta(d => d.Add(PracticeRow, new LinkStat(40d, 36d, 80d, 2000d))), HalfLife);
+        long done = System.Diagnostics.Stopwatch.GetTimestamp();
+        write.Join();
+        Assert.Null(failed);
+        Assert.True(merged);
+        // It waited: it ended after the write began to end.
+        Assert.True(done > committing);
         Assert.Equal(0, tool.BusyFailures);
         Assert.Equal(36d, game.Load(Key, HalfLife).Links[PracticeRow].Successes);
     }
@@ -331,6 +462,18 @@ public sealed class SqliteExperienceStoreTests : ExperienceStoreContract, IDispo
         Assert.NotEqual(0, SqliteNative.Load(SqliteNative.Library, managed));
         Assert.Equal(0, SqliteNative.Load(SqliteNative.Library, _dir));
         Assert.Equal(0, SqliteNative.Load("another", managed));
+    }
+
+    /// <summary>The game's factory opens with the retry (G.11): a file held locked as it opens leaves its store waiting, not refused.</summary>
+    [Fact]
+    public void TheModsFactorysStoreOfAHeldFileWaits()
+    {
+        var stores = new SqliteExperienceStores(FakeEngine.Of<IModInfo>((m, _) => m.Name == "get_ManagedDir" ? AppContext.BaseDirectory : throw FakeEngine.Unasked(m)));
+        using SqliteConnection holder = HeldFile(out string path);
+        using IExperienceStore store = stores.Open(path);
+        Assert.Null(store.Refusal);
+        Assert.Contains("is busy", store.Waiting);
+        SqliteFile.Scalar(holder, "COMMIT");
     }
 
     [Fact]

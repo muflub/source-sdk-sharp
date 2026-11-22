@@ -36,15 +36,24 @@ public sealed class JumpLinkSet
     /// jump's own health: a link that lands by health (<see cref="JumpHealthRule.Spend"/>) is taken with less to spend, and
     /// a route through it costs what it did.
     /// </summary>
-    public JumpLinkSet WithSpends(NavGraph graph, IReadOnlyList<float> spends, NavLinkCosts costs)
+    public JumpLinkSet WithSpends(NavGraph graph, IReadOnlyList<float> spends, NavLinkCosts costs) => WithSpends(graph, spends, costs, null);
+
+    /// <summary>
+    /// <see cref="WithSpends(NavGraph, IReadOnlyList{float}, NavLinkCosts)"/>, each link weighed at <paramref name="weights"/>'
+    /// health for it (lane G9b, <see cref="JumpHeals.Weights"/>: what its blast costs once a place by its landing has given
+    /// health back), index for index; null weighs each at its jump's own health.
+    /// </summary>
+    public JumpLinkSet WithSpends(NavGraph graph, IReadOnlyList<float> spends, NavLinkCosts costs, IReadOnlyList<float>? weights)
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(spends);
         if (spends.Count != _jumps.Length)
             throw new ArgumentException($"{spends.Count} spends for {_jumps.Length} links", nameof(spends));
+        if (weights is not null && weights.Count != _jumps.Length)
+            throw new ArgumentException($"{weights.Count} weights for {_jumps.Length} links", nameof(weights));
         var weighed = new float[_jumps.Length];
         for (int i = 0; i < weighed.Length; i++)
-            weighed[i] = _jumps[i].Health;
+            weighed[i] = weights?[i] ?? _jumps[i].Health;
         return new JumpLinkSet(NavLinks.Build(graph, LinksOf(_jumps, spends), costs, weighed), _jumps);
     }
 

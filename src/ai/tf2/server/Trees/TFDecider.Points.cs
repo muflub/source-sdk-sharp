@@ -75,6 +75,26 @@ public sealed partial class TFDecider
     /// </summary>
     public const float TeamSeenSeconds = PersonSeenSeconds, GatherArriveUnits = 300f;
 
+    /// <summary>
+    /// Where teammates stand they keep this far apart (lane Gobj; the user, 2026-11-15: "and stand too close to each
+    /// other"): over a rocket's splash (146 u) by about a body's width, so one blast takes one of them.
+    /// </summary>
+    public const float StandApartUnits = 200f;
+
+    /// <summary>
+    /// A stand spot is chosen within this of a point's place (inside its capture area: <see cref="OnPointUnits"/> is about
+    /// its half-diagonal), or within this of a rally or a teammate (a gathering within <see cref="RallyGatherUnits"/>).
+    /// </summary>
+    public const float PointStandUnits = 192f, GroupStandUnits = 240f;
+
+    /// <summary>A stand spot is kept this long, unless its place moves or a teammate comes within <see cref="StandApartUnits"/> of it; and the bot stands at it within this.</summary>
+    public const float StandHoldSeconds = 4f, StandArriveUnits = 40f;
+
+    private AiVector _standSpot, _standCentre;
+    private Tick _standUntil;
+    private bool _standKnown;
+    private readonly List<AiVector> _matesAt = new();
+
     private AiRandom _pointsRng = null!;
     private bool _onPoints;
     private TFStance _stance;
@@ -207,6 +227,7 @@ public sealed partial class TFDecider
         if (_stance != TFStance.None && _stance != stance)
             StanceChanges++;
         _stance = stance;
+        _toFront = false;
         _stanceUntil = _now + (int)((StanceHoldMin + _pointsRng.NextFloat() * StanceHoldSpread) / _tick);
     }
 
@@ -399,9 +420,9 @@ public sealed partial class TFDecider
     {
         if (_pointsGoal is not { } goal)
             return false;
-        if (_self.Origin.DistanceTo(goal.Position) < ArriveUnits)
+        if (_self.Origin.DistanceTo(goal.Position) < ArriveUnits + PointStandUnits)
         {
-            (_hasGoal, _goal) = (true, goal.Position);
+            StandApart(goal.Position, PointStandUnits);
             _verdict = _pointsGoalOwn ? "holding our point" : "on the point";
             return true;
         }
@@ -428,7 +449,7 @@ public sealed partial class TFDecider
             return false;
         if (_self.Origin.DistanceTo(_teamPlace) < GatherArriveUnits)
         {
-            (_hasGoal, _goal) = (true, _teamPlace);
+            StandApart(_teamPlace, GroupStandUnits);
             _verdict = "with the team";
             return true;
         }
@@ -436,5 +457,82 @@ public sealed partial class TFDecider
         GoTo(_teamPlace, MoveSpeed.Run);
         _verdict = _teamWhy;
         return true;
+    }
+
+    /// <summary>
+    /// Stands at <paramref name="centre"/> apart from its teammates (<see cref="StandSpot"/>): to the spot, and there, holds.
+    /// The bot's goal is the spot either way.
+    /// </summary>
+    private void StandApart(AiVector centre, float radius)
+    {
+        AiVector spot = StandSpot(centre, radius);
+        if (Flat(_self.Origin, spot) <= StandArriveUnits)
+            (_hasGoal, _goal) = (true, spot);
+        else
+            GoTo(spot, MoveSpeed.Run);
+    }
+
+    /// <summary>
+    /// Where the bot stands at <paramref name="centre"/> (a point, a rally, a teammate): of where it stands (within
+    /// <paramref name="radius"/> of the centre), the centre and the walkable cells on two rings within the radius of it
+    /// (twelve ways round each), the nearest to the bot of those at
+    /// least <see cref="StandApartUnits"/> from every teammate it sees or saw within <see cref="RallySeenSeconds"/>; with none
+    /// that far, the one furthest from them. Kept <see cref="StandHoldSeconds"/>, unless the centre moves or a teammate comes
+    /// within <see cref="StandApartUnits"/> of it.
+    /// </summary>
+    private AiVector StandSpot(AiVector centre, float radius)
+    {
+        MatesAt();
+        if (_standKnown && Flat(centre, _standCentre) <= 1f && _now < _standUntil && ApartFromMates(_standSpot) >= StandApartUnits)
+            return _standSpot;
+        // Where the bot stands is a spot too, the nearest of all: a bot already apart stays.
+        AiVector best = centre;
+        float bestScore = float.NegativeInfinity;
+        if (Flat(_self.Origin, centre) <= radius)
+            (best, bestScore) = (_self.Origin, MathF.Min(ApartFromMates(_self.Origin), StandApartUnits) * 1000f);
+        for (int ring = 0; ring <= 2; ring++)
+        {
+            int ways = ring == 0 ? 1 : 12;
+            for (int k = 0; k < ways; k++)
+            {
+                float r = radius * ring * 0.5f, angle = k * (MathF.PI / 6f);
+                AiVector want = centre + new AiVector(MathF.Cos(angle) * r, MathF.Sin(angle) * r, 0f);
+                if (Snap(centre, want) is not { } at || Flat(at, centre) > radius + StandArriveUnits)
+                    continue;
+                // Apart first (enough is enough), then the nearest.
+                float score = MathF.Min(ApartFromMates(at), StandApartUnits) * 1000f - Flat(_self.Origin, at);
+                if (score > bestScore)
+                    (bestScore, best) = (score, at);
+            }
+        }
+
+        (_standSpot, _standCentre, _standKnown, _standUntil) = (best, centre, true, _now + (int)(StandHoldSeconds / _tick));
+        return best;
+    }
+
+    /// <summary>The teammates' places the bot knows now: in sight, or seen within <see cref="RallySeenSeconds"/>.</summary>
+    private void MatesAt()
+    {
+        _matesAt.Clear();
+        Blackboard board = _memory.Board;
+        for (int s = 0; s < board.Slots; s++)
+        {
+            KnownActor a = board.Actor(s);
+            if (!a.Known || a.Dead || a.Id == _bot || !_memory.IsFriend(a))
+                continue;
+            if (_view.TryActor(a.Id, out ActorFacts drawn))
+                _matesAt.Add(drawn.Origin);
+            else if (a.EverSeen && (_now - a.LastSeenTick) * _tick <= RallySeenSeconds)
+                _matesAt.Add(a.LastSeenPos);
+        }
+    }
+
+    /// <summary>How far <paramref name="at"/> is from the nearest teammate in <see cref="_matesAt"/>, on the ground plane.</summary>
+    private float ApartFromMates(AiVector at)
+    {
+        float least = float.PositiveInfinity;
+        foreach (AiVector m in _matesAt)
+            least = MathF.Min(least, Flat(at, m));
+        return least;
     }
 }

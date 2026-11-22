@@ -95,6 +95,7 @@ public static class AiReplayer
         prepare?.Invoke(session);
         var recorded = new IntentCapture();
         int userCmds = 0;
+        AiRecordedWorld? lastWorld = null;
 
         while (AiRecordFormat.TryReadRecord(recording, out AiRecordType type, out byte[] payload))
         {
@@ -158,6 +159,20 @@ public static class AiReplayer
                         throw new InvalidDataException($"the recording's nav graph is {known.NavGraphHash:x16}, the one at hand {graph?.Hash ?? 0:x16}: rebuild the map's nav or re-record");
                     session.World = new MemoryWorld(knows is null ? known.Map : knows(known.Map), graph, known.TickSeconds, id => id.ToString(), sight, new ChokeSlot());
                     session.Curves = known.CurvesJson.Length > 0 ? SkillCurves.Parse(known.CurvesJson) : null;
+                    lastWorld = known;
+                    break;
+                case AiRecordType.NavChange:
+                    AiRecordedNavChange change = AiRecordFormat.ReadNavChange(r);
+                    if (nav is null)
+                        break;
+                    if (lastWorld is null)
+                        throw new InvalidDataException("a NavChange record comes before the World record it changes");
+                    AiRecordedWorld moved = lastWorld with { NavGraphHash = change.NavGraphHash, Nav = change.Nav };
+                    (NavGraph? roomGraph, ICellSight? roomSight) = nav(moved);
+                    if (roomGraph?.Hash != change.NavGraphHash)
+                        throw new InvalidDataException($"the recording's navigation moved to {change.Nav}, graph {change.NavGraphHash:x16}; the one at hand is {roomGraph?.Hash ?? 0:x16}: rebuild the map's rooms or re-record");
+                    session.World = new MemoryWorld(knows is null ? moved.Map : knows(moved.Map), roomGraph, moved.TickSeconds, id => id.ToString(), roomSight, new ChokeSlot());
+                    lastWorld = moved;
                     break;
             }
 

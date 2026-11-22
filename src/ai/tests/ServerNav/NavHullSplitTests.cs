@@ -12,7 +12,8 @@ namespace SourceSharp.Ai.Tests.ServerNav;
 /// cell 0 with air over it, its key shut by a far door (so the whole file's first shut record is
 /// not region 1's); region 1 is a floor in cell 2 and a ledge beside it two voxels up, a
 /// jump link between them, the ledge's key shut by a door; a jump link the fixture names from
-/// region 0's floor to region 1's ledge crosses between them. Cell 1 is empty.
+/// region 0's floor to region 1's ledge crosses between them. Cell 1 is empty. The overhang
+/// fact builds its own two floors, each under a sloped brush.
 /// </summary>
 public sealed class NavHullSplitTests
 {
@@ -109,6 +110,27 @@ public sealed class NavHullSplitTests
     }
 
     [Fact]
+    public void KeysKeepTheirOverhangRecordsRenumbered()
+    {
+        // Two floors in cells 0 and 2, each under its own sloped brush: region 1's record is the whole file's second.
+        const NavHullFlags floor = NavHullFlags.Grounded | NavHullFlags.Walkable;
+        var f = new HullNavFixture(3, 1, 8, 16);
+        uint low = f.KeyUnderOverhang(floor, 16f, float.PositiveInfinity, float.PositiveInfinity, 80.0, 100.0);
+        uint high = f.KeyUnderOverhang(floor, 16f, float.PositiveInfinity, float.PositiveInfinity, 110.0, 130.0);
+        f.Box(0, 0, 0, 4, 8, 1, 8, low);
+        int far = f.Box(2, 0, 0, 4, 8, 1, 8, high);
+        NavHullReader whole = f.Open();
+        NavHullRegions regions = NavHullRegions.Of(whole);
+        NavHullReader part = Written(NavHullSplit.Region(whole, whole.ToLevel(), regions, regions.RegionOf(far)));
+        NavHullKey key = part.Key(0);
+        Assert.Equal((0u, 1u), (key.OverhangFirst, key.OverhangCount));
+        Assert.Equal(whole.Overhang(1), part.Overhang(0));
+        // Its top at 110 passes under region 1's brush, at 111 meets it: as in the whole file.
+        Assert.Equal((true, false), (whole.FitsAt(far, 16.0, 32f, 94f), whole.FitsAt(far, 16.0, 32f, 95f)));
+        Assert.Equal((true, false), (part.FitsAt(0, 16.0, 32f, 94f), part.FitsAt(0, 16.0, 32f, 95f)));
+    }
+
+    [Fact]
     public void EveryObstacleIsKeptInOrder()
     {
         Map m = Build();
@@ -127,7 +149,7 @@ public sealed class NavHullSplitTests
             VoxelSize = whole.VoxelSize, CellVoxels = whole.CellVoxels, Columns = whole.Columns, Rows = whole.Rows, Origin = whole.Origin,
             ColumnVoxels = whole.ColumnVoxels, FloorNormalZ = whole.FloorNormalZ, StepHeight = whole.StepHeight, JumpHeight = whole.JumpHeight,
             JumpDistance = whole.JumpDistance, Widths = whole.Widths, CellStarts = whole.CellStarts, Boxes = whole.Boxes, Keys = whole.Keys,
-            Shuts = whole.Shuts, Jumps = whole.Jumps, Bsp = whole.Bsp,
+            Shuts = whole.Shuts, Overhangs = whole.Overhangs, Jumps = whole.Jumps, Bsp = whole.Bsp,
             Obstacles = [gate with { Cell = 2 }, whole.Obstacles[1] with { Cell = 1 }],
         };
         NavHullReader part = Written(NavHullSplit.Region(m.Reader, moved, m.Regions, m.Regions.RegionOf(m.Floor1)));

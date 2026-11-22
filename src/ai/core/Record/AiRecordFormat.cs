@@ -27,7 +27,18 @@ public enum AiRecordType : byte
 
     /// <summary>The tree the intents' node ids are of (format 4), written with each bot: the jank score names leaves and branches by it.</summary>
     DecisionTree = 11,
+
+    /// <summary>
+    /// The level's navigation changed under the brains (format 9, plan_bots_teams_tf2_part_g R.2 item 8: a map in rooms
+    /// follows its bots from room to room): the new graph's hash and the navigation's name. A replay asks for that graph
+    /// and builds the brains' world over it from here on; the bots the game made again over it follow as BotRemoved and
+    /// BotAdded records.
+    /// </summary>
+    NavChange = 12,
 }
+
+/// <summary>A NavChange record (format 9): the graph the brains' world is over from here on, by hash, and the navigation's name (a room's file, or the level's).</summary>
+public readonly record struct AiRecordedNavChange(ulong NavGraphHash, string Nav);
 
 /// <summary>
 /// A decision tree's shape as a recording holds it: each node's name by id, and
@@ -48,7 +59,14 @@ public sealed record AiDecisionTree(string[] Names, int[] Branches)
 /// nav graph's hash. A replay rebuilds the brains' world from it and the
 /// graph the hash names, so a live recording replays as the game decided.
 /// </summary>
-public sealed record AiRecordedWorld(MapKnowledge Map, float TickSeconds, string CurvesJson, ulong NavGraphHash);
+public sealed record AiRecordedWorld(MapKnowledge Map, float TickSeconds, string CurvesJson, ulong NavGraphHash)
+{
+    /// <summary>
+    /// The navigation a replay asks for by name: null for the level's own (what the World record names), a room's
+    /// (<see cref="AiRecordedNavChange.Nav"/>) once a NavChange record has moved the world to it. Not written.
+    /// </summary>
+    public string? Nav { get; init; }
+}
 
 /// <summary>
 /// What a recording was made under: the match seed, the map, the nav graph's
@@ -87,9 +105,11 @@ public static class AiRecordFormat
     /// and an optional tail on the Intent record, its say slot (B.4), written only when it says something);
     /// format 7 a second tail on the World record, the map's team spawns (B.5); format 8 a tail on the
     /// Header record, its flags (<see cref="AiRecordingHeader.TeamLayerOff"/>), and one on the BotAdded
-    /// record, the bot's home point when it has one (cf's Descent proposals 4 and 6).
+    /// record, the bot's home point when it has one (cf's Descent proposals 4 and 6); format 9 the
+    /// NavChange record (<see cref="AiRecordType.NavChange"/>): a map in rooms changing the room in play
+    /// (plan_bots_teams_tf2_part_g R.2 item 8).
     /// </summary>
-    public const ushort Version = 8;
+    public const ushort Version = 9;
 
     /// <summary>The largest payload a reader accepts; anything bigger is a corrupt length.</summary>
     public const int MaxPayload = 1 << 24;
@@ -169,6 +189,14 @@ public static class AiRecordFormat
         // Format 8's tail: how the session ran.
         w.Write(h.Flags);
     }
+
+    public static void Write(BinaryWriter w, in AiRecordedNavChange change)
+    {
+        w.Write(change.NavGraphHash);
+        WriteString(w, change.Nav);
+    }
+
+    public static AiRecordedNavChange ReadNavChange(BinaryReader r) => new(r.ReadUInt64(), ReadString(r));
 
     public static void Write(BinaryWriter w, AiRecordedWorld world)
     {

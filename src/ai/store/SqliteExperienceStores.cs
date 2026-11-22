@@ -9,6 +9,8 @@ namespace SourceSharp.Ai.Store;
 /// Opens experience stores for the server's binding (plan_bots_teams_tf2 Part
 /// G, G.3): the <see cref="IExperienceStores"/> of a mod that lists this
 /// assembly. A mod without it has no database, and its binding keeps no file.
+/// A file another process holds locked as the game opens it is retried in the
+/// background, never waited on (<see cref="SqliteExperienceStore.OpenRetrying"/>).
 /// </summary>
 [SideService(Side.Server, As = [typeof(IExperienceStores)])]
 public sealed class SqliteExperienceStores(IModInfo mod) : IExperienceStores
@@ -16,7 +18,7 @@ public sealed class SqliteExperienceStores(IModInfo mod) : IExperienceStores
     public IExperienceStore Open(string path)
     {
         SqliteNative.ResolveFrom(mod.ManagedDir);
-        return SqliteExperienceStore.Open(path);
+        return SqliteExperienceStore.OpenRetrying(path);
     }
 }
 

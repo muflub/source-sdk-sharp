@@ -81,6 +81,15 @@ public sealed partial class ExperienceServiceTests : IDisposable
         public ConcurrentQueue<ExperienceKey> Loaded { get; } = new();
         public MemoryExperienceStore Kept { get; } = new();
         public string? Refuse { get; set; }
+
+        /// <summary>What the stores say while they wait on a busy file (null: attached); while set they answer as an empty store.</summary>
+        public string? Wait
+        {
+            get => Volatile.Read(ref _wait);
+            set => Volatile.Write(ref _wait, value);
+        }
+
+        private string? _wait;
         public int Disposed;
 
         public IExperienceStore Open(string path)
@@ -93,11 +102,13 @@ public sealed partial class ExperienceServiceTests : IDisposable
         {
             public string? Refusal => owner.Refuse;
 
+            public string? Waiting => owner.Wait;
+
             public MapExperience Load(ExperienceKey key, double halfLife)
             {
                 owner.Calls.Enqueue(("load", Environment.CurrentManagedThreadId));
                 owner.Loaded.Enqueue(key);
-                return owner.Kept.Load(key, halfLife);
+                return owner.Wait is null ? owner.Kept.Load(key, halfLife) : new MapExperience(key, 0, new ExperienceDelta());
             }
 
             public bool Merge(ExperienceKey key, ExperienceDelta delta, double halfLife)
@@ -770,6 +781,57 @@ public sealed partial class ExperienceServiceTests : IDisposable
         Assert.True(warning);
         Assert.Contains("it is garbage; this server keeps it in memory only", line, StringComparison.Ordinal);
         Assert.Equal(1, service.Refusals);
+    }
+
+    /// <summary>
+    /// G.11's ruling (2026-11-16): a file another process held locked as it opened is retried, not refused. The game goes on
+    /// with the empty snapshot, its round kept (no merge, no failure), says the file is busy; once the store attaches (here
+    /// while no round is played, so only the game's look at the waiting store notices it), the file's snapshot reaches the
+    /// brains, the route says on, and the kept round is written.
+    /// </summary>
+    [Fact]
+    public void ABusyFileIsSaidRetryingKeepsTheRoundAndWritesItOnceAttached()
+    {
+        _world.Add(2, new AiVector(100f, 100f, 0f));
+        var seeded = new ExperienceDelta();
+        seeded.Add(new RoundRow(60d, 1, 1d, 0d, "seed"));
+        _stores.Kept.Merge(Key, seeded, 20d);
+        _stores.Wait = Db + " is busy (another process held it locked past 2000 ms as it opened); retrying every 1000 ms";
+        ExperienceService service = Playing();
+        for (int i = 0; i < 4; i++)
+            Frame(service);
+        Assert.Contains("\"state\":\"waiting\"", service.Json(), StringComparison.Ordinal);
+        Assert.Contains("\"ai.experience.waiting\":1,", service.Counters(), StringComparison.Ordinal);
+        Assert.False(service.Worker.Status!.MemoryOnly);
+        Assert.Null(service.Worker.Status.Refusal);
+        _game.RoundOver = true;
+        Frame(service);
+        Frame(service);
+        // The brains read the empty snapshot; the round is kept, not merged and not a failure.
+        Assert.Equal(0, service.Slot.Current.Rounds);
+        Assert.DoesNotContain(_stores.Calls, c => c.Call == "merge");
+        Assert.Equal(0, service.Worker.MergeFailures);
+        (string busy, int _, bool warning) = Assert.Single(_log.All, l => l.Line.Contains(" is busy ", StringComparison.Ordinal));
+        Assert.False(warning);
+        Assert.Contains("the game goes on without it until it attaches", busy, StringComparison.Ordinal);
+        Assert.DoesNotContain(_log.All, l => l.Line.Contains("experience refused", StringComparison.Ordinal));
+
+        _stores.Wait = null;
+        // No round is played, so nothing is posted but the game's look at the waiting store: that alone must notice it.
+        _tick += ExperienceService.SampleTicks;
+        service.OnPostThink(0.015f);
+        Assert.True(SpinWait.SpinUntil(() => service.Worker.Attaches == 1, TimeSpan.FromSeconds(10)), "the attach was never noticed");
+        Frame(service);
+        Assert.Equal(1, service.Worker.Attaches);
+        Assert.Equal(1, service.Slot.Current.Rounds);
+        Assert.Contains(_log.All, l => l.Line.Contains($"experience: {Db} attached", StringComparison.Ordinal));
+        Assert.Contains("\"state\":\"on\"", service.Json(), StringComparison.Ordinal);
+        Assert.Contains("\"ai.experience.waiting\":0,\"ai.experience.attaches\":1,", service.Counters(), StringComparison.Ordinal);
+
+        service.OnLevelShutdownPreEntity();
+        Assert.Single(Merged().Rounds);
+        Assert.Equal(0, service.Worker.MergeFailures);
+        Assert.Equal(0, service.Refusals);
     }
 
     [Fact]

@@ -147,10 +147,12 @@ public static class NavCellsTool
         ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(error);
-        if (args.Length < 4 || (args[3] != "where" && args[3] != "rects" && !(args[3] == "variant" && args.Length >= 5)))
+        if (args.Length < 4 || (args[3] != "where" && args[3] != "rects" && args[3] != "teleports" && args[3] != "kept" && !(args[3] == "variant" && args.Length >= 5)))
         {
             error.WriteLine($"usage: ai-replay navcells <{CostTool.Hl2mp}|{CostTool.TF2}> <room.navhull> <map.bsp> where [noreach]");
             error.WriteLine($"       ai-replay navcells <{CostTool.Hl2mp}|{CostTool.TF2}> <room.navhull> <map.bsp> rects");
+            error.WriteLine($"       ai-replay navcells <{CostTool.Hl2mp}|{CostTool.TF2}> <room.navhull> <map.bsp> teleports");
+            error.WriteLine($"       ai-replay navcells <{CostTool.Hl2mp}|{CostTool.TF2}> <room.navhull> <map.bsp> kept");
             error.WriteLine($"       ai-replay navcells <{CostTool.Hl2mp}|{CostTool.TF2}> <room.navhull> <map.bsp> variant <base|tele+reach+k4+nosight..>");
             return 2;
         }
@@ -164,8 +166,10 @@ public static class NavCellsTool
         try
         {
             byte[] nav = File.ReadAllBytes(args[1]), bsp = File.ReadAllBytes(args[2]);
+            long opening = Stopwatch.GetTimestamp();
             NavHullReader room = NavHullReader.Open(nav);
             var source = NavHullNavSource.Over(room);
+            double openS = Stopwatch.GetElapsedTime(opening).TotalSeconds;
             NavNumbers numbers = args[0] == CostTool.TF2 ? TFNavProfile.ModNumbers : NavNumbers.Stock(source.JumpHeight);
             IReadOnlyList<RoomEntity> entities = NavRoomsTool.ReadEntities(bsp);
             MapEntities map = MapEntities.Read(bsp);
@@ -183,11 +187,49 @@ public static class NavCellsTool
                 return 0;
             }
 
+            if (args[3] == "kept")
+            {
+                // The game's graph of the room (the table's fail floors out, merged as it derives): the cells each
+                // teleport back keeps (a kept one some, a fail floor none).
+                string tablePath = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(args[1]))!, NavSplitTool.RoomFiles(Path.GetFileNameWithoutExtension(args[1]).Split(".r")[0]).Table);
+                NavRoom mine = NavRoomTable.FromJson(File.ReadAllText(tablePath)).Rooms.FirstOrDefault(r => r.File == Path.GetFileName(args[1]))
+                               ?? throw new InvalidDataException($"{tablePath} has no room {Path.GetFileName(args[1])}");
+                DerivedNav game = NavGraphReduce.DeriveCoarse(source, numbers, NavEdgeCosts.Default, [.. map.Hurt, .. mine.FailVolumes], map.LadderClimbs,
+                                                              threads: Math.Max(1, Environment.ProcessorCount / 2));
+                foreach ((string kind, NavRoomTeleport tp) in mine.Kept.Select(k => ("kept", k)).Concat(mine.Fails.Select(f => ("fail floor", f))))
+                {
+                    int inside = 0;
+                    for (int c = 0; c < game.Graph.CellCount; c++)
+                        inside += Inside(game.Graph.Cell(c), tp.Brushes) ? 1 : 0;
+                    output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {kind} '{tp.Name ?? tp.Target}': {inside} cells inside its {tp.Brushes.Count} brushes"));
+                }
+
+                return 0;
+            }
+
+            if (args[3] == "teleports")
+            {
+                foreach (string line in TeleportLines(source, room, numbers, map, entities, BrushBoxes(bsp)))
+                    output.WriteLine(line);
+                return 0;
+            }
+
             if (args[3] == "where")
             {
                 foreach (string line in Where(source, room, numbers, map, t, reach: !(args.Length > 4 && args[4] == "noreach")))
                     output.WriteLine(line);
                 return 0;
+            }
+
+            output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  open     {openS,7:F2} s wall ({nav.Length:N0} bytes)"));
+            if (args[4].Split('+').Contains("table"))
+            {
+                // The game's rule: the fail floors the room table names (navsplit rooms), not every teleport back.
+                string tablePath = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(args[1]))!, NavSplitTool.RoomFiles(Path.GetFileNameWithoutExtension(args[1]).Split(".r")[0]).Table);
+                NavRoom? mine = NavRoomTable.FromJson(File.ReadAllText(tablePath)).Rooms.FirstOrDefault(r => r.File == Path.GetFileName(args[1]))
+                                ?? throw new InvalidDataException($"{tablePath} has no room {Path.GetFileName(args[1])}");
+                t = t with { Resets = mine.FailVolumes };
+                output.WriteLine($"  table: {mine.Fails.Count} fail floors ({mine.FailVolumes.Count} brushes), {mine.Kept.Count} kept teleports back");
             }
 
             foreach (string line in Variant(args[4], Path.GetFileNameWithoutExtension(args[1]), nav, bsp, source, room, numbers, map, t, clock))
@@ -231,6 +273,88 @@ public static class NavCellsTool
             yield return line;
         foreach (string line in Rest(d, g, source, room, cells))
             yield return line;
+    }
+
+    /// <summary>
+    /// Each teleport back of the room (one landing in the room): its brushes, the cells inside them
+    /// (the graph made with no rule), the floors they are on, how a cell outside every teleport back
+    /// steps into them, by kind, and its destination's height.
+    /// </summary>
+    private static IEnumerable<string> TeleportLines(NavHullNavSource source, NavHullReader room, NavNumbers numbers, MapEntities map,
+                                                     IReadOnlyList<RoomEntity> entities, IReadOnlyList<IReadOnlyList<HurtVolume>> brushes)
+    {
+        RoomTeleports t = Teleports(room, entities, brushes);
+        DerivedNav d = NavGraphFromNav3d.Derive(source, numbers, NavEdgeCosts.Default, map.Hurt, map.LadderClimbs);
+        NavGraph g = d.Graph;
+        var inAny = new bool[g.CellCount];
+        for (int c = 0; c < g.CellCount; c++)
+            inAny[c] = Inside(g.Cell(c), t.Resets);
+        NavHullRegions regions = NavHullRegions.Of(room);
+        var named = new Dictionary<string, RoomEntity>(StringComparer.Ordinal);
+        foreach (RoomEntity e in entities)
+        {
+            if (e.TargetName is { } n)
+                named.TryAdd(n, e);
+        }
+
+        // What a body reaches from the ways in without a fall, stopping at a teleport back.
+        var walked = new bool[g.CellCount];
+        var queue = new Queue<int>();
+        foreach (int seed in Seeds(g, t.WaysIn))
+        {
+            if (!inAny[seed] && !walked[seed])
+            {
+                walked[seed] = true;
+                queue.Enqueue(seed);
+            }
+        }
+
+        while (queue.Count > 0)
+        {
+            int c = queue.Dequeue();
+            foreach (NavEdge edge in g.EdgesFrom(c))
+            {
+                if (edge.Type != NavEdgeType.Drop && !inAny[edge.To] && !walked[edge.To])
+                {
+                    walked[edge.To] = true;
+                    queue.Enqueue(edge.To);
+                }
+            }
+        }
+
+        yield return string.Create(CultureInfo.InvariantCulture, $"  reached from the ways in without a fall: {walked.Count(w => w):N0} of {g.CellCount:N0} cells");
+        for (int i = 0; i < entities.Count; i++)
+        {
+            RoomEntity e = entities[i];
+            if (e.ClassName != "trigger_teleport" || NavRoomsTool.RegionOf(room, regions, e) < 0 || e.Target is not { } target
+                || !named.TryGetValue(target, out RoomEntity? dest) || NavRoomsTool.RegionOf(room, regions, dest) < 0)
+                continue;
+            var cells = new List<int>();
+            for (int c = 0; c < g.CellCount; c++)
+            {
+                if (Inside(g.Cell(c), brushes[i]))
+                    cells.Add(c);
+            }
+
+            var kinds = new SortedDictionary<NavEdgeType, int>();
+            int fromWalked = 0;
+            foreach (int c in cells)
+            {
+                foreach (NavEdge edge in g.EdgesTo(c))
+                {
+                    if (!inAny[edge.From])
+                        kinds[edge.Type] = kinds.GetValueOrDefault(edge.Type) + 1;
+                    if (walked[edge.From] && edge.Type != NavEdgeType.Drop)
+                        fromWalked++;
+                }
+            }
+
+            float lo = cells.Count == 0 ? float.NaN : cells.Min(c => g.Cell(c).FloorZ), hi = cells.Count == 0 ? float.NaN : cells.Max(c => g.Cell(c).FloorZ);
+            yield return string.Create(CultureInfo.InvariantCulture,
+                $"  teleport {i} '{e.TargetName}' -> '{target}' at ({dest.Origin.X:F0} {dest.Origin.Y:F0} {dest.Origin.Z:F0}): {brushes[i].Count} brushes ({e.Mins!.Value.Z:F0}..{e.Maxs!.Value.Z:F0}), {cells.Count} cells on floors {lo:F0}..{hi:F0}; "
+                + $"into them from outside every teleport back: {(kinds.Count == 0 ? "none" : string.Join(", ", kinds.Select(k => $"{k.Key} {k.Value}")))}; "
+                + $"stepped into from the ways in without a fall: {fromWalked}; box ({e.Mins.Value.X:F0} {e.Mins.Value.Y:F0})-({e.Maxs.Value.X:F0} {e.Maxs.Value.Y:F0})");
+        }
     }
 
     private static IEnumerable<string> Reached(NavGraph g, IVoxelSpace space, List<int> seeds, bool[] stops, RoomTeleports t)
@@ -366,26 +490,49 @@ public static class NavCellsTool
                                                MapEntities map, RoomTeleports t, Func<double> cpuMicros)
     {
         var set = tokens.Split('+').ToHashSet(StringComparer.Ordinal);
-        string[] known = ["base", "tele", "reach", "reach2", "k2", "k4", "nosight"];
+        string[] known = ["base", "tele", "reach", "reach2", "k2", "k4", "nosight", "tiled", "check", "table"];
+        int threads = 1, tile = 128;
+        if (set.FirstOrDefault(s => s.StartsWith("tile", StringComparison.Ordinal) && int.TryParse(s.AsSpan(4), NumberStyles.Integer, CultureInfo.InvariantCulture, out tile)) is { } sized)
+            set.Remove(sized);
+        else
+            tile = 128;
+        if (set.FirstOrDefault(s => s.Length > 1 && s[0] == 't' && int.TryParse(s.AsSpan(1), NumberStyles.Integer, CultureInfo.InvariantCulture, out threads)) is { } many)
+            set.Remove(many);
         if (set.FirstOrDefault(s => !known.Contains(s)) is { } bad)
             throw new ArgumentException($"no variant token {bad}: {string.Join(", ", known)}");
         var lines = new List<string>();
         void Step(string what, Action work, Func<string> said)
         {
             double cpu = cpuMicros();
+            TimeSpan all = Process.GetCurrentProcess().TotalProcessorTime;
             long wall = Stopwatch.GetTimestamp();
             work();
             double cpuS = (cpuMicros() - cpu) / 1e6, wallS = Stopwatch.GetElapsedTime(wall).TotalSeconds;
-            double managed = GC.GetTotalMemory(forceFullCollection: true) / 1048576.0;
             using var process = Process.GetCurrentProcess();
+            double allS = (process.TotalProcessorTime - all).TotalSeconds;
+            double managed = GC.GetTotalMemory(forceFullCollection: true) / 1048576.0;
+            process.Refresh();
             lines.Add(string.Create(CultureInfo.InvariantCulture,
-                $"  {what,-8} {cpuS,7:F2} s cpu {wallS,7:F2} s wall {managed,7:F0} MB managed {process.PeakWorkingSet64 / 1048576.0,7:F0} MB peak  {said()}"));
+                $"  {what,-8} {cpuS,7:F2} s cpu {wallS,7:F2} s wall {managed,7:F0} MB managed {process.PeakWorkingSet64 / 1048576.0,7:F0} MB peak {allS,7:F2} s process cpu  {said()}"));
         }
 
-        IReadOnlyList<HurtVolume> hurt = set.Contains("tele") ? [.. map.Hurt, .. t.Resets] : map.Hurt;
+        IReadOnlyList<HurtVolume> hurt = set.Contains("tele") || set.Contains("table") ? [.. map.Hurt, .. t.Resets] : map.Hurt;
         DerivedNav d = null!;
-        Step("derive", () => d = NavGraphFromNav3d.Derive(source, numbers, NavEdgeCosts.Default, hurt, map.LadderClimbs),
-             () => string.Create(CultureInfo.InvariantCulture, $"{d.Graph.CellCount:N0} cells, {d.Graph.EdgeCount:N0} edges"));
+        int tiledK = set.Contains("k2") ? 2 : 4;
+        if (set.Contains("tiled"))
+        {
+            // The derivation and the merge together, a tile at a time (NavGraphReduce.DeriveCoarse).
+            var stats = new CoarseDeriveStats();
+            Step("tiled", () => d = NavGraphReduce.DeriveCoarse(source, numbers, NavEdgeCosts.Default, hurt, map.LadderClimbs, tiledK, tile, stats, Math.Max(1, threads)),
+                 () => string.Create(CultureInfo.InvariantCulture,
+                     $"{d.Graph.CellCount:N0} cells, {d.Graph.EdgeCount:N0} edges; {stats.VoxelCells:N0} cells at the voxel, {stats.Tiles} tiles on {Math.Max(1, threads)} thread(s), {stats.LeavesDerived:N0} leaves derived of {stats.Leaves:N0}, the biggest tile {stats.BiggestTileCells:N0} cells, margin {stats.Margin}; ms: layout {stats.PrepareMs:F0}, tiles {stats.TilesMs:F0} (derive {stats.DeriveMs:F0}, merge {stats.MergeMs:F0} summed), assemble {stats.AssembleMs:F0}"));
+        }
+        else
+        {
+            Step("derive", () => d = NavGraphFromNav3d.Derive(source, numbers, NavEdgeCosts.Default, hurt, map.LadderClimbs),
+                 () => string.Create(CultureInfo.InvariantCulture, $"{d.Graph.CellCount:N0} cells, {d.Graph.EdgeCount:N0} edges"));
+        }
+
         DerivedNav before = d;
         var space = new NavHullVoxelSpace(room);
         if (set.Contains("reach") || set.Contains("reach2"))
@@ -402,7 +549,7 @@ public static class NavCellsTool
 
         foreach (int k in (ReadOnlySpan<int>)[2, 4])
         {
-            if (set.Contains("k" + k.ToString(CultureInfo.InvariantCulture)))
+            if (!set.Contains("tiled") && set.Contains("k" + k.ToString(CultureInfo.InvariantCulture)))
                 Step("k" + k.ToString(CultureInfo.InvariantCulture), () => d = NavGraphReduce.Coarsen(d, source.VoxelSize, k, NavEdgeCosts.Default),
                      () => string.Create(CultureInfo.InvariantCulture, $"{d.Graph.CellCount:N0} cells, {d.Graph.EdgeCount:N0} edges"));
         }
@@ -419,9 +566,20 @@ public static class NavCellsTool
         DerivedNav back = null!;
         Step("decode", () => back = cache.Decode(bytes, name, bspSha, navSha, key), () => back.Graph.Hash == d.Graph.Hash ? "the same graph" : "A DIFFERENT GRAPH");
 
+        if (set.Contains("check"))
+        {
+            // The tiled graph against the whole derivation merged (after the steps measured): the same, cell for cell.
+            DerivedNav whole = NavGraphFromNav3d.Derive(source, numbers, NavEdgeCosts.Default, hurt, map.LadderClimbs);
+            if (set.Contains("tiled"))
+                whole = NavGraphReduce.Coarsen(whole, source.VoxelSize, tiledK, NavEdgeCosts.Default, NavGraphReduce.GridOrigin(source));
+            bool same = whole.Graph.Hash == d.Graph.Hash && whole.CellOfLeaf.AsSpan().SequenceEqual(d.CellOfLeaf) && whole.LeafOfCell.AsSpan().SequenceEqual(d.LeafOfCell);
+            lines.Add(string.Create(CultureInfo.InvariantCulture,
+                $"  check: the whole derivation{(set.Contains("tiled") ? " merged" : "")} {whole.Graph.CellCount:N0} cells, {whole.Graph.EdgeCount:N0} edges, hash {whole.Graph.Hash:x16}; this {d.Graph.Hash:x16}: {(same ? "the same graph" : "A DIFFERENT GRAPH")}"));
+        }
+
         // What a course needs still there, against the graph made with no rule (derived again here, after the steps measured):
         // each way in and capture area on a cell, and the joined-up parts that keep a cell.
-        if (set.Contains("tele"))
+        if (set.Contains("tele") || set.Contains("table"))
             before = NavGraphFromNav3d.Derive(source, numbers, NavEdgeCosts.Default, map.Hurt, map.LadderClimbs);
         int waysBefore = Seeds(before.Graph, t.WaysIn).Count, waysAfter = Seeds(d.Graph, t.WaysIn).Count;
         int capsBefore = t.Captures.Count(c => HasCell(before.Graph, c.Mins, c.Maxs)), capsAfter = t.Captures.Count(c => HasCell(d.Graph, c.Mins, c.Maxs));

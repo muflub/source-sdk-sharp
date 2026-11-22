@@ -12,9 +12,12 @@ using static TF2.Descent.Tests.Horde.HordeNavDataTests;
 namespace TF2.Descent.Tests.Horde;
 
 /// <summary>
-/// The hulls' floors on depth 1 seed 1 (<see cref="NavHullReach"/>): a giant of scale 1.6 and up is
-/// cut off in rooms 6, 16 and 17 (<see cref="HordeNavDataTests"/>), so the spawn director never
-/// posts one there; a smaller robot is posted there as before.
+/// The hulls' floors (<see cref="NavHullReach"/>): a robot larger than the game's body joins where
+/// its class's main floor is under it. A floor really cut, a corridor narrower than a giant
+/// (<see cref="CutFloorLevel"/>), refuses a giant beyond it and admits a smaller robot. On depth 1
+/// seed 1 every class shares one floor now that the giants stand on the drift rooms' floor rails
+/// (<see cref="HordeNavDataTests"/>; until 2026-11-15 rooms 6, 16 and 17 were cut off for scale
+/// 1.6 and up), so a giant joins there.
 /// </summary>
 public sealed class NavHullReachTests
 {
@@ -26,19 +29,18 @@ public sealed class NavHullReachTests
         return (r.Min + r.Max) * 0.5f;
     }
 
+    /// <summary>
+    /// The real level's answer: a giant of 1.75 or 1.9 joins in rooms 6, 16 and 17, which it was
+    /// refused until 2026-11-15, when a step whose top lies inside a voxel (the drift rooms' floor
+    /// rails) was answered blocked to a hull standing on it.
+    /// </summary>
     [Fact]
-    public void A_giant_in_a_cut_off_room_does_not_join_and_one_at_the_arrival_does()
+    public void A_giant_joins_in_rooms_6_16_and_17_standing_on_the_drift_rooms_floor_rails()
     {
         var reach = new NavHullReach(Nav);
 
-        Assert.True(reach.Joins(FixtureLevel.RoomAt(Arrival), Arrival, 1.75));
         foreach (int room in new[] { 6, 16, 17 })
-        {
-            Assert.False(reach.Joins(room, Middle(room), 1.75), $"a giant of 1.75 joins from room {room}");
-            Assert.False(reach.Joins(room, Middle(room), 1.9), $"a giant of 1.9 joins from room {room}");
-            Assert.True(reach.Joins(room, Middle(room), 1.5), $"a giant of 1.5 does not join from room {room}");
-            Assert.True(reach.Joins(room, Middle(room), 1.0), $"an ordinary robot does not join from room {room}");
-        }
+            Assert.Equal((true, true), (reach.Joins(room, Middle(room), 1.75), reach.Joins(room, Middle(room), 1.9)));
     }
 
     /// <summary>
@@ -64,29 +66,29 @@ public sealed class NavHullReachTests
         Assert.Equal((true, true), (reach.Joins(1, CutFloorLevel.Far, 1.5), reach.Joins(1, CutFloorLevel.Far, 1.0)));
     }
 
-    /// <summary>The level's rooms rolled over many seeds at depth 5: with the navigation's reach, no robot above 1.5 stands in rooms 6, 16 or 17; without it, some do.</summary>
+    /// <summary>
+    /// The level's rooms rolled over many seeds at depth 5: with the navigation's reach the director
+    /// posts robots above 1.5 in rooms 6, 16 and 17, as it does without it. Until 2026-11-15 it
+    /// posted none there (the giants' floor was cut at the floor rails, read as blocked); the
+    /// director's keeping a giant off a cut floor is held on a drawn reach
+    /// (<c>SpawnDirectorTests</c>) and the reach's refusal on <see cref="CutFloorLevel"/>.
+    /// </summary>
     [Fact]
-    public void The_director_over_depth_1s_rooms_posts_no_giant_where_its_floor_is_cut_off()
+    public void The_director_over_depth_1s_rooms_posts_giants_in_rooms_6_16_and_17_with_the_reach()
     {
         var reach = new NavHullReach(Nav);
         var director = new SpawnDirector(TheRules);
-        int without = 0, smallThere = 0;
+        int without = 0, with = 0;
         for (ulong seed = 1; seed <= 300; seed++)
         {
             // Depth 1 rolls no giant: the same rooms and doors at depth 5, where giants roll.
             var level = HordeLevel.Create(seed, 5, FixtureLevel.Rooms, FixtureLevel.Doors);
-            foreach (var r in director.Plan(level, 4).Packs.SelectMany(p => p.Robots))
-                if (r.Room is 6 or 16 or 17 && r.Roll.Scale > 1.5)
-                    without++;
-            foreach (var r in director.Plan(level, 4, reach).Packs.SelectMany(p => p.Robots).Where(r => r.Room is 6 or 16 or 17))
-            {
-                Assert.True(r.Roll.Scale <= 1.5, $"seed {seed}: {r.Roll.Template} at {r.Roll.Scale} posted in room {r.Room}");
-                smallThere++;
-            }
+            without += director.Plan(level, 4).Packs.SelectMany(p => p.Robots).Count(r => r.Room is 6 or 16 or 17 && r.Roll.Scale > 1.5);
+            with += director.Plan(level, 4, reach).Packs.SelectMany(p => p.Robots).Count(r => r.Room is 6 or 16 or 17 && r.Roll.Scale > 1.5);
         }
 
         Assert.True(without > 0, "the control: no robot above 1.5 was posted in rooms 6, 16 or 17 with no reach");
-        Assert.True(smallThere > 100, $"{smallThere} robots in rooms 6, 16 and 17");
+        Assert.Equal(without, with);
     }
 }
 

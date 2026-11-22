@@ -120,6 +120,59 @@ public sealed class TFSearchTests
         Assert.Equal(1, foe.Memory.Board.InvestigationCount);
     }
 
+    /// <summary>
+    /// The cause of the loop at cp_granary's door (lane Gmove): a door's noise has no player behind it, so a bot that
+    /// walked up to a door heard the door it opened and went to look. Heard within <see cref="TFDecider.OwnNoiseReach"/>
+    /// of the bot, a door's or a prop's noise is its own doing and settled; the same noise far off is still looked into.
+    /// </summary>
+    [Theory]
+    [InlineData(SoundKind.Door)]
+    [InlineData(SoundKind.Physics)]
+    public void ANoiseNoPlayerMadeByTheBotIsItsOwnAndFarOffIsLookedInto(SoundKind kind)
+    {
+        TFField near = Bot();
+        near.StepHearing(TFField.Self(Mid), null, [Heard(near, Mid + new AiVector(300f, 0f, 0f), kind)]);
+        TFField far = Bot();
+        far.StepHearing(TFField.Self(Mid), null, [Heard(far, Noise, kind)]);
+
+        Assert.Equal((0, 1, TFDecider.Roam), (near.Memory.Board.InvestigationCount, near.Decider.OwnNoisesSettled, Branch(near)));
+        Assert.Equal((1, 0, TFDecider.Search), (far.Memory.Board.InvestigationCount, far.Decider.OwnNoisesSettled, Branch(far)));
+    }
+
+    /// <summary>A door a teammate in the bot's sight is by is the teammate's doing; with an enemy by it, it is looked into.</summary>
+    [Fact]
+    public void ADoorATeammateInSightIsByIsTheirsAndOneAnEnemyIsByIsNot()
+    {
+        TFField Hearing(ActorId who, int team)
+        {
+            TFField f = Bot();
+            AiVector door = Noise;
+            var by = new ActorFacts(who, door + new AiVector(0f, 100f, 0f), AiVector.Zero, TFField.Launcher, ActorActivity.None, 1f, team, (int)TFClass.Soldier);
+            f.StepHearing(TFField.Self(Mid), null, [Heard(f, door, SoundKind.Door)], by);
+            return f;
+        }
+
+        Assert.Equal(0, Hearing(Mate, TFField.Red).Memory.Board.InvestigationCount);
+        Assert.Equal(1, Hearing(Enemy, TFField.Blue).Memory.Board.InvestigationCount);
+    }
+
+    /// <summary>The loop itself: by a door that opens and shuts as the bot stands at it, it never goes to search it.</summary>
+    [Fact]
+    public void ABotAtADoorThatKeepsMovingDoesNotLoopOnIt()
+    {
+        TFField f = Bot();
+        AiVector door = Mid + new AiVector(250f, 60f, 0f);
+        int searching = 0;
+        for (int k = 0; k < 200; k++)
+        {
+            AiEvent[] heard = k % 20 == 0 ? [Heard(f, door, SoundKind.Door)] : [];
+            f.StepHearing(TFField.Self(Mid), null, heard);
+            searching += Branch(f) == TFDecider.Search ? 1 : 0;
+        }
+
+        Assert.Equal((0, 10), (searching, f.Decider.OwnNoisesSettled));
+    }
+
     [Fact]
     public void ASoundFromInsideTheEnemysRespawnRoomIsLeft()
     {
