@@ -334,7 +334,38 @@ public sealed class TownVerbTests
         Assert.Contains(rig.Held.Inventory.Backpack.Values, v => v.Item.Seed == item.Seed);
     }
 
-    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    /// <summary>The Lost &amp; Found (R5, D6): in town, with no window open, the hero reclaims what his lost corpse held, for the fee.</summary>
+    [Fact]
+    public async Task The_reclaim_verb_takes_back_a_lost_corpse_in_town_for_the_fee()
+    {
+        var rig = new TownRig();
+        var item = rig.Roll("rocket_launcher", 1, 20);
+        rig.Give(item);
+        Assert.True(await rig.Ledger.RecordDeath(TownRig.Key, default));
+        Assert.Single(rig.Ledger.CorpsesLost());
+        long fee = rig.Ledger.ReclaimFee(TownRig.Key)!.Value;
+        rig.SetPurse(fee + 7);
+
+        var r = await rig.Service.Reclaim(TownRig.Index);
+
+        Assert.True(r!.Ok, r.Refusal);
+        Assert.Contains(rig.Held.Inventory.Items, h => h.Item.Seed == item.Seed);
+        Assert.Equal(7, rig.Purse);
+        Assert.Equal(TownStatusTokens.Done("reclaim"), rig.Status.Token);
+    }
+
+    [Fact]
+    public async Task The_reclaim_verb_with_nothing_lost_is_refused_in_words()
+    {
+        var rig = new TownRig();
+
+        var r = await rig.Service.Reclaim(TownRig.Index);
+
+        Assert.False(r!.Ok);
+        Assert.Equal("#Descent_Town_" + LedgerRefusals.NothingLost, rig.Status.Token);
+    }
+
+    [Fact]
     public void The_stash_window_carries_the_rules_capacity()
     {
         var rig = new TownRig();

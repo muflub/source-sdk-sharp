@@ -11,7 +11,7 @@ namespace TF2.Descent.Tests.Hero;
 
 /// <summary>
 /// damage_weapon_pct, the weapon upgrades' stat (R17, Appendix A: Marksmanship "all
-/// weapons: +3 %/rank damage", Trench Fighter's melee +8 %/rank): it joins the multiplier of
+/// weapons: +3 %/rank damage", +5 since RU14's retune; Trench Fighter's melee +8 %/rank): it joins the multiplier of
 /// every weapon hit (any weapon kind: melee, blast, bullet, projectile, or the plain weapon
 /// kind of a family with none of those) and never an action's, whose damage is its own.
 /// </summary>
@@ -27,21 +27,21 @@ public sealed class WeaponDamageTests
     private static HeroStats Plain() => Skills.Stats(SkillRulesTests.AtLevel("soldier", 5), SkillBonuses.None);
 
     [Fact]
-    public void Marksmanship_rank_three_raises_a_rockets_multiplier_by_nine_points()
+    public void Marksmanship_rank_three_raises_a_rockets_multiplier_by_fifteen_points()
     {
-        Assert.Equal(0.09, Marksman().DamageMultiplier("blast", "projectile") - Plain().DamageMultiplier("blast", "projectile"), 9);
+        Assert.Equal(0.15, Marksman().DamageMultiplier("blast", "projectile") - Plain().DamageMultiplier("blast", "projectile"), 9);
     }
 
     [Fact]
-    public void Marksmanship_rank_three_raises_a_shotguns_multiplier_by_nine_points()
+    public void Marksmanship_rank_three_raises_a_shotguns_multiplier_by_fifteen_points()
     {
-        Assert.Equal(0.09, Marksman().DamageMultiplier("bullet") - Plain().DamageMultiplier("bullet"), 9);
+        Assert.Equal(0.15, Marksman().DamageMultiplier("bullet") - Plain().DamageMultiplier("bullet"), 9);
     }
 
     [Fact]
-    public void Marksmanship_rank_three_raises_a_plain_weapon_hit_by_nine_points()
+    public void Marksmanship_rank_three_raises_a_plain_weapon_hit_by_fifteen_points()
     {
-        Assert.Equal(0.09, Marksman().DamageMultiplier("weapon") - Plain().DamageMultiplier("weapon"), 9);
+        Assert.Equal(0.15, Marksman().DamageMultiplier("weapon") - Plain().DamageMultiplier("weapon"), 9);
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public sealed class WeaponDamageTests
     {
         var marksman = Marksman();
 
-        Assert.Equal(9, marksman.Total("damage_weapon_pct"), 9);   // the stimulus reached the sheet
+        Assert.Equal(15, marksman.Total("damage_weapon_pct"), 9);   // the stimulus reached the sheet
         Assert.Equal(Plain().DamageMultiplier("action"), marksman.DamageMultiplier("action"), 9);
     }
 

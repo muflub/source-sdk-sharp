@@ -209,6 +209,14 @@ public sealed class HordeBrains : IHordeSightSink
     /// <summary>The brain at <paramref name="body"/>, or none.</summary>
     public ActorId BrainAt(int body) => _body[body].Brain;
 
+    /// <summary>
+    /// The tick since which the brain at <paramref name="body"/> has followed a path (an order of
+    /// corners, not holding) while its body moved less than <see cref="StuckUnits"/> (the stuck
+    /// check's own clock, kept by <see cref="Build"/>); -1 when it does not follow.
+    /// </summary>
+    public long FollowingStillSince(int body) =>
+        (uint)body < (uint)_body.Length && _body[body] is { Following: true, Holding: false } s && s.Brain.IsValid ? s.StuckSince : -1;
+
     /// <summary>The roster row of the brain at <paramref name="body"/>, or -1.</summary>
     public int RowAt(int body) => _body[body].Brain.IsValid ? _body[body].Row : -1;
 
@@ -302,7 +310,7 @@ public sealed class HordeBrains : IHordeSightSink
             if (intent.Bot == s.AppliedActor && intent.Seq == s.AppliedSeq)
                 continue;
 
-            orders.Order(b, intent.Move, intent.Look, intent.ExpiresTick.Value);
+            orders.Order(b, intent.Move, PostLook(b, s.Row, in intent), intent.ExpiresTick.Value);
             s.AppliedActor = intent.Bot;
             s.AppliedSeq = intent.Seq;
             s.Holding = false;
@@ -322,6 +330,33 @@ public sealed class HordeBrains : IHordeSightSink
                 orders.Act(b, intent.Action);
             }
         }
+    }
+
+    /// <summary>How near its post (on the floor) a holding robot stands at it: twice the hunt's arrival, so a pack-mate's push does not turn it back.</summary>
+    public const float AtPostUnits = 2f * HuntDecider.ArriveUnits;
+
+    /// <summary>How far out along its post's yaw a robot standing at its post looks.</summary>
+    public const float PostLookUnits = 1000f;
+
+    /// <summary>
+    /// The look a body's order carries: the intent's own, except for a robot holding with nothing
+    /// to look at (a hold along its path) within <see cref="AtPostUnits"/> of its post, which looks
+    /// out along its post's yaw (<see cref="RobotRoster.PostYaw"/>, its marker's), so a robot back
+    /// at its post faces the way it was put there and not along the last stretch of its walk home.
+    /// The motion turns it there at its bounded rate. A robot with a target, a point to watch or a
+    /// move is not touched.
+    /// </summary>
+    private LookIntent PostLook(int b, int row, in IntentCommand intent)
+    {
+        if (intent.Move.Kind != MoveKind.Hold || intent.Look.Kind != LookKind.Path)
+            return intent.Look;
+        AiVector post = _roster.Post(row);
+        AiVector at = _poses.Position(b);
+        if (new AiVector(at.X - post.X, at.Y - post.Y, 0f).Length2D > AtPostUnits)
+            return intent.Look;
+        float r = _roster.PostYaw(row) * (MathF.PI / 180f);
+        var point = new AiVector(at.X + MathF.Cos(r) * PostLookUnits, at.Y + MathF.Sin(r) * PostLookUnits, at.Z + _body[b].EyeHeight);
+        return new LookIntent(LookKind.Point, point, ActorId.None, AimPoint.Body, 0f, 0);
     }
 
     /// <summary>A brain for each newly lent body, none for a returned body or a dead robot (see the class remarks).</summary>

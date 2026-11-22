@@ -108,6 +108,30 @@ public sealed class DirectorServerTests
         Assert.Equal(0, replay.Crowded);
     }
 
+    /// <summary>
+    /// The server plans with the level's navigation (HO9): at level ready the nav is derived first,
+    /// on the game thread, and the controller's roster is planned with its reach, so the director
+    /// command replays with the same reach and finds the same roster.
+    /// </summary>
+    [Fact]
+    public void The_level_ready_roster_is_planned_with_the_levels_navigation_reach()
+    {
+        var rig = new ServerHordeRig(begin: false);
+        var level = LevelAdapters.ToHorde(LevelFixture.Committed().Read());
+        var nav = rig.Nav(new TF2.Descent.Tests.Level.LevelServiceTests.LevelFilesOnDisk(LevelFixture.Committed()));
+        var service = new HordeService(new ActiveMode(), new OneLevel(level), rig.Spawner, new FixedClock(), rig.Parking,
+            new HordeCensus(rig.Spawner, rig.Parking, rig.Log), new HordeTickTimer(), rig.Log, Measurer(rig.World), new FixedParty(1), nav);
+
+        service.OnLevelReady("tf2_descent-1-s1");
+
+        var c = service.Current!;
+        Assert.IsType<TF2.Descent.Server.Horde.Nav.NavHullReach>(c.Reach);
+        Assert.Equal(TF2.Descent.Server.Horde.Nav.HordeNavState.Probing, nav.State);
+        Assert.Contains(rig.Log.Lines, l => l.Text.Contains("at level ready, for the spawn director"));
+        new DirectorCommand(service, new RigRules(), rig.World, rig.Log).Execute();
+        Assert.Contains(rig.Log.Lines, l => l.Text.Contains("[TF2Descent/Director] roster ") && l.Text.Contains(": the same; census: "));
+    }
+
     [Fact]
     public void The_director_command_says_the_roster_is_its_replay_and_names_a_row_that_is_not()
     {

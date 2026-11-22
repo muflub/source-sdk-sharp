@@ -155,11 +155,18 @@ public sealed class HuntDecider : IDecider, IHordeRouted
         if (_goal != GoalKind.None)
         {
             Node going = _goal == GoalKind.Contact ? Node.LastKnown : Node.Investigate;
-            if (!_searching && self.DistanceTo(_goalAt) > ArriveUnits)
+            if (!_searching && !There(self, _goalAt))
             {
-                var toward = new LookIntent(LookKind.Point, _goalAt, ActorId.None, AimPoint.Body, 0f, 0);
-                return End(tick, seq, going, _route.Follow(tick, view.Self, self, _goalAt, _goal == GoalKind.Contact ? MoveSpeed.Run : MoveSpeed.Walk),
-                           toward, _goalAt, lost);
+                MoveIntent way = _route.Follow(tick, view.Self, self, _goalAt, _goal == GoalKind.Contact ? MoveSpeed.Run : MoveSpeed.Walk);
+
+                // A place off its floor: the route has brought it as near as it can stand and holds
+                // there (HordeRoute.Held), and that is where it searches from. Left going there it
+                // would hold for good and never go home.
+                if (!_route.Held)
+                {
+                    var toward = new LookIntent(LookKind.Point, _goalAt, ActorId.None, AimPoint.Body, 0f, 0);
+                    return End(tick, seq, going, way, toward, _goalAt, lost);
+                }
             }
 
             if (!_searching)
@@ -196,6 +203,15 @@ public sealed class HuntDecider : IDecider, IHordeRouted
         _searchedHit = tick;
         _searchedAlly = tick;
     }
+
+    /// <summary>
+    /// Whether a robot at <paramref name="self"/> is at a goal at <paramref name="at"/>: within
+    /// <see cref="ArriveUnits"/> on the floor plane. Its height is not asked: a hero last seen or
+    /// heard in the air (a jump, a fall, a rocket jump) is searched for from the floor under him,
+    /// where the robot's walk ends, and a robot standing there is never left following a place it
+    /// cannot rise to.
+    /// </summary>
+    public static bool There(AiVector self, AiVector at) => (at - self).Length2D <= ArriveUnits;
 
     /// <summary>The goal to go to; a new one (another kind or a newer stamp) starts its search over.</summary>
     private void Aim(GoalKind kind, AiVector at, Tick stamp)
@@ -267,8 +283,11 @@ public sealed class HuntDecider : IDecider, IHordeRouted
             (kind, at, stamp) = (GoalKind.Sound, heard.Position, heard.Tick);
 
         Tick hit = board.LastDamageTick;
+        // The place is fixed when the hit is taken as the goal: worked out from where the robot
+        // stands at each decide it would keep its distance ahead of him, and he would walk the
+        // hit's way to the end of the level without ever arriving.
         if (hit > _searchedHit && hit.Value > 0 && (kind == GoalKind.None || hit > stamp))
-            (kind, at, stamp) = (GoalKind.Hit, self + board.LastDamageDir.Normalised() * engage, hit);
+            (kind, at, stamp) = (GoalKind.Hit, _goal == GoalKind.Hit && _goalStamp == hit ? _goalAt : self + board.LastDamageDir.Normalised() * engage, hit);
 
         // A pack-mate hurt or killed (B.3's AllyDamaged, AllyDied): it goes to where the mate was,
         // unless the hero who did it has gone (dead: the core holds him as gone to watch).

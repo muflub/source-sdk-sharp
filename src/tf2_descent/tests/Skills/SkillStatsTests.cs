@@ -30,7 +30,7 @@ public sealed class SkillStatsTests
         double respecced = hero.Stats!.Total("damage_weapon_pct");
 
         Assert.Equal(0, before, 6);
-        Assert.Equal(3, bought, 6);
+        Assert.Equal(5, bought, 6);   // Marksmanship rank 1 (RU14's retune: 3 was)
         Assert.Equal(0, respecced, 6);
     }
 

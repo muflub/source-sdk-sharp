@@ -181,6 +181,9 @@ internal sealed class ServerHordeRig
         Engine.ReturnsEachCall("Entities.GetIndex", () => (int)(Engine.Last("Entities.GetIndex") ?? default).ArgAs<EntityHandle>(0).EntryIndex);
         Engine.Returns("Entities.SetParent", true);
         Engine.Returns("EntityRender.LookupSequence", 7);
+        // The bodies' pose dials (CR11): a model that declares none, unless a fact says otherwise.
+        Engine.Returns("EntityRender.LookupPoseParameter", -1);
+        Engine.Returns("EntityRender.SetPoseParameter", 0f);
 
         Registry = new ScriptedEntityRegistry(TestEngines.Server());
         Registry.RegisterAll(typeof(RobotBody).Assembly);

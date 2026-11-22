@@ -212,10 +212,10 @@ public sealed class SkillRulesTests
     [Fact]
     public void Action_damage_is_base_times_hero_level_times_tab_attribute()
     {
-        // base(1) 20, level 2, Aim 20: 20 x (1 + 0.04 x 2) x (1 + 20 / 50).
+        // base(1) 20, level 2, Aim 20: 20 x (1 + 0 x 2) x (1 + 20 / 175) (skill_settings retuned by RU14: 0.04 and 50 were).
         var hero = Learn(AtLevel("soldier", 2), "patriot_missile");
 
-        Assert.Equal(20 * 1.08 * 1.4, Skills.Damage(hero, Skills.Stats(hero, None), None, "patriot_missile"), 9);
+        Assert.Equal(20 * (1 + 0.0 * 2) * (1 + 20.0 / 175), Skills.Damage(hero, Skills.Stats(hero, None), None, "patriot_missile"), 9);
     }
 
     [Theory]
@@ -237,7 +237,7 @@ public sealed class SkillRulesTests
         var brawnRing = Skills.Stats(hero, None, [new Contribution("brawn", 10, Gear("ring"))]);
 
         double d0 = Skills.Damage(hero, plain, None, "patriot_missile");
-        Assert.Equal(20 * 1.08 * (1 + 30.0 / 50), Skills.Damage(hero, aimRing, None, "patriot_missile"), 9);
+        Assert.Equal(20 * (1 + 0.0 * 2) * (1 + 30.0 / 175), Skills.Damage(hero, aimRing, None, "patriot_missile"), 9);
         Assert.Equal(d0, Skills.Damage(hero, brawnRing, None, "patriot_missile"), 9);   // another tab's attribute does nothing
     }
 
@@ -315,7 +315,7 @@ public sealed class SkillRulesTests
             Assert.Equal(own, SkillRules.Applies(rs, family.Id));
             Assert.Equal(own, held.Any(c => c.Source.Id == "rocket_specialist"));
         }
-        Assert.Contains(Skills.WeaponContributions(hero, None, "rocket_launcher"), c => c.Stat == "reload_speed_pct" && c.Amount == 5);
+        Assert.Contains(Skills.WeaponContributions(hero, None, "rocket_launcher"), c => c.Stat == "reload_speed_pct" && c.Amount == 10);
     }
 
     [Fact]
@@ -334,8 +334,8 @@ public sealed class SkillRulesTests
         var hero = Learn(AtLevel("soldier", 3), "marksmanship", "marksmanship");
 
         Assert.All(Content.Families.Rows, f => Assert.True(SkillRules.Applies(Content.Skills["marksmanship"], f.Id)));
-        Assert.Contains(Skills.Contributions(hero, None), c => c.Stat == "damage_weapon_pct" && c.Amount == 6);
-        Assert.Equal(6, Skills.Stats(hero, None).Total("damage_weapon_pct"));
+        Assert.Contains(Skills.Contributions(hero, None), c => c.Stat == "damage_weapon_pct" && c.Amount == 10);
+        Assert.Equal(10, Skills.Stats(hero, None).Total("damage_weapon_pct"));
     }
 
     [Fact]

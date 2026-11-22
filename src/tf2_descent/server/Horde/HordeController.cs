@@ -103,7 +103,7 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
     /// <paramref name="level"/> at <paramref name="ticksPerSecond"/>. Answers
     /// false, and makes nothing more, when the engine refuses an entity.
     /// </summary>
-    public bool Begin(HordeLevel level, double ticksPerSecond, int partySize, long now)
+    public bool Begin(HordeLevel level, double ticksPerSecond, int partySize, long now, TF2.Descent.Ai.Director.IHullReach? reach = null)
     {
         if (Begun)
             throw new InvalidOperationException("the horde controller has begun already: one a level");
@@ -114,7 +114,8 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
         Level = level;
         Roster = RobotRoster.Create(r, ticksPerSecond);
         PartySize = partySize;
-        Plan = new SpawnDirector(r).Plan(level, partySize);
+        Reach = reach;
+        Plan = new SpawnDirector(r).Plan(level, partySize, reach);
         Roll = Roster.Load(Plan, level);
         Pool = BodyPool.For(settings);
 
@@ -161,6 +162,9 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
         brains.Begin(this, now);
         return true;
     }
+
+    /// <summary>The hulls' floors the roster was planned with (the level's navigation), or none.</summary>
+    public TF2.Descent.Ai.Director.IHullReach? Reach { get; private set; }
 
     /// <summary>Server ticks between decisions.</summary>
     public long DecideInterval => _decideInterval;

@@ -52,6 +52,7 @@ public static class HordeNavNumbers
 public sealed class HordeNavData
 {
     private readonly int[][] _components;
+    private readonly int[] _main;
 
     private HordeNavData(DerivedNav nav, VoxelColumns columns, NavObstacleState open, double deriveMs, double columnsMs, int fileBytes, ulong identity,
                          int blocked)
@@ -66,8 +67,47 @@ public sealed class HordeNavData
         BlockedCells = blocked;
         World = new VoxelMoveWorld(columns);
         _components = new int[2 + HordeHulls.Scales.Length][];
+        _main = new int[_components.Length];
         for (int c = 0; c < _components.Length; c++)
+        {
             _components[c] = c == (int)ClearanceClass.Crouch ? [] : Components(nav.Graph, (ClearanceClass)c, open);
+            _main[c] = Largest(_components[c]);
+        }
+    }
+
+    /// <summary>
+    /// Whether <paramref name="cell"/> is on <paramref name="cls"/>'s main floor: the largest
+    /// component of its cells (the one the level's rooms share; on depth 1 seed 1, the arrival's
+    /// for every class). A cell in a smaller one is a floor that class cannot leave.
+    /// </summary>
+    public bool OnMainFloor(CellId cell, ClearanceClass cls)
+    {
+        int c = (int)cls;
+        if ((uint)c >= (uint)_components.Length || _components[c].Length == 0)
+            return cell.IsValid;
+        return cell.IsValid && _components[c][cell.Index] >= 0 && _components[c][cell.Index] == _main[c];
+    }
+
+    /// <summary>The component holding the most cells (the lower on a tie); -1 for none.</summary>
+    private static int Largest(int[] comp)
+    {
+        if (comp.Length == 0)
+            return -1;
+        var counts = new Dictionary<int, int>();
+        foreach (int k in comp)
+        {
+            if (k >= 0)
+                counts[k] = counts.GetValueOrDefault(k) + 1;
+        }
+
+        int best = -1, most = 0;
+        foreach (var (k, n) in counts)
+        {
+            if (n > most || (n == most && k < best))
+                (best, most) = (k, n);
+        }
+
+        return best;
     }
 
     public DerivedNav Nav { get; }

@@ -119,6 +119,15 @@ public abstract class ItemLedgerBase : IItemLedger
     /// <summary>What the hero's corpse holds; null when the ledger cannot say (the hosted ledger: the SDK lists no corpse).</summary>
     public virtual LedgerCorpse? Corpse(string hero) => null;
 
+    /// <summary>Hosted, a corpse goes to the Lost &amp; Found when the host reaps its instance: nothing here.</summary>
+    public virtual IReadOnlyList<string> CorpsesLost() => [];
+
+    public virtual LedgerCorpse? LostAndFound(string hero) => null;
+
+    public virtual long? ReclaimFee(string hero) => null;
+
+    public virtual Task<LedgerResult> Reclaim(string hero) => Task.FromResult(LedgerResult.Refused(LedgerRefusals.NothingLost));
+
     //-------------------------------------------------------------------------
     // State
     //-------------------------------------------------------------------------

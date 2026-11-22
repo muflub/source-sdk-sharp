@@ -78,7 +78,7 @@ public sealed class HordeRoute
     private AiVector[] _nextCorners = new AiVector[MaxCorners];
     private NavEdgeType[] _nextArrive = new NavEdgeType[MaxCorners];
     private int _count, _at;
-    private bool _truncated, _has;
+    private bool _truncated, _has, _nearest, _held;
     private AiVector _start, _goal;
     private ClearanceClass _class;
     private int _epoch;
@@ -106,6 +106,16 @@ public sealed class HordeRoute
     /// <summary>Whether the walker holds a path now.</summary>
     public bool HasPath => _has;
 
+    /// <summary>
+    /// Whether the last goal was off the robot's floor and the walker holds at the place of its
+    /// floor nearest it (<see cref="PathAnswer.Nearest"/>): it waits there for its next turn's
+    /// search, never walking the room route into the wall between.
+    /// </summary>
+    public bool Held => _held;
+
+    /// <summary>Holds at the nearest place to a goal off the floor (<see cref="Held"/>).</summary>
+    public int Holds { get; private set; }
+
     /// <summary>The path's corners left from where the body is, nearest first.</summary>
     public ReadOnlySpan<AiVector> Left => _has ? _corners.AsSpan(_at, _count - _at) : default;
 
@@ -117,6 +127,7 @@ public sealed class HordeRoute
         if (epoch == 0 || _paths is not { } paths || paths.Epoch != epoch)
         {
             _has = false;
+            _held = false;
             ByRooms++;
             return RoomRoute.Follow(_level, from, to, speed);
         }
@@ -127,6 +138,10 @@ public sealed class HordeRoute
         {
             Advance(from);
             usable = _at < _count && !Off(from) && !(_truncated && _count - _at <= 1);
+
+            // At the end of a way to the nearest place of its floor: it holds there.
+            if (!usable && _nearest && _at >= _count)
+                _held = true;
         }
 
         bool moved = usable && _goal.DistanceTo(to) > ReuseUnits;
@@ -134,8 +149,10 @@ public sealed class HordeRoute
         {
             Searches++;
             PathAnswer answer = paths.Find(from, to, cls, SearchBudget, _nextCorners, _nextArrive, out int count, out bool truncated);
-            if (answer == PathAnswer.Found && count > 0)
+            _held = answer == PathAnswer.Nearest && count == 0;
+            if (answer is PathAnswer.Found or PathAnswer.Nearest && count > 0)
             {
+                _nearest = answer == PathAnswer.Nearest;
                 (_corners, _nextCorners) = (_nextCorners, _corners);
                 (_arrive, _nextArrive) = (_nextArrive, _arrive);
                 _count = count;
@@ -160,12 +177,20 @@ public sealed class HordeRoute
         _has = usable;
         if (!_has)
         {
+            if (_held)
+            {
+                Holds++;
+                return MoveIntent.Hold;
+            }
+
             ByRooms++;
             return RoomRoute.Follow(_level, from, to, speed);
         }
 
-        // The last corner follows a goal that moved a little.
-        if (!_truncated)
+        _held = false;
+
+        // The last corner follows a goal that moved a little (not the nearest place to one off the floor: that is where it holds).
+        if (!_truncated && !_nearest)
             _corners[_count - 1] = to;
 
         OnGraph++;
@@ -179,7 +204,11 @@ public sealed class HordeRoute
     }
 
     /// <summary>Lets the path go (a decider that holds, or a brain that starts over).</summary>
-    public void Drop() => _has = false;
+    public void Drop()
+    {
+        _has = false;
+        _held = false;
+    }
 
     /// <summary>Moves past the corners the body has reached, or is past towards the next.</summary>
     private void Advance(AiVector from)

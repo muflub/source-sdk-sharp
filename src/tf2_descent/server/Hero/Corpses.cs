@@ -99,7 +99,10 @@ public sealed class HeroCorpse(string hero, int ownerIndex, EntityHandle entity,
 /// (<see cref="IItemLedger.LootCorpse"/>); what does not fit stays, and an
 /// emptied corpse is removed. Another hero's corpse is refused (D6, Q3), as
 /// is a hardcore hero's, by its owner too (D7).</item>
-/// <item>The corpses are the level's: a new level starts with none.</item>
+/// <item>The corpses are the level's: a new level starts with none. The level they lay on is
+/// gone for good (R5; unhosted, one process holds one map), so the ledger moves each to the Lost
+/// &amp; Found in town (<see cref="IItemLedger.CorpsesLost"/>; hosted, the host does that when it
+/// reaps the instance), and its owner is told so when he next stands up.</item>
 /// </list>
 /// </summary>
 [SideService(Side.Server)]
@@ -116,6 +119,10 @@ public sealed class HeroCorpses(IDescentModeState mode, Heroes heroes, HeroKeys 
 
     private readonly Dictionary<string, HeroCorpse> _byHero = new(StringComparer.Ordinal);
     private readonly HashSet<int> _useHeld = [];
+    private readonly HashSet<string> _toTell = new(StringComparer.Ordinal);
+
+    /// <summary>What a hero whose corpse went to the Lost &amp; Found is told when he stands on the next level.</summary>
+    public const string LostNotice = "Your body was lost with its level: what it held waits in the Lost and Found in town (tf2_descent_town_reclaim, for a fee)";
 
     /// <summary>Every corpse on the level.</summary>
     public IReadOnlyCollection<HeroCorpse> All => _byHero.Values;
@@ -171,6 +178,8 @@ public sealed class HeroCorpses(IDescentModeState mode, Heroes heroes, HeroKeys 
         foreach (var hero in heroes.All)
         {
             int index = hero.PlayerIndex;
+            if (_toTell.Count > 0 && players.IsAlive(hero.Player) && keys.Of(index) is { } who && _toTell.Remove(who))
+                messages.Notice(index, LostNotice);
             bool held = players.IsAlive(hero.Player) && players.HoldingUse(hero.Player);
             bool pressed = held && _useHeld.Add(index);
             if (!held)
@@ -232,7 +241,11 @@ public sealed class HeroCorpses(IDescentModeState mode, Heroes heroes, HeroKeys 
     /// <summary>Every corpse, one line each, for <c>tf2_descent_corpses</c>.</summary>
     public IEnumerable<string> Lines() =>
         _byHero.Values.Select(c => string.Create(CultureInfo.InvariantCulture,
-            $"{c.Hero} (player {c.OwnerIndex}) at ({c.At.X:0} {c.At.Y:0} {c.At.Z:0}) {c.Entity}: {Describe(ledger.Corpse(c.Hero))}{(c.Hardcore ? ", hardcore" : "")}"));
+            $"{c.Hero} (player {c.OwnerIndex}) at ({c.At.X:0} {c.At.Y:0} {c.At.Z:0}) {c.Entity}: {Describe(ledger.Corpse(c.Hero))}{(c.Hardcore ? ", hardcore" : "")}"))
+        .Concat(heroes.All.Select(h => keys.Of(h.PlayerIndex)).OfType<string>().Distinct()
+            .Select(k => (Key: k, Lost: ledger.LostAndFound(k))).Where(x => x.Lost is not null)
+            .Select(x => string.Create(CultureInfo.InvariantCulture,
+                $"{x.Key} in the Lost & Found: {Describe(x.Lost)}, fee {ledger.ReclaimFee(x.Key)}")));
 
     private void Count(HeroCorpse corpse)
     {
@@ -245,9 +258,15 @@ public sealed class HeroCorpses(IDescentModeState mode, Heroes heroes, HeroKeys 
         held is null ? "contents unknown (the ledger lists no corpse)"
         : $"{held.Items.Count} item(s) [{string.Join(' ', held.Items)}] and {held.Australium} Australium";
 
-    /// <summary>A new level: the last level's corpses went with it (the ledger keeps what was on them).</summary>
+    /// <summary>A new level: the last level's corpses went with it, and what was on them to the Lost &amp; Found (R5).</summary>
     public void OnLevelInit(string mapName)
     {
+        foreach (string hero in ledger.CorpsesLost())
+        {
+            _toTell.Add(hero);
+            log.Msg($"[TF2Descent/Corpse] {hero}'s corpse went with its level: {Describe(ledger.LostAndFound(hero))} in the Lost & Found, fee {ledger.ReclaimFee(hero)}\n");
+        }
+
         _byHero.Clear();
         _useHeld.Clear();
     }

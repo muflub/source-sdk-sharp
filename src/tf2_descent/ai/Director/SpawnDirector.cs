@@ -41,7 +41,12 @@ public sealed class SpawnDirector
     /// <summary>Whether a robot of <paramref name="template"/>'s size class keeps to the floor it stands on (cannot climb stairs).</summary>
     public bool FloorBound(RobotTemplate template) => S.FloorBoundSizes.Contains(template.Size);
 
-    public LevelPlan Plan(HordeLevel level, int partySize)
+    /// <summary>
+    /// The level's roster for a party of <paramref name="partySize"/>; with <paramref name="reach"/>
+    /// (the level's navigation, when the server has it), a robot also stands only where its hull's
+    /// floor joins the rest of the level's.
+    /// </summary>
+    public LevelPlan Plan(HordeLevel level, int partySize, IHullReach? reach = null)
     {
         int capacity = _rules.Content.Horde.RosterCapacity;
         int party = Math.Clamp(partySize, 1, _rules.Content.RobotRules.Party.MaxMembers);
@@ -77,7 +82,7 @@ public sealed class SpawnDirector
         {
             if (room.Markers.IsEmpty) continue;
             unmeasured += room.Markers.Count(m => m.Clearance is null);
-            var pack = _rules.Packs.RollPack(level.Seed, room.Id, level.Depth, party, room.Markers.Length, new RoomFit(this, level, room));
+            var pack = _rules.Packs.RollPack(level.Seed, room.Id, level.Depth, party, room.Markers.Length, new RoomFit(this, level, room, reach));
             if (pack.Robots.IsEmpty)
             {
                 if (pack.Unplaced > 0) emptied.Add(new DroppedPack(room.Id, pack.Unplaced));
@@ -114,13 +119,16 @@ public sealed class SpawnDirector
     /// door of the room is wide enough for the hull with the director's margin on each side,
     /// tall enough, and, for a floor-bound size, has its sill within a step of the marker's floor.
     /// A room with no door is left by nothing, so holds nothing, unless it is the level's only room.
+    /// With <paramref name="reach"/>, the hull's floor at the marker must also join the arrival's
+    /// (<see cref="IHullReach.Joins"/>): a room's doors can fit a hull the floor beyond them does not.
     /// </summary>
-    public bool Holds(HordeLevel level, HordeRoom room, int marker, RobotTemplate t, double scale)
+    public bool Holds(HordeLevel level, HordeRoom room, int marker, RobotTemplate t, double scale, IHullReach? reach = null)
     {
         var m = room.Markers[marker];
         float half = HalfWidth(scale), height = Height(scale);
         if (m.Clearance is { } c && !c.Holds(half, height)) return false;
-        return Leaves(level, room, m.Position, t, half, height);
+        if (!Leaves(level, room, m.Position, t, half, height)) return false;
+        return reach is null || reach.Joins(room.Id, m.Position, scale);
     }
 
     private bool Leaves(HordeLevel level, HordeRoom room, AiVector from, RobotTemplate t, float half, float height)
@@ -139,9 +147,9 @@ public sealed class SpawnDirector
     }
 
     /// <summary>One room's fit for the pack roll.</summary>
-    private sealed class RoomFit(SpawnDirector director, HordeLevel level, HordeRoom room) : IPackFit
+    private sealed class RoomFit(SpawnDirector director, HordeLevel level, HordeRoom room, IHullReach? reach) : IPackFit
     {
-        public bool Fits(RobotTemplate template, double scale, int marker) => director.Holds(level, room, marker, template, scale);
+        public bool Fits(RobotTemplate template, double scale, int marker) => director.Holds(level, room, marker, template, scale, reach);
     }
 
     //-------------------------------------------------------------------------

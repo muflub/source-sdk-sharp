@@ -169,6 +169,12 @@ public static class LedgerRefusals
     /// <summary>No item base of that id.</summary>
     public const string UnknownBase = "unknown_base";
 
+    /// <summary>The Lost &amp; Found holds nothing of the hero's.</summary>
+    public const string NothingLost = "nothing_lost";
+
+    /// <summary>The hero cannot pay the Lost &amp; Found's fee, with what it holds of his Australium counted in.</summary>
+    public const string LostAndFoundFee = "lost_and_found_fee";
+
     /// <summary>An amount of Australium that is not more than nothing.</summary>
     public const string BadAmount = "bad_amount";
 
@@ -330,6 +336,27 @@ public interface IItemLedger
     /// host's SDK lists no corpse).
     /// </summary>
     LedgerCorpse? Corpse(string hero);
+
+    /// <summary>
+    /// The level the heroes' corpses lie on is gone for good (R5; plan_tf2_rpg 7b, Phase 10): each
+    /// corpse goes to the Lost &amp; Found in town, which holds it until its owner reclaims it for
+    /// D6's fee. Hosted, the host does this when it reaps the instance, so nothing moves here.
+    /// Answers the heroes whose corpses moved.
+    /// </summary>
+    IReadOnlyList<string> CorpsesLost();
+
+    /// <summary>What the Lost &amp; Found holds of the hero's (his lost corpses, merged); null for nothing, or when the ledger cannot say (hosted).</summary>
+    LedgerCorpse? LostAndFound(string hero);
+
+    /// <summary>The fee to reclaim what the Lost &amp; Found holds of the hero's (D6: a share of its vendor value); null for nothing to reclaim.</summary>
+    long? ReclaimFee(string hero);
+
+    /// <summary>
+    /// Reclaims what the Lost &amp; Found holds of the hero's: its Australium comes back, the fee is
+    /// paid, and the items go back where he carried them as far as they fit; what does not fit
+    /// stays. Refused (nothing changes) when he cannot pay.
+    /// </summary>
+    Task<LedgerResult> Reclaim(string hero);
 
     //-------------------------------------------------------------------------
     // HE8 and HE9: consumables used, gear worn and repaired where it is worn

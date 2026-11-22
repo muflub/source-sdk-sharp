@@ -158,10 +158,62 @@ public sealed class HordeNav(IEngineFiles files, RobotMotion motion, IMotionWorl
         }
 
         State = HordeNavState.Deriving;
+        _derivedHere = false;
         var thread = new Thread(() => Run(generation, nav, bsp)) { IsBackground = true, Name = "tf2_descent nav" };
         Interlocked.Increment(ref _alive);
         thread.Start();
     }
+
+    /// <summary>
+    /// The level <paramref name="map"/> begins, its navigation derived here, on the calling thread
+    /// (the spawn director plans with it at level ready: <see cref="NavHullReach"/>); the static
+    /// props are then probed a few cells a tick as after <see cref="Begin"/>. Answers the derived
+    /// navigation, or null when the level has none (no file, or one that cannot be derived).
+    /// </summary>
+    public HordeNavData? BeginNow(string map, HordeLevel level)
+    {
+        ArgumentNullException.ThrowIfNull(level);
+        End();
+        Levels++;
+        _map = map;
+        _level = level;
+        _begunTick = clock.Tick;
+        byte[]? nav = files.ReadGameFileBytes($"maps/{map}.nav3d");
+        if (nav is null)
+        {
+            State = HordeNavState.Missing;
+            log.Msg($"[TF2Descent/Horde] nav: maps/{map}.nav3d is missing: robots walk the room route and step on the game thread\n");
+            return null;
+        }
+
+        byte[]? bsp = files.ReadGameFileBytes($"maps/{map}.bsp");
+        HordeNavData? derived = null;
+        int[]? candidates = null;
+        string? failure = null;
+        try
+        {
+            (derived, candidates) = Work(nav, bsp);
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            failure = $"{e.GetType().Name}: {e.Message}";
+        }
+
+        lock (_gate)
+        {
+            _generation++;
+            _derived = derived;
+            _candidates = candidates;
+            _failure = failure;
+        }
+
+        State = HordeNavState.Deriving;
+        _derivedHere = true;
+        TakeDerived();
+        return _data;
+    }
+
+    private bool _derivedHere;
 
     private void Run(int generation, byte[] nav, byte[]? bsp)
     {
@@ -236,7 +288,7 @@ public sealed class HordeNav(IEngineFiles files, RobotMotion motion, IMotionWorl
         _probeMicros = 0;
         State = HordeNavState.Probing;
         log.Msg(string.Create(CultureInfo.InvariantCulture,
-            $"[TF2Descent/Horde] nav: {_map} derived in {derived.DeriveMs:0} ms (+{derived.ColumnsMs:0} ms voxels) on its own thread, {clock.Tick - _begunTick} ticks after the level began: {derived.Graph.CellCount} cells, {derived.Graph.EdgeCount} edges, {derived.Graph.ObstacleCount} obstacles; voxels ready, {Candidates} static-prop cells to test\n"));
+            $"[TF2Descent/Horde] nav: {_map} derived in {derived.DeriveMs:0} ms (+{derived.ColumnsMs:0} ms voxels) {(_derivedHere ? "at level ready, for the spawn director" : "on its own thread")}, {clock.Tick - _begunTick} ticks after the level began: {derived.Graph.CellCount} cells, {derived.Graph.EdgeCount} edges, {derived.Graph.ObstacleCount} obstacles; voxels ready, {Candidates} static-prop cells to test\n"));
     }
 
     private void Probe()

@@ -65,7 +65,7 @@ public sealed class SkillBinderTests
         Assert.Equal(hero.Player, shot.Owner);
         Assert.Equal((int)TFTeam.Red, shot.Team);
         Assert.Equal("descent_skill_patriot_missile", shot.WeaponName);
-        Assert.Equal(41.44f, shot.Damage, 2); // 20 x (1 + 0.04 x 12) x (1 + aim 20 / 50)
+        Assert.Equal(22.29f, shot.Damage, 2); // 20 x (1 + 0 x 12) x (1 + aim 20 / 175) (RU14's retune: 0.04 and 50 were)
         Assert.Equal((float)rig.RulesDamage("patriot_missile"), shot.Damage, 4);
     }
 
@@ -124,10 +124,10 @@ public sealed class SkillBinderTests
         rig.Run(1, 4);
 
         Assert.Equal(450, aura["radius"]);
-        Assert.Equal(15, nearDuring, 6);
-        Assert.Equal(15, caster.Stats!.Total("damage_all_pct"), 6);
+        Assert.Equal(30, nearDuring, 6);   // Battle Orders rank 1 (RU14's retune: 15 was)
+        Assert.Equal(30, caster.Stats!.Total("damage_all_pct"), 6);
         Assert.Equal(0, farDuring, 6);
-        Assert.Equal(15, nearLastTick, 6);
+        Assert.Equal(30, nearLastTick, 6);
         Assert.Equal(0, near.Stats!.Total("damage_all_pct"), 6);
     }
 
@@ -144,7 +144,7 @@ public sealed class SkillBinderTests
 
         rig.Runtime.Press(SkillRig.Index, 1);
 
-        Assert.Equal(15, caster.Stats!.Total("damage_all_pct"), 6);
+        Assert.Equal(30, caster.Stats!.Total("damage_all_pct"), 6);
         Assert.Equal(0, stranger.Stats!.Total("damage_all_pct"), 6);
     }
 

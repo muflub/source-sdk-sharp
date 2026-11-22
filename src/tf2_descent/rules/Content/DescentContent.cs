@@ -187,6 +187,9 @@ public sealed class DescentContent
     /// <summary>The three bosses' scripts, their specials and the Tank (HO13, D13).</summary>
     public Bosses.BossSettings Bosses => Get<Bosses.BossSettings>(TF2.Descent.Rules.Bosses.BossTable.TableName);
 
+    /// <summary>The economy model's assumptions (RU14): an instrument's numbers, not the game's.</summary>
+    public Economy.Model.ModelSettings EconomyModel => Get<Economy.Model.ModelSettings>(Economy.Model.ModelTable.TableName);
+
     /// <summary>The shipped content; throws <see cref="ContentLoadException"/> naming every error if it does not load.</summary>
     public static DescentContent Shipped() => new ContentLoader().Load(new EmbeddedContentSource()).OrThrow();
 }

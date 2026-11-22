@@ -9,7 +9,7 @@
     "id": "marksmanship", "name": "Marksmanship", "class": "soldier", "tab": "ordnance", "tier": 1,
     "kind": "upgrade", "maxRank": 5, "scope": "all",
     "effect": [ { "primitive": "passive", "stats": [
-      { "stat": "damage_weapon_pct", "amount": { "perRank": 3 } },
+      { "stat": "damage_weapon_pct", "amount": { "perRank": 5 } },
       { "stat": "spread_pct", "amount": { "perRank": -4 } },
       { "stat": "projectile_speed_pct", "amount": { "perRank": 3 } } ] } ]
   },
@@ -42,7 +42,7 @@
     "prerequisites": [ { "skill": "marksmanship" } ],
     "effect": [
       { "primitive": "passive", "stats": [
-        { "stat": "reload_speed_pct", "amount": { "perRank": 5 } },
+        { "stat": "reload_speed_pct", "amount": { "perRank": 10 } },
         { "stat": "blast_radius_pct", "amount": { "perRank": 3 } },
         { "stat": "projectile_speed_pct", "amount": { "perRank": 3 } },
         { "stat": "clip_size", "amount": [ 0, 1, 1, 2, 2 ] } ] },
@@ -61,7 +61,7 @@
     "prerequisites": [ { "skill": "marksmanship" } ],
     "effect": [ { "primitive": "passive", "stats": [
       { "stat": "crit_chance_pct", "amount": { "perRank": 2 } },
-      { "stat": "crit_damage_pct", "amount": { "perRank": 5 } } ] } ]
+      { "stat": "crit_damage_pct", "amount": { "perRank": 10 } } ] } ]
   },
   {
     "id": "fire_mission", "name": "Fire Mission", "class": "soldier", "tab": "ordnance", "tier": 5,
@@ -171,10 +171,10 @@
     "id": "battle_orders", "name": "Battle Orders", "class": "soldier", "tab": "command", "tier": 1,
     "kind": "action", "maxRank": 5, "damageType": "blast", "manaCost": 20, "cooldown": 30, "tags": [ "order" ],
     "synergies": [
-      { "skill": "dig_in", "perRank": 3, "scales": "potency_pct" },
-      { "skill": "forward_march", "perRank": 3, "scales": "potency_pct" } ],
+      { "skill": "dig_in", "perRank": 6, "scales": "potency_pct" },
+      { "skill": "forward_march", "perRank": 6, "scales": "potency_pct" } ],
     "effect": [ { "primitive": "aura", "target": "party", "radius": 450, "duration": { "from": 8, "to": 12 },
-      "stats": [ { "stat": "damage_all_pct", "amount": { "from": 15, "to": 35 } } ] } ]
+      "stats": [ { "stat": "damage_all_pct", "amount": { "from": 30, "to": 60 } } ] } ]
   },
   {
     "id": "basic_training", "name": "Basic Training", "class": "soldier", "tab": "command", "tier": 1,

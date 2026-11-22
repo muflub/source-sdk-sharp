@@ -13,7 +13,7 @@
     "knockbackResistMax": 90,
     "xpBudgetExponent": 1
   },
-  "levelCurve": { "lifePerLevelPct": 12, "damagePerLevelPct": 6, "xpPerLevelPct": 10 },
+  "levelCurve": { "lifePerLevelPct": 2, "damagePerLevelPct": 1, "xpPerLevelPct": 10 },
   "party": { "lifePerExtraMemberPct": 60, "packSizePerExtraMemberPct": 25, "maxMembers": 4 },
   "resist": { "min": -50, "max": 75, "immune": 100 },
   "flags": [

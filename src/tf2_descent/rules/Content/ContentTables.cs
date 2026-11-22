@@ -64,6 +64,7 @@ public static class ContentTables
         new RobotAttackTable(),
         new World.LampTable(), new World.HazardTable(),
         new Bosses.BossTable(),
+        new Economy.Model.ModelTable(),
     ];
 
     /// <summary>The names of <see cref="All"/>, in order.</summary>

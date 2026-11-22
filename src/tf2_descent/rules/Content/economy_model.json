@@ -1,0 +1,76 @@
+{
+  "tickSeconds": 0.25,
+  "maxFightSeconds": 1800,
+  "weapons": [
+    { "family": "rocket_launcher", "damage": 90, "interval": 0.8, "reload": 0.92, "kinds": ["blast", "projectile"], "hitPct": 80, "splash": true },
+    { "family": "shotgun", "damage": 60, "interval": 0.625, "reload": 0.5, "kinds": ["bullet"], "hitPct": 60, "splash": false },
+    { "family": "energy_weapon", "damage": 20, "interval": 0.8, "reload": 0, "kinds": ["projectile"], "hitPct": 75, "splash": false },
+    { "family": "melee", "damage": 65, "interval": 0.8, "reload": 0, "kinds": ["melee"], "hitPct": 45, "splash": false }
+  ],
+  "robotHitPct": 20,
+  "maxAttackers": 3,
+  "approachSeconds": 2,
+  "splashShare": 0.4,
+  "splashTargets": 2,
+  "critMultiplier": 3,
+  "castSeconds": 0.4,
+  "selfBlastDamage": 45,
+  "airSeconds": 2.0,
+  "jumpAboveLifePct": 50,
+  "potion": { "cooldownSeconds": 2, "healthAtLifePct": 40, "manaAtManaPct": 15, "beltHealth": 3, "beltMana": 1, "spareHealth": 6, "spareMana": 2 },
+  "death": { "seconds": 60, "maxPerPack": 3 },
+  "run": { "packRoomsPct": 60, "markersPerRoom": 3, "secondsPerRoom": 12, "townSeconds": 90, "bossRoomPacks": 1 },
+  "gear": { "medianSets": 9, "dropsPerSlot": 6 },
+  "threatPerXpBandPct": 25,
+  "pacing": { "soloHoursMaxRatio": 1.5, "soloDeathsPerDepthMax": 2 },
+  "boss": {
+    "volleyHitPct": 20, "slamHitPct": 50, "tankTrackUnits": 10700, "tankStations": 5,
+    "ordinaryHitMaxLifePct": 50, "specialHitMaxLifePct": 100,
+    "soloBuilds": [ "artillery", "gunman", "trolldier" ],
+    "partyMinTakenPct": 25, "partyMinSeconds": 60,
+    "bands": [
+      { "depth": 5, "minSeconds": 60, "maxSeconds": 240 },
+      { "depth": 10, "minSeconds": 600, "maxSeconds": 1200 },
+      { "depth": 15, "minSeconds": 120, "maxSeconds": 480 }
+    ]
+  },
+  "builds": [
+    {
+      "id": "artillery", "attributes": { "aim": 3, "smarts": 2 }, "jumpEverySeconds": 0,
+      "points": [
+        { "skill": "patriot_missile", "rank": 5 }, { "skill": "battle_orders", "rank": 1 }, { "skill": "marksmanship", "rank": 1 },
+        { "skill": "salvo", "rank": 1 }, { "skill": "emp_charge", "rank": 5 }, { "skill": "killer_instinct", "rank": 1 },
+        { "skill": "rain_of_freedom", "rank": 1 }, { "skill": "fire_mission", "rank": 5 }, { "skill": "screamin_eagle", "rank": 1 },
+        { "skill": "salvo", "rank": 5 }, { "skill": "marksmanship", "rank": 5 }
+      ],
+      "rotation": [ "battle_orders", "screamin_eagle", "fire_mission", "emp_charge", "salvo", "patriot_missile" ]
+    },
+    {
+      "id": "gunman", "attributes": { "aim": 3, "grit": 2 }, "jumpEverySeconds": 0,
+      "points": [
+        { "skill": "marksmanship", "rank": 5 }, { "skill": "basic_training", "rank": 2 }, { "skill": "boot_camp", "rank": 1 },
+        { "skill": "rocket_specialist", "rank": 5 }, { "skill": "pain_tolerance", "rank": 5 }, { "skill": "killer_instinct", "rank": 5 },
+        { "skill": "basic_training", "rank": 5 }, { "skill": "art_of_war", "rank": 3 }
+      ],
+      "rotation": []
+    },
+    {
+      "id": "trolldier", "attributes": { "brawn": 3, "grit": 2 }, "jumpEverySeconds": 3,
+      "points": [
+        { "skill": "jump_training", "rank": 5 }, { "skill": "stomp", "rank": 5 }, { "skill": "death_from_above", "rank": 5 },
+        { "skill": "patriot_missile", "rank": 1 }, { "skill": "salvo", "rank": 1 }, { "skill": "rain_of_freedom", "rank": 5 },
+        { "skill": "boot_camp", "rank": 1 }, { "skill": "rocket_leap", "rank": 5 }, { "skill": "human_rocket", "rank": 1 }
+      ],
+      "rotation": [ "human_rocket", "rocket_leap", "rain_of_freedom" ]
+    },
+    {
+      "id": "sergeant", "attributes": { "grit": 3, "smarts": 2 }, "jumpEverySeconds": 0,
+      "points": [
+        { "skill": "battle_orders", "rank": 5 }, { "skill": "basic_training", "rank": 5 }, { "skill": "field_dressing", "rank": 5 },
+        { "skill": "dig_in", "rank": 3 }, { "skill": "forward_march", "rank": 5 }, { "skill": "chain_of_command", "rank": 5 },
+        { "skill": "supreme_commander", "rank": 1 }
+      ],
+      "rotation": [ "supreme_commander", "battle_orders", "forward_march", "dig_in" ]
+    }
+  ]
+}

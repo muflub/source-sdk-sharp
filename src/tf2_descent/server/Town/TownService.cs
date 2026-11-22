@@ -600,6 +600,25 @@ public sealed class TownService(
         return Run(player, "stash_out", () => ledger.Withdraw(g.Key, slot), r => (name, Changed(r)?.Id ?? 0));
     }
 
+    /// <summary>
+    /// The Lost &amp; Found (R5, D6): in town, the hero takes back what his lost corpses held, for the
+    /// rules' fee. No stall stands for it yet (the town has no marker for one), so it needs no window.
+    /// </summary>
+    public Task<LedgerResult?> Reclaim(int player)
+    {
+        string? key = world.HeroOf(player);
+        string? why = !InTown ? TownRefusals.NotInTown : key is null ? LedgerRefusals.NoHero : null;
+        if (why is not null)
+        {
+            Refuse(player, why);
+            return Task.FromResult<LedgerResult?>(null);
+        }
+
+        int before = ledger.LostAndFound(key!)?.Items.Count ?? 0;
+        return Run(player, "reclaim", () => ledger.Reclaim(key!),
+                   r => ((before - (ledger.LostAndFound(key!)?.Items.Count ?? 0)).ToString(CultureInfo.InvariantCulture), 0));
+    }
+
     /// <summary>Goes down to <paramref name="depth"/>, when the rules let this hero pick it; the window closes as he goes.</summary>
     public bool Descend(int player, int depth)
     {
@@ -637,7 +656,7 @@ public static class TownStatusTokens
 
     /// <summary>Every verb that tells a success.</summary>
     public static IReadOnlyList<string> Verbs =>
-        ["buy", "sell", "buyback", "identify", "repair", "repair_all", "craft", "crate", "stash_in", "stash_out", "descend"];
+        ["buy", "sell", "buyback", "identify", "repair", "repair_all", "craft", "crate", "stash_in", "stash_out", "descend", "reclaim"];
 
     /// <summary>The refusals the language file words, each <c>#Descent_Town_&lt;code&gt;</c>.</summary>
     public static IReadOnlyList<string> Worded =>
@@ -646,7 +665,7 @@ public static class TownStatusTokens
         TownRefusals.NoCrate, TownRefusals.NothingToRepair, TownRefusals.DepthClosed, TownRefusals.NoLevel,
         InventoryRefusals.BackpackFull, InventoryRefusals.StashFull, InventoryRefusals.WithdrawOnly, InventoryRefusals.NoItem,
         InventoryRefusals.NotEnoughAustralium, InventoryRefusals.WrongClass,
-        LedgerRefusals.NoHero, LedgerRefusals.NotInStock, LedgerRefusals.HostUnsupported,
+        LedgerRefusals.NoHero, LedgerRefusals.NotInStock, LedgerRefusals.HostUnsupported, LedgerRefusals.NothingLost, LedgerRefusals.LostAndFoundFee,
         TF2.Descent.Rules.Economy.RepairRefusals.NotRepairable, TF2.Descent.Rules.Economy.RepairRefusals.AtMaximum,
         TF2.Descent.Rules.Economy.RepairRefusals.Unusable,
         TF2.Descent.Rules.Economy.CraftRefusals.NotEnoughMetal, TF2.Descent.Rules.Economy.CraftRefusals.WrongInputs,

@@ -32,7 +32,7 @@ public sealed class HordePaths : IHordePaths, IDisposable
     private HordeNavData? _data;
     private HordeLevel? _level;
     private int _epoch;
-    private long _searches, _found, _unreachable, _outOfBudget, _ticks, _mostTicks, _pathCells;
+    private long _searches, _found, _unreachable, _outOfBudget, _nearest, _ticks, _mostTicks, _pathCells;
 
     public int Epoch => Volatile.Read(ref _epoch);
 
@@ -46,6 +46,9 @@ public sealed class HordePaths : IHordePaths, IDisposable
     public long Unreachable => Interlocked.Read(ref _unreachable);
 
     public long OutOfBudget => Interlocked.Read(ref _outOfBudget);
+
+    /// <summary>Searches answered <see cref="PathAnswer.Nearest"/>: a goal off the class's floor, led to the nearest place of the start's.</summary>
+    public long Nearest => Interlocked.Read(ref _nearest);
 
     /// <summary>The cells the found paths hold, all searches (what their length cost).</summary>
     public long CellsOnPaths => Interlocked.Read(ref _pathCells);
@@ -89,15 +92,28 @@ public sealed class HordePaths : IHordePaths, IDisposable
         {
             NavGraph graph = data.Graph;
             CellId start = data.CellAt(from, cls), goal = data.CellAt(to, cls);
+            AiVector end = to;
+            var found = PathAnswer.Found;
             if (!start.IsValid || !goal.IsValid || !data.Joined(start, goal, cls))
             {
-                Interlocked.Increment(ref _unreachable);
-                return PathAnswer.Unreachable;
+                // A goal off the class's floor: the place of the start's floor nearest it, to hold at.
+                int near = start.IsValid ? NearestOnFloor(data, start, to, cls) : -1;
+                if (near < 0)
+                {
+                    Interlocked.Increment(ref _unreachable);
+                    return PathAnswer.Unreachable;
+                }
+
+                Interlocked.Increment(ref _nearest);
+                goal = new CellId(near);
+                end = graph.Cell(near).Centre;
+                found = PathAnswer.Nearest;
+                if (near == start.Index || (end - from).Length2D <= HoldUnits)
+                    return PathAnswer.Nearest;
             }
 
             // A goal more than the horizon's doors away: as far as just past the horizon's last door this time.
-            AiVector end = to;
-            if (Horizon(data, level, from, to, cls, out AiVector past, out CellId pastCell) && data.Joined(start, pastCell, cls))
+            if (found == PathAnswer.Found && Horizon(data, level, from, to, cls, out AiVector past, out CellId pastCell) && data.Joined(start, pastCell, cls))
             {
                 end = past;
                 goal = pastCell;
@@ -127,6 +143,8 @@ public sealed class HordePaths : IHordePaths, IDisposable
                 arrive[i] = s.Squared[i + 1].Arrive;
             }
 
+            if (found == PathAnswer.Nearest)
+                return PathAnswer.Nearest;
             Interlocked.Increment(ref _found);
             return count > 0 ? PathAnswer.Found : PathAnswer.Unreachable;
         }
@@ -172,6 +190,32 @@ public sealed class HordePaths : IHordePaths, IDisposable
             return false;
         past = past with { Z = data.Graph.Cell(cell).FloorZ };
         return true;
+    }
+
+    /// <summary>A body this near the place it is led to hold at is there: no corner.</summary>
+    public const float HoldUnits = 40f;
+
+    /// <summary>
+    /// The cell of <paramref name="start"/>'s floor for <paramref name="cls"/> (joined to it, free)
+    /// nearest <paramref name="to"/>: on the floor plane, with a unit of height counted twice so a
+    /// floor under or over the goal is not taken for it; the lower index on a tie. -1 for none.
+    /// </summary>
+    private static int NearestOnFloor(HordeNavData data, CellId start, AiVector to, ClearanceClass cls)
+    {
+        NavGraph graph = data.Graph;
+        int best = -1;
+        float bestD = float.MaxValue;
+        for (int i = 0; i < graph.CellCount; i++)
+        {
+            NavCell c = graph.Cell(i);
+            if (!c.Admits(cls) || data.Open.CellBlocked(i) || !data.Joined(start, new CellId(i), cls))
+                continue;
+            float d = (c.Centre - to).Length2D + 2f * MathF.Abs(c.FloorZ - to.Z);
+            if (d < bestD)
+                (best, bestD) = (i, d);
+        }
+
+        return best;
     }
 
     /// <summary>How many doors along the room route a search plans at most: the rest is asked from there.</summary>

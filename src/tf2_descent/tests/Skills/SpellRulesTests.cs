@@ -249,10 +249,10 @@ public sealed class SpellRulesTests
     [Fact]
     public void A_spells_damage_is_the_action_formula_over_smarts_now()
     {
-        // Fireball rank 1: base 40 x (1 + 0.04 x 1) x (1 + 30 / 50).
+        // Fireball rank 1: base 40 x (1 + 0 x 1) x (1 + 30 / 175) (skill_settings retuned by RU14).
         var hero = Read(Heroes.New("soldier", "t"), "fireball", 1);
 
-        Assert.Equal(40 * 1.04 * 1.6, Spells.Resolve(hero, WithSmarts(hero, 30), "fireball", 1).Damaging!["damage"], 9);
+        Assert.Equal(40 * (1 + 0.0 * 1) * (1 + 30.0 / 175), Spells.Resolve(hero, WithSmarts(hero, 30), "fireball", 1).Damaging!["damage"], 9);
     }
 
     //-------------------------------------------------------------------------
@@ -269,7 +269,7 @@ public sealed class SpellRulesTests
         Assert.True(r.Cast);
         Assert.Equal(3, r.Spell!.Rank);
         Assert.Equal(0, SpellRules.Rank(heavy, "fireball"));
-        Assert.Equal(40 + 40, r.Spell.Damaging!["damage"] / (1.04 * (1 + 5.0 / 50)), 9);   // base 80 at rank 3
+        Assert.Equal(40 + 40, r.Spell.Damaging!["damage"] / ((1 + 0.0 * 1) * (1 + 5.0 / 175)), 9);   // base 80 at rank 3
     }
 
     [Fact]

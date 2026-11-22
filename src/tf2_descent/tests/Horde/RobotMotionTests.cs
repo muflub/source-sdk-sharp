@@ -395,6 +395,27 @@ public sealed class RobotMotionTests
         Assert.Equal(floor, rig.At(1).Z, 1);
     }
 
+    /// <summary>
+    /// A body stepping down off a ledge lower than a step (the root of a live stall on depth 1 seed
+    /// 1: bodies on the widedrift room's 8-unit ledge sat still, following, not blocked, for good):
+    /// the movement walks it across and down onto the floor below, and the accept, which swept
+    /// that step as one straight line, struck the ledge it stood on at once (a floor's face, so no
+    /// clip and no block) and kept the body where it was, tick after tick. It walks off now.
+    /// </summary>
+    [Fact]
+    public void A_body_walks_down_off_a_ledge_lower_than_a_step()
+    {
+        var rig = new MotionRig(world: new BoxMotionWorld { FloorZ = 0f }.Put(new Vector(-1024, -1024, 0), new Vector(100, 1024, 8)));
+        rig.Stand(1, At(80, 0, 8));
+        Assert.InRange(rig.At(1).Z, 7.9f, 9.1f);
+
+        rig.Motion.Order(1, MotionRig.Follow(At(400, 0, 0)), LookIntent.AlongPath, long.MaxValue);
+        rig.Tick(66);
+
+        Assert.True(rig.At(1).X > 200f, $"the body stands at {rig.At(1)}: it never stepped down off the ledge");
+        Assert.Equal(0f, rig.At(1).Z, 0.1f);
+    }
+
     [Fact]
     public void Facing_turns_at_the_bounded_rate()
     {

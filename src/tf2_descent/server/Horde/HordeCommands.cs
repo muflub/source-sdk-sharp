@@ -93,7 +93,7 @@ public static class HordeLines
 
         var p = roster.Position(i);
         var line = FormattableString.Invariant(
-            $"robot {i} {roster.Id(i)} {roster.Template(i)} scale {roster.Scale(i):0.000} level {roster.MonsterLevel(i)} {roster.State(i)} room {roster.Room(i)} at ({p.X:0.0},{p.Y:0.0},{p.Z:0.0}) yaw {roster.Yaw(i):0} life {roster.Life(i):0.###} of {roster.Stats(i).Life:0.###} champion {roster.IsChampion(i)} body {roster.Body(i)}");
+            $"robot {i} {roster.Id(i)} {roster.Template(i)} scale {roster.Scale(i):0.000} level {roster.MonsterLevel(i)} {roster.State(i)} room {roster.Room(i)} at ({p.X:0.0},{p.Y:0.0},{p.Z:0.0}) yaw {roster.Yaw(i):0} post ({roster.Post(i).X:0},{roster.Post(i).Y:0},{roster.Post(i).Z:0}) yaw {roster.PostYaw(i):0} life {roster.Life(i):0.###} of {roster.Stats(i).Life:0.###} champion {roster.IsChampion(i)} body {roster.Body(i)}");
         int b = roster.Body(i);
         if (b == 0)
             return line;

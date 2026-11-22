@@ -19,6 +19,9 @@ internal sealed class FakePaths : IHordePaths
     /// <summary>A path of one corner, the goal itself.</summary>
     public bool Short { get; set; }
 
+    /// <summary>The goal is off the class's floor: the answer is <see cref="PathAnswer.Nearest"/>, one corner to this place (none from it).</summary>
+    public AiVector? NearestTo { get; set; }
+
     public List<(AiVector From, AiVector To, ClearanceClass Class)> Asked { get; } = [];
 
     public PathAnswer Find(AiVector from, AiVector to, ClearanceClass cls, int budget, Span<AiVector> corners, Span<NavEdgeType> arrive,
@@ -28,6 +31,18 @@ internal sealed class FakePaths : IHordePaths
         Asked.Add((from, to, cls));
         count = 0;
         truncated = false;
+        if (NearestTo is { } near)
+        {
+            if ((near - from).Length2D > 1f)
+            {
+                corners[0] = near;
+                arrive[0] = NavEdgeType.Walk;
+                count = 1;
+            }
+
+            return PathAnswer.Nearest;
+        }
+
         if (Answer != PathAnswer.Found)
             return Answer;
         if (Short)
@@ -168,6 +183,30 @@ public sealed class HordeRouteTests
         }
 
         Assert.Equal(1, paths.Searches);
+    }
+
+    /// <summary>
+    /// A goal off the robot's floor (a giant hunting a hero into a room its hull cannot enter): it
+    /// walks to the nearest place of its floor and holds there, a hold and not a follow, so it never
+    /// grinds into the door frame on the room route, between its turns too.
+    /// </summary>
+    [Fact]
+    public void A_goal_off_the_robots_floor_walks_to_the_nearest_place_of_its_floor_and_holds_there()
+    {
+        var level = Row(4, markers: 0);
+        var near = Centre(1);
+        var paths = new FakePaths { NearestTo = near };
+        var route = new HordeRoute(level, paths);
+
+        var walk = route.Follow(new Tick(120), View(77, ClearanceClass.Hull4), From, Goal, MoveSpeed.Run);
+        Assert.Equal(MoveKind.Follow, walk.Kind);
+        Assert.Equal(near, walk.Corner(walk.CornerCount - 1));
+
+        var there = route.Follow(new Tick(120 + HordeRoute.SearchEveryTicks), View(77, ClearanceClass.Hull4), near, Goal, MoveSpeed.Run);
+        Assert.Equal(MoveKind.Hold, there.Kind);
+        for (int t = DecideSchedule.Period; t < HordeRoute.SearchEveryTicks; t += DecideSchedule.Period)
+            Assert.Equal(MoveKind.Hold, route.Follow(new Tick(120 + HordeRoute.SearchEveryTicks + t), View(77, ClearanceClass.Hull4), near, Goal, MoveSpeed.Run).Kind);
+        Assert.Equal(2, paths.Searches);
     }
 
     [Fact]

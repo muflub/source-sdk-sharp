@@ -110,7 +110,7 @@ public sealed class BossContentTests
 
         Assert.Equal("nuke_volley", Rules.Bosses.SpecialOf(nuke, 0)!.Id);
         Assert.Empty(BossRules.AddsOf(nuke, 0));
-        Assert.Equal([("demoman", 2)], BossRules.AddsOf(nuke, 1).Select(a => (a.Template, a.Count)));
+        Assert.Equal([("demoman", 1)], BossRules.AddsOf(nuke, 1).Select(a => (a.Template, a.Count)));
         Assert.Null(Rules.Bosses.SpecialOf(Rules.Bosses.Of("captain_punch")!, 0));
     }
 

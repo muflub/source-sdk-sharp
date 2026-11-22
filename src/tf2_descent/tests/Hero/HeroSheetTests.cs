@@ -145,9 +145,9 @@ public sealed class HeroSheetTests
     [Fact]
     public void Max_life_is_class_life_plus_life_per_grit_and_per_level()
     {
-        // Soldier: 200 life, 3 a Grit (15 at start), 2 a level.
-        Assert.Equal(200 + 3 * 15 + 2 * 1, Heroes.Stats(Heroes.New("soldier", "t")).MaxLife, 9);
-        Assert.Equal(200 + 3 * 15 + 2 * 10, Heroes.Stats(AtLevel("soldier", 10)).MaxLife, 9);
+        // Soldier: 200 life, 3 a Grit (15 at start), 18 a level (RU14's pacing: 2 was).
+        Assert.Equal(200 + 3 * 15 + 18 * 1, Heroes.Stats(Heroes.New("soldier", "t")).MaxLife, 9);
+        Assert.Equal(200 + 3 * 15 + 18 * 10, Heroes.Stats(AtLevel("soldier", 10)).MaxLife, 9);
     }
 
     //-------------------------------------------------------------------------

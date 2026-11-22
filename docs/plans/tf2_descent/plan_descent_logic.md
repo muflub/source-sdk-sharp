@@ -7,8 +7,9 @@ Measured at `ce143b36b` (main, 2026-11-10). Reviewed and committed that day
 every hero, horde, world and UI package. CR1, CR3 to CR6, CR8 to CR10; every
 rules package but RU14 (its retune and model are held on `descent-ru-d` for
 a ruling); HE0 to HE10 with the class gate; HO0 to HO13; WO1 to WO9; UI1 to
-UI7. Ruled and not built: CR2. Not started, held for the user: CR7, CR11.
-No lane is running. Section 4.7 says what each landed package gave and
+UI7. Ruled and not built: CR2. Started 2026-11-13 on the user's rulings
+(L14 to L16), from `1e8404f81`: RU14 with boss balance, CR7, CR11, and a
+lane for four known defects; a whole run follows. Section 4.7 says what each landed package gave and
 found. Each part of section 5's milestones has been seen live in an unhosted
 game, one package's proof at a time; no whole run has been played through in
 one sitting, and nothing has been run hosted.
@@ -43,6 +44,9 @@ their row, so the two plans do not both assign them.
 | L11 | **(2026-11-11)** A player's equipped items and their attributes are sent to every client, on the player's own networked state: all players see what the others have equipped. | Replaces CR9's owner-only entity. The owner's client predicts from it; every other client can show it (inspect, party frames). An equipped item's rolled attributes are therefore not secret. An unidentified item cannot be equipped (D22), so nothing hidden is exposed. |
 | L12 | **(2026-11-11)** A robot is hurt by its own blast, is pushed by blasts as a player is, and can rocket jump and grenade jump as a player can. | Replaces the kept divergence (CR10). The body's motion takes the blast push stock gives a player (HO3, HO8); Soldier and Demoman robots may blast jump as a decision (HO6, HO12). |
 | L13 | **(2026-11-11)** Subagent lanes of this plan run on Opus 5.5. | Section 6. |
+| L14 | **(2026-11-13)** The economy retune and model land as a starting point: a gate that still fails stays a skipped fact with its numbers, and boss balance is done with it. | RU14 (branch `descent-ru14`, carrying `c5e116065` and `f7de49543` from `descent-ru-d`). |
+| L15 | **(2026-11-13)** CR7 (lag compensation for opted-in entities) and CR11 (pose parameters on the server) start. | Core packages; lanes `descent-cr7`, `descent-cr11`. |
+| L16 | **(2026-11-13)** The known defects are fixed first, then one whole run is played end to end; the asks of section 7 are sent to the host and map sessions. | Lane `descent-defects`; the run after it lands. The asks went that day to `source-sdk-map-tools-af`, `source-sdk-sharp-26` and `source-sdk-sharp-46` (which session makes the levels was not known). |
 
 ### 0.2 What the tree has that `plan_tf2_rpg.md` did not know
 

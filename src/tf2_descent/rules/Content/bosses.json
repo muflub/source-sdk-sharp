@@ -7,8 +7,8 @@
       "id": "sir_nukesalot", "depth": 5, "companion": "",
       "phases": [
         { "at": 100, "special": "nuke_volley", "specialSeconds": 12, "adds": [] },
-        { "at": 66, "special": "nuke_volley", "specialSeconds": 9, "adds": [ { "template": "demoman", "count": 2 } ] },
-        { "at": 33, "special": "nuke_volley", "specialSeconds": 6, "adds": [ { "template": "runt_demoman", "count": 3 } ] }
+        { "at": 66, "special": "nuke_volley", "specialSeconds": 9, "adds": [ { "template": "demoman", "count": 1 } ] },
+        { "at": 33, "special": "nuke_volley", "specialSeconds": 6, "adds": [ { "template": "runt_demoman", "count": 2 } ] }
       ]
     },
     {
@@ -38,7 +38,7 @@
       "attack": "", "shots": 1, "fanDegrees": 0, "damageShare": 1.5, "crit": false, "radius": 400, "damageType": "blast" }
   ],
   "tank": {
-    "template": "tank", "stopSeconds": 30, "finalSeconds": 45, "arriveUnits": 64, "centreClearUnits": 320, "roofDamage": 5000,
+    "template": "tank", "stopSeconds": 120, "finalSeconds": 120, "arriveUnits": 64, "centreClearUnits": 320, "roofDamage": 5000,
     "immune": ["stun", "emp_stun", "slowed", "knock_up"]
   },
   "sounds": {

@@ -363,11 +363,13 @@ public sealed class BossServerTests
         Assert.True(rig.Ask(body, HordeAbilities.BossSummon, 1));
 
         var adds = Enumerable.Range(before, rig.Roster.Count - before).ToList();
-        Assert.Equal(2, adds.Count);   // sir_nukesalot's phase 1: two demomen, once
+        var asked = Assert.Single(BossRules.AddsOf(TheRules.Content.Bosses.Of("sir_nukesalot")!, 1));   // phase 1: demomen (RU14 tuned the count), once
+        Assert.Equal("demoman", asked.Template);
+        Assert.Equal(asked.Count, adds.Count);
         Assert.All(adds, a => Assert.Equal(("demoman", BossRig.ArenaRoom, RobotState.Embodied), (rig.Roster.Template(a), rig.Roster.HomeRoom(a), rig.Roster.State(a))));
         Assert.All(adds, a => Assert.True(rig.Level.Rooms[BossRig.ArenaRoom].Contains(rig.Roster.Post(a) with { Z = 1 })));
         Assert.Equal(1, rig.Abilities.Refused(BossRefusal.Summoned));
-        Assert.Equal(2, rig.World.Particles.Count(p => p.Name == TF2.Descent.Server.Horde.Champions.ChampionTeleports.In));
+        Assert.Equal(asked.Count, rig.World.Particles.Count(p => p.Name == TF2.Descent.Server.Horde.Champions.ChampionTeleports.In));
     }
 
     [Fact]

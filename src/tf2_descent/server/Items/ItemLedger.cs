@@ -95,6 +95,10 @@ public sealed class ItemLedger(
     public Task<bool> RecordDeath(string hero, Vector position) => Current.RecordDeath(hero, position);
     public Task<LootAnswer> LootCorpse(string hero) => Current.LootCorpse(hero);
     public LedgerCorpse? Corpse(string hero) => Current.Corpse(hero);
+    public IReadOnlyList<string> CorpsesLost() => Current.CorpsesLost();
+    public LedgerCorpse? LostAndFound(string hero) => Current.LostAndFound(hero);
+    public long? ReclaimFee(string hero) => Current.ReclaimFee(hero);
+    public Task<LedgerResult> Reclaim(string hero) => Current.Reclaim(hero);
     public Task<LedgerResult> Consume(string hero, int slot) => Current.Consume(hero, slot);
     public Task<LedgerResult> Wear(string hero, IReadOnlyList<WearEvents> events) => Current.Wear(hero, events);
     public Task<LedgerResult> RepairWorn(string hero, string equipSlot, WornRepair how) => Current.RepairWorn(hero, equipSlot, how);

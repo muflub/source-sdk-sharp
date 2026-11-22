@@ -22,7 +22,8 @@ namespace TF2.Descent.Server.Horde.Motion;
 /// velocity into the face is removed, so the next step slides along it), and
 /// the body's state is corrected there, so the next step starts from where the
 /// body really is. A step that rose (a stair) and was blocked straight is tried
-/// once more, up and then across, as the movement itself climbs. (2) <b>face
+/// once more, up and then across, as the movement itself climbs; one that fell
+/// (off a ledge), across and then down. (2) <b>face
 /// and write</b>: each lent body turns towards its look (the look's point, the
 /// named actor's eye asked of <see cref="IHordeActors"/> now, or along its
 /// motion while it goes somewhere: never along a push or the pushaway, as a
@@ -475,7 +476,7 @@ public sealed class RobotMotion(IMotionWorld world) : IRobotMotion, IRobotImpuls
                     next.Velocity = Vector.Zero;
                 }
             }
-            else if (t.Hit && t.Fraction < 1f && !Climbed(start, to, mins, maxs, info.Handle))
+            else if (t.Hit && t.Fraction < 1f && !Climbed(start, to, mins, maxs, info.Handle) && !Descended(start, to, mins, maxs, info.Handle))
             {
                 next.Origin = t.End;
                 next.Velocity = ClipVelocity(next.Velocity, t.Normal);
@@ -563,6 +564,22 @@ public sealed class RobotMotion(IMotionWorld world) : IRobotMotion, IRobotImpuls
         var up = new Vector(start.X, start.Y, to.Z);
         _sweeps += 2;
         return !world.Sweep(start, up, mins, maxs, ignore).Hit && !world.Sweep(up, to, mins, maxs, ignore).Hit;
+    }
+
+    /// <summary>
+    /// Whether a falling step blocked straight goes clear across and then down (off a ledge lower
+    /// than a step, as the movement steps down): the straight line from a body standing on the
+    /// ledge to the floor below strikes the ledge's top at once, a floor's face, and would keep the
+    /// body on the ledge for good, following and never blocked.
+    /// </summary>
+    private bool Descended(in Vector start, in Vector to, in Vector mins, in Vector maxs, EntityHandle ignore)
+    {
+        if (to.Z >= start.Z - 0.5f)
+            return false;
+
+        var across = new Vector(to.X, to.Y, start.Z);
+        _sweeps += 2;
+        return !world.Sweep(start, across, mins, maxs, ignore).Hit && !world.Sweep(across, to, mins, maxs, ignore).Hit;
     }
 
     private static Vector ClipVelocity(Vector v, Vector normal)

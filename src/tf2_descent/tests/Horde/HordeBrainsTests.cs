@@ -120,6 +120,87 @@ public sealed class HordeBrainsTests
         Assert.Equal(post, order.Move.Corner(order.Move.CornerCount - 1));
     }
 
+    /// <summary>
+    /// A robot that walked home holds at its post looking the way its post faces (its marker's yaw,
+    /// <see cref="RobotRoster.PostYaw"/>), not along the last stretch of its walk: the brains hand the
+    /// motion a look at a point out along the post yaw, and the motion turns to it at its bounded rate.
+    /// </summary>
+    [Fact]
+    public void A_robot_walked_away_and_home_again_holds_looking_along_its_post_yaw()
+    {
+        var (rig, row, body) = WalkedHome();
+        float postYaw = rig.Roster.PostYaw(row);
+
+        var last = rig.Orders.Orders.Last(o => o.Body == body);
+        Assert.Equal(MoveKind.Hold, last.Move.Kind);
+        Assert.Equal(LookKind.Point, last.Look.Kind);
+        var d = last.Look.Point - rig.Poses.Position(body);
+        float yaw = MathF.Atan2(d.Y, d.X) * (180f / MathF.PI);
+        Assert.True(MathF.Abs(TF2.Descent.Ai.Motion.MotionAngles.Difference(yaw, postYaw)) < 0.5f, $"looks along {yaw}, the post faces {postYaw}");
+    }
+
+    /// <summary>
+    /// A robot at its post searching where it heard a sound keeps watching that place: the post yaw
+    /// is only for a robot with nothing to look at, never for one with a target or a place to watch.
+    /// </summary>
+    [Fact]
+    public void A_robot_searching_at_its_post_keeps_watching_what_it_heard()
+    {
+        var (rig, row, body) = WalkedHome();
+        var at = rig.Poses.Position(body);
+        float r = (rig.Roster.PostYaw(row) + 90f) * (MathF.PI / 180f);
+        var heard = at + new AiVector(MathF.Cos(r) * 30f, MathF.Sin(r) * 30f, 0f);
+        rig.Slide = false;
+        rig.Sounds.Add(new HordeSound(SoundKind.Gunfire, heard, 1500f, 0, rig.Level.RoomAt(heard)));
+        int before = rig.Orders.Orders.Count;
+        rig.Tick(4 * DecideSchedule.Period);
+
+        var holds = rig.Orders.Orders.Skip(before).Where(o => o.Body == body && o.Move.Kind == MoveKind.Hold).ToList();
+        Assert.Contains(holds, o => o.Look.Kind == LookKind.Watch);
+        Assert.DoesNotContain(holds, o => o.Look.Kind == LookKind.Point);
+    }
+
+    /// <summary>A robot rolled a post of its own with a yaw the walk home does not end on, put 300 units off and walked home by the rig's slide.</summary>
+    private static (BrainRig Rig, int Row, int Body) WalkedHome()
+    {
+        var rig = new BrainRig(Row(4, markers: 2));
+        int row = -1;
+        for (int i = 0; i < rig.Roster.Count && row < 0; i++)
+            if (rig.Roster.HomeMarker(i) >= 0 && MathF.Abs(TF2.Descent.Ai.Motion.MotionAngles.Difference(rig.Roster.PostYaw(i), -90f)) > 45f)
+                row = i;
+
+        Assert.True(row >= 0, "the control: no robot was rolled a post facing away from the walk home");
+        var id = rig.Roster.Id(row);
+        var post = rig.Roster.Post(row);
+        rig.Roster.WakeRoom(rig.Roster.HomeRoom(row));
+        int body = rig.Lend(id);
+        rig.Poses.Set(body, post + new AiVector(0f, 300f, 0f), 0f);
+
+        rig.TickUntil(() => rig.Poses.Position(body).DistanceTo(post) <= HuntDecider.ArriveUnits, 2000);
+        Assert.True(rig.Poses.Position(body).DistanceTo(post) <= HuntDecider.ArriveUnits, "the control: the robot never walked home");
+        Assert.True(rig.Orders.Orders.Any(o => o.Body == body && o.Move.Kind == MoveKind.Follow), "the control: no walk home was ordered");
+        rig.Tick(3 * DecideSchedule.Period);
+        return (rig, row, body);
+    }
+
+    /// <summary>A follower whose body walks keeps its still clock at its last step; one whose body stands keeps the tick it stood from; a holder has none.</summary>
+    [Fact]
+    public void A_followers_still_clock_runs_only_while_its_body_stands()
+    {
+        var (rig, _, body) = Chasing();
+        rig.Tick(30);
+        long walking = rig.Brains.FollowingStillSince(body);
+        Assert.True(walking >= rig.Now - 10, $"a walking follower has stood since {walking} (now {rig.Now})");
+
+        rig.Slide = false;
+        long stoodFrom = rig.Now;
+        rig.Tick(120);
+        long standing = rig.Brains.FollowingStillSince(body);
+        Assert.InRange(standing, stoodFrom - 10, stoodFrom + 1);
+
+        Assert.Equal(-1, new BrainRig().Brains.FollowingStillSince(1));
+    }
+
     [Fact]
     public void A_brain_is_added_when_a_body_is_lent_and_removed_when_it_is_returned()
     {

@@ -108,17 +108,29 @@ public sealed class HordePathsTests(ITestOutputHelper output)
         Assert.True((corners[i] + through * 0.5f - door.Position).Length2D < 2f, "the crossing is not through the door's centre");
     }
 
+    /// <summary>
+    /// A giant hunting into a room its floor does not reach (the pillar room, 17, behind the
+    /// widedrift room 15) is led to the place of its own floor nearest the goal, on its floor
+    /// and nearer the goal than it stands, to hold there.
+    /// </summary>
     [Fact]
-    public void A_giant_asked_for_a_room_its_class_cannot_reach_is_answered_unreachable()
+    public void A_giant_asked_for_a_room_its_class_cannot_reach_is_led_to_the_nearest_place_of_its_floor()
     {
         using var paths = Paths();
-        // Three doors from the pillar room: the search stops past the door into the dogleg (16), which no giant reaches.
         var from = Floor(new AiVector(2560f, 5300f, 64f));
         var goal = PillarRoom;
 
         Assert.Equal(PathAnswer.Found, Find(paths, from, goal, ClearanceClass.Stand).Answer);
-        Assert.Equal(PathAnswer.Unreachable, Find(paths, from, goal, ClearanceClass.Hull5).Answer);
-        Assert.Equal(1, paths.Unreachable);
+        var (answer, corners, _, _) = Find(paths, from, goal, ClearanceClass.Hull5);
+
+        Assert.Equal(PathAnswer.Nearest, answer);
+        Assert.NotEmpty(corners);
+        var end = corners[^1];
+        var start = Nav.CellAt(from, ClearanceClass.Hull5);
+        var held = Nav.CellAt(end, ClearanceClass.Hull5);
+        Assert.True(held.IsValid && Nav.Joined(start, held, ClearanceClass.Hull5), $"the hold at {end} is off the giant's floor");
+        Assert.True((end - goal).Length2D < (from - goal).Length2D - 500f, $"the hold at {end} is no nearer the goal {goal} than {from}");
+        Assert.Equal(1, paths.Nearest);
     }
 
     [Fact]
