@@ -14,7 +14,8 @@ Entries by owner (the file keeps its order; this is the index):
 - **The live gate** (tools/live-gate, tools/daily-gate): live-gate's
   fault check across a hot reload; chat's second
   client exits during connect; no step covers screen shakes and fades; a
-  rename cannot be driven on a Steam client.
+  rename cannot be driven on a Steam client; gib-ragdoll's budget and the
+  fan debris' friction crossings.
 - **The server lane** (plan_server_native_v2): player-movement controls and
   entity fields; player weapon and score questions; managed decisions whose
   native caller went in T2; the sound emit path (T4a); temp entities and
@@ -1416,3 +1417,22 @@ From lane p6e (main after `694f4f618`). Its runs and notes were in that lane's `
 ## Descent: make descent-install then any build is refused as stale (2026-11-11)
 
 Found by the Descent horde spike (`docs/plans/tf2_descent/plan_descent_logic.md` 3.11). `make descent-install` links a linked level into the mod's `pool/maps`; the setup check that `make debug` and `make headless` run then calls those links stale and stops ("remove stale ..."). The spike copied the three files (`.bsp`, `.nav3d`, `.map2d`) into `bin/<config>/mods/tf2_descent/pool/maps/` instead. Either the install copies, or the setup check knows the pool. The map session owns both.
+
+## gib-ragdoll's budget: the fan debris' friction crossings (2026-11-13)
+
+At dbb6bb8fc (debug, full two-pass live gate) gib-ragdoll's checks all pass
+and its crossing budget reads 29.056 and 25.500 per frame against a ceiling
+of 28.728, recorded at 11.5-12.5 (tools/live-gate-budget.tsv row
+gib-ragdoll). The excess is ServerPhysicsCollisionFriction, 1,433-1,647 per
+step (about 14 per frame): IPhysicsCollisionEvent::Friction crosses into
+managed once per report (PhysicsCollisionEventBinding.Friction). The
+reports are the fan room's fan_debris: the trigger step drops the player
+into dm_lockdown's fan room, the wind blows them into the pile at the
+spinning fan, and five unbreakable debris (buckets, shoe, cinder block,
+plank) wake there and rub, pressed by fan_wind, for the rest of the level;
+every step after trigger pays for them. Night runs from 2026-11-03 read
+30.5-37.5 (red). Not a ceiling to raise (CLAUDE.md: a blown budget is a
+boundary-design task). **Owner:** the live gate / the physics boundary.
+**Next:** check in stock whether those debris settle against the fan (the
+A/B probe technique); if they rub there too, batch Friction natively into
+the event ring rather than one crossing per report.

@@ -470,7 +470,21 @@ two were sent back for a fuller account.
   asked for. Lane G9.
 - The rooms proposal (Q-R1 to Q-R4 in
   `plan_bots_teams_tf2_part_g_rooms.md`) and whether the Course branch
-  stays on ordinary control-point maps: "explain more". Not ruled.
+  stays on ordinary control-point maps: "explain more". Explained the same
+  day, and then ruled:
+- **Control-point maps:** "bots should do both on control point maps, jump
+  to objectives some times and fight with team other times". The Course
+  branch's send-to-the-nearest-point stays, and a bot on such a map also
+  spends part of its time with its team's fight, changing between the two.
+  Lane Gc.
+- **The rooms proposal:** Q-R1, "can we make a nav3d file per sealed space
+  and load it on demand?"; Q-R2 (a room is built when a bot first gets
+  there), "sure"; Q-R3 (the two big courses on demand), "we need to find a
+  way to simplify the nav mesh for these sealed sections"; Q-R4 (this plan
+  may edit the idle TF2 AI session's files), "yes". Q-R1 and Q-R3 change
+  the proposal: lane Gr measures a file per sealed space and ways to make a
+  big room's navigation smaller, and the proposal is revised from its
+  numbers before anything is built into the game.
 
 ### Open questions, each with a recommendation (taken as recommended 2026-11-10; Q-G6's first item since allowed)
 
@@ -753,6 +767,10 @@ Everything below is on local main; nothing is pushed.
 | G7c, a wall jump | `eaa8efe55` (6 commits) | a Wall family: a jump up whose second rocket is fired at a wall beside the flight; cache revision 3, store recipe format 5; `ss_ai_tf_wall`, a course only it finishes; a link's start is walked onto to within 4 u; the second rocket's deadline shot is gone |
 | Ge, a course's ends, the friend line, the gate's step | `bed4d5221` (10 commits) | a capture area whose point the level does not place is a course's end (`TFCourseEnds`), reached for a life, easiest title first; `ss_ai_tf_ends`; `FriendLine` judges a teammate's body where the shot passes it, HL2MP's replays unchanged; `tools/tf2-gate --steps bots-jump` |
 | G8, the practice tool, a shown wall jump | `8547149f8` (7 commits) | `tools/ai-jump-practice` searches a level's weak and missing jumps offline and writes `link` rows of source Practice; the learn pass flies each in the level's simulator before it joins the links (`JumpPractice`); a shown jump past one rocket's rise is asked a wall jump too; `tools/ai-tf-jump`'s tries start in a running round |
+| Gp2, prefire's clip rule | `cade08806` (2 commits) | a bot that rocket jumps prefires with one rocket loaded (user, 2026-11-13); one decide is one clip refusal in the counters, not two |
+| Gr, a file per sealed space and a smaller room (offline) | `3ae8d86c7` (9 commits) | a hull navigation cut into a file per room and a room index; a derived graph with a teleport's cells left out and flat floor merged in blocks; tools `ai-replay navsplit` and `navcells`. Nothing in the game calls it |
+| G9, a jump to a health pack | `7b3cc109c` (15 commits) | a planned jump may leave the bot under the floor of 90 when a pack or a cabinet it may use is within 384 u on foot of the landing, it lands with 50 or more, and the place pays the rest; the bot takes the pack next; `ai_tf_feel_jumphealth`; `ss_ai_tf_pack`, the gate's sixth jump map. Pogo measured and left out |
+| Gc, both on a control-point map | `9e7e450ef` (20 commits) | with a teammate on a level of control points and no flag, a bot holds the points or the team for a stretch; the team stance gathers at a rally called where the team is and pushes the point together (the rally and push of the main plan's C.6.1); `/ai/points`; `cp_granary` joins `TF_NAV_MAPS` |
 
 **The physics changed under the jump (F231, the TF2 port's lane).** A TF2
 player now carries TF2's hull (48 × 48 × 82, 62 ducked), not HL2's box, so a
@@ -1492,17 +1510,146 @@ run on that run's store rc 0, three boots with no fault line).
 - **A replay needs** the snapshot's practice rows, as it needs the shown
   jumps' rows.
 
+**Gp2, prefire's clip rule** (`cade08806`, 2026-11-14; the gate: `make
+check` 14 legs at the landing tip; at the lane's base the five jump maps 5
+and 5 of 5 each side of a reload, boots with 20, 12 and 28 kills and no
+fault lines).
+
+- **The rule.** `TFDecider.PrefireAllowed` asks for one rocket loaded, for
+  every bot. At a link's start with too few, the jump waits for the reload.
+- **The counter.** Both of a decide's asks (the belief shot and the danger
+  shot) counted a clip refusal; a decide is one now. Lane Gp's 239, and the
+  base's counts here, were up to twice what happened.
+- **Measured** (debug, ctf_2fort, 8 bots, store off, three runs of 300 s
+  before and three after, sums): chances 24 → 50, aims 10 → 16, rockets
+  1 → 4, hits 1 → 3, self hurt 1 → 0. Every run after fired at least one;
+  no run before fired more than one. Near and far refusals rose (44 → 131,
+  66 → 192): the reach is what limits prefire now. Captures, pickups, kills
+  and stuck reports are inside the spread.
+- **No jump went short.** A link refused for the clip or for a reload: 0 in
+  all six runs. Link tries 13 → 23, landed 13 → 20; the three that failed
+  were two blasts that lifted too little and one called off before its
+  shot, and a link is begun only with its rockets loaded. No rule was added.
+- **Found.** `tools/ai-mutations` names no TF2 assembly among its subjects,
+  so a TF2 rule's mutation cannot be one of its rows (the proofs are the
+  lane's own logs). Nothing counts a rocket fired at a teammate; only the
+  friend gate's holds are counted (0 in all six runs).
+
+**Gr, a file per sealed space and a smaller room** (`3ae8d86c7`,
+2026-11-14; `make check` 14 legs at the landing tip). Offline only: the
+user's Q-R1 and Q-R3 answers to the rooms proposal, measured. The numbers
+and the design they changed are in `plan_bots_teams_tf2_part_g_rooms.md`
+(R.1a, R.2), which waits for the user's go-ahead.
+
+- **A file per room works, cut on our side** (`NavHullSplit`,
+  `NavRoomIndex`): 28 room files, 22.1 MB together, the same graph bit for
+  bit as the region of the whole file; the first course opens in 0.31 s and
+  131 MB against 5.3 s and 762 MB. The index is 262 KB.
+- **A big room made small** (`NavGraphReduce`, `BrushModelBoxes`): the cells
+  inside teleport-back brushes left out and flat floor merged 4 by 4 take
+  pogo from 1.11 M cells to 236,000 and hard sync from 865,000 to 230,000.
+  Neither lowers the first derive; a 32 u voxel does (1.9 s, 778 MB), with
+  floors snapped to 32 u, unmeasured against the simulator.
+- **Found.** The sight table is rebuilt at every load, never cached.
+  `MapEntities.Read` cannot read a compressed entity lump.
+  `MapEntities.Hurt` takes a trigger's volume from its model's bounds, so a
+  `trigger_hurt` of several brushes is overstated on any map (a fix changes
+  those maps' graphs: to be measured per map with the rooms build).
+
+**G9, a jump to a health pack** (`7b3cc109c`, 2026-11-14; the gate at the
+lane's base: `make check` 14 legs, the six jump maps 5 and 5 of 5 each side
+of a reload, a show-then-learn run 5 of 5 by the learned link, boots with
+20, 26 and 24 kills and no fault lines; at the landing tip `make check`
+again, the pack course 3 and 3 of 3, two boots).
+
+- **The rule** (`JumpHealthRule`, the user's ruling in G.11). Plain: health
+  less the blast is 90 or more. By health: a pack the bot does not believe
+  gone, or a cabinet of its team or of every team, within 384 u along the
+  graph of the landing; landing health (after the blast and the worst fall)
+  50 or more; that and what the place gives back 90 or more. A search
+  spends on such a link `min(cost, cost + fall - min(pays, 40))` against a
+  budget of health less 90, which is exactly the two rules. The bot takes
+  the place next, in the air too.
+- **Proof.** `ss_ai_tf_pack` (four +350 jumps, a small pack by the third's
+  landing): on, 5 of 5 and 5 of 5 after a reload, the third jump begun at
+  116, landed at 74, the pack taken 0.81 s later; off, 0 of 2, the bot
+  says it cannot go on. A hurt bot going for a pack: jumps, 3.7 to 4.8 s;
+  off, walks, 5.9 to 7.0 s.
+- **In play it is inert so far.** ctf_2fort, 8 bots, three runs of 300 s
+  each way: no link lands by health and no jump by health was begun. The
+  rule allows; nothing seeks. That is the follow-up (lane G9b).
+- **Pogo: measured, left out.** A chain of two blasts covers 2,205 to 2,296
+  u in 4 s against a run's 960 and the best single jump's 1,339, at 145 to
+  156 health, and lands where planned 0.05 to 0.20 of the time under the
+  search's own error (0.8 is asked). Not flyable at the stock refire.
+- **Found and fixed, each with a fact.** A heal place within 16 u of a map
+  pack is that pack (after a changelevel the placed entities are 1.3 u
+  off). A link may begin during a reload with its rockets loaded. A heal
+  that broke off starts its patience again (every TF2 bot). Two dev routes
+  shared a hook order, which failed every dev API request; the hook-order
+  fact covers those routes now.
+- **A replay needs** each bot's `Feel.JumpHealth`, the published spends (or
+  the heal places as the placed entities gave them), each stretch plan's
+  heal places, and the item beliefs with `ExpectedBack`.
+
+**Gc, both on a control-point map** (`9e7e450ef`, 2026-11-14; the gate at
+that tip: `make check` 14 legs, the six jump maps 5 and 5 of 5 each side of
+a reload, boots on cp_granary, ctf_2fort and the duel map with 20, 16 and 8
+kills and no fault lines). The user's ruling in G.11: "do both ... jump to
+objectives some times and fight with team other times".
+
+- **Where.** A level of control points and no flag, with no course ends,
+  for a bot with a teammate on its scoreboard. A bot alone, or a level
+  with ends, runs the Course branch as before (the courses 3 and 3 of 3).
+- **The points** (`TFDecider.Points.cs`): an own point being taken, or one
+  with an enemy seen on it; else the nearest point the team may take, by
+  the Course way; standing on it.
+- **The team** (`TFDecider.Rally.cs`): gather, then push. A bot calls a
+  rally (the core's callout) at the middle of the teammates it can place,
+  moved toward the point while out of the enemy's last-seen sight; one that
+  places nobody calls none and takes the points. When half the team's
+  players (at least 2) are within 384 u, or the rally's time is up, the
+  caller calls the push and they go for the point together, a rocket jumper
+  by the route's jumps, each waiting for one who falls behind. After a
+  push a bot takes the points; one that dies in a push rejoins it.
+- **The stance** is held 30 to 60 s, drawn from the bot's own stream, the
+  chance leaning by Aggression and Teamwork and capped when half the placed
+  teammates stand on a point; an own point being taken pulls a team-stance
+  bot in. Nothing reads another bot's stance or the server.
+- **Measured** (debug, cp_granary, 8 bots, store off, three runs of 300 s;
+  base, first pass, second pass, final): the points' share of bot-seconds
+  -, 0.71 to 0.81, 0.23 to 0.30, 0.54 to 0.60; team-stance bot-seconds with
+  two or more teammates within 600 u (the base over all bots) 0.35 / 0.49 /
+  0.28, 0.25 / 0.24 / 0.17, 0.29 / 0.58 / 0.43, 0.77 / 0.18 / 0.62;
+  captures 21, 12, 10, 14; rounds won 2, 2, 1, 0 (in 900 s: 3, 0, 2, 1);
+  the share of gathering spent on the way, second pass 0.75, final 0.23 to
+  0.41. **Rounds are the miss**, on small counts; the spread between runs
+  is wide.
+- **Found.** cp_gorge does not play with bots in the port (two bots off the
+  navigation in their spawn; a team frozen after a forward respawn). A
+  5-point map's spawns keep the team of level start, so "the spawn's side"
+  is not a side. C.6.1's call gate of Teamwork 4 stops every "normal" bot
+  (Teamwork 3) from calling.
+- **Left of C.6.1 for the main plan:** the no-progress trigger and "a
+  winning team never regroups", the cooldown and the lowest-slot caller,
+  the choke-map spot, the class rules (the Medic's charge, Spies and
+  Snipers), humans' pushes, and its scripted facts.
+- **A replay needs** nothing new: the say slot, the callouts and the
+  seeded stance stream are recorded; to check, that the view carries every
+  point's `MayAct` and state at every decide.
+
 **Still to do, in order:** the recording format 8 → 9, after the user's
 ruling on the rooms proposal, since a room change would be a record of its
 own (what each lane said a faithful replay needs is in the coordinator's
-notes); the jump map's rooms, its navigation and its teleports, when
-approved; whether the Course branch stays on ordinary control-point maps.
-The rows of G.4 that need an Engineer, a Sniper, a Spy or a class pick wait
-for the main plan's P7.
+notes); the jump map's rooms, its navigation and its teleports, once the
+proposal is revised from lane Gr's numbers. The rows of G.4 that need an
+Engineer, a Sniper, a Spy or a class pick wait for the main plan's P7.
 
-**Ruled 2026-11-13 and started** (G.11): prefire may spend the jump's
-rockets (lane Gp2), and a planned jump may go under the health floor when
-it lands by a health pack, pogo with it (lane G9).
+**Ruled 2026-11-13** (G.11) and landed, above: prefire's clip rule (Gp2),
+a jump to a health pack (G9), a file per sealed space measured (Gr), both
+behaviours on a control-point map (Gc). Under way: making a jump to health
+sought, not only allowed (lane G9b). Next: the rooms build, on the user's
+go-ahead.
 
 **Ownership, from 2026-11-11.** The TF2 AI session has not run since 07:18
 that day. G.9's serialised files have no second session to be serialised
