@@ -362,6 +362,10 @@ public sealed class TFMaterialProxyTests
         public void WantTransparent(EntityHandle entity, bool transparent) => Asked.Add((entity.Value, transparent));
 
         public void WantOwnerSeen(EntityHandle entity, bool ownerSeen) { }
+
+        public int InEyeTarget => 0;
+
+        public void WatchInEye(int index) { }
     }
 
     private const int BodyIndex = 2;

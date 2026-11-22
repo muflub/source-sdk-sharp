@@ -30,13 +30,50 @@ public class GameUiDialogsTests
         return (new GameUiLoading(new Strings(table ?? []), new ChatFeedTests.RecordingEngineClient(sent)), sent);
     }
 
+    /// <summary>
+    /// A map from the command line asks for no dialog. Stock showed none; the user ruled
+    /// (2026-11-15) that it shows the progress as a Create Server load does.
+    /// </summary>
     [Fact]
-    public void A_load_that_asks_for_no_dialog_shows_none_and_asks_no_repaint()
+    public void A_load_that_asks_for_no_dialog_shows_its_progress_and_asks_repaints()
+    {
+        var (loading, _) = Loading(new() { ["#LoadingProgress_Connecting"] = "Connecting to server..." });
+        loading.Started(false);
+        Assert.True(loading.Showing);
+        Assert.True(loading.Update(0.5f, "#LoadingProgress_Connecting"));
+        Assert.Equal(0.5f, loading.Progress);
+        Assert.Equal("Connecting to server...", loading.Status);
+    }
+
+    [Fact]
+    public void A_load_without_the_dialog_closes_its_progress_when_it_finishes()
+    {
+        var (loading, sent) = Loading();
+        loading.Started(false);
+        loading.Finished(false, "", "");
+        Assert.False(loading.Showing);
+        Assert.False(((IDisconnectMessageSource)loading).Showing);
+        Assert.Equal(["gameui_hide"], sent);
+    }
+
+    [Fact]
+    public void A_load_without_the_dialog_that_fails_shows_its_reason_in_place_of_the_progress()
     {
         var (loading, _) = Loading();
         loading.Started(false);
+        loading.Finished(true, "Map not found", null);
         Assert.False(loading.Showing);
-        Assert.False(loading.Update(0.5f, "#LoadingProgress_Connecting"));
+        Assert.Equal("Map not found", ((IDisconnectMessageSource)loading).Body);
+    }
+
+    [Fact]
+    public void A_steam_login_failure_during_a_load_without_the_dialog_takes_its_progress_down()
+    {
+        var (loading, _) = Loading(new() { ["#VAC_LoggedInElsewhereReason"] = "Logged in elsewhere." });
+        loading.Started(false);
+        loading.Disconnected(4);
+        Assert.False(loading.Showing);
+        Assert.Equal("Logged in elsewhere.", ((IDisconnectMessageSource)loading).Body);
     }
 
     [Fact]

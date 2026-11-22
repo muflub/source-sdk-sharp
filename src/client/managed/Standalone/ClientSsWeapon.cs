@@ -16,7 +16,7 @@ namespace SourceSharp.Client.Standalone;
 /// </para>
 /// </summary>
 [ClientStandaloneEntity(EntityNames.SsWeapon)]
-public sealed class ClientSsWeapon : ClientStandaloneEntity
+public sealed class ClientSsWeapon : ClientStandaloneEntity, IFirstPersonGated
 {
     /// <summary>A weapon with no draw effects and no render policy to ask (a test's).</summary>
     public ClientSsWeapon(IEngineEntityRender render)
@@ -92,11 +92,21 @@ public sealed class ClientSsWeapon : ClientStandaloneEntity
         // the first-person frame has the viewmodel instead
         // (c_basecombatweapon.cpp:421). Asked per decode, because both the
         // owner above and the local index move without a data-table change.
-        if (_screen is not null)
-        {
-            int local = _screen.LocalPlayerIndex;
-            _policy.WantOwnerSeen(Handle, local > 0 && owner == local);
-        }
+        ReconsiderFirstPerson();
+    }
+
+    /// <summary>
+    /// The owner-seen wish: the holder is in first person when it is the local
+    /// player or the player watched in-eye (C_BasePlayer::InFirstPersonView).
+    /// </summary>
+    public void ReconsiderFirstPerson()
+    {
+        if (_screen is null)
+            return;
+
+        int owner = State.OwnerIndex;
+        int local = _screen.LocalPlayerIndex;
+        _policy.WantOwnerSeen(Handle, owner > 0 && (owner == local || owner == _policy.InEyeTarget));
     }
 
     public override void OnRemoved()

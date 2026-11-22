@@ -254,6 +254,31 @@ public class ClientRenderPolicyTests
     }
 
     [Fact]
+    public void ThePlayerWatchedInEyeIsDrawnOnlyWhileACameraSeesIt()
+    {
+        // C_BasePlayer::InFirstPersonView: the local observer's in-eye target
+        // is in first person as the local player is, so the in-eye view is not
+        // drawn from inside its head (live: the watched scout's head filled
+        // it). Decided again when the target moves, though its block did not.
+        var blocks = OneProp();
+        Write(blocks.Raw(0), HeadHandle, 5);
+        Write(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.ModelType)), ClientRenderFacts.Studio);
+        var policy = new ClientRenderPolicy(() => null, () => 1);
+        int OwnerSeen() => Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.OwnerSeenRule)));
+
+        policy.Pass(blocks);
+        Assert.Equal((int)ClientOwnerSeenRule.Always, OwnerSeen());
+
+        policy.WatchInEye(5);
+        Assert.Equal(1, policy.Pass(blocks));
+        Assert.Equal((int)ClientOwnerSeenRule.DrawnOnlyWhileSeen, OwnerSeen());
+
+        policy.WatchInEye(0);
+        Assert.Equal(1, policy.Pass(blocks));
+        Assert.Equal((int)ClientOwnerSeenRule.Always, OwnerSeen());
+    }
+
+    [Fact]
     public void TheOwnerSeenNumbersAreTheShellsOwn()
     {
         string header = File.ReadAllText(RepoLayout.Repo("src", "client", "native", "shell_standalone_client.h"));

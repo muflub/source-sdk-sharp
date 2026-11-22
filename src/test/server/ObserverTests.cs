@@ -44,7 +44,7 @@ public class ObserverTests
         public readonly ConVarRegistry ConVars;
         public readonly Clients Clients = new();
 
-        public Rig(int count = 3)
+        public Rig(int count = 3, IObserverRules? rules = null)
         {
             var registry = new ScriptedEntityRegistry(TestEngines.Server());
             registry.RegisterAll(typeof(SsPlayer).Assembly);
@@ -73,7 +73,8 @@ public class ObserverTests
             ConVars = ConVarRegistry.For(UnattachedConsole());
             ConVars.RegisterAll(typeof(GameRules).Assembly);
             ConVars.Declared<AllowSpectatorsConVar>().NotifyChanged("1", "0");   // stock's default
-            Observers = new Observers(new RecordingLog(), registry, Engine, Engine, Engine, Engine, Engine, Engine, Engine, ConVars.Declare<ForceCameraConVar>(), ConVars.Declare<AllowSpectatorsConVar>(), Clients);
+            Observers = new Observers(new RecordingLog(), registry, Engine, Engine, Engine, Engine, Engine, Engine, Engine, ConVars.Declare<ForceCameraConVar>(), ConVars.Declare<AllowSpectatorsConVar>(), Clients,
+                                      new ListHooks<IObserverRules>(rules is null ? [] : [rules]));
         }
 
         public void Die(int i, float at)
@@ -88,6 +89,110 @@ public class ObserverTests
             p.Observer.EnterObserver = true;
             return Observers.Start(p, mode, now);
         }
+    }
+
+    private sealed class ListHooks<T>(T[] all) : IHooks<T> where T : class
+    {
+        public IReadOnlyList<T> All => all;
+
+        public void Each(string what, Action<T> call)
+        {
+            foreach (T hook in all)
+                call(hook);
+        }
+    }
+
+    /// <summary>A mod's rules that say what they were asked: roaming is chase, and every session starts in-eye.</summary>
+    private sealed class Rules : IObserverRules
+    {
+        public readonly List<ObserverMode> Asked = [];
+
+        public ObserverMode Filter(SsPlayer player, ObserverMode mode) => mode == ObserverMode.Roaming ? ObserverMode.Chase : mode;
+
+        public ObserverMode Enter(SsPlayer player, ObserverMode asked, float now)
+        {
+            Asked.Add(asked);
+            return ObserverMode.InEye;
+        }
+    }
+
+    [Fact]
+    public void A_mods_rules_filter_the_mode_in_place_of_mp_forcecamera()
+    {
+        // CTFPlayer::SetObserverMode replaces CBasePlayer's: a teamed player
+        // asking roaming gets the mod's answer, not forcecamera's in-eye.
+        var r = new Rig(rules: new Rules());
+        r.Engine.Returns("Players.GetTeam", 2);
+        r.Watch(r.Players[0], ObserverMode.Chase, 1f);
+
+        r.Observers.SetMode(r.Players[0], ObserverMode.Roaming, 1f);
+
+        Assert.Equal((int)ObserverMode.Chase, r.Players[0].State.ObserverMode);
+    }
+
+    [Fact]
+    public void Spectating_starts_in_the_mode_the_mods_rules_choose()
+    {
+        var rules = new Rules();
+        var r = new Rig(rules: rules);
+        r.Players[0].Observer.LastMode = ObserverMode.Fixed;
+
+        Assert.True(r.Observers.Spectate(r.Players[0], 1f));
+
+        Assert.Equal([ObserverMode.Fixed], rules.Asked);
+        Assert.Equal((int)ObserverMode.InEye, r.Players[0].State.ObserverMode);
+    }
+
+    [Fact]
+    public void A_dead_player_starts_watching_after_the_death_cam_without_asking()
+    {
+        var r = new Rig(rules: new Rules());
+        r.Die(0, 1f);
+        Assert.False(r.Players[0].Observer.EnterObserver);
+
+        Assert.True(r.Observers.EnterAfterDeath(r.Players[0], 8f));
+
+        Assert.Equal((int)ObserverMode.InEye, r.Players[0].State.ObserverMode);
+        Assert.True(r.Players[0].Observer.AfterDeath);
+    }
+
+    [Fact]
+    public void A_dead_watcher_who_joins_a_team_waits_for_the_respawn()
+    {
+        var r = new Rig(rules: new Rules());
+        r.Die(0, 1f);
+        r.Observers.EnterAfterDeath(r.Players[0], 8f);
+
+        Assert.Equal(JoinTeamResult.Playing, r.Observers.JoinTeam(r.Players[0], "2", 9f));
+
+        Assert.False(r.Engine.Called("Players.Respawn"), "a dead player comes back by the respawn, not the join");
+        Assert.Equal((int)ObserverMode.InEye, r.Players[0].State.ObserverMode);
+    }
+
+    [Fact]
+    public void The_respawns_stop_ends_the_after_death_seat()
+    {
+        var r = new Rig(rules: new Rules());
+        r.Die(0, 1f);
+        r.Observers.EnterAfterDeath(r.Players[0], 8f);
+
+        r.Observers.Stop(r.Players[0]);
+
+        Assert.False(r.Players[0].Observer.AfterDeath);
+        Assert.Equal(0, r.Players[0].State.ObserverMode);
+    }
+
+    [Fact]
+    public void Roaming_has_no_view_offset()
+    {
+        // SetObserverMode's OBS_MODE_ROAMING: SetViewOffset( vec3_origin ).
+        var r = new Rig();
+        r.Players[0].State.ViewOffset = new Vector(0f, 0f, 68f);
+        r.Watch(r.Players[0], ObserverMode.Roaming, 1f);
+
+        r.Observers.CheckSettings(r.Players[0], 1f);
+
+        Assert.Equal(Vector.Zero, r.Players[0].State.ViewOffset);
     }
 
     [Fact]

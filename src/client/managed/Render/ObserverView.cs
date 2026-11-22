@@ -110,7 +110,11 @@ public sealed class ObserverView
         switch (input.Mode)
         {
             case ObserverMode.DeathCam: return DeathCam(input, world);
-            case ObserverMode.Roaming:
+            // C_BasePlayer::GetObserverTarget: "no target in roaming mode",
+            // so the roaming view is the player's own eye, which its own
+            // movement flies. With the target it was the target's eye, and
+            // the free flight moved a player nobody saw from.
+            case ObserverMode.Roaming: return Roaming(input with { Target = null });
             case ObserverMode.Fixed:
             case ObserverMode.FreezeCam: return Roaming(input);
             case ObserverMode.InEye: return InEye(input, world);

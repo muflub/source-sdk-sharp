@@ -1106,11 +1106,15 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance(_services.Create<PlayerNames>());
         // Stock's observer mode, the dead CBasePlayer arm (the death cycle and spec_*).
         _movement.ObserverTargetPose = ObservedPose;
+        // A mod's own observer rules (CTFPlayer's SetObserverMode and
+        // StateEnterOBSERVER), asked lazily: the mods register after this.
+        _services.AddFactory<IHooks<IObserverRules>>(locator => new Hooks<IObserverRules>(locator, Log));
         _services.AddInstance(new Observers(Log, _entities, _services.Require<IEngineEntities>(), _services.Require<IEnginePlayers>(),
                                             _services.Require<IEnginePlayerMovement>(), _services.Require<IEngineEntityRender>(),
                                             _services.Require<IEngineDamage>(), _services.Require<IEngineWorldQuery>(),
                                             _services.Require<IEngineEntityPhysics>(), _services.Require<ForceCameraConVar>(),
-                                            _services.Require<AllowSpectatorsConVar>(), _services.Resolve<IConnectedClients>()));
+                                            _services.Require<AllowSpectatorsConVar>(), _services.Resolve<IConnectedClients>(),
+                                            _services.Require<IHooks<IObserverRules>>()));
 
         // The weapon and ammo tables THIS side reads, registered before the
         // arsenal is built so the container hands the same objects to it, to

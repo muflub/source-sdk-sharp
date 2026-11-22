@@ -113,6 +113,26 @@ public class ObserverViewTests
     }
 
     [Fact]
+    public void RoamingIsThePlayersOwnEyeEvenWithATargetNetworked()
+    {
+        // C_BasePlayer::GetObserverTarget answers NULL in roaming, so
+        // CalcRoamingView takes `this`: the free-flying player's own eye and
+        // angles, never the last target's (live: the view stayed in the
+        // target's eye while +forward flew the spectator 1,000 units away).
+        var v = new ObserverView().Calc(Inputs(ObserverMode.Roaming, Target()), new World())!.Value;
+        Near(new Vector(0, 0, 64), v.Origin);
+        Assert.Equal(new QAngle(0, 0, 0), v.Angles);
+    }
+
+    [Fact]
+    public void FixedLooksFromTheTargetsEye()
+    {
+        // CalcRoamingView for OBS_MODE_FIXED: GetObserverTarget is the target.
+        var v = new ObserverView().Calc(Inputs(ObserverMode.Fixed, Target()), new World())!.Value;
+        Near(new Vector(100, 0, 64), v.Origin);
+    }
+
+    [Fact]
     public void RoamingWithNoTargetIsThePlayersOwnEye()
     {
         var v = new ObserverView { ChaseDistance = 40 }.Calc(Inputs(ObserverMode.Roaming, null), new World())!.Value;

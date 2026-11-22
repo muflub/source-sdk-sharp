@@ -13,7 +13,8 @@ namespace SourceSharp.Client.Render;
 /// the view back, and the player's own eye draws as before.
 /// </summary>
 public sealed class ObserverCamera(IObserverCameraSlots slots, IClientStandalones standalones, IEngineHud hud,
-                                   ViewReadout view, IGameClock clock, ClForceCameraConVar forceCamera)
+                                   ViewReadout view, IGameClock clock, ClForceCameraConVar forceCamera,
+                                   IRenderPolicyWishes policy)
 {
     // WALL_OFFSET (c_baseplayer.h): the camera's hull.
     public const float WallOffset = 6.0f;
@@ -76,6 +77,7 @@ public sealed class ObserverCamera(IObserverCameraSlots slots, IClientStandalone
                                        state.PunchAngle, frameTime, now, _deathTime,
                                        forceCamera.Value == 0, null);
         LastInputs = input;
+        WatchInEye(mode == ObserverMode.InEye && input.Target is { IsPlayer: true } watched ? watched.Index : 0);
         ObserverViewResult? result = _view.Calc(input, new World(slots, hud.LocalPlayerIndex));
         if (result is not { } v)
         {
@@ -91,8 +93,29 @@ public sealed class ObserverCamera(IObserverCameraSlots slots, IClientStandalone
         Frames++;
     }
 
+    /// <summary>
+    /// The player watched in-eye is in first person (stock's
+    /// C_BasePlayer::InFirstPersonView): its body, and what it carries and
+    /// wears, are not drawn from inside its eyes. Told to the render policy on
+    /// a change, and the carried entities asked again
+    /// (<see cref="IFirstPersonGated"/>), since nothing of theirs moved.
+    /// </summary>
+    private void WatchInEye(int index)
+    {
+        if (index == policy.InEyeTarget)
+            return;
+
+        policy.WatchInEye(index);
+        foreach (var entity in standalones.Live())
+        {
+            if (entity is IFirstPersonGated gated)
+                gated.ReconsiderFirstPerson();
+        }
+    }
+
     private void Release()
     {
+        WatchInEye(0);
         if (_published)
             slots.SetView(false, Vector.Zero, QAngle.Zero, false);
         _published = false;

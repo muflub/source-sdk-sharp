@@ -386,6 +386,33 @@ public class GameUiHostTests
         finally { Done(dir); }
     }
 
+    /// <summary>
+    /// A map from the command line (no dialog asked for) shows the progress screen and
+    /// asks the engine to repaint as it moves, as a Create Server load does: the user's
+    /// ruling of 2026-11-15, past stock, which showed no bar for it.
+    /// </summary>
+    [Fact]
+    public void The_progress_screen_is_up_during_a_load_without_the_dialog()
+    {
+        var (ui, host, _, _, dir) = Composed();
+        try
+        {
+            host.OnGameUIActivated();
+            Paint(ui);
+            Assert.False(Drew(ui, "LOADING..."));
+
+            host.OnLevelLoadingStarted(false);
+            Assert.True(host.UpdateProgressBar(0.5f, null));
+            Paint(ui);
+            Assert.True(Drew(ui, "LOADING..."));
+
+            host.OnLevelLoadingFinished(false, null, null);
+            Paint(ui);
+            Assert.False(Drew(ui, "LOADING..."));
+        }
+        finally { Done(dir); }
+    }
+
     /// <summary>Whether the menu layer's last frame drew <paramref name="text"/>.</summary>
     private static bool Drew(UiHost ui, string text)
     {

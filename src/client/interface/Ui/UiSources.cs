@@ -790,8 +790,9 @@ public interface IMenuBackgroundSource
 
 /// <summary>
 /// The level load's progress dialog (stock GameUI's loading dialog,
-/// plan_gameui_managed.md G1): up only for a load the engine started with
-/// its progress dialog asked for; the fraction loaded and the engine's
+/// plan_gameui_managed.md G1): up for every load, the engine's progress
+/// dialog asked for or not (past stock, by the user's ruling of 2026-11-15);
+/// the fraction loaded and the engine's
 /// current step, localised (empty before the first step names itself).
 /// </summary>
 public interface ILoadingProgressSource

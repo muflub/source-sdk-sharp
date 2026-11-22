@@ -81,6 +81,8 @@ public class WeaponDrawEffectsTests
         public void WantTwoPass(EntityHandle entity, bool twoPass) => Asked.Add((entity.Value, twoPass));
         public void WantTransparent(EntityHandle entity, bool transparent) { }
         public void WantOwnerSeen(EntityHandle entity, bool ownerSeen) => Seen.Add((entity.Value, ownerSeen));
+        public int InEyeTarget { get; set; }
+        public void WatchInEye(int index) => InEyeTarget = index;
     }
 
     private readonly RecordingEngine _engine = Fake();
@@ -336,6 +338,44 @@ public class WeaponDrawEffectsTests
         weapon.OnRemoved();
 
         Assert.Equal([(0x41u, false)], wishes.Asked);
+    }
+
+    [Fact]
+    public void TheCarriedWeaponOfThePlayerWatchedInEyeIsLeftToTheThirdPersonCamera()
+    {
+        // C_BasePlayer::InFirstPersonView answers true for the player the
+        // local observer watches in-eye, so its carried weapon is not drawn
+        // from inside its eyes (live: the watched scout's gear filled the
+        // in-eye view); asked again when the in-eye target moves.
+        var wishes = new Wishes();
+        var weapon = new ClientSsWeapon(_engine, _effects, wishes, _engine) { Handle = new EntityHandle(0x41) };
+        weapon.State.BindLocal();
+        weapon.State.OwnerIndex = Other;
+        weapon.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        wishes.WatchInEye(Other);
+        weapon.ReconsiderFirstPerson();
+        wishes.WatchInEye(0);
+        weapon.ReconsiderFirstPerson();
+
+        Assert.Equal([(0x41u, false), (0x41u, true), (0x41u, false)], wishes.Seen);
+    }
+
+    [Fact]
+    public void TheAttachedWorldCopyOfThePlayerWatchedInEyeIsLeftToTheThirdPersonCamera()
+    {
+        // The attached model's world copy obeys its carried weapon's gate, the
+        // in-eye target's included (InFirstPersonView).
+        var wishes = new Wishes();
+        var model = new ClientSsAttachedModel(_engine, wishes, _engine) { Handle = new EntityHandle(0x43) };
+        model.State.BindLocal();
+        model.State.OwnerIndex = Other;
+        model.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        wishes.WatchInEye(Other);
+        model.ReconsiderFirstPerson();
+
+        Assert.Equal([(0x43u, true)], wishes.Seen);
     }
 
     [Fact]

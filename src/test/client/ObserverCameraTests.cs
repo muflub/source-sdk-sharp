@@ -38,13 +38,39 @@ public class ObserverCameraTests
     {
         public readonly ClientEntityDirectory Entities = new();
 
-        public IReadOnlyList<ClientStandaloneEntity> Live() => [];
+        public readonly List<ClientStandaloneEntity> Carried = [];
+
+        public IReadOnlyList<ClientStandaloneEntity> Live() => Carried;
         public ClientStandaloneEntity? GetByIndex(int entityIndex) => Entities.ByIndex(entityIndex);
         public IEnumerable<ClientStandaloneEntity> OfClass(string? className) => Entities.OfClass(className);
         public IEnumerable<ClientStandaloneEntity> OfName(string? name) => Entities.OfName(name);
     }
 
-    private static (ObserverCamera Camera, Slots Slots, ClientSsPlayer Me) Build()
+    private sealed class Wishes : IRenderPolicyWishes
+    {
+        public void WantTwoPass(EntityHandle entity, bool twoPass) { }
+        public void WantTransparent(EntityHandle entity, bool transparent) { }
+        public void WantOwnerSeen(EntityHandle entity, bool ownerSeen) { }
+        public int InEyeTarget { get; private set; }
+        public readonly List<int> Watched = [];
+        public void WatchInEye(int index)
+        {
+            InEyeTarget = index;
+            Watched.Add(index);
+        }
+    }
+
+    /// <summary>A carried entity whose wish follows the in-eye target.</summary>
+    private sealed class Gated(IEngineEntityRender render) : ClientStandaloneEntity(render), IFirstPersonGated
+    {
+        public int Asked;
+        public override string ClassName => "gated";
+        public void ReconsiderFirstPerson() => Asked++;
+    }
+
+    private static (ObserverCamera Camera, Slots Slots, ClientSsPlayer Me) Build() => Build(new Wishes());
+
+    private static (ObserverCamera Camera, Slots Slots, ClientSsPlayer Me) Build(Wishes wishes, Gated? gated = null)
     {
         var engine = Fake();
         engine.Returns("Hud.LocalPlayerIndex", Local);
@@ -62,11 +88,13 @@ public class ObserverCameraTests
         var directory = new Directory();
         directory.Entities.Bind(me.Handle, Local, me);
         directory.Entities.Bind(them.Handle, Watched, them);
+        if (gated is not null)
+            directory.Carried.Add(gated);
 
         var slots = new Slots();
         slots.Poses[Watched] = new EntityRenderPose(new Vector(100, 200, 0), new QAngle(0, 45, 0), true);
 
-        var camera = new ObserverCamera(slots, directory, engine, new ViewReadout(), engine, DeclaredConVars.Holding<ClForceCameraConVar>("1"));
+        var camera = new ObserverCamera(slots, directory, engine, new ViewReadout(), engine, DeclaredConVars.Holding<ClForceCameraConVar>("1"), wishes);
         return (camera, slots, me);
     }
 
@@ -77,6 +105,55 @@ public class ObserverCameraTests
         camera.Pass();
         Assert.Empty(slots.Views);
         Assert.Null(camera.Last);
+    }
+
+    [Fact]
+    public void InEyeTellsTheRenderPolicyWhoIsInFirstPerson()
+    {
+        // C_BasePlayer::InFirstPersonView: the in-eye target is not drawn from
+        // inside its own eyes; chase hands it back to the third person.
+        var wishes = new Wishes();
+        var (camera, _, me) = Build(wishes);
+        me.State.ObserverMode = (int)ObserverMode.InEye;
+        me.State.ObserverTarget = 0x0001_0000u | Watched;
+
+        camera.Pass();
+        camera.Pass();
+        me.State.ObserverMode = (int)ObserverMode.Chase;
+        camera.Pass();
+
+        Assert.Equal([Watched, 0], wishes.Watched);
+    }
+
+    [Fact]
+    public void ANewInEyeTargetAsksWhatThePlayersCarryAgain()
+    {
+        // The carried weapon and worn items decide their wish on a decode, and
+        // nothing of theirs moved: the camera asks them, once per change.
+        var gated = new Gated(Fake());
+        var (camera, _, me) = Build(new Wishes(), gated);
+        me.State.ObserverMode = (int)ObserverMode.InEye;
+        me.State.ObserverTarget = 0x0001_0000u | Watched;
+
+        camera.Pass();
+        camera.Pass();
+
+        Assert.Equal(1, gated.Asked);
+    }
+
+    [Fact]
+    public void LeavingObservingWatchesNobodyInEye()
+    {
+        var wishes = new Wishes();
+        var (camera, _, me) = Build(wishes);
+        me.State.ObserverMode = (int)ObserverMode.InEye;
+        me.State.ObserverTarget = 0x0001_0000u | Watched;
+        camera.Pass();
+
+        me.State.ObserverMode = (int)ObserverMode.None;
+        camera.Pass();
+
+        Assert.Equal(0, wishes.InEyeTarget);
     }
 
     [Fact]

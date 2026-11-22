@@ -5,8 +5,10 @@ namespace SourceSharp.Client.Vgui;
 
 /// <summary>
 /// The level load's dialog, as the engine drives the GameUI through it
-/// (plan_gameui_managed.md G1; the stock module's loading dialog): up only
-/// for a load started with the progress dialog asked for; each update
+/// (plan_gameui_managed.md G1; the stock module's loading dialog): up for
+/// every load, the progress dialog asked for or not (stock showed it only when
+/// asked: a map from the command line loaded under the menu background alone;
+/// the user's ruling of 2026-11-15, docs/divergences.md); each update
 /// answers whether the engine should repaint (the drawn bar moved a step of
 /// 25, or the step's text changed), since the engine paints inside its load
 /// loop only on a yes. A failed load leaves the dialog in its error form,
@@ -51,12 +53,12 @@ public sealed class GameUiLoading(IUiLocalisation localise, IFwdEngineClient eng
 
     public void Close() => _message = null;
 
-    /// <summary>OnLevelLoadingStarted.</summary>
+    /// <summary>OnLevelLoadingStarted. The dialog shows whether or not the engine asked for it
+    /// (<paramref name="showProgressDialog"/> false for a map from the command line): the user's
+    /// ruling of 2026-11-15, past stock, which loaded such a map with no bar.</summary>
     public void Started(bool showProgressDialog)
     {
         _loading = true;
-        if (!showProgressDialog)
-            return;
         Showing = true;
         Progress = 0f;
         Status = string.Empty;
