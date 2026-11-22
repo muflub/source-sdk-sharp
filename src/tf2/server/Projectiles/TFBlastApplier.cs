@@ -253,7 +253,14 @@ public sealed class TFBlastApplier
                 // The push belongs to the hit: stock's ApplyPushFromDamage
                 // runs inside OnTakeDamage_Alive, so a damage the victim
                 // refuses (a zero answer) pushes nobody. A self blast the
-                // arms zeroed is no refusal (below).
+                // arms zeroed is no refusal (below). The übered victim's
+                // held-health answer (stock's DAMAGE_EVENTS_ONLY) is neither:
+                // the health stays whole but the hit ran, and its push lands
+                // with the hit's force (tf_gamerules.cpp:6366-6391, then the
+                // ApplyPushFromDamage inside OnTakeDamage_Alive). Held health
+                // alone cannot tell that zero from a refusal, so the gate
+                // asks the decision the managed side answered — it rides on
+                // the player this hit made (SsPlayer.LastHitDecision).
                 int answered = victimDamage > 0f
                     ? Deliver(victim, attacker, victimDamage, active.Bits, weapon, weaponName, critical,
                               inflictor, origin, custom, item)
@@ -263,9 +270,10 @@ public sealed class TFBlastApplier
                     Push(victim, source, active, forceDamage, self: true, pyroFlareJump: flareJump,
                          selfPushMult: selfPushMult);
                 }
-                else if (answered > 0)
+                else if (answered > 0
+                         || Directory.Get(victim) is SsPlayer { LastHitDecision: Decision.EventsOnly })
                 {
-                    if (Entities.IsPlayer(victim) && attacker != EntityHandle.None
+                    if (answered > 0 && Entities.IsPlayer(victim) && attacker != EntityHandle.None
                         && Players.GetTeam(victim) != Players.GetTeam(attacker))
                     {
                         damageDealt += answered;
@@ -333,9 +341,15 @@ public sealed class TFBlastApplier
                     }
                     else
                     {
-                        bool hit = selfDamage <= 0f
-                                   || Deliver(attacker, attacker, selfDamage, selfBlast.Bits, weapon, weaponName, critical,
-                                              inflictor, origin, custom, item) > 0;
+                        // A held-health answer (the über's DAMAGE_EVENTS_ONLY)
+                        // delivered the hit with zero taken: the push still
+                        // ran in stock, so the self blast throws too. Read the
+                        // decision, not the zero (tf_gamerules.cpp:6366-6391).
+                        bool delivered = selfDamage <= 0f
+                                         || Deliver(attacker, attacker, selfDamage, selfBlast.Bits, weapon, weaponName,
+                                                    critical, inflictor, origin, custom, item) > 0;
+                        bool hit = delivered
+                                   || Directory.Get(attacker) is SsPlayer { LastHitDecision: Decision.EventsOnly };
                         if (hit && forceDamage > 0f)
                             Push(attacker, source, selfBlast, forceDamage, self: true, pyroFlareJump: flareJump,
                                  selfPushMult: selfPushMult);

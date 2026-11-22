@@ -28,20 +28,36 @@ public interface ITFSpyState
     /// the line at <paramref name="range"/> from the owner's eyes
     /// (<c>CanPerformBackstabAgainstTarget</c> :399); when the first hit is a
     /// living enemy player standing behind them facing them (stock's three dot
-    /// products, <c>IsBehindAndFacingTarget</c> :447-482), the backstab is
-    /// dealt now — the victim's current health doubled, flagged, through the
-    /// damage layer as <see cref="TFDamageCustom.Backstab"/> — and remembered
-    /// so the swing's smack lands nothing. Stock deals it at the smack
-    /// 0.1 s later (docs/plans/tf2/deferred.tsv); answers whether it did.
+    /// products, <c>IsBehindAndFacingTarget</c> :447-482), the victim is latched
+    /// (<c>m_hBackstabVictim</c> :209) with the trace's end and the swing-time
+    /// health that seeds the heal (:210) — judged, not dealt: the damage waits
+    /// for the smack's <see cref="Smack"/>, where stock's
+    /// <c>GetMeleeDamage</c> (:348-394) reads it. Answers whether it judged a
+    /// backstab.
     /// </summary>
     bool Swing(int ownerIndex, float range);
 
     /// <summary>
-    /// Whether the swing just made backstabbed, so its hit lands nothing
-    /// (stock's smack on an already-dead victim is a miss). Stays answered
-    /// until the next <see cref="Swing"/>.
+    /// The smack's half (<c>CTFKnife::Smack</c> → <c>GetMeleeDamage</c>,
+    /// <c>tf_weapon_knife.cpp:348-394</c>): the latched victim takes the hit —
+    /// his health then doubled (:377), flagged
+    /// <see cref="TFDamageCustom.Backstab"/> (:381), crit — and the kill's
+    /// tails run behind it (:243-289): the heal, the cloak and the boost on
+    /// the dead answer, the disguise tail of :246. Deals once per swing and
+    /// stays answered until the next <see cref="Swing"/>; answers whether the
+    /// swing judged a backstab, so the chain's own melee lands nothing beside
+    /// the seam's hit.
     /// </summary>
     bool Smack(int ownerIndex);
+
+    /// <summary>
+    /// <c>CTFKnife::IsBackstab</c> (<c>tf_weapon_knife.h:57</c>): whether the
+    /// swing in the air judged a backstab, read without dealing it — the roll's
+    /// answer (<c>CalcIsAttackCriticalHelper</c>,
+    /// <c>tf_weapon_knife.cpp:487-500</c>) and the tail gate's ask. Keeps its
+    /// answer until the next <see cref="Swing"/>.
+    /// </summary>
+    bool IsBackstab(int ownerIndex);
 
     /// <summary>
     /// <c>CTFKnife::ShouldDisguiseOnBackstab</c>

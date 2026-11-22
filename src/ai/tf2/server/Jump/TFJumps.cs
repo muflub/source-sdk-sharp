@@ -247,15 +247,25 @@ public sealed class TFJumps : IFrameLifecycle, IGameLifecycle, IDebugRouteProvid
             $"[SourceSharp/Ai] TF2 rocket jumps: the simulator is up for {level.Map} ({columns.Width} by {columns.Depth} columns of {columns.VoxelSize:F0}, tick {_tick:F4} s, {_openMs:F1} ms on the game's thread)\n"));
     }
 
-    /// <summary>The cells the level's team spawns stand in, read here on the game's thread: what the link pass starts from.</summary>
+    /// <summary>
+    /// The cells the level's team spawns stand in, read here on the game's thread: what the link pass starts from. In a level
+    /// in rooms (plan_bots_teams_tf2_part_g stage A) also each way into the room in play (<see cref="IAiNavigation.RoomWaysIn"/>:
+    /// its teleport destinations and kept teleports' landings), after the spawns: a course's room holds no spawn, and a pass
+    /// seeded by none proposed takeoffs anywhere and followed no landing (jump_academy2_rc9a's Basic found no link). A level
+    /// not in rooms has no way in, so its seeds, and its links' cache key, are as they were.
+    /// </summary>
     private int[] Seeds(NavGraph graph)
     {
-        if (_placed is null)
-            return [];
         var seeds = new List<int>();
-        foreach (MapEntity e in _placed.Read().All)
+        foreach (MapEntity e in _placed?.Read().All ?? [])
         {
             if (e.ClassName is "info_player_teamspawn" or "info_player_deathmatch" && NavPoints.CellNear(graph, e.Origin, ClearanceClass.Stand) is { IsValid: true } cell)
+                seeds.Add(cell.Index);
+        }
+
+        foreach (AiVector way in _nav.RoomWaysIn)
+        {
+            if (NavPoints.CellNear(graph, way, ClearanceClass.Stand) is { IsValid: true } cell && !seeds.Contains(cell.Index))
                 seeds.Add(cell.Index);
         }
 

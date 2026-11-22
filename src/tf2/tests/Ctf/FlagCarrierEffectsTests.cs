@@ -167,6 +167,7 @@ public sealed class FlagCarrierEffectsTests
 
         public bool Swing(int ownerIndex, float range) => false;
         public bool Smack(int ownerIndex) => false;
+        public bool IsBackstab(int ownerIndex) => false;
         public bool ShouldDisguiseOnBackstab(int ownerIndex) => false;
         public bool DisguiseOnKill(int ownerIndex) => false;
         public void RemoveDisguise(int playerIndex) => DisguiseRemovals.Add(playerIndex);

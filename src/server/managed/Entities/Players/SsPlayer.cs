@@ -493,9 +493,23 @@ public sealed class SsPlayer : AnimatingEntity
     /// <summary>The type of the last hit taken: what the killing blow was, when one kills.</summary>
     internal DamageType LastHitType { get; private set; }
 
+    /// <summary>
+    /// The damage rules' answer for the hit now landing. A held-health answer
+    /// (<see cref="Decision.EventsOnly"/>, stock's DAMAGE_EVENTS_ONLY for an
+    /// übered victim, tf_gamerules.cpp:6366-6391) is a zero that still ran the
+    /// hit's events and its push; a refusal is a zero that ran nothing. The
+    /// health the shell took cannot tell the two apart, so a caller that pushes
+    /// with the hit (TF's blast applier) reads this instead of guessing from
+    /// held health. Reset every hit, so what it reads is this hit's answer.
+    /// </summary>
+    public Decision LastHitDecision { get; private set; } = Decision.UseStockRule;
+
     private int TakeHit(EntityHandle attacker, float damage, DamageType damageType, HitGroup hitGroup)
     {
         LastHitType = damageType;
+        // The gate reads this hit's answer, not the last hit's: anything that
+        // returns before the rules are asked is a plain zero.
+        LastHitDecision = Decision.UseStockRule;
         // THE ANSWER IS THE WHOLE OF IT. The shell subtracts what this returns
         // from m_iHealth and calls OnKilled if that reaches zero
         // (CStandaloneEntity::TakeDamage), so a class that also wrote health
@@ -524,8 +538,25 @@ public sealed class SsPlayer : AnimatingEntity
         // anything (player.cpp:1147, FPlayerCanTakeDamage): "no" refuses the
         // whole hit. Only a refusal changes the answer; Yes and UseStockRule
         // both land it, the multiplayer rules' own true.
-        if (_rules?.CanTakeDamage(Handle, attacker, damage, (int)damageType, GameTime, hitGroup) == Decision.No)
+        Decision answer = _rules?.CanTakeDamage(Handle, attacker, damage, (int)damageType, GameTime, hitGroup)
+                          ?? Decision.UseStockRule;
+        LastHitDecision = answer;
+        if (answer == Decision.No)
             return 0;
+
+        // Stock's DAMAGE_EVENTS_ONLY answer for an übered victim
+        // (tf_gamerules.cpp:6366-6391): health is held whole, but the hit is
+        // not refused — the modify rules still number it, and its push and
+        // hurt event run as on any allowed hit. The shell sees a zero taken.
+        if (answer == Decision.EventsOnly && _rules is { } eventsRules)
+        {
+            damage = eventsRules.ModifyDamage(Handle, attacker, damage, (int)damageType, hitGroup);
+
+            PushFromDamage(attacker, damage);
+            DamageReport.Took(0, damageType, DamageOrigin(attacker), GameTime);
+            Hurt(attacker, 0, Health, damageType);
+            return 0;
+        }
 
         // The mods' modify rules on the allowed hit (IDamageModifier, tf2
         // stage 2.7): stock's CTFPlayer::OnTakeDamage calls

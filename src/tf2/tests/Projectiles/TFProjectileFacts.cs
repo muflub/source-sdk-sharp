@@ -1329,6 +1329,101 @@ public class TFBlastApplierFacts
         Assert.Equal(0f, impulse.Y, 1);
         Assert.Equal(63.6f, impulse.Z, 1);
     }
+
+    /// <summary>
+    /// The übered victim of the same rocket blast: stock's
+    /// <c>DAMAGE_EVENTS_ONLY</c> for an übered player
+    /// (<c>tf_gamerules.cpp:6366-6391</c>) holds the health whole — the
+    /// managed side answers a zero — but the hit still runs its events and
+    /// its push. Through the real blast path the held zero must not read as
+    /// a refusal at the push gate: the same rig answers the same push
+    /// numbers as the unübered victim's
+    /// (<see cref="ThePlayersPushNumbersSurviveTheHandedForce"/>), and the
+    /// hurt event still fires.
+    /// </summary>
+    [Fact]
+    public void AnUberedVictimOfARocketBlastKeepsItsHealthAndGetsTheSamePush()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.Returns("Entities.IsPlayer", true);
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        rig.Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(60f, 0f, 0f));
+        rig.Engine.Returns("Entities.GetOrigin", new Vector(60f, 0f, 0f));
+        rig.Engine.Returns("Entities.GetBounds", (new Vector(-24f, -24f, 0f), new Vector(24f, 24f, 82f)));
+        rig.Engine.Returns("WorldQuery.TraceLine",
+                           new TraceResult(true, 1f, new Vector(60f, 0f, 0f), default, EntityHandle.None));
+        // The hurt arm reaches its game event through these; their landing
+        // is what proves the events-only hit ran its events at all.
+        rig.Engine.Returns("Players.GetUserId", 3);
+        rig.Engine.Returns("GameEvents.EventCreate", new IntPtr(7));
+        rig.Engine.Returns("GameEvents.EventFire", true);
+
+        var rules = new HeldHitRules();
+        var moves = new SourceSharp.Server.Interop.ServerPlayerMoves();
+        moves.For(ProjectileRig.Victim);
+        var player = new SsPlayer(rig.Engine, rig.Engine, TestServices.Impacts(rig.Engine), TestServices.Fluid(),
+                                  TestServices.InfiniteAux(), TestServices.PrintDamage(),
+                                  inflictors: rig.Inflictors, rules: rules, moves: moves,
+                                  events: rig.Engine, entities: rig.Engine,
+                                  pushRules: new HeldHitHooks(new TF2.Server.Entities.TFNoCoreDamagePush()))
+        { Handle = ProjectileRig.Victim };
+        player.BindAreas(TestServices.Areas(rig.Engine));
+        player.State.BindLocal();
+        rig.Directory.Holds(ProjectileRig.Victim, player);
+
+        // The answered ask runs the player's own damage path, as the shell's
+        // TakeDamage does, and answers what the player took — the held zero.
+        int taken = 0;
+        rig.Engine.ReturnsEachCall("Damage.TakeDamageAnswered",
+            () => taken = player.OnDamagedAt(rig.Engine.Calls[^1].ArgAs<EntityHandle>(1),
+                                             rig.Engine.Calls[^1].ArgAs<float>(2),
+                                             rig.Engine.Calls[^1].ArgAs<DamageType>(3), default, default));
+
+        rig.Blast.Apply(new Vector(0f, 0f, 0f), RocketBlast(), ProjectileRig.Player,
+                        ProjectileRig.ProjectileHandle, ignored: ProjectileRig.ProjectileHandle,
+                        TFWeaponId.Rocketlauncher, "tf_weapon_rocketlauncher", critical: false);
+
+        Assert.True(taken == 0, $"the übered victim keeps its health: the shell subtracts {taken}");
+
+        // The hit's events ran: the hurt path reached the game event.
+        Assert.True(rig.Engine.Called("GameEvents.EventCreate"), rig.Engine.Describe());
+
+        // And the push landed with the hit's numbers, identical to the
+        // unübered victim's: a held-health zero is not a refusal at the gate.
+        var call = Assert.Single(rig.Engine.AllOf("Entities.ApplyVelocityImpulse"));
+        var impulse = EngineCallFacts.ArgAs<Vector>(call, 1);
+        Assert.True(impulse.Z != 0f, $"the blast must actually throw the victim, not answer a default ({impulse})");
+        Assert.Equal(424.3f, impulse.X, 1);
+        Assert.Equal(0f, impulse.Y, 1);
+        Assert.Equal(63.6f, impulse.Z, 1);
+    }
+
+    /// <summary>The rules for a hit an übered victim takes: the über's answer,
+    /// and a modify fold that numbers the hit whole.</summary>
+    private sealed class HeldHitRules : IGameRules
+    {
+        public Decision CanTakeDamage(EntityHandle player, EntityHandle attacker, float damage, int damageType,
+                                       float now, HitGroup hitGroup = HitGroup.Generic)
+            => Decision.EventsOnly;
+
+        public float ModifyDamage(EntityHandle victim, EntityHandle attacker, float damage, int damageType,
+                                  HitGroup hitGroup = HitGroup.Generic)
+            => damage;
+
+        public Decision CanRespawn(EntityHandle player) => Decision.UseStockRule;
+        public float GetRespawnDelay(EntityHandle player) => -1f;
+        public bool IsProtected(EntityHandle player, float now) => false;
+        public bool RoundOver => false;
+        public void OnPlayerSpawned(EntityHandle player, float now) { }
+        public void Forget(EntityHandle player) { }
+    }
+
+    /// <summary>The one-hook shape the composition root hands the player's hooks.</summary>
+    private sealed class HeldHitHooks(TF2.Server.Entities.TFNoCoreDamagePush hook) : IHooks<IPlayerDamagePushRule>
+    {
+        public IReadOnlyList<IPlayerDamagePushRule> All => new IPlayerDamagePushRule[] { hook };
+        public void Each(string what, Action<IPlayerDamagePushRule> call) => call(hook);
+    }
 }
 
 public class TFGrenadePhysicsFacts

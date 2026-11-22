@@ -716,7 +716,12 @@ public sealed class TFTeleporter(ITFMapPlayers players, ITFObjectAnnouncer annou
             // Stock kills before the move (:1012-1017): the frag is aimed at
             // the box the arrival is about to occupy.
             Telefrag(_teleportee);
-            Entities.Teleport(_teleportee, Origin + new Vector(0f, 0f, ArrivalHeight), null, zeroVelocity: true);
+            // Teleport(&newPosition, &(GetAbsAngles()), &vec3_origin) (:1017): no
+            // velocity, and the exit's own angles, which CBaseEntity::Teleport
+            // snaps a player's eyes to (baseentity.cpp:4936-4943): the traveller
+            // faces the way the engineer turned the exit.
+            Entities.Teleport(_teleportee, Origin + new Vector(0f, 0f, ArrivalHeight), Entities.GetAngles(Handle),
+                              zeroVelocity: true);
 
             // InstantlySniperUnzoom (tf_player_shared.cpp:1387-1406): the
             // zoomed sniper — here the zoomed condition, which only the

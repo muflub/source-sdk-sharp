@@ -52,6 +52,13 @@ public interface IAiNavigation
     int RoomInPlay => -1;
 
     /// <summary>
+    /// Where a player comes into the room in play (the room table's ways in: its spawns and teleport destinations, and its
+    /// kept teleports' landings), for the work that starts from where players are (the blast link search's seeds); none
+    /// in a level that is not in rooms.
+    /// </summary>
+    IReadOnlyList<AiVector> RoomWaysIn => [];
+
+    /// <summary>
     /// A level in rooms follows its bots (R.2 item 3): told each tick where the living players are, it makes ready
     /// the room most bots are in when that is not the room in play. A level not in rooms ignores it.
     /// </summary>
@@ -205,6 +212,11 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
     public NavRoomsLevel? Rooms => _rooms;
 
     public int RoomInPlay { get; private set; } = -1;
+
+    public IReadOnlyList<AiVector> RoomWaysIn
+        => _rooms?.Table.Room(RoomInPlay) is { } room
+            ? [.. room.WaysIn.Concat(room.Kept.Where(k => k.To == room.Region && k.Destination is not null).Select(k => k.Destination!.Value)).Distinct()]
+            : [];
 
     /// <summary>The room being made ready, or -1.</summary>
     public int RoomComing => _roomJob?.Region ?? -1;
@@ -625,8 +637,9 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
         {
             case NavRoomOutcome.Ready r:
                 long start = System.Diagnostics.Stopwatch.GetTimestamp();
-                Install(r.Nav, r.Sight, r.SightMs, new NavGraphCache(CacheDirectory, NavEdgeCosts.Default), built: false);
+                // The room is in play before it is installed: what reacts to the install (the link search) asks its ways in.
                 RoomInPlay = r.Region;
+                Install(r.Nav, r.Sight, r.SightMs, new NavGraphCache(CacheDirectory, NavEdgeCosts.Default), built: false);
                 double installMs = System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds;
                 LastRoom = (r.Region, r.OpenMs, r.GraphMs, r.SightMs, installMs, r.Nav.FromCache);
                 log.Msg(string.Create(CultureInfo.InvariantCulture,

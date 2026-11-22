@@ -27,6 +27,13 @@ public enum Decision
 
     No  = 0,
     Yes = 1,
+
+    /// <summary>
+    /// Stock's <c>DAMAGE_EVENTS_ONLY</c> (shared/tf/tf_gamerules.cpp:6366-6391):
+    /// the hit takes no health, but its events and the damage push still run.
+    /// A positive value, so the shell's negative-is-decline test is untouched.
+    /// </summary>
+    EventsOnly = 2,
 }
 
 /// <summary>

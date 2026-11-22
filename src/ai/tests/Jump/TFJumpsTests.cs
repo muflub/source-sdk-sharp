@@ -64,6 +64,8 @@ public class TFJumpsTests
         public ChokeSlot? Chokes => null;
 
         public string? CacheDirectory { get; set; }
+
+        public IReadOnlyList<AiVector> RoomWaysIn { get; set; } = [];
     }
 
     /// <summary>A level whose placed entities are these.</summary>
@@ -226,6 +228,45 @@ public class TFJumpsTests
         }
 
         Assert.Equal(links.Count, json.RootElement.GetProperty("links.list").GetArrayLength());
+    }
+
+    private static int SeedsOf(Rig rig)
+    {
+        using var json = System.Text.Json.JsonDocument.Parse(rig.Jumps.Json());
+        return json.RootElement.GetProperty("links.seeds").GetInt32();
+    }
+
+    private static readonly MapEntity RedSpawn = new("info_player_teamspawn", null, new AiVector(200f, 232f, 16f), null, null);
+
+    /// <summary>
+    /// A level in rooms seeds its link pass from the room's ways in too (plan_bots_teams_tf2_part_g stage A: a course's room
+    /// holds no spawn): a way in on another cell is one seed more, one on the spawn's cell none; a level with no ways in
+    /// (any not in rooms) is seeded by its spawns alone, as before.
+    /// </summary>
+    [JumpMapFact]
+    public void ARoomsWaysInSeedTheLinkPassAfterTheSpawns()
+    {
+        Rig plain = Opened(new Placed(RedSpawn));
+        LinksDone(plain.Jumps);
+        Assert.Equal(1, SeedsOf(plain));
+
+        Rig rooms = Service(placed: new Placed(RedSpawn));
+        rooms.Nav.RoomWaysIn = [Ledge250, RedSpawn.Origin];
+        rooms.Nav.Current = Level();
+        rooms.Jumps.OnPreThink(TickSeconds);
+        Assert.True(rooms.Jumps.Reading!.Wait(TimeSpan.FromSeconds(60)));
+        rooms.Jumps.OnPreThink(TickSeconds);
+        LinksDone(rooms.Jumps);
+        Assert.Equal(2, SeedsOf(rooms));
+
+        Rig none = Service();
+        none.Nav.RoomWaysIn = [Ledge250];
+        none.Nav.Current = Level();
+        none.Jumps.OnPreThink(TickSeconds);
+        Assert.True(none.Jumps.Reading!.Wait(TimeSpan.FromSeconds(60)));
+        none.Jumps.OnPreThink(TickSeconds);
+        LinksDone(none.Jumps);
+        Assert.Equal(1, SeedsOf(none));
     }
 
     /// <summary>What a follower said, as the main thread hands it over, is what the tree then reads from the book.</summary>

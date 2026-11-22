@@ -252,7 +252,11 @@ public sealed class TFKnifeBackstabLagTests
         {
             var cmd = new UserCmd { TickCount = 105, CommandNumber = 7, Buttons = (int)InputButtons.Attack };
             using (Commands.Begin(SpyRig.Spy, in cmd))
-                return Spy.Spies.Swing(SpyRig.Spy.EntryIndex, 48f);
+            {
+                bool judged = Spy.Spies.Swing(SpyRig.Spy.EntryIndex, 48f);
+                Spy.Spies.Smack(SpyRig.Spy.EntryIndex);   // stock calls Smack in Swing's breath (:229-231)
+                return judged;
+            }
         }
     }
 

@@ -31,8 +31,11 @@ public sealed class TFKnifeTests
     {
         var rig = new SpyRig();
 
-        // The victim faces away (+X), the spy behind him facing his back.
+        // The victim faces away (+X), the spy behind him facing his back. The
+        // swing judges and latches; the smack's arm deals (stock's PrimaryAttack
+        // calls Swing then Smack in one breath, tf_weapon_knife.cpp:229-231).
         Assert.True(rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f));
+        Assert.True(rig.Spies.Smack(SpyRig.Spy.EntryIndex));
 
         var hit = Assert.Single(rig.Damage.Hits);
         Assert.Equal(SpyRig.Victim, hit.Victim);
@@ -56,6 +59,7 @@ public sealed class TFKnifeTests
             () => new SurfaceTraceResult(true, 0.5f, default, default, SpyRig.Victim, 0, 0));
 
         Assert.True(rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f));
+        Assert.True(rig.Spies.Smack(SpyRig.Spy.EntryIndex));
 
         Assert.Equal(TFDamageCustom.Backstab, Assert.Single(rig.Damage.Hits).Custom);
     }
@@ -77,12 +81,14 @@ public sealed class TFKnifeTests
         rig.Owners.Managers[SpyRig.Victim.EntryIndex] = manager;
 
         Assert.True(rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f));
+        Assert.True(rig.Spies.Smack(SpyRig.Spy.EntryIndex));
         var blocked = Assert.Single(rig.Damage.Hits);
         Assert.Equal(0f, blocked.Damage, 4);                     // zeroed at the gate, :6827
         Assert.Equal(TFDamageCustom.Backstab, blocked.Custom);   // still the backstab scope
 
         // The attribute was consumed with the block: the next one is whole.
         Assert.True(rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f));
+        Assert.True(rig.Spies.Smack(SpyRig.Spy.EntryIndex));
         Assert.Equal(2, rig.Damage.Hits.Count);
         Assert.Equal(200f, rig.Damage.Hits[1].Damage, 4);
     }
@@ -121,13 +127,61 @@ public sealed class TFKnifeTests
         var world = new TFWeaponWorld(new TFKnifeServerHook(rig.Spies));
         var (w, vm) = world.Armed("tf_weapon_knife", clip: -1, reserve: 0);
 
-        // The swing: the backstab leaves through the seam. The smack: the
-        // chain's damage read answers 0, so the arm's hit records nothing.
+        // The swing judges and latches; the smack deals the backstab through
+        // the seam and the chain's damage read answers 0 on top of it, so the
+        // arm's own hit records nothing beside the seam's.
         world.Run(w, vm, Attack, now: 10f, seed: 1);
         world.Run(w, vm, 0, now: 10.115f);
 
         Assert.Equal(200f, Assert.Single(rig.Damage.Hits).Damage, 4);
         Assert.Equal(0f, Assert.Single(world.Effects.Swings).Shot.Damage, 4);
+    }
+
+    /// <summary>The ported order of stock's <c>PrimaryAttack</c>
+    /// (<c>tf_weapon_knife.cpp:195-231</c>): the swing's trace judges the
+    /// backstab and latches the victim (:206-211); the damage itself lands in
+    /// the smack's melee half, where <c>GetMeleeDamage</c> reads the victim's
+    /// health then (:377), flagged <c>TF_DMG_CUSTOM_BACKSTAB</c> (:381). So at
+    /// the press only the latch stands; the hit arrives at the smack.</summary>
+    [Fact]
+    public void The_backstab_judged_at_the_swing_deals_at_the_smack()
+    {
+        var rig = new SpyRig();
+        var world = new TFWeaponWorld(new TFKnifeServerHook(rig.Spies));
+        var (w, vm) = world.Armed("tf_weapon_knife", clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: 1);            // the swing judges, the latch arms (:209)
+
+        var hit = Assert.Single(rig.Damage.Hits);               // the smack runs in the swing's breath (:229-231)
+        Assert.Equal(200f, hit.Damage, 4);                      // the victim's health then, doubled (:377)
+        Assert.Equal(TFDamageCustom.Backstab, hit.Custom);      // (:381)
+        Assert.True(hit.Critical);                              // IsBackstab answers the roll whole (:490)
+
+        world.Run(w, vm, 0, now: 10.115f);                      // the smack time spends the latch's answer once
+
+        Assert.Single(rig.Damage.Hits);                         // dealt once per swing, not twice
+        Assert.Equal(0f, Assert.Single(world.Effects.Swings).Shot.Damage, 4);   // the chain's read answers beside the seam's hit
+    }
+
+    /// <summary>Stock's latch (<c>m_hBackstabVictim</c>, :209-210): the
+    /// judgment lives on the handle, so the smack's half asks the latch — not
+    /// the facing again (:355-382 reads <c>IsBackstab()</c>). A victim who
+    /// turns between the swing and the smack still takes the doubled hit.</summary>
+    [Fact]
+    public void The_latched_victim_takes_the_backstab_after_turning()
+    {
+        var rig = new SpyRig();
+        var world = new TFWeaponWorld(new TFKnifeServerHook(rig.Spies));
+        var (w, vm) = world.Armed("tf_weapon_knife", clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: 1);            // judged from behind, latched
+
+        rig.VictimAngles = new Vector(0f, 180f, 0f);            // he turns before the smack lands
+        world.Run(w, vm, 0, now: 10.115f);
+
+        var hit = Assert.Single(rig.Damage.Hits);               // the latch answers, the facing does not re-judge
+        Assert.Equal(200f, hit.Damage, 4);
+        Assert.Equal(TFDamageCustom.Backstab, hit.Custom);
     }
 
     [Fact]
@@ -156,6 +210,7 @@ public sealed class TFKnifeTests
         rig.TraceEnd = new Vector(60f, 2f, 63f);
 
         Assert.True(rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f));
+        Assert.True(rig.Spies.Smack(SpyRig.Spy.EntryIndex));
 
         Assert.Equal(rig.TraceEnd, Assert.Single(rig.Damage.Hits).Position);
     }
@@ -167,6 +222,7 @@ public sealed class TFKnifeTests
         rig.VictimAlive = false;    // the gate is the trace and the dots only (tf_weapon_knife.cpp:199-213)
 
         Assert.True(rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f));
+        Assert.True(rig.Spies.Smack(SpyRig.Spy.EntryIndex));
         Assert.Single(rig.Damage.Hits);
     }
 
@@ -270,6 +326,7 @@ public sealed class TFKnifeTests
         rig.Owners.Items[SpyRig.Spy.EntryIndex] = knife;
 
         Assert.True(rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f));
+        Assert.True(rig.Spies.Smack(SpyRig.Spy.EntryIndex));
 
         // spyHealth 100 + max(victimHealthBeforeHit 100, 75), under the cap of
         // three times the answered maximum of 100 (:274-276).
@@ -292,6 +349,7 @@ public sealed class TFKnifeTests
         rig.Owners.Items[SpyRig.Spy.EntryIndex] = knife;
 
         rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f);
+        rig.Spies.Smack(SpyRig.Spy.EntryIndex);
 
         Assert.Equal($"take {SpyRig.Spy.EntryIndex} 20 True", Assert.Single(rig.Resupply.Takes));
     }
@@ -310,6 +368,7 @@ public sealed class TFKnifeTests
         rig.Owners.Items[SpyRig.Spy.EntryIndex] = knife;
 
         Assert.True(rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f));   // VictimAlive stays true
+        Assert.True(rig.Spies.Smack(SpyRig.Spy.EntryIndex));
 
         Assert.Empty(rig.Resupply.Takes);
     }
@@ -323,6 +382,7 @@ public sealed class TFKnifeTests
         rig.VictimAlive = false;
 
         Assert.True(rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f));
+        Assert.True(rig.Spies.Smack(SpyRig.Spy.EntryIndex));
 
         Assert.Empty(rig.Resupply.Takes);
     }
@@ -346,6 +406,7 @@ public sealed class TFKnifeTests
         rig.Owners.Items[SpyRig.Spy.EntryIndex] = knife;
 
         Assert.True(rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f));
+        Assert.True(rig.Spies.Smack(SpyRig.Spy.EntryIndex));
 
         Assert.Equal(55f, rig.State.CloakMeter, 4);                 // 30 + the attribute's 25
     }
@@ -366,6 +427,7 @@ public sealed class TFKnifeTests
         rig.Owners.Items[SpyRig.Spy.EntryIndex] = knife;
 
         rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f);
+        rig.Spies.Smack(SpyRig.Spy.EntryIndex);
 
         Assert.Equal(100f, rig.State.CloakMeter, 4);
     }
@@ -386,6 +448,7 @@ public sealed class TFKnifeTests
         rig.Owners.Items[SpyRig.Spy.EntryIndex] = knife;
 
         Assert.True(rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f));
+        Assert.True(rig.Spies.Smack(SpyRig.Spy.EntryIndex));
 
         Assert.True(rig.Conditions.InCond(SpyRig.Spy, TFCond.SpeedBoost));
         Assert.Equal(3f, rig.Conditions.Of(SpyRig.Spy.EntryIndex)!.Duration(TFCond.SpeedBoost), 4);
@@ -401,6 +464,7 @@ public sealed class TFKnifeTests
         rig.State.CloakMeter = 30f;
 
         Assert.True(rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f));   // no Items entry at all
+        Assert.True(rig.Spies.Smack(SpyRig.Spy.EntryIndex));
 
         Assert.Equal(30f, rig.State.CloakMeter, 4);
         Assert.False(rig.Conditions.InCond(SpyRig.Spy, TFCond.SpeedBoost));
@@ -425,6 +489,7 @@ public sealed class TFKnifeTests
         var (w, vm) = world.Armed("tf_weapon_knife", clip: -1, reserve: 0);
 
         world.Run(w, vm, Attack, now: 10f, seed: 1);
+        world.Run(w, vm, 0, now: 10.115f);                       // the smack deals the hit, the tail rides it (:243)
 
         Assert.True(rig.Conditions.InCond(SpyRig.Spy, TFCond.Disguising));   // :328 runs the disguise
         rig.Slice.Tick(102.1f);                                              // the think completes
@@ -448,6 +513,7 @@ public sealed class TFKnifeTests
         var world = new TFWeaponWorld(new TFKnifeServerHook(rig.Spies));
         var (w, vm) = world.Armed("tf_weapon_knife", clip: -1, reserve: 0);
         world.Run(w, vm, Attack, now: 10f, seed: 1);
+        world.Run(w, vm, 0, now: 10.115f);                       // the smack deals the hit, the tail rides it (:243)
 
         Assert.False(rig.Conditions.InCond(SpyRig.Spy, TFCond.Disguised));   // the else arm's RemoveDisguise (:263)
     }
@@ -567,6 +633,7 @@ public sealed class TFKnifeTests
 
         public bool Swing(int ownerIndex, float range) => false;
         public bool Smack(int ownerIndex) => false;
+        public bool IsBackstab(int ownerIndex) => false;
         public bool ShouldDisguiseOnBackstab(int ownerIndex) => false;
         public bool DisguiseOnKill(int ownerIndex) => false;
         public void RemoveDisguise(int playerIndex) { }

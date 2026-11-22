@@ -17,6 +17,7 @@ internal sealed class IdleSkillSpies : ITFSpyState
     public bool Swing(int ownerIndex, float range) => false;
 
     public bool Smack(int ownerIndex) => false;
+    public bool IsBackstab(int ownerIndex) => false;
 
     public bool ShouldDisguiseOnBackstab(int ownerIndex) => false;
 

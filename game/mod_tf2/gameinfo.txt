@@ -61,6 +61,12 @@
 			platform			|all_source_engine_paths|platform
 
 			game+download		|gameinfo_path|download
+
+			// Steam's downloaded maps (jump_academy2_rc9a and the other
+			// community maps), as stock TF2 mounts tf/download last. After
+			// our own download path, so a download this game makes is
+			// written there.
+			game+download		|gameinfo_path|../../content/tf/download
 		}
 	}
 }
