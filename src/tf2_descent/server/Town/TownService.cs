@@ -121,7 +121,7 @@ public sealed class TownService(
             var stall = stalls[i];
             if (world.Marker(stall.Marker) is not { } marker)
             {
-                log.Warning($"[TF2Descent/Town] {map} has no {stall.Marker}: the {stall.Id} stall stands nowhere\n");
+                log.Warning($"[TF2Descent/Town] {map} has no {stall.Marker}: the {stall.Id} stall stands nowhere (a town built before the marker existed: make town)\n");
                 continue;
             }
             Vector at = world.Floor(marker + stall.Offset);
@@ -160,9 +160,17 @@ public sealed class TownService(
     public void Use(int entity, int player)
     {
         int stall = world.StallOf(entity);
-        if (stall >= 0)
-            OpenStall(player, stall);
+        if (stall < 0 || !OpenStall(player, stall))
+            return;
+        // The resupply locker is the Lost and Found's counter (the whole run's F16): what waits there
+        // of the hero's comes back as he opens it, for the fee, told on the stash window's status line.
+        if (TownStalls.All[stall].Id == LostAndFoundStall && world.HeroOf(player) is { } key
+            && ledger.LostAndFound(key) is { Empty: false })
+            _ = Reclaim(player);
     }
+
+    /// <summary>The stall whose use reclaims from the Lost and Found: the resupply locker.</summary>
+    public const string LostAndFoundStall = "stash";
 
     /// <summary>Opens stall <paramref name="stall"/>'s window for <paramref name="player"/>; with <paramref name="reach"/> false walking away leaves it open (a dev open).</summary>
     public bool OpenStall(int player, int stall, bool reach = true)
@@ -204,6 +212,22 @@ public sealed class TownService(
             return;
         world.Panel(player, TownSender.PanelOf(session.Screen), false);
         log.Msg($"[TF2Descent/Town] {player} closed {(session.Stall >= 0 ? TownStalls.All[session.Stall].Id : "the way down")}\n");
+    }
+
+    /// <summary>
+    /// The hero closed his window on the client (Esc, its x; the whole run's F27): the session ends
+    /// at once, as walking away ends it, so a verb after it is told no window is open. A close that
+    /// names another screen than the one open (one the server has replaced since) changes nothing.
+    /// The client has closed its panel already, so none is sent.
+    /// </summary>
+    public bool ClosedOnClient(int player, string screen)
+    {
+        if (!_sessions.TryGetValue(player, out var session)
+            || !string.Equals(TownSender.PanelOf(session.Screen), "descent_" + screen, StringComparison.Ordinal))
+            return false;
+        _sessions.Remove(player);
+        log.Msg($"[TF2Descent/Town] {player} closed {(session.Stall >= 0 ? TownStalls.All[session.Stall].Id : "the way down")} on the client\n");
+        return true;
     }
 
     public void OnPostThink(float frameTime)
@@ -485,7 +509,7 @@ public sealed class TownService(
         if (Gate(player, Shop) is not { } g)
             return Task.FromResult<LedgerResult?>(null);
         return Run(player, "buy", () => ledger.Buy(g.Key, g.Stall!.Vendor!, stockId),
-                   r => (Added(r) is { } a ? NameOf(a.Item) : "", stockId));
+                   r => (Added(r) is { } a ? NameOf(a.Item) : Changed(r) is { } joined ? NameOf(joined.Item) : "", stockId));   // a potion that joined a belt stack is a change
     }
 
     public Task<LedgerResult?> Sell(int player, int slot)

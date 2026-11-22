@@ -299,6 +299,35 @@ public static class DescentLevel
     }
 
     /// <summary>
+    /// One camera per placed room, every room (brief p9, the per-room light of plan_descent_logic Y5):
+    /// its own corner camera from <c>library.json</c> (<see cref="PreviewCamera"/>), turned with the
+    /// room as <see cref="Cameras"/> turns it, labelled <c>room &lt;column&gt; &lt;row&gt; &lt;name&gt;</c>
+    /// by the placement's south-west cell, so a reader matches it to the <c>.map2d</c>'s room by its cell.
+    /// A room without a camera in the manifest has none.
+    /// </summary>
+    public static IReadOnlyList<string> RoomCameras(LevelPlan plan, string manifestJson)
+    {
+        using var doc = JsonDocument.Parse(manifestJson);
+        var rooms = doc.RootElement.GetProperty("rooms");
+        var cameras = new List<string>();
+        foreach (Placement p in plan.Placements.OrderBy(p => p.Row).ThenBy(p => p.Column))
+        {
+            if (!rooms.TryGetProperty(p.Room, out JsonElement room) || !RoomName.TryParse(p.Room, out var shape, out _)
+                || !room.TryGetProperty("camera", out JsonElement cam) || !room.TryGetProperty("cell", out JsonElement cellSize))
+                continue;
+            float cell = cellSize.GetSingle(), m = shape!.CellsX * cell / 2;
+            float[] c = [.. cam.EnumerateArray().Select(v => v.GetSingle())];
+            double a = p.Rotation * Math.PI / 180;
+            float dx = c[0] - m, dy = c[1] - m;
+            float x = p.Column * cell + m + (float)(dx * Math.Cos(a) - dy * Math.Sin(a)), y = p.Row * cell + m + (float)(dx * Math.Sin(a) + dy * Math.Cos(a));
+            cameras.Add(string.Create(CultureInfo.InvariantCulture,
+                $"{Math.Round(x)} {Math.Round(y)} {c[2]} 6 {Math.Round(((c[3] + p.Rotation) % 360 + 360) % 360)} 90 room {p.Column} {p.Row} {p.Room}"));
+        }
+
+        return cameras;
+    }
+
+    /// <summary>
     /// A preview camera on one joined doorway of the level (the review of 0c79c6fc2: the door frames
     /// and the track at a door were not in any view): from inside one room of a joint, 320 in and 96
     /// to the side, looking at the doorway's middle. A joint between a room whose family carries
@@ -338,8 +367,9 @@ public static class DescentLevel
     /// Lays out a level of <paramref name="depth"/> from the library in
     /// <paramref name="libraryDir"/> and writes its level file to
     /// <paramref name="output"/>, and beside it the preview's per-room
-    /// cameras, a line each (<c>.cameras</c>); the layout's error when the
-    /// pool cannot make one.
+    /// cameras, a line each (<c>.cameras</c>), and a camera in every room
+    /// (<c>.roomcams</c>, <see cref="RoomCameras"/>); the layout's error when
+    /// the pool cannot make one.
     /// </summary>
     public static (string? Error, LayoutReport? Report) Generate(string libraryDir, int depth, ulong seed, string output)
     {
@@ -352,6 +382,7 @@ public static class DescentLevel
         if (DoorwayCamera(result.Plan!, DescentRooms.ThemeFor(depth).Props.RailFamilies) is { } doorway)
             cameras.Add(doorway);
         File.WriteAllLines(Path.ChangeExtension(output, ".cameras"), cameras);
+        File.WriteAllLines(Path.ChangeExtension(output, ".roomcams"), RoomCameras(result.Plan!, File.ReadAllText(Path.Combine(libraryDir, "library.json"))));
         return (null, result.Report);
     }
 }

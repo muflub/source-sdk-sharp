@@ -61,6 +61,24 @@ public sealed record ChampionLoot(double ItemPctPerAffix, double AustraliumPctPe
 /// </summary>
 public sealed record BossLoot(string Id, int Items, int Potions, string Potion, long Australium, IReadOnlyList<TierWeight> Tiers) : IContentRow;
 
+/// <summary>The TF2 ammo pack sizes a kill may drop (<see cref="AmmoDropRow.Pack"/>): TF2's small, medium and full packs.</summary>
+public static class AmmoPacks
+{
+    public const string Small = "small";
+    public const string Medium = "medium";
+    public const string Full = "full";
+
+    /// <summary>Every pack size, smallest first.</summary>
+    public static IReadOnlyList<string> All => [Small, Medium, Full];
+}
+
+/// <summary>
+/// A robot size class's ammo drop: with <see cref="ChancePct"/> a kill of a robot of
+/// <see cref="Size"/> drops a TF2 ammo pack of <see cref="Pack"/> (<see cref="AmmoPacks"/>)
+/// where it fell. Not loot: no ledger, nothing kept, any hero may take it.
+/// </summary>
+public sealed record AmmoDropRow(string Size, string Pack, double ChancePct);
+
 /// <summary>
 /// loot.json (plan_tf2_rpg 2c; R4, D11, D13; plan_descent_logic RU4). A robot's quality is the
 /// XP its template pays at the middle of its scale range, at level 1 with no affixes, over
@@ -76,8 +94,12 @@ public sealed record LootSettings(
     AustraliumSettings Australium,
     ChampionLoot Champion,
     IReadOnlyList<LootTableRow> Tables,
-    IReadOnlyList<BossLoot> Bosses)
+    IReadOnlyList<BossLoot> Bosses,
+    IReadOnlyList<AmmoDropRow> Ammo)
 {
+    /// <summary>The ammo drop of a robot size class; null when the class drops none.</summary>
+    public AmmoDropRow? AmmoOf(string size) => Ammo.FirstOrDefault(a => a.Size == size);
+
     public LootTableRow Table(string id) =>
         Tables.FirstOrDefault(t => t.Id == id) ?? throw new KeyNotFoundException($"no loot table '{id}'");
 
@@ -138,8 +160,16 @@ public sealed class LootTable : SingleTable<LootSettings>
             bosses.Add(new BossLoot(b.Str("id"), b.Int("items"), b.Int("potions"), b.Str("potion"), b.Long("australium"), Tiers(b, growth: false)));
             b.End();
         }
+        var ammo = new List<AmmoDropRow>();
+        foreach (var e in f.Array("ammo"))
+        {
+            string? size = e.ValueKind == System.Text.Json.JsonValueKind.Object && e.TryGetProperty("size", out var sv) ? sv.GetString() : null;
+            var am = new JsonFields(e, f.Table, size ?? "ammo", f.Errors);
+            ammo.Add(new AmmoDropRow(am.Str("size"), am.Str("pack"), am.Num("chancePct")));
+            am.End();
+        }
         return new LootSettings(f.Num("referenceXp"), f.Num("qualityMin"), f.Num("qualityMax"), f.Num("itemQualityExponent"),
-            australium, champion, tables, bosses);
+            australium, champion, tables, bosses, ammo);
     }
 
     protected override void Validate(DescentContent content, LootSettings s, ContentErrors errors)
@@ -188,6 +218,18 @@ public sealed class LootTable : SingleTable<LootSettings>
             ContentChecks.Range(errors, t, b.Id, "australium", b.Australium, 0, 1e12);
             Potion(content, errors, b.Id, "potion", b.Potion, 1);
             TierChecks(content, errors, b.Id, b.Tiers);
+        }
+
+        RobotJson.Unique(errors, t, "ammo", s.Ammo.Select(x => x.Size));
+        content.TryGet<RobotRulesSettings>(ContentTables.RobotRules, out var robotRules);
+        foreach (var am in s.Ammo)
+        {
+            string row = "ammo." + am.Size;
+            ContentChecks.Range(errors, t, row, "chancePct", am.ChancePct, 0, 100);
+            if (!AmmoPacks.All.Contains(am.Pack))
+                errors.Add(t, row, ContentRule.OutOfRange, $"'pack' is '{am.Pack}', not one of {string.Join(", ", AmmoPacks.All)}");
+            if (robotRules is not null && robotRules.Sizes.All(z => z.Id != am.Size))
+                errors.Add(t, row, ContentRule.DanglingReference, $"'size' names '{am.Size}', which is not a size class of '{ContentTables.RobotRules}'");
         }
 
         // Every table the levels and the containers name is here, and every boss has its own (D13).

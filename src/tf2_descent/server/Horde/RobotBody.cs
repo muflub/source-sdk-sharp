@@ -45,6 +45,9 @@ namespace TF2.Descent.Server.Horde;
 [Precache(PrecacheKind.Model, RobotLooks.SentryBusterModel)]
 [Precache(PrecacheKind.Model, RobotLooks.TankModel)]
 [Precache(PrecacheKind.Model, Attacks.EngineRobotAttackWorld.LaserSprite)]
+[Precache(PrecacheKind.Model, "models/items/ammopack_small.mdl")]   // a robot's ammo drop (Loot.EngineAmmoPackWorld.Model):
+[Precache(PrecacheKind.Model, "models/items/ammopack_medium.mdl")]  // tf_ammo_pack precaches only the medium, and a level
+[Precache(PrecacheKind.Model, "models/items/ammopack_large.mdl")]   // need hold no map pack of the others
 [Precache(PrecacheKind.Sound, Attacks.RobotAttacks.MinigunWindUp)]
 [Precache(PrecacheKind.Sound, Attacks.RobotAttacks.BusterSpin)]
 [Precache(PrecacheKind.Sound, Attacks.RobotAttacks.BusterExplode)]
@@ -59,7 +62,7 @@ namespace TF2.Descent.Server.Horde;
 [Precache(PrecacheKind.ParticleSystem, Champions.ChampionTeleports.Out)]
 [Precache(PrecacheKind.ParticleSystem, Champions.ChampionTeleports.In)]
 [Precache(PrecacheKind.Material, RobotDrawing.UberMaterial)]
-public sealed class RobotBody(IEngineEntityRender render) : ScriptedEntity
+public sealed class RobotBody(IEngineEntityRender render, IServerSkins skins) : ScriptedEntity
 {
     [NetState] public RobotNetState State = new();
 
@@ -90,6 +93,9 @@ public sealed class RobotBody(IEngineEntityRender render) : ScriptedEntity
     public float Yaw { get; private set; }
 
     public float Scale { get; private set; } = 1f;
+
+    /// <summary>The skin the body is drawn in (<see cref="RobotLooks.BodySkin"/>), set at each lend.</summary>
+    public int Skin { get; private set; }
 
     /// <summary>The clip the robot started with: -1, a full one (no robot fires yet).</summary>
     public int Clip { get; private set; } = -1;
@@ -155,6 +161,10 @@ public sealed class RobotBody(IEngineEntityRender render) : ScriptedEntity
             _model = model;
             _dials[0] = -2;
         }
+
+        // BLU, at every lend: the pool hands a body to robot after robot.
+        Skin = RobotLooks.BodySkin(model);
+        skins.SetSkin(Handle, Skin);
 
         Scale = scale;
         render.SetModelScale(Handle, scale);
@@ -285,13 +295,19 @@ public sealed class RobotBody(IEngineEntityRender render) : ScriptedEntity
     internal void SetLife(double life, double lifeMax) =>
         State.Life = (byte)Math.Clamp((int)Math.Ceiling(255 * (lifeMax > 0 ? life / lifeMax : 0)), 0, 255);
 
-    /// <summary>The robot died: it stops blocking at once; the pool parks it at the next decision.</summary>
+    /// <summary>
+    /// The robot died: it stops blocking and stops being drawn at once (its
+    /// ragdoll, a separate entity, falls in its place: <see cref="RobotRagdolls"/>),
+    /// and its weapon with it; the pool parks it at the next decision.
+    /// </summary>
     internal void Died()
     {
         _health = 0;
         State.Flags = (byte)((RobotFlags)State.Flags | RobotFlags.Dead);
         State.Life = 0;
         SetSolidity(SolidType.None, SolidFlags.None);
+        SetVisible(false);
+        Weapon?.Hide();
     }
 
     internal void SetStatuses(byte statuses) => State.Statuses = statuses;
@@ -359,7 +375,7 @@ public sealed class RobotBody(IEngineEntityRender render) : ScriptedEntity
 [Precache(PrecacheKind.Model, RobotLooks.SyringeGun)]
 [Precache(PrecacheKind.Model, RobotLooks.SniperRifle)]
 [Precache(PrecacheKind.Model, RobotLooks.Knife)]
-public sealed class RobotWeapon(IEngineEntityRender render) : ScriptedEntity
+public sealed class RobotWeapon(IEngineEntityRender render, IServerSkins skins) : ScriptedEntity
 {
     [NetState] public RobotWeaponNetState State = new();
 
@@ -401,6 +417,8 @@ public sealed class RobotWeapon(IEngineEntityRender render) : ScriptedEntity
             _model = model;
         }
 
+        // BLU as its robot (a skin change writes only when it differs).
+        skins.SetSkin(Handle, RobotLooks.BluSkin);
         SetVisible(true);
         Shown = true;
     }

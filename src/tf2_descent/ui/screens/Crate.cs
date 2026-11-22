@@ -12,8 +12,13 @@ namespace TF2.Descent.Client.Ui.Screens;
 /// row where the rolled item's card sits in its rarity colour.
 /// </summary>
 public sealed class Crate(UiWindows windows, IDescentCrate crate, IDescentCrateActions? actions = null,
-                          IDescentTownStatus? status = null) : UiScreen, IUiWindowed
+                          IDescentTownStatus? status = null, IDescentTownClose? close = null) : UiScreen, IUiWindowed
 {
+    private readonly IDescentTownClose? _close = close;
+
+    /// <summary>Closed on the client (Esc, its x): the server ends the window's session (the whole run's F27).</summary>
+    public override void Closed() => _close?.Closed(Name);
+
     public override string Name => "crate";
     /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
     public override string? Panel => "descent_crate";

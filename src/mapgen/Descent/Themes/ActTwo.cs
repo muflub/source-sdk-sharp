@@ -112,18 +112,19 @@ public static class ActTwo
         WallLow = new("nature/rockwall002_island", 0.25f),
         WallBand = 160,
         LargeWall = new("winter/rockwall014", 0.5f),
-        // About a tenth under the first pass's (brief p9: the view figure read level 6 at 35 against 32).
-        CoolFill = (new Lamp("150 166 200", 27, 448, 1280), 512),
-        Lamps = new LampKind(ActOne.Lantern, LampMount.Floor, new Lamp("255 186 120", 180, 192, 900), Spacing: 448, LightAt: new(0, 0, 40))
+        // Its lamps about a seventh over p9's (brief p11: level 6 read 28 in game for its 32; its fog moved the
+        // game's figure by under half a point, removed or lifted, so the lights carry it).
+        CoolFill = (new Lamp("150 166 200", 31, 448, 1280), 512),
+        Lamps = new LampKind(ActOne.Lantern, LampMount.Floor, new Lamp("255 186 120", 206, 192, 900), Spacing: 448, LightAt: new(0, 0, 40))
         {
             Stand = ActOne.PowderCrate,
             Pools = (2, 3),
         },
-        CoverLamps = new LampKind(ActOne.Lantern, LampMount.Wall, new Lamp("255 186 120", 135, 192, 900), Spacing: 320, LightAt: new(0, 0, 40))
+        CoverLamps = new LampKind(ActOne.Lantern, LampMount.Wall, new Lamp("255 186 120", 155, 192, 900), Spacing: 320, LightAt: new(0, 0, 40))
         {
             WallHeight = 128,
         },
-        Pendants = Pendant(WorkLight, new Lamp("206 214 230", 58, 384, 1280), new(0, -4, -24), hang: 448, grid: 640),
+        Pendants = Pendant(WorkLight, new Lamp("206 214 230", 67, 384, 1280), new(0, -4, -24), hang: 448, grid: 640),
         Props = new PropSet
         {
             Wall = [Planks, Boards, Barrier, ActOne.FuseBox],
@@ -236,20 +237,22 @@ public static class ActTwo
         LargeWall = new("nature/rockwall006a", 0.5f),
         // Murky green water that reflects the gallery (no cubemap needed) over a wet rock bed the lamp lights
         // (brief p9: water_murky's brown fog over the mud read in game as a mud floor; tried in game with
-        // a gravel bed and no reflection, and with water_murky's own fog).
+        // a gravel bed and no reflection, and with water_murky's own fog). Its fog near black and the
+        // reflection tinted down (brief p11: at fog 30 44 30 the water drew a lit teal sheet over half of
+        // every flooded view and level 8 read 35 in game for its 24), with its lamps a seventh under p9's.
         Water = "descent/sunken_water",
         Extra =
         [
-            OwnMaterial.Water("descent/sunken_water", "swamp/water/water_murky", "swamp/water/water_murky_beneath", "30 44 30", 64, "[.6 .7 .6]"),
+            OwnMaterial.Water("descent/sunken_water", "swamp/water/water_murky", "swamp/water/water_murky_beneath", "10 15 10", 64, "[.5 .6 .5]"),
             OwnMaterial.Plain("descent/sunken_bed", "nature/rockfloor003a", "Nature/rockfloor003a", "Nature/rockfloor003a_normal", "concrete"),
         ],
         Standing = new StandingWater(16, 160, null),
-        CoolFill = (new Lamp("104 132 96", 17, 448, 1280), 512),
-        Lamps = new LampKind(LampPost, LampMount.Floor, new Lamp("190 214 140", 86, 192, 768), Spacing: 384, LightAt: new(0, 0, 74)),
+        CoolFill = (new Lamp("104 132 96", 15, 448, 1280), 512),
+        Lamps = new LampKind(LampPost, LampMount.Floor, new Lamp("190 214 140", 74, 192, 768), Spacing: 384, LightAt: new(0, 0, 74)),
         // A bell lamp under the roof where the posts by the walls leave a room's middle dark, and on long
         // cables over the tall galleries' water.
-        CoverLamps = new LampKind(ActOne.BellLamp, LampMount.Ceiling, new Lamp("170 200 130", 46, 256, 900), Spacing: 384, LightAt: new(0, 0, -28)),
-        Pendants = Pendant(ActOne.BellLamp, new Lamp("170 200 130", 46, 384, 1280), new(0, 0, -28), hang: 448, grid: 640),
+        CoverLamps = new LampKind(ActOne.BellLamp, LampMount.Ceiling, new Lamp("170 200 130", 39, 256, 900), Spacing: 384, LightAt: new(0, 0, -28)),
+        Pendants = Pendant(ActOne.BellLamp, new Lamp("170 200 130", 39, 384, 1280), new(0, 0, -28), hang: 448, grid: 640),
         Bands = new TrimBands(Skirting: 0, DadoHeight: 0, Dado: 0, Beam: 16, Belt: 0),
         Pilasters = new Pilasters(Spacing: 384, Width: 16, Depth: 12),
         Props = new PropSet

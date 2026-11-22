@@ -13,7 +13,11 @@ namespace TF2.Descent.Tests;
 public sealed partial class ServiceFlowTests
 {
     /// <summary>An unhosted travel service on a level of <paramref name="depth"/> (0: the town) over a pool holding <paramref name="installed"/>.</summary>
-    private static (TravelService Travel, FakeConsole Console, RecordingEngine Net, string Pool) UnhostedTravel(int depth, params string[] installed)
+    private static (TravelService Travel, FakeConsole Console, RecordingEngine Net, string Pool) UnhostedTravel(int depth, params string[] installed) =>
+        UnhostedTravel(out _, depth, installed);
+
+    private static (TravelService Travel, FakeConsole Console, RecordingEngine Net, string Pool) UnhostedTravel(out ClientMessages messages, int depth,
+                                                                                                             params string[] installed)
     {
         var (_, players, _, net) = Players("level", levelDepth: depth);
         var w = Host(HostingMode.Unhosted);
@@ -26,7 +30,8 @@ public sealed partial class ServiceFlowTests
         var level = new Floor.RigLevel(depth, 1);
         if (depth == 0)
             level.Current = null;
-        var travel = new TravelService(w.Link, w.Host, players, new ClientMessages(net), new Kills(), new AnyoneTravels(),
+        messages = new ClientMessages(net);
+        var travel = new TravelService(w.Link, w.Host, players, messages, new Kills(), new AnyoneTravels(),
                                        level, hop, w.Console, w.Log);
         return (travel, w.Console, net, game);
     }
@@ -34,12 +39,17 @@ public sealed partial class ServiceFlowTests
     [Fact]
     public void Unhosted_a_levels_way_down_changes_level_to_the_next_depths_installed_level()
     {
-        var (travel, console, net, game) = UnhostedTravel(1, "tf2_descent-2-s3", "tf2_descent-2-s1", "tf2_descent-3-s1");
+        var (travel, console, net, game) = UnhostedTravel(out var messages, 1, "tf2_descent-2-s3", "tf2_descent-2-s1", "tf2_descent-3-s1");
         try
         {
             travel.Request(3, TravelDirection.Down);
+            var before = NoticesSent(net);
+            messages.LevelBegan();
+            messages.SendArrivalNotices(3);
 
             Assert.Equal(["exec changelevel tf2_descent-2-s1"], console.Calls.Where(c => c.StartsWith("exec changelevel", StringComparison.Ordinal)));
+            // The cage's line goes on the next level (F28): sent before the changelevel it never reached the HUD.
+            Assert.Empty(before);
             Assert.Equal([(WaysDown.Token(WayDown.Cage), "")], NoticesSent(net));
         }
         finally
@@ -68,13 +78,17 @@ public sealed partial class ServiceFlowTests
     [Fact]
     public void Unhosted_a_levels_way_up_changes_level_to_the_town()
     {
-        var (travel, console, net, game) = UnhostedTravel(5, "tf2_descent-4-s1");
+        var (travel, console, net, game) = UnhostedTravel(out var messages, 5, "tf2_descent-4-s1");
         try
         {
             travel.Request(3, TravelDirection.Up);
+            var before = NoticesSent(net);
+            messages.LevelBegan();
+            messages.SendArrivalNotices(3);
 
             Assert.Equal(["exec changelevel " + TF2.Descent.Server.Portal.PortalRoute.TownMap],
                          console.Calls.Where(c => c.StartsWith("exec changelevel", StringComparison.Ordinal)));
+            Assert.Empty(before);
             Assert.Equal([(TravelService.UpToken, "")], NoticesSent(net));
         }
         finally

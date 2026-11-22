@@ -88,7 +88,7 @@ public sealed class DescentHud(
                     ui.Sub("cast", cast);
                     ui.Sub("party", party);
                     ui.Sub("orbs", orbs);
-                    ui.Sub("belt", belt);
+                    ui.Sub("belt", belt, default(BeltStripProps));
                     ui.Sub("skills", skills, new SkillSlotsProps(Compact: true));
                 }
                 else
@@ -96,7 +96,7 @@ public sealed class DescentHud(
                     using (ui.Row(Space.S, Align.End))
                     {
                         ui.Sub("orbs", orbs);
-                        ui.Sub("belt", belt);
+                        ui.Sub("belt", belt, default(BeltStripProps));
                     }
                 }
             }

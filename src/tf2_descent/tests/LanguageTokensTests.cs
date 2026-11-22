@@ -63,6 +63,24 @@ public sealed partial class LanguageTokensTests
     }
 
     [Fact]
+    public void Every_use_refusal_token_is_in_the_language_file_and_names_the_item()
+    {
+        var tokens = Tokens();
+
+        foreach (string token in TF2.Descent.Server.Hero.UseRefusals.Tokens)
+            Assert.Contains("%s1", tokens.GetValueOrDefault(token) ?? "(missing: " + token + ")");
+    }
+
+    [Fact]
+    public void The_lost_and_found_notices_are_in_the_language_file_and_the_fee_one_says_the_fee()
+    {
+        var tokens = Tokens();
+
+        Assert.Contains("%s1", tokens.GetValueOrDefault(TF2.Descent.Server.Hero.HeroCorpses.LostToken) ?? "(missing)");
+        Assert.True(tokens.ContainsKey(TF2.Descent.Server.Hero.HeroCorpses.LostTokenNoFee), "missing: " + TF2.Descent.Server.Hero.HeroCorpses.LostTokenNoFee);
+    }
+
+    [Fact]
     public void The_waiting_refused_and_closed_notices_each_say_their_argument()
     {
         var tokens = Tokens();

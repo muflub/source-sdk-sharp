@@ -27,6 +27,15 @@ public static class UseRefusals
     public const string NotUsable = "not_usable";
     public const string NeedsTarget = "needs_target";
     public const string Portal = "portal";
+
+    /// <summary>The notice for a potion used from the backpack: potions are drunk from the belt (%s1 the potion's name).</summary>
+    public const string PotionToken = "#Descent_Use_Potion";
+
+    /// <summary>The notice for anything else that cannot be used (%s1 the item's name).</summary>
+    public const string NotUsableToken = "#Descent_Use_NotUsable";
+
+    /// <summary>The words a not-usable refusal is told in.</summary>
+    public static IReadOnlyList<string> Tokens => [PotionToken, NotUsableToken];
 }
 
 /// <summary>A use of a backpack item: whether it was used, why not, and what it did.</summary>
@@ -100,7 +109,10 @@ public sealed class HeroConsumables(TF2DescentRules rules, Heroes heroes, HeroKe
             return Done(playerIndex, slot, baseId, $"{tome.Spell} rank {SpellRules.Rank(hero.Sheet!, tome.Spell)}");
         }
 
-        return Refuse(playerIndex, slot, UseRefusals.NotUsable, baseId);
+        // A potion is drunk from the belt (D4's belt of 4; the inventory moves one there): say so in words.
+        string name = rules.Content.ItemBases.TryGet(baseId, out var row) ? row.Name : baseId;
+        return Refuse(playerIndex, slot, UseRefusals.NotUsable, baseId,
+                      token: consumables.Potion(baseId) is not null ? UseRefusals.PotionToken : UseRefusals.NotUsableToken, arg: name);
     }
 
     private ItemUse Done(int playerIndex, int slot, string baseId, string did)
@@ -109,11 +121,13 @@ public sealed class HeroConsumables(TF2DescentRules rules, Heroes heroes, HeroKe
         return new ItemUse(true, null, baseId, did);
     }
 
-    private ItemUse Refuse(int playerIndex, int slot, string why, string? baseId = null, string? words = null)
+    private ItemUse Refuse(int playerIndex, int slot, string why, string? baseId = null, string? words = null, string? token = null, string arg = "")
     {
         log.Msg($"[TF2Descent/Belt] {playerIndex} use of backpack {slot}{(baseId is null ? "" : " (" + baseId + ")")} refused: {why}" +
                 $"{(words is null ? "" : " (" + words + ")")}\n");
-        if (why != BeltRefusals.NoHero)
+        if (token is not null)
+            messages.Notice(playerIndex, token, arg);
+        else if (why != BeltRefusals.NoHero)
             messages.Notice(playerIndex, words ?? $"Cannot use that: {why}");
         return new ItemUse(false, why, baseId, words);
     }

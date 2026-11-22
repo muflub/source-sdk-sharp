@@ -137,4 +137,6 @@ public sealed class FakeStashActions : IDescentItemActions
     public void Hover(int slotOrCell) { }
     public void Use(int slotOrCell) { }
     public void Move(int fromCell, int toCell) => Moves.Add((fromCell, toCell));
+    public void ToBelt(int cell, int beltSlot) { }
+    public void OffBelt(int beltSlot, int cell) { }
 }

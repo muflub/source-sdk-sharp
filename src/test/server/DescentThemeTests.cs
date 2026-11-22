@@ -15,7 +15,7 @@ public sealed class DescentThemeTests(DescentLibraries libs) : IClassFixture<Des
 {
     public static TheoryData<int> ActOneSteps => [2, 3, 4];
 
-    public static TheoryData<int> GreyDepths => [5, .. Enumerable.Range(10, 6)];
+    public static TheoryData<int> GreyDepths => [5, 10, 11, 13, 14, 15];
 
     private static RoomTheme Level(int depth) => DescentRooms.ThemeFor(depth);
 
@@ -83,6 +83,12 @@ public sealed class DescentThemeTests(DescentLibraries libs) : IClassFixture<Des
     public void A_depth_outside_acts_one_and_two_is_still_grey(int depth)
     {
         Assert.Same(RoomTheme.Grey, Level(depth));
+    }
+
+    [Fact]
+    public void Level_twelve_is_the_grey_with_slime_in_its_pools()
+    {
+        Assert.Equal(RoomTheme.Grey with { PoolHazard = "slime" }, Level(12));
     }
 
     [Fact]

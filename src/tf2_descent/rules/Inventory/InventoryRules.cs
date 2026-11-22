@@ -329,6 +329,59 @@ public sealed class InventoryRules
         return Done(hero with { Backpack = hero.Backpack.Remove(from), Belt = belt }, stash, item);
     }
 
+    /// <summary>
+    /// A potion just gained, in backpack slot <paramref name="from"/>, goes onto the belt (Diablo's
+    /// rule; the whole run's F20): onto a slot holding the same potion with room, then the first
+    /// empty slot, as many as fit (<see cref="ToBelt"/> each time); what does not fit stays in the
+    /// backpack. Anything but a potion, or a full belt, changes nothing; this never refuses.
+    /// </summary>
+    public InventoryResult Stow(HeroInventory hero, StashState stash, int from)
+    {
+        var left = new List<Held>();
+        while (hero.Backpack.TryGetValue(from, out var item) && _content.ItemBases[item.Item.BaseId].Slot == S.BeltAccepts
+               && BeltRoom(hero.Belt, item.Item) is var to && to >= 0)
+        {
+            var r = ToBelt(hero, stash, from, to);
+            if (!r.Ok) break;
+            hero = r.Hero;
+            left.AddRange(r.Left);
+        }
+        return new InventoryResult(hero, stash, left, null);
+    }
+
+    /// <summary>
+    /// <paramref name="result"/> with every potion it brought into the backpack (an id
+    /// <paramref name="before"/> did not hold) put on the belt by <see cref="Stow"/>, lowest
+    /// backpack slot first; a refusal is answered as it is.
+    /// </summary>
+    public InventoryResult StowGained(HeroInventory before, InventoryResult result)
+    {
+        if (!result.Ok) return result;
+        var held = before.Items.Select(i => i.Id).ToHashSet();
+        var hero = result.Hero;
+        var left = new List<Held>(result.Left);
+        foreach (int slot in result.Hero.Backpack.Where(p => !held.Contains(p.Value.Id)).Select(p => p.Key).ToList())
+        {
+            var r = Stow(hero, result.Stash, slot);
+            hero = r.Hero;
+            left.AddRange(r.Left);
+        }
+        return new InventoryResult(hero, result.Stash, left, null);
+    }
+
+    /// <summary>Where a potion goes on the belt: a slot of the same potion with room, else the first empty one; -1 for none.</summary>
+    private int BeltRoom(ImmutableSortedDictionary<int, Held> belt, ItemInstance potion)
+    {
+        int stack = _content.ItemBases[potion.BaseId].Stack;
+        for (int i = 0; i < S.BeltSlots; i++)
+            if (belt.TryGetValue(i, out var there) && there.Item.BaseId == potion.BaseId && there.Item.Count < stack)
+                return i;
+        for (int i = 0; i < S.BeltSlots; i++)
+            if (!belt.ContainsKey(i))
+                return i;
+        return -1;
+    }
+
     /// <summary>Takes a potion off the belt into the first free backpack slot.</summary>
     public InventoryResult FromBelt(HeroInventory hero, StashState stash, HeroSheet sheet, int index)
     {

@@ -18,8 +18,14 @@ public sealed class CraftBench(
     IDescentCraft craft,
     IDescentCraftActions? actions = null,
     IDescentCraftShortage? shortage = null,
-    IDescentTownStatus? status = null) : UiScreen, IUiWindowed
+    IDescentTownStatus? status = null,
+    IDescentTownClose? close = null) : UiScreen, IUiWindowed
 {
+    private readonly IDescentTownClose? _close = close;
+
+    /// <summary>Closed on the client (Esc, its x): the server ends the window's session (the whole run's F27).</summary>
+    public override void Closed() => _close?.Closed(Name);
+
     public override string Name => "craftbench";
     /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
     public override string? Panel => "descent_craftbench";

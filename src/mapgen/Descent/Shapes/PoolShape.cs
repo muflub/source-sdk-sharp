@@ -92,6 +92,9 @@ public static class PoolShape
         foreach (Rect walk in Rects.Subtract(body, [basin, .. channels]))
             b.Block(walk, Walk, b.Theme.Wall);
         b.WithWater(basin, b.Floor, b.Floor + Water, b.Theme.Water ?? WaterMaterial);
+        // A hazard in the water where the theme says (slime at the Sump), up to a standing player's knees over it.
+        if (b.Theme.PoolHazard is { } hazard)
+            b.WithHazard(hazard, new Point(basin.X0, basin.Y0, b.Floor), new Point(basin.X1, basin.Y1, b.Floor + Water + 16));
         // Steps out of the water in the basin's south-west corner.
         b.StairsUp(new Rect(basin.X0, basin.Y0, basin.X0 + 96, basin.Y0 + 64), Compass.South, Walk);
 

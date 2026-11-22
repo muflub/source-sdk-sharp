@@ -159,6 +159,23 @@ public sealed class LootRules
         return new KillLoot(outcome, tier, potion, australium);
     }
 
+    /// <summary>
+    /// The TF2 ammo pack kill <paramref name="kill"/> of <paramref name="robotKey"/> drops
+    /// (<see cref="AmmoPacks"/>), or null: its template's size class's row of loot.json's
+    /// <c>ammo</c>, at its chance. Seeded like the kill's loot (the instance seed, the kill,
+    /// the robot's key, the depth, the salt) on a stream of its own, so a replay agrees and
+    /// the loot's rolls are untouched. Not loot: no seat, nothing the host books.
+    /// </summary>
+    public string? Ammo(ulong instanceSeed, uint kill, string robotKey, int depth, ulong salt = 0)
+    {
+        var key = Key(robotKey);
+        if (S.AmmoOf(_content.Robots[key.Template].Size) is not { } row || row.ChancePct <= 0)
+            return null;
+
+        var r = Seeded.From(instanceSeed, "ammo", salt, kill, key.ToString(), _robots.Depth(depth).Depth);
+        return r.Chance(row.ChancePct) ? row.Pack : null;
+    }
+
     /// <summary>The roll's outcome, its tier (the best of <paramref name="tierRolls"/>) and its potion.</summary>
     private (LootOutcome, int, string?) Outcome(ref Seeded r, LootTableRow table, int depth, double itemWeight, int tierRolls)
     {

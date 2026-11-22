@@ -39,7 +39,8 @@ public sealed class PortalRoute(HostService host, TravelService travel, IHostAnc
                 : new PortalTrip(false, answer?.Reason is { Length: > 0 } why ? why : "the host was not asked");
         }
 
-        messages.Notice(player, TravelService.UpToken);
+        // Sent in town: a notice sent just before this process's changelevel never reaches the HUD (F28).
+        messages.NoticeAfterArrival(player, TravelService.UpToken);
         log.Msg($"[TF2Descent/Portal] unhosted: {hero} goes up through portal {portal.Id}: this process changes level to {TownMap}, and every player in it comes along\n");
         console.Execute($"changelevel {TownMap}");
         return PortalTrip.Go;

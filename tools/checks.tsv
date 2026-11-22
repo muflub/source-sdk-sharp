@@ -50,3 +50,4 @@ convar-typeinfo	routine	tools/convar-typeinfo --self-test && tools/convar-typein
 descent-gate	routine	tools/descent-gate --self-test
 descent-preview-spawns	routine	tools/descent-preview-spawns --self-test
 descent-face-sides	routine	tools/descent-face-sides --self-test
+descent-room-light	routine	tools/descent-room-light --self-test

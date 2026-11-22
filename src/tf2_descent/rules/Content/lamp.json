@@ -14,6 +14,6 @@
     "lampOn": 1,
     "lampOff": 0.25
   },
-  "range": { "stat": "lamp_radius_pct", "min": -50, "max": 125 },
+  "range": { "stat": "lamp_radius_pct", "min": -50, "max": 90 },
   "brightness": { "stat": "lamp_brightness_pct", "min": -50, "max": 100 }
 }

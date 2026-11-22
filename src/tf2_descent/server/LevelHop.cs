@@ -41,6 +41,24 @@ public sealed class LevelHop(IModInfo mod, IServerConsole console, ILog log) : I
             .FirstOrDefault();
     }
 
+    /// <summary>Unhosted, each depth with a level installed in <see cref="PoolMaps"/> (<see cref="InstalledLevel"/> answers it), shallowest first.</summary>
+    public IReadOnlyList<int> InstalledDepths()
+    {
+        string dir = PoolMaps;
+        if (!Directory.Exists(dir))
+            return [];
+        var depths = new SortedSet<int>();
+        foreach (string file in Directory.EnumerateFiles(dir, "tf2_descent-*-s*.bsp"))
+        {
+            string map = Path.GetFileNameWithoutExtension(file);
+            string[] parts = map.Split('-');
+            if (IsMapName(map) && parts.Length == 3 && parts[0] == "tf2_descent" && parts[2].StartsWith('s')
+                && int.TryParse(parts[1], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int depth) && depth > 0)
+                depths.Add(depth);
+        }
+        return [.. depths];
+    }
+
     public void OnHopped(HopNotice hop)
     {
         if (!hop.SameProcess || !hop.Ready || hop.Map == _changingTo)

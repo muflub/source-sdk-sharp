@@ -50,6 +50,44 @@ public class DescentWindowControlsTests
     }
 
     [Fact]
+    public void In_move_mode_a_bag_item_in_hand_goes_onto_the_belt_slot_clicked()
+    {
+        var screen = InventoryScreen(out var actions, out _);
+        screen.SetMode(Inventory.CellMode.Move);
+
+        screen.OnCell(1);
+        screen.OnBeltSlot(3);
+
+        Assert.Equal((1, 3), (actions.LastFrom, actions.LastToBelt));
+        Assert.Equal(-1, screen.Picked);
+    }
+
+    [Fact]
+    public void In_move_mode_a_belt_slot_picked_up_goes_into_the_bag_cell_clicked()
+    {
+        var screen = InventoryScreen(out var actions, out _);
+        screen.SetMode(Inventory.CellMode.Move);
+
+        screen.OnBeltSlot(0);
+        Assert.Equal(0, screen.PickedBelt);
+        screen.OnCell(11);
+
+        Assert.Equal((0, 11), (actions.LastOffBelt, actions.LastTo));
+        Assert.Equal(-1, screen.PickedBelt);
+    }
+
+    [Fact]
+    public void Out_of_move_mode_a_belt_slot_click_does_nothing()
+    {
+        var screen = InventoryScreen(out var actions, out _);
+
+        screen.OnBeltSlot(0);
+
+        Assert.Equal(-1, screen.PickedBelt);
+        Assert.Equal(-1, actions.LastOffBelt);
+    }
+
+    [Fact]
     public void In_move_mode_an_empty_cell_picks_nothing_up()
     {
         var screen = InventoryScreen(out var actions, out _);
@@ -160,6 +198,39 @@ public class DescentWindowControlsTests
         screen.Pick(action);
 
         Assert.Equal(-1, screen.Picked);
+    }
+
+    private sealed class FakeTownClose : IDescentTownClose
+    {
+        public readonly List<string> Closed = [];
+
+        void IDescentTownClose.Closed(string screen) => Closed.Add(screen);
+    }
+
+    [Fact]
+    public void Closing_the_stash_window_tells_the_town_its_screen_closed()
+    {
+        var close = new FakeTownClose();
+        var s = new UiSampleServices();
+        s.Add<IDescentTownClose>(close);
+        var screen = StashSamples.Build(s, new FakeStashBag(), new FakeStashLocker(), new FakeStashActions());
+
+        screen.Closed();
+
+        Assert.Equal(["stash"], close.Closed);
+    }
+
+    [Fact]
+    public void Closing_the_crate_stall_tells_the_town_its_screen_closed()
+    {
+        var close = new FakeTownClose();
+        var s = new UiSampleServices();
+        s.Add<IDescentTownClose>(close);
+        var screen = CrateSamples.Build(s, CrateSamples.Published());
+
+        screen.Closed();
+
+        Assert.Equal(["crate"], close.Closed);
     }
 }
 

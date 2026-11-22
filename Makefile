@@ -431,6 +431,9 @@ ci-build:
 # takes its single-instance lock, this is where its binaries live.
 RUN_SNAP := $(CURDIR)/tools/.run/$(RUN_ID)
 RUN_MOD  := $(RUN_SNAP)/mod
+# The engine resolves |gameinfo_path| against the snapshot, so every sibling mod
+# a gameinfo.txt mounts (tf2_descent's ../tf2, tf2's ../test) is linked beside
+# it, expanded here so that make -n shows each link (LaunchModFactsTests).
 run-snapshot:
 	@mkdir -p $(RUN_MOD)/bin
 	@for entry in $(MOD)/*; do \
@@ -450,7 +453,7 @@ run-snapshot:
 	    esac; \
 	done
 	@ln -sfn $(CURDIR)/$(GAME)/content "$(dir $(RUN_SNAP))/content"
-	@ln -sfn $(CURDIR)/$(GAME)/mods/test "$(RUN_SNAP)/test"
+	@$(foreach sibling,$(filter-out $(RUN_MOD_ID),$(notdir $(wildcard $(CURDIR)/$(GAME)/mods/*))),ln -sfn $(CURDIR)/$(GAME)/mods/$(sibling) "$(RUN_SNAP)/$(sibling)";)
 	@echo "==> running against a snapshot in $(RUN_MOD) — rebuilding will not disturb it"
 
 # The launcher is run from bin/<config> and handed the mod with -game. It finds
@@ -720,7 +723,9 @@ ai-nav-tf:
 # link wrote beside it, and --check then fails on a wrong flag or a stale
 # .map2d), and previews that with where a Heavy can go and a
 # camera in a corner of each family's first room (MapGen writes them beside
-# the level file, dNN/tf2_descent-n-ss.cameras). The map tools are $(MAPTOOLS_DIR), the
+# the level file, dNN/tf2_descent-n-ss.cameras); then renders every room's own
+# corner camera (dNN/tf2_descent-n-ss.roomcams) and writes each room's light
+# into the level's .map2d (tools/descent-room-light, its LITE section). The map tools are $(MAPTOOLS_DIR), the
 # checkout at maptools.lock (the kit's doors stand on the floor by its
 # `door_sill floor`); a built bin/Release/ssmap.dll there is run directly,
 # else $(SSMAP).
@@ -785,6 +790,11 @@ descent-level: descent-view
 	@$(DESCENT_CONTENT_CHECK) $(DESCENT_D)/$(DESCENT_LEVEL).preview.log || { \
 	    echo "error: $(DESCENT_LEVEL) names a material or model $(DESCENT_GAME) does not hold:"; \
 	    grep 'missing' $(DESCENT_D)/$(DESCENT_LEVEL).preview.log; exit 1; }
+	@echo "==> ssmap preview $(DESCENT_LEVEL), a view of every room, for each room's light"
+	@$(SSMAP_DESCENT) preview $(DESCENT_D)/maps/$(DESCENT_LEVEL)-preview.bsp -game "$(DESCENT_GAME)" -cameras $(DESCENT_D)/$(DESCENT_LEVEL).roomcams \
+	    -no-sheet -size 512x384 -out $(DESCENT_D)/$(DESCENT_LEVEL)-rooms > $(DESCENT_D)/$(DESCENT_LEVEL).rooms.log 2>&1 \
+	    || { tail -20 $(DESCENT_D)/$(DESCENT_LEVEL).rooms.log; exit 1; }
+	@tools/descent-room-light $(DESCENT_D)/maps/$(DESCENT_LEVEL).bsp $(DESCENT_D)/$(DESCENT_LEVEL)-rooms
 	@echo "==> $(DESCENT_D)/$(DESCENT_LEVEL)-preview/sheet.png"
 
 # `make descent-install DEPTH=n SEED=s` puts a linked level where the game

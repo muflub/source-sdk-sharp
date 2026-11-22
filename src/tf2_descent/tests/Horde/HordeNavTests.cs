@@ -13,10 +13,16 @@ namespace TF2.Descent.Tests.Horde;
 /// What a fact and a gated derivation share: the work says it is inside its gate, the fact says
 /// when it may go on. The gate also opens by itself after <see cref="CapMs"/>, so a game thread
 /// that waited on it fails the fact instead of hanging the run (as <see cref="StallGate"/>).
+///
+/// <para>
+/// The cap is a guard against a hang and nothing else, so it is long: the derivation it waits
+/// for is a tenth of a second on a quiet box and took more than 30 s twice in a whole-leg run on
+/// a box at a load of 70 to 120 (2026-11-14), which failed a fact that was not wrong.
+/// </para>
 /// </summary>
 internal sealed class DeriveGate : IDisposable
 {
-    public const int CapMs = 30_000;
+    public const int CapMs = 300_000;
 
     public ManualResetEventSlim Entered { get; } = new(false);
     public ManualResetEventSlim Release { get; } = new(false);
@@ -195,7 +201,8 @@ public sealed class HordeNavTests
         nav.End();
         gate.Release.Set();
         Assert.True(gate.Left.Wait(DeriveGate.CapMs));
-        for (int i = 0; i < 10_000 && nav.ThreadsAlive > 0; i++)
+        long left = System.Diagnostics.Stopwatch.GetTimestamp();
+        while (nav.ThreadsAlive > 0 && System.Diagnostics.Stopwatch.GetElapsedTime(left).TotalMilliseconds < DeriveGate.CapMs)
             Thread.Sleep(1);
 
         Assert.Equal(0, nav.ThreadsAlive);

@@ -203,11 +203,11 @@ public sealed class HordeTimeCommand(HordeTickTimer timer, HordeService horde, I
 /// medic and its patient).
 /// </summary>
 [ConCommand("tf2_descent_spawn_robot", Flags = ConVarFlags.Cheat,
-            Help = "tf2_descent_spawn_robot <template> [scale] [affix] [join]: put a robot on the roster at the crosshair and lend it a body; scale 0 rolls it; an affix makes it a champion (- for none); join 1 puts it in the newest pack (the last robot spawned's)")]
+            Help = "tf2_descent_spawn_robot <template> [scale] [affix] [join] [player slot]: put a robot on the roster at the crosshair (of the player in the slot, else of who typed it) and lend it a body; scale 0 rolls it; an affix makes it a champion (- for none); join 1 puts it in the newest pack (the last robot spawned's)")]
 public sealed class SpawnRobotCommand(HordeService horde, IHordeClock clock, IEnginePlayers players, IEngineEntities entities,
                                       IEngineWorldQuery world, ILog log)
 {
-    public void Execute(string template, float scale = 0f, string affix = "", int join = 0)
+    public void Execute(string template, float scale = 0f, string affix = "", int join = 0, int slot = 0)
     {
         if (horde.Current is not { Begun: true } c)
         {
@@ -215,7 +215,7 @@ public sealed class SpawnRobotCommand(HordeService horde, IHordeClock clock, IEn
             return;
         }
 
-        var who = DevContext.WhoTyped(players);
+        var who = HordeDev.Aimer(players, slot);
         if (who == EntityHandle.None)
         {
             log.Msg("[TF2Descent/Horde] spawn_robot: no player to aim\n");
@@ -238,4 +238,15 @@ public sealed class SpawnRobotCommand(HordeService horde, IHordeClock clock, IEn
             ? $"[TF2Descent/Horde] spawn_robot: {id}: {why}; {HordeLines.Robot(c, id.Index)}\n"
             : $"[TF2Descent/Horde] spawn_robot: {why}\n");
     }
+}
+
+/// <summary>What the horde's dev commands share.</summary>
+public static class HordeDev
+{
+    /// <summary>
+    /// Whose crosshair a dev command aims by: the player in <paramref name="slot"/> when one is named
+    /// (an admin menu's choice acts for a chosen player), else who typed it, else the sole player.
+    /// </summary>
+    public static EntityHandle Aimer(IEnginePlayers players, int slot) =>
+        slot > 0 ? players.GetHandle(slot) : DevContext.WhoTyped(players);
 }

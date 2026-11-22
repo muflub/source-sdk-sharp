@@ -41,6 +41,7 @@ public sealed class Vendor : UiScreen, IUiWindowed
     // UI4: the window's status line (the server's word on the last verb) and the two picks
     // the game must know; unwired (the samples), neither draws nor is told anything.
     private readonly IDescentTownStatus? _status;
+    private readonly IDescentTownClose? _close;
     private readonly IDescentVendorPicks? _picks;
     private readonly TownStatusLine _statusLine = new();
     private readonly CoinLabel _purse;
@@ -78,8 +79,9 @@ public sealed class Vendor : UiScreen, IUiWindowed
                   HintTip? hint = null, ItemTooltip? itemTip = null,
                   IDescentInspect? inspect = null, IDescentInspectActions? inspectActions = null,
                   IDescentVendorPortrait? portrait = null, IDescentTownStatus? status = null,
-                  IDescentVendorPicks? picks = null)
+                  IDescentVendorPicks? picks = null, IDescentTownClose? close = null)
     {
+        _close = close;
         _status = status;
         _picks = picks;
         _windows = windows;
@@ -108,6 +110,9 @@ public sealed class Vendor : UiScreen, IUiWindowed
     }
 
     public override string Name => "vendor";
+
+    /// <summary>Closed on the client (Esc, its x): the server ends the window's session (the whole run's F27).</summary>
+    public override void Closed() => _close?.Closed(Name);
 
     /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
 
@@ -455,8 +460,8 @@ public sealed class Vendor : UiScreen, IUiWindowed
     {
         using (ui.Row(Space.S, Align.Centre))
         {
-            ui.Text(labelToken, Text.Body, Tone.TextMuted).Width(Size.Fill).Elide();
-            ui.Sub(key, _plate, new NumberPlateProps(value, paint, Text.Number, 96));
+            ui.Text(labelToken, Text.Body, Tone.TextMuted).Width(Size.Du(112)).Elide();   // one width: the plates line up
+            ui.Sub(key, _plate, new NumberPlateProps(value, paint, Text.Body, 96));
         }
     }
 

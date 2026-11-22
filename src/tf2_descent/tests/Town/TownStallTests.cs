@@ -2,6 +2,7 @@ using SourceSharp.Tests;
 using SourceSharp.Abi;
 
 using TF2.Descent.Server.Town;
+using TF2.Descent.Tests.OwnerViews;
 using TF2.Descent.Shared;
 
 using Xunit;
@@ -16,7 +17,7 @@ namespace TF2.Descent.Tests.Town;
 public sealed class TownStallTests
 {
     [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
-    public void In_the_town_every_stall_stands_at_its_marker_or_beside_the_smithy()
+    public void In_the_town_every_stall_stands_at_its_marker()
     {
         var rig = new TownRig();
 
@@ -26,8 +27,26 @@ public sealed class TownStallTests
             var marker = rig.World.Markers[stall.Marker];
             Assert.Equal(new Vector(marker.X + stall.Offset.X, marker.Y + stall.Offset.Y, 0f), at);
         }
-        Assert.Equal(-TownStalls.Beside, TownStalls.Find("engineer")!.Offset.X);
-        Assert.Equal(TownStalls.Beside, TownStalls.Find("bench")!.Offset.X);
+
+        // The armour shop and the bench have markers of their own in the town (79be3d68af); they
+        // stood 176 either side of the smithy's before it had them.
+        Assert.Equal(("shop_engineer", Vector.Zero), (TownStalls.Find("engineer")!.Marker, TownStalls.Find("engineer")!.Offset));
+        Assert.Equal(("shop_bench", Vector.Zero), (TownStalls.Find("bench")!.Marker, TownStalls.Find("bench")!.Offset));
+    }
+
+    /// <summary>A town built before a stall's marker existed: that stall stands nowhere, the others stand, and the log says which and what to do.</summary>
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public void A_town_with_no_marker_for_a_stall_leaves_that_stall_out_and_says_so()
+    {
+        var rig = new TownRig(place: false);
+        rig.World.Markers.Remove("shop_bench");
+
+        rig.Service.Place(TownRig.Town);
+
+        Assert.Equal(TownStalls.All.Count - 1, rig.World.Made.Count);
+        Assert.DoesNotContain(rig.World.Made, m => m.Stall.Id == "bench");
+        Assert.Contains(rig.Owner.Gear.Log.Lines, l => l.Warning && l.Text.Contains("no shop_bench", StringComparison.Ordinal)
+                                                       && l.Text.Contains("make town", StringComparison.Ordinal));
     }
 
     [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
@@ -94,6 +113,42 @@ public sealed class TownStallTests
 
         Assert.Null(rig.Service.Open(TownRig.Index));
         Assert.Equal((TownRig.Index, "descent_vendor", false), rig.World.Panels.Last());
+    }
+
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public void A_window_closed_on_the_client_ends_its_session_at_once()
+    {
+        var rig = new TownRig();
+        rig.Use("medic");
+        var commands = new TownCommands(rig.Service, rig.Owner.Gear.Hero.Engine);
+
+        Assert.True(commands.Handle(OwnerRig.Player, TownCommands.Close, ["vendor"]));
+
+        Assert.Null(rig.Service.Open(TownRig.Index));
+    }
+
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public void A_client_close_naming_another_screen_leaves_the_open_window()
+    {
+        var rig = new TownRig();
+        rig.Use("stash");
+
+        rig.Service.ClosedOnClient(TownRig.Index, "vendor");
+
+        Assert.Equal(TownScreen.Stash, rig.Service.Open(TownRig.Index)?.Screen);
+    }
+
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public async Task A_town_verb_after_a_client_close_answers_that_no_window_is_open()
+    {
+        var rig = new TownRig();
+        rig.Use("saxton");
+        rig.Service.ClosedOnClient(TownRig.Index, "vendor");
+
+        var sold = await rig.Service.Sell(TownRig.Index, 0);
+
+        Assert.Null(sold);
+        Assert.Equal(TownService.TokenOf(TownRefusals.NoWindow), rig.Of<Notice>().Last().Text);
     }
 
     [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]

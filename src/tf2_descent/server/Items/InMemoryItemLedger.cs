@@ -187,12 +187,13 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
         if (!_corpses.TryGetValue(hero, out var corpse))
             return new LootAnswer(false, 0, "no corpse");
         var back = Rules.Inventory.Recover(h.Inventory, h.Sheet, corpse.Items);
-        var inventory = back.Hero with { Australium = back.Hero.Australium + corpse.Australium };
+        var stowed = Stowing(h, new InventoryResult(back.Hero, h.Stash, [], null));
+        var inventory = stowed.Hero with { Australium = stowed.Hero.Australium + corpse.Australium };
         if (back.Left.Count == 0)
             _corpses.Remove(hero);
         else
             _corpses[hero] = ([.. back.Left], 0);
-        Commit("loot_corpse", h, h with { Inventory = inventory }, []);
+        Commit("loot_corpse", h, h with { Inventory = inventory }, [.. stowed.Left.Select(l => l.Id)]);
         LastRecovery = back;
         return new LootAnswer(true, back.Recovered, "");
     });
@@ -265,7 +266,8 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
             _lost[hero] = ([.. back.Left], 0);
         LastRecovery = back;
         LastReclaimFee = fee;
-        return Commit("reclaim", h, h with { Inventory = back.Hero with { Australium = purse - fee } }, []);
+        var stowed = Stowing(h, new InventoryResult(back.Hero, h.Stash, [], null));
+        return Commit("reclaim", h, h with { Inventory = stowed.Hero with { Australium = purse - fee } }, [.. stowed.Left.Select(l => l.Id)]);
     });
 
     /// <summary>The last reclaim's fee (the log line).</summary>

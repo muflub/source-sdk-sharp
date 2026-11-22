@@ -362,8 +362,9 @@ public static class ActOne
             // The Mill's walls are lit to about 0.10 (brief p9): the arch at 0.15, not 0.18.
             MinLight = 0.3f,
         },
-        // Sodium, less saturated (the review of 2026-11-10: the olive cast).
-        Lamps = new LampKind(Gooseneck, LampMount.Wall, new Lamp("255 214 150", 72, 256, 900), Spacing: 512, LightAt: new(76, 0, -24))
+        // Sodium, less saturated (the review of 2026-11-10: the olive cast). The Mill's lamps a tenth over p9's
+        // (brief p11: level 4 read 36 in game for its 40).
+        Lamps = new LampKind(Gooseneck, LampMount.Wall, new Lamp("255 214 150", 79, 256, 900), Spacing: 512, LightAt: new(76, 0, -24))
         {
             // Its arm's underside clears a giant's 160 (brief p7: at 176 it hung 158 over the floor).
             WallHeight = 180,
@@ -394,8 +395,8 @@ public static class ActOne
         Bands = new TrimBands(Skirting: 16, DadoHeight: 128, Dado: 8, Beam: 16),
         Hazard = new("props/hazardstrip001a", 0.5f),
         RoofBeams = 320,
-        WorkLamps = new WorkLamps(WorkFlood("214 228 255", 100, 320, 1024, 256), Count: 2, MinFloor: 200_000),
-        Pendants = Pendant(CagedLamp, new Lamp("255 214 150", 45, 384, 1280), new(0, 0, -28), hang: 448, grid: 640),
+        WorkLamps = new WorkLamps(WorkFlood("214 228 255", 110, 320, 1024, 256), Count: 2, MinFloor: 200_000),
+        Pendants = Pendant(CagedLamp, new Lamp("255 214 150", 50, 384, 1280), new(0, 0, -28), hang: 448, grid: 640),
         Gantry = new Gantry(Height: 704, Girder: 32, Hook: CraneHook, Cable: Cable64),
         Fog = new Fog("74 64 44", 256, 2560, 0.55f),
         ToneMap = new ToneMap(1f, 0.6f, 3f, 0.35f),

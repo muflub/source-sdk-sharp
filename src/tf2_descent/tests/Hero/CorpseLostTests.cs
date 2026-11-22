@@ -127,7 +127,22 @@ public sealed class CorpseLostTests
         rig.Graves.Think();
         rig.Graves.Think();
 
-        Assert.Single(Notices(rig).Skip(before), n => n.Contains("Lost and Found", StringComparison.Ordinal));
+        Assert.Single(Notices(rig).Skip(before), n => n.Contains(TF2.Descent.Server.Hero.HeroCorpses.LostToken, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void The_lost_and_found_notice_is_a_token_naming_the_fee_not_a_console_command()
+    {
+        var (rig, _) = DiedAndLeft();
+        long fee = rig.Ledger.ReclaimFee(rig.Key(A))!.Value;
+        int before = Notices(rig).Count;
+
+        rig.Graves.Think();
+
+        string notice = Assert.Single(Notices(rig).Skip(before));
+        Assert.Contains(TF2.Descent.Server.Hero.HeroCorpses.LostToken, notice, StringComparison.Ordinal);
+        Assert.Contains(fee.ToString(System.Globalization.CultureInfo.InvariantCulture), notice, StringComparison.Ordinal);
+        Assert.DoesNotContain("tf2_descent_", notice, StringComparison.Ordinal);
     }
 
     private static List<string> Notices(DownedRig rig) =>

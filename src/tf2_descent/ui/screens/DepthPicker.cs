@@ -25,14 +25,16 @@ public sealed class DepthPicker : UiScreen, IUiWindowed
     private readonly IDescentParty _party;
     private readonly PartyPill _pill;
     private readonly IDescentTownStatus? _status;
+    private readonly IDescentTownClose? _close;
     private readonly TownStatusLine _statusLine = new();
 
     /// <summary>Pills per party row: two compact pills always fit the dialog body.</summary>
     public const int PillsPerRow = 2;
 
     public DepthPicker(UiWindows windows, IDescentDescent descent, IDescentDescentActions actions, IDescentParty party, PartyPill pill,
-                       IDescentTownStatus? status = null)
+                       IDescentTownStatus? status = null, IDescentTownClose? close = null)
     {
+        _close = close;
         _windows = windows;
         _status = status;
         _descent = descent;
@@ -42,6 +44,9 @@ public sealed class DepthPicker : UiScreen, IUiWindowed
     }
 
     public override string Name => "depthpicker";
+
+    /// <summary>Closed on the client (Esc, its x): the server ends the window's session (the whole run's F27).</summary>
+    public override void Closed() => _close?.Closed(Name);
 
     /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
 

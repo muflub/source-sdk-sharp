@@ -88,6 +88,18 @@ public sealed class KillRobotCommand(HordeService horde, RobotKills kills, IEngi
         }
 
         uint before = kills.Told;
+        string how = Kill(roster, bodies, robot, slot, players, damage);
+        kills.Sweep();
+        log.Msg($"[TF2Descent/Kills] tf2_descent_kill_robot {robot}: killed by {how}; {kills.Told - before} kill(s) told\n");
+    }
+
+    /// <summary>
+    /// Kills a living row through the normal path: a lethal hit on its body (by the player in
+    /// <paramref name="slot"/>, or none), else (no body, or one the hit did not kill) the roster's
+    /// own death, which the next sweep reports. Answers how it died.
+    /// </summary>
+    internal static string Kill(RobotRoster roster, RobotBodies bodies, int robot, int slot, IEnginePlayers players, IEngineDamage damage)
+    {
         string how = "the roster (no body)";
         if (roster.State(robot) == RobotState.Embodied && roster.Body(robot) != 0)
         {
@@ -98,11 +110,63 @@ public sealed class KillRobotCommand(HordeService horde, RobotKills kills, IEngi
                 how += " it did not die of, then the roster";
         }
 
-        // No body, or a body the hit did not kill: the roster's own death, which the sweep reports.
         if (roster.State(robot) != RobotState.Dead)
             roster.Hurt(robot, roster.Life(robot));
+        return how;
+    }
+}
 
+/// <summary>
+/// <c>tf2_descent_kill_robots &lt;slot&gt; &lt;room|level&gt;</c>: every living robot of the room the
+/// hero in the slot stands in, or of the whole level, killed as <c>tf2_descent_kill_robot</c> kills
+/// one, each credited to that hero (the admin menu's Kill entries).
+/// </summary>
+[ConCommand("tf2_descent_kill_robots", Flags = ConVarFlags.Cheat,
+            Help = "tf2_descent_kill_robots <player slot> <room|level>: kill every living robot of the room the player stands in, or of the level, credited to him")]
+public sealed class KillRobotsCommand(HordeService horde, RobotKills kills, IEngineDamage damage, IEnginePlayers players, IEngineEntities entities, ILog log)
+{
+    public void Execute([ArgRange(1, 64)] int slot, string where = "room")
+    {
+        if (horde.Current is not { Begun: true, Roster: { } roster, Bodies: { } bodies, Level: { } level })
+        {
+            log.Msg("[TF2Descent/Kills] no horde this level\n");
+            return;
+        }
+
+        bool all = string.Equals(where, "level", StringComparison.OrdinalIgnoreCase);
+        int room = -1;
+        if (!all)
+        {
+            EntityHandle player = players.GetHandle(slot);
+            if (player == EntityHandle.None || !entities.IsValid(player))
+            {
+                log.Warning($"[TF2Descent/Kills] tf2_descent_kill_robots: no player in slot {slot}\n");
+                return;
+            }
+            room = level.RoomAt(HordeVectors.ToAi(entities.GetOrigin(player)));
+            if (room < 0)
+            {
+                log.Warning($"[TF2Descent/Kills] tf2_descent_kill_robots: player {slot} stands in no room\n");
+                return;
+            }
+        }
+
+        uint before = kills.Told;
+        var rows = Living(roster, all ? null : room);
+        foreach (int robot in rows)
+            KillRobotCommand.Kill(roster, bodies, robot, slot, players, damage);
         kills.Sweep();
-        log.Msg($"[TF2Descent/Kills] tf2_descent_kill_robot {robot}: killed by {how}; {kills.Told - before} kill(s) told\n");
+        log.Msg(string.Create(CultureInfo.InvariantCulture,
+            $"[TF2Descent/Kills] tf2_descent_kill_robots {slot} {(all ? "level" : $"room {room}")}: {rows.Count} robot(s) killed; {kills.Told - before} kill(s) told\n"));
+    }
+
+    /// <summary>The living rows (neither dead nor empty), of <paramref name="room"/> only when one is named.</summary>
+    public static List<int> Living(RobotRoster roster, int? room)
+    {
+        var rows = new List<int>();
+        for (int i = 0; i < roster.Count; i++)
+            if (roster.State(i) is not (RobotState.Dead or RobotState.Empty) && (room is not { } r || roster.Room(i) == r))
+                rows.Add(i);
+        return rows;
     }
 }

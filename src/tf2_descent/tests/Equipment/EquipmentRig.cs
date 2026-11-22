@@ -117,6 +117,17 @@ internal sealed class EquipmentRig
         return Held.Inventory.Backpack.Single(p => p.Value.Id == floor.Id).Key;
     }
 
+    /// <summary>
+    /// Plants an item in the first free backpack slot, telling no hook: a potion carried in the
+    /// backpack (a pickup puts one on the belt while it has room).
+    /// </summary>
+    public int Carry(ItemInstance item, long id = 800)
+    {
+        int slot = Enumerable.Range(0, 1000).First(i => !Held.Inventory.Backpack.ContainsKey(i));
+        Ledger.Replace(Held with { Inventory = Held.Inventory with { Backpack = Held.Inventory.Backpack.Add(slot, new Held(id, item)) } });
+        return slot;
+    }
+
     /// <summary>Equips a backpack item through the equipment's own path (the ledger told the live sheet).</summary>
     public LedgerResult Equip(int from, string slot) => Equipment.Equip(Index, from, slot).Result;
 

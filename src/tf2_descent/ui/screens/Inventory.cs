@@ -18,7 +18,8 @@ namespace TF2.Descent.Client.Ui.Screens;
 /// whole over two lines. A row under the bag's caption picks what a click on
 /// a bag cell does: equip it (the default), move it (a click picks the item
 /// up, framed in the accent; a click on another cell puts it there, swapping
-/// with what is in it), or drop it at the hero's feet. The toolkit has no
+/// with what is in it; a belt slot takes a potion in hand, or is picked up
+/// for a bag cell to take it back), or drop it at the hero's feet. The toolkit has no
 /// drag and no second button, so the mode is the context. The window's
 /// status line (the last notice: a refusal's reason) sits along the bottom.
 /// Narrow (a dragged-narrow window): the doll stacks above the backpack and
@@ -53,7 +54,11 @@ public sealed class Inventory(
     /// <summary>The bag cell picked up for a move; -1 for none.</summary>
     public int Picked { get; private set; } = -1;
 
+    /// <summary>The belt slot picked up for a move into the bag; -1 for none.</summary>
+    public int PickedBelt { get; private set; } = -1;
+
     private Action<int>? _onCell;
+    private Action<int>? _onBelt;
 
     public override string Name => "inventory";
     /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
@@ -107,7 +112,7 @@ public sealed class Inventory(
             float bagW = ui.Narrow ? bodyW : bodyW - (3 * DollColumnDu - (float)Space.M) - (float)Space.L;
             int cols = Math.Clamp((int)((bagW + (float)Space.XS) / ColumnDu), 4, 8);
             var props = new ItemGridProps(backpack, cols, _onCellHover, actions is null ? null : CellAction(), _inspectActions,
-                                          Picked, UseEmpty: Mode == CellMode.Move && Picked >= 0);
+                                          Picked, UseEmpty: Mode == CellMode.Move && (Picked >= 0 || PickedBelt >= 0));
 
             UiBox bagBox;
             if (ui.Narrow)
@@ -133,9 +138,12 @@ public sealed class Inventory(
                 }
             }
 
-            // The potion belt along the bottom, centred, the HUD's strip.
+            // The potion belt along the bottom, centred, the HUD's strip; in the move mode its
+            // slots take a potion from the bag or give one back (the whole run's F20).
             using (ui.Row(Space.None, Align.Centre).Width(Size.Fill))
-                ui.Sub("belt", belt);
+                ui.Sub("belt", belt, Mode == CellMode.Move && actions is not null
+                    ? new BeltStripProps(BeltAction(), PickedBelt)
+                    : default(BeltStripProps));
             if (status is not null)
                 ui.Sub("status", status);
 
@@ -246,6 +254,10 @@ public sealed class Inventory(
     {
         switch (Mode)
         {
+            case CellMode.Move when PickedBelt >= 0:
+                actions?.OffBelt(PickedBelt, cell);
+                PickedBelt = -1;
+                break;
             case CellMode.Move when Picked < 0:
                 if (backpack.Cell(cell) is not null)
                     Picked = cell;
@@ -265,6 +277,23 @@ public sealed class Inventory(
         }
     }
 
+    /// <summary>
+    /// What a belt slot's click does in the move mode: a bag item in hand goes onto that slot; with
+    /// none, the slot is picked up (a second click on it puts it back) for a bag cell to take.
+    /// </summary>
+    public void OnBeltSlot(int slot)
+    {
+        if (Mode != CellMode.Move)
+            return;
+        if (Picked >= 0)
+        {
+            actions?.ToBelt(Picked, slot);
+            Picked = -1;
+            return;
+        }
+        PickedBelt = PickedBelt == slot ? -1 : slot;
+    }
+
     /// <summary>A closed window opens again equipping: a drop mode left on would drop the next click (seen live on a reopen).</summary>
     public override void Closed() => SetMode(CellMode.Equip);
 
@@ -273,10 +302,14 @@ public sealed class Inventory(
     {
         Mode = mode;
         Picked = -1;
+        PickedBelt = -1;
     }
 
     /// <summary>Not a describe method: the cell action is made once, on first need.</summary>
     private Action<int> CellAction() => _onCell ??= OnCell;
+
+    /// <summary>Not a describe method: the belt action is made once, on first need.</summary>
+    private Action<int> BeltAction() => _onBelt ??= OnBeltSlot;
 
     /// <summary>A mode chip's width: three and their gaps fit the bag's narrowest (four-column) width.</summary>
     private const float ChipDu = 64;
@@ -294,7 +327,7 @@ public sealed class Inventory(
                 ModeChip(ref ui, CellMode.Drop, "#Descent_Inv_Mode_Drop");
         }
         if (Mode == CellMode.Move)
-            ui.Text(Picked >= 0 ? "#Descent_Inv_Move_Put" : "#Descent_Inv_Move_Pick", Text.Caption, Tone.TextMuted).Elide().Width(Size.Fill);
+            ui.Text(Picked >= 0 || PickedBelt >= 0 ? "#Descent_Inv_Move_Put" : "#Descent_Inv_Move_Pick", Text.Caption, Tone.TextMuted).Elide().Width(Size.Fill);
         else if (Mode == CellMode.Drop)
             ui.Text("#Descent_Inv_Drop_Hint", Text.Caption, Tone.Warning).Elide().Width(Size.Fill);
     }

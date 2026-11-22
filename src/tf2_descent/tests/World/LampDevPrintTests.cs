@@ -51,7 +51,7 @@ public sealed class LampDevPrintTests
 
         string phrase = HeroLamps.Describe(stats, Lamp);
 
-        Assert.Contains($"lamp radius {Lamp.Light.Radius * 1.2:0} (+20 %: item hat +12, skill lamplighter +8; -50..+125)", phrase);
+        Assert.Contains($"lamp radius {Lamp.Light.Radius * 1.2:0} (+20 %: item hat +12, skill lamplighter +8; -50..+90)", phrase);
         Assert.Contains("brightness x1.15 (+15 %: skill lamplighter +15; -50..+100)", phrase);
     }
 

@@ -270,11 +270,25 @@ public sealed record RoomTheme(Surface Floor, Surface Wall, Surface Ceiling, Sur
         Plug: PlugOf("grey", new("dev/graygrid", 1f)),
         Trigger: "TOOLS/TOOLSTRIGGER");
 
-    /// <summary>The theme of a depth: Act I's four themes at depths 1 to 4, Act II's at 6 to 9, the grey everywhere else for now.</summary>
+    /// <summary>
+    /// The kind of hazard (a row of <c>hazards.json</c>) the theme's pools hold, a volume over each
+    /// pool's basin (<see cref="RoomBuilder.WithHazard"/>), or null. Levels 1 to 9 have none (plan §7:
+    /// no lava or slime above the Sump).
+    /// </summary>
+    public string? PoolHazard { get; init; }
+
+    /// <summary>
+    /// Level 12's grey until Act III is themed (plan §7, the Sump: toxic slime channels): the grey, its
+    /// pools holding slime, the proof that a level carries a hazard volume (brief p9, plan_descent_logic M1).
+    /// </summary>
+    public static RoomTheme GreySump { get; } = Grey with { PoolHazard = "slime" };
+
+    /// <summary>The theme of a depth: Act I's four themes at depths 1 to 4, Act II's at 6 to 9, the grey everywhere else for now (at 12 with slime in its pools).</summary>
     public static RoomTheme ForDepth(int depth) => depth switch
     {
         >= 1 and <= 4 => Themes.ActOne.All[depth - 1],
         >= 6 and <= 9 => Themes.ActTwo.All[depth - 6],
+        12 => GreySump,
         _ => Grey,
     };
 }

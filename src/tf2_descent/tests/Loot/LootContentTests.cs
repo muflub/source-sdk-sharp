@@ -62,6 +62,28 @@ public sealed class LootContentTests
     }
 
     [Fact]
+    public void An_ammo_drop_of_a_pack_size_tf2_has_not_is_a_load_error()
+    {
+        var e = Assert.Single(Errors("loot", n => n["ammo"]![0]!["pack"] = "huge"));
+        Assert.Equal(ContentRule.OutOfRange, e.Rule);
+        Assert.Equal("ammo.runt", e.Row);
+    }
+
+    [Fact]
+    public void An_ammo_drop_for_a_size_class_that_does_not_exist_is_a_load_error()
+    {
+        var e = Assert.Single(Errors("loot", n => n["ammo"]![1]!["size"] = "colossal"));
+        Assert.Equal(ContentRule.DanglingReference, e.Rule);
+    }
+
+    [Fact]
+    public void An_ammo_chance_over_a_hundred_is_a_load_error()
+    {
+        var e = Assert.Single(Errors("loot", n => n["ammo"]![2]!["chancePct"] = 150));
+        Assert.Equal(ContentRule.OutOfRange, e.Rule);
+    }
+
+    [Fact]
     public void A_boss_without_a_table_of_its_own_is_a_load_error()
     {
         var e = Assert.Single(Errors("loot", n => n["bosses"]!.AsArray().RemoveAt(2)));

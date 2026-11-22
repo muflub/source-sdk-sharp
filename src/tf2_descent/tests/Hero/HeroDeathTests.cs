@@ -52,6 +52,53 @@ public sealed class HeroDeathTests
         Assert.Empty(rig.Ledger.Find(rig.Key(A))!.Inventory.Items);
     }
 
+    /// <summary>
+    /// The whole run's F24: a party wipe's death lines said "0 item(s)" with a corpse of 10 items on
+    /// the next line. Each wiped hero's line names what he carried, and the corpse the same.
+    /// </summary>
+    [Fact]
+    public void A_party_wipes_death_lines_name_what_each_hero_carried()
+    {
+        var rig = new DownedRig();
+        int a = rig.Ledger.Find(rig.Key(A))!.Inventory.Items.Count();
+        int b = rig.Ledger.Find(rig.Key(B))!.Inventory.Items.Count();
+
+        rig.Hit(B, 500);
+        rig.Hit(A, 500);
+        rig.RunTo(1200);
+
+        var lines = rig.Heroes.Log.Lines.Select(l => l.Text).Where(l => l.Contains("[TF2Descent/Death]", StringComparison.Ordinal)).ToList();
+        Assert.Contains(lines, l => l.Contains($"player {A} died carrying {a} item(s)", StringComparison.Ordinal));
+        Assert.Contains(lines, l => l.Contains($"player {B} died carrying {b} item(s)", StringComparison.Ordinal));
+        Assert.Equal(a, rig.Ledger.Corpse(rig.Key(A))!.Items.Count);
+        Assert.Equal(b, rig.Ledger.Corpse(rig.Key(B))!.Items.Count);
+    }
+
+    /// <summary>
+    /// F24's cause: a hero who died again before taking his corpse back carries nothing (he respawned
+    /// unarmed), so his death line says 0, while the corpse, moved to the new death, still holds what
+    /// the first one left. The corpse's line says it moved and holds an earlier death's items.
+    /// </summary>
+    [Fact]
+    public void A_second_death_before_the_corpse_is_taken_carries_nothing_and_the_moved_corpse_says_so()
+    {
+        var rig = new DownedRig(A);
+        int carried = rig.Ledger.Find(rig.Key(A))!.Inventory.Items.Count();
+        rig.Hit(A, 500);
+        rig.RunTo(1200);
+        rig.Clock.Respawn(PlayerOf(A));
+        rig.RunTo(3000);   // past his respawn's grace
+        int mark = rig.Heroes.Log.Lines.Count;
+
+        rig.Hit(A, 500);
+
+        var lines = rig.Heroes.Log.Lines.Skip(mark).Select(l => l.Text).ToList();
+        Assert.Contains(lines, l => l.Contains($"player {A} died carrying 0 item(s)", StringComparison.Ordinal));
+        Assert.Contains(lines, l => l.Contains("[TF2Descent/Corpse]", StringComparison.Ordinal)
+                                    && l.Contains($"{carried} item(s)", StringComparison.Ordinal)
+                                    && l.Contains("moved", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void A_death_costs_no_xp_and_the_sheets_audit_takes_it()
     {

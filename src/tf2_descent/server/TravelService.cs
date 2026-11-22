@@ -130,7 +130,8 @@ public sealed class TravelService(
             return null;
         }
 
-        messages.Notice(entIndex, up ? UpToken : WaysDown.Token(WaysDown.FromLevel(depth)));
+        // Sent on the next level: a notice sent just before this process's changelevel never reaches the HUD (F28).
+        messages.NoticeAfterArrival(entIndex, up ? UpToken : WaysDown.Token(WaysDown.FromLevel(depth)));
         log.Msg($"[TF2Descent] unhosted: player {entIndex} goes {(up ? "up" : "down")} from depth {depth}: this process changes level to {map}, and every player in it comes along\n");
         console.Execute($"changelevel {map}");
         return null;

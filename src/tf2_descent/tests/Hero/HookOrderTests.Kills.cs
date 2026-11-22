@@ -37,4 +37,15 @@ public sealed partial class HookOrderTests
         Assert.True(loot.Order > xp.Order, $"the loot ({loot.Order}) is paid before the experience ({xp.Order})");
         Assert.True(loot.Order >= ModStages.First, "the loot's order is inside TF2's band or the core's");
     }
+
+    /// <summary>A kill's ammo drop is rolled beside the loot, after it: nothing the loot pays waits on it.</summary>
+    [Fact]
+    public void The_kill_chain_drops_the_ammo_after_the_loot()
+    {
+        var members = Implementations(typeof(RobotKills).Assembly, Side.Server, typeof(IRobotKillHook));
+
+        var loot = Assert.Single(members, f => f.Name == "LootRewards");
+        var ammo = Assert.Single(members, f => f.Name == "AmmoDrops");
+        Assert.True(ammo.Order > loot.Order, $"the ammo ({ammo.Order}) drops before the loot ({loot.Order})");
+    }
 }

@@ -118,11 +118,43 @@ public sealed class ConsumableFacts
     public void A_potion_in_the_backpack_is_not_used_from_there()
     {
         var rig = new BeltRig();
-        int potion = rig.Give(BeltRig.Carried("health_small"));
+        int potion = rig.Carry(BeltRig.Carried("health_small"));
 
         Assert.Equal(UseRefusals.NotUsable, rig.Use(potion).Refusal);
         Assert.True(rig.Held.Inventory.Backpack.ContainsKey(potion));
     }
+
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public void A_potion_used_from_the_backpack_is_told_to_go_on_the_belt_in_words()
+    {
+        var rig = new BeltRig();
+        int potion = rig.Carry(BeltRig.Carried("health_small"));
+        int mark = Notices(rig).Count;
+
+        rig.Use(potion);
+
+        string notice = Assert.Single(Notices(rig).Skip(mark));
+        Assert.Contains(UseRefusals.PotionToken, notice, StringComparison.Ordinal);
+        Assert.Contains("Sandvich Bite", notice, StringComparison.Ordinal);
+    }
+
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public void Gear_used_from_the_backpack_is_refused_in_words_naming_it()
+    {
+        var rig = new BeltRig();
+        int boots = rig.Carry(BeltRig.Carried("boots"));
+        int mark = Notices(rig).Count;
+
+        rig.Use(boots);
+
+        string notice = Assert.Single(Notices(rig).Skip(mark));
+        Assert.Contains(UseRefusals.NotUsableToken, notice, StringComparison.Ordinal);
+        Assert.Contains("Work Boots", notice, StringComparison.Ordinal);
+    }
+
+    private static List<string> Notices(BeltRig rig) =>
+        [.. rig.Messages.Calls.Where(c => c.Member == "UserMessages.Send" && (string)c.Arg(0)! == "TF2.Descent:notice")
+            .Select(c => System.Text.Encoding.UTF8.GetString((byte[])c.Arg(4)!))];
 
     [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_dead_hero_reads_nothing()

@@ -43,6 +43,9 @@ public interface ITownWorld
     /// <summary>Tells the player's client to open or close a window's panel (the stock VGUIMenu, to him alone).</summary>
     void Panel(int player, string panel, bool show);
 
+    /// <summary>The stall's entity <paramref name="entity"/> plays <paramref name="sequence"/> once (the locker's doors); false when it cannot.</summary>
+    bool Animate(int entity, string sequence);
+
     /// <summary>The game's clock, in seconds (a restock is counted from the town's start on it).</summary>
     double Now { get; }
 
@@ -65,7 +68,8 @@ public interface ITownWorld
 [SideService(Side.Server, As = [typeof(ITownWorld)])]
 public sealed class EngineTownWorld(HostService host, HeroKeys keys, Heroes heroes, IEngineEntities entities, IEngineWorldQuery world,
                                     IEntityDirectory directory, IUserMessageSender messages, IGameClock clock, IServerConsole console,
-                                    LevelHop hop, PlayerService players, IBossKills bossKills, TravelService travel, ILog log) : ITownWorld
+                                    LevelHop hop, PlayerService players, IBossKills bossKills, TravelService travel, ClientMessages notices,
+                                    ILog log) : ITownWorld
 {
     private readonly Dictionary<int, (EntityHandle Handle, int Stall)> _stalls = [];
 
@@ -116,6 +120,10 @@ public sealed class EngineTownWorld(HostService host, HeroKeys keys, Heroes hero
     public void Panel(int player, string panel, bool show) =>
         messages.Send(new VguiMenu { Name = panel, Show = show, Keys = [], Values = [] }, player, reliable: true);
 
+    public bool Animate(int entity, string sequence) =>
+        _stalls.TryGetValue(entity, out var stall) && entities.IsValid(stall.Handle)
+        && directory.Get(stall.Handle) is TownVendor vendor && vendor.Animate(sequence);
+
     public double Now => clock.Now;
 
     public IReadOnlyList<int> Destinations(int player)
@@ -133,6 +141,9 @@ public sealed class EngineTownWorld(HostService host, HeroKeys keys, Heroes hero
         }
         if (hop.InstalledLevel(depth) is not { } map)
             return TownRefusals.NoLevel;
+        // The cage's line, as a hosted descent says it, on the level it goes to (F28: one sent before this
+        // process's changelevel, or the window's status line, never reaches the HUD).
+        notices.NoticeAfterArrival(player, WaysDown.Token(WaysDown.FromTown(depth)));
         log.Msg($"[TF2Descent/Town] unhosted: player {player} goes down to depth {depth}: this process changes level to {map}, and every player in it comes along\n");
         console.Execute($"changelevel {map}");
         return null;

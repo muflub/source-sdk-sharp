@@ -280,6 +280,27 @@ public sealed class RoomBuilder
         return this;
     }
 
+    private readonly List<(string Kind, Point Mins, Point Maxs)> hazards = [];
+
+    /// <summary>
+    /// A hazard volume of <paramref name="kind"/> (a row of <c>hazards.json</c>: lava, slime), a box
+    /// room-local (plan_descent_logic M1, brief p9): a <c>trigger_multiple</c> nothing fires, named
+    /// <c>tf2_descent_hazard_&lt;kind&gt;</c> (<c>HazardRules.VolumePrefix</c>), a global name the link
+    /// keeps as written, which the game's <c>HazardService</c> finds by name and reads by its bounds.
+    /// </summary>
+    public RoomBuilder WithHazard(string kind, Point mins, Point maxs)
+    {
+        if (string.IsNullOrEmpty(kind) || !kind.All(ch => ch is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '_'))
+            throw new ArgumentException($"room {name}: hazard kind '{kind}' is not a lower-case id");
+        if (!(mins.X < maxs.X && mins.Y < maxs.Y && mins.Z < maxs.Z))
+            throw new ArgumentException($"room {name}: hazard volume ({mins})-({maxs}) is empty");
+        hazards.Add((kind, mins, maxs));
+        return this;
+    }
+
+    /// <summary>The name of a hazard volume of <paramref name="kind"/> in a level.</summary>
+    public static string HazardName(string kind) => TF2.Descent.Rules.World.HazardRules.VolumePrefix + kind;
+
     /// <summary>A trigger (a box, room-local) a player walks into to fire the transition, for an up room or a down one; a down room's default is the 128 cube round its volume.</summary>
     public RoomBuilder WithHallTrigger(Point mins, Point maxs)
     {
@@ -571,6 +592,9 @@ public sealed class RoomBuilder
             }
         if (role != RoomRole.None)
             RolePieces(all);
+        foreach (var (kind, mins, maxs) in hazards)
+            all.Add(new RoomEntity("trigger_multiple", null, [new("targetname", HazardName(kind)), new("spawnflags", "0")], [],
+                [Brush.Box(mins, maxs, theme.Trigger)]));
         Rect main = Body;
         return new Room(name, kit, height, width, [.. doors], role, world, all)
         {

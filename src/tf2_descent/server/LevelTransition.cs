@@ -13,10 +13,11 @@ namespace TF2.Descent.Server;
 /// instead (plan_descent_logic WO8, mine plan E1): the hero picks the depth,
 /// and the picker's choice travels. On a boss level the way down is closed while the boss
 /// stands (mine plan D6, HO13: <see cref="Horde.Boss.IBossExit"/>): a hero who asks is told why
-/// and nothing fires.
+/// and nothing fires. A level's ways ask every 3 s while a hero stands in them; a refusal is told
+/// once per stay (<see cref="WayStays"/>).
 /// </summary>
 [ScriptedEntity("logic_level_transition")]
-public sealed class LevelTransition(TravelService travel, Town.TownService town, Horde.Boss.IBossExit bossExit) : ScriptedEntity
+public sealed class LevelTransition(TravelService travel, Town.TownService town, Horde.Boss.IBossExit bossExit, WayStays stays) : ScriptedEntity
 {
     public readonly Output OnTransition = new();
 
@@ -41,6 +42,12 @@ public sealed class LevelTransition(TravelService travel, Town.TownService town,
             : TravelDirection.Down;
 
         int player = Entities.GetIndex(input.Activator);
+        // The way asks every 3 s while he stands in it: a refusal is told once per stay (WayStays).
+        stays.Ask(player, () => Go(player, direction));
+    }
+
+    private void Go(int player, TravelDirection direction)
+    {
         if (direction == TravelDirection.Down && !town.InTown && !bossExit.MayLeave(player))
             return;
 

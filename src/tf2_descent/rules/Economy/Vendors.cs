@@ -8,10 +8,13 @@ namespace TF2.Descent.Rules.Economy;
 /// <summary>
 /// vendors.json: the town's vendors (plan_tf2_rpg 2d, D15). Each stocks <see cref="Stock"/>
 /// items a roll, either from the bases it names or from every base of the kinds it names, in
-/// a rarity from its odds (Stock alone when it names none). Vendor stock arrives identified,
-/// with no curse (items.json's "vendor" source rule).
+/// a rarity from its odds (Stock alone when it names none). The bases it names under
+/// <see cref="Always"/> it has at every restock, one of each after the rolled stock (the
+/// Medic's Teleporter Blueprint: Diablo's healer always sells the town portal scroll). Vendor
+/// stock arrives identified, with no curse (items.json's "vendor" source rule).
 /// </summary>
-public sealed record VendorRow(string Id, string Name, int Stock, IReadOnlyList<string> Kinds, IReadOnlyList<string> Bases, IReadOnlyList<RarityOdds> Odds) : IContentRow;
+public sealed record VendorRow(string Id, string Name, int Stock, IReadOnlyList<string> Kinds, IReadOnlyList<string> Bases, IReadOnlyList<RarityOdds> Odds,
+                               IReadOnlyList<string> Always) : IContentRow;
 
 public sealed class VendorTable : RowTable<VendorRow>
 {
@@ -29,7 +32,8 @@ public sealed class VendorTable : RowTable<VendorRow>
             o.End();
         }
         return new VendorRow(f.Str("id"), f.Str("name"), f.Int("stock"),
-            ItemTables.Strings(f, "kinds", required: false), ItemTables.Strings(f, "bases", required: false), odds);
+            ItemTables.Strings(f, "kinds", required: false), ItemTables.Strings(f, "bases", required: false), odds,
+            ItemTables.Strings(f, "always", required: false));
     }
 
     protected override void ValidateRow(DescentContent content, VendorRow row, ContentErrors errors)
@@ -42,6 +46,8 @@ public sealed class VendorTable : RowTable<VendorRow>
             ItemTables.OneOf(errors, t, row.Id, "kinds", k, ItemTables.Kinds);
         foreach (var b in row.Bases)
             ContentChecks.Reference<ItemBaseRow>(content, errors, t, row.Id, "bases", b, ItemTables.Bases);
+        foreach (var b in row.Always)
+            ContentChecks.Reference<ItemBaseRow>(content, errors, t, row.Id, "always", b, ItemTables.Bases);
         foreach (var o in row.Odds)
         {
             ContentChecks.Range(errors, t, row.Id, "odds." + o.Rarity, o.Weight, 1, 1e9);
@@ -109,8 +115,8 @@ public sealed class Vendors
             : _content.ItemBases.Rows.Where(b => row.Kinds.Contains(b.Kind) && b.Level <= itemLevel).ToList();
         var forClass = pool.Where(b => b.AllowsClass(cls)).ToList();
         if (forClass.Count > 0) pool = forClass;
-        if (pool.Count == 0) return [];
         var stock = new List<ItemInstance>();
+        if (pool.Count == 0) return Always(row, level, cls, itemLevel, seed, stock);
         for (int i = 0; i < row.Stock; i++)
         {
             var r = SeededRandom.For(seed, "vendor", row.Id, i.ToString(CultureInfo.InvariantCulture));
@@ -118,6 +124,17 @@ public sealed class Vendors
             int rarity = row.Odds.Count == 0 ? 0 : Index(r.Weighted(row.Odds, o => o.Weight).Rarity);
             var ctx = new ItemRollContext(cls, level, 0, itemLevel, rarity, _content.ItemSettings.ForcedBasePrefix + b.Id, "vendor:" + row.Id);
             stock.Add(_roller.Roll(ctx, SeededRandom.Mix(seed, "vendor_item", row.Id, i.ToString(CultureInfo.InvariantCulture))));
+        }
+        return Always(row, level, cls, itemLevel, seed, stock);
+    }
+
+    /// <summary>The stock with one of each base the vendor always has after it, rolled Stock from the same seed.</summary>
+    private List<ItemInstance> Always(VendorRow row, int level, string cls, int itemLevel, ulong seed, List<ItemInstance> stock)
+    {
+        foreach (var b in row.Always)
+        {
+            var ctx = new ItemRollContext(cls, level, 0, itemLevel, 0, _content.ItemSettings.ForcedBasePrefix + b, "vendor:" + row.Id);
+            stock.Add(_roller.Roll(ctx, SeededRandom.Mix(seed, "vendor_always", row.Id, b)));
         }
         return stock;
     }

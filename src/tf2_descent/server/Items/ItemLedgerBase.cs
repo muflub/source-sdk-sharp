@@ -104,6 +104,17 @@ public abstract class ItemLedgerBase : IItemLedger
     /// <summary>Whether one restock's stock is kept and shrinks as it is bought (the in-memory ledger); hosted the host's stock is asked each time.</summary>
     protected virtual bool KeepsStock => true;
 
+    /// <summary>
+    /// Whether a potion gained (picked up, bought, bought back, reclaimed, looted from the corpse)
+    /// goes onto the belt (<see cref="InventoryRules.StowGained"/>, the whole run's F20): the
+    /// in-memory ledger's; hosted the host carries no belt (X6), so it stays where the host put it.
+    /// </summary>
+    protected virtual bool StowsPotions => true;
+
+    /// <summary><paramref name="result"/> with the potions it gained put on the belt, where this ledger does (<see cref="StowsPotions"/>).</summary>
+    protected InventoryResult Stowing(LedgerHero before, InventoryResult result) =>
+        StowsPotions ? Inv.StowGained(before.Inventory, result) : result;
+
     public abstract Task<DropResult> KillDrop(KillDrop kill);
 
     public abstract Task<DropResult> BossDrop(BossDrop boss);
@@ -245,7 +256,7 @@ public abstract class ItemLedgerBase : IItemLedger
             return LedgerResult.Refused(LedgerRefusals.NotOnFloor, h);
         if (item.ForHero is { } owner && owner != hero)
             return LedgerResult.Refused(LedgerRefusals.WrongOwner, h);
-        var result = Inv.Pickup(h.Inventory, h.Stash, h.Sheet, new Held(item.Id, item.Item));
+        var result = Stowing(h, Inv.Pickup(h.Inventory, h.Stash, h.Sheet, new Held(item.Id, item.Item)));
         return await Settle(new Op("claim", Id: item.Id), h, result, () => _floor.Remove(floorId));
     });
 
@@ -371,7 +382,7 @@ public abstract class ItemLedgerBase : IItemLedger
             return LedgerResult.Refused(LedgerRefusals.NoHero);
         if (!_offered.TryGetValue(stockId, out var offer) || offer.Vendor != vendor)
             return LedgerResult.Refused(LedgerRefusals.NotInStock, h);
-        var result = Inv.Buy(h.Inventory, h.Stash, h.Sheet, new Held(stockId, offer.Item.Item), BuyPrice(h, offer.Item.Item));
+        var result = Stowing(h, Inv.Buy(h.Inventory, h.Stash, h.Sheet, new Held(stockId, offer.Item.Item), BuyPrice(h, offer.Item.Item)));
         return await Settle(new Op("buy", Text: vendor, Id: stockId), h, result, () =>
         {
             _offered.Remove(stockId);
@@ -400,7 +411,7 @@ public abstract class ItemLedgerBase : IItemLedger
             if (index < 0 || index >= h.Inventory.BuyBack.Count)
                 return new InventoryResult(h.Inventory, h.Stash, [], InventoryRefusals.NoItem);
             id = h.Inventory.BuyBack[index].Id;
-            return Inv.BuyBack(h.Inventory, h.Stash, h.Sheet, index, SoldFor(h, h.Inventory.BuyBack[index]));
+            return Stowing(h, Inv.BuyBack(h.Inventory, h.Stash, h.Sheet, index, SoldFor(h, h.Inventory.BuyBack[index])));
         }, () => _soldFor.Remove(id));
     }
 

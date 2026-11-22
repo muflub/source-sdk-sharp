@@ -261,6 +261,9 @@ public sealed class HostedItemLedger(IGameRules rules, IHooks<IItemLedgerHook> h
     /// <summary>The host's stock is asked each time (it restocks by its own rules).</summary>
     protected override bool KeepsStock => false;
 
+    /// <summary>The host carries no belt (X6): a potion gained stays in the backpack slot the host put it in.</summary>
+    protected override bool StowsPotions => false;
+
     protected override async Task<VendorAnswer> RollStock(LedgerHero hero, string vendor, long restock)
     {
         var r = await host.VendorStock(vendor);

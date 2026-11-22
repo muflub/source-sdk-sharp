@@ -332,6 +332,37 @@ public sealed class TownSourcesTests
         Assert.Equal(["tf2_descent_town_descend 2"], lines.Sent);
     }
 
+    [Fact]
+    public void A_town_window_closed_on_the_client_tells_the_server_its_screen()
+    {
+        var town = new TownCache(Content);
+        town.OnTownWindow(Window(TownScreen.Stash));
+        var lines = new Lines();
+
+        new Src.TownCloseSender(town, lines).Closed("stash");
+
+        Assert.Equal(["tf2_descent_town_close stash"], lines.Sent);
+    }
+
+    [Fact]
+    public void A_close_of_a_screen_the_town_did_not_open_last_tells_the_server_nothing()
+    {
+        var town = new TownCache(Content);
+        town.OnTownWindow(Window(TownScreen.Vendor));
+        var lines = new Lines();
+
+        new Src.TownCloseSender(town, lines).Closed("stash");
+
+        Assert.Empty(lines.Sent);
+    }
+
+    [Fact]
+    public void Every_town_screen_closes_on_a_screen_the_server_closes_by_its_panel()
+    {
+        foreach (var screen in new[] { TownScreen.Vendor, TownScreen.Stash, TownScreen.Craft, TownScreen.Crate, TownScreen.Depth })
+            Assert.Equal(TF2.Descent.Server.Town.TownSender.PanelOf((global::TF2.Descent.Shared.TownScreen)(int)screen), "descent_" + Src.TownCloseSender.ScreenOf(screen));
+    }
+
     private sealed class NoHeroes : client::TF2.Descent.Client.IHeroStates
     {
         public client::TF2.Descent.Client.HeroState? Of(int playerIndex) => null;

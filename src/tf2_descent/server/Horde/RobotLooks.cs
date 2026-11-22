@@ -106,6 +106,35 @@ public static class RobotLooks
     public const string SniperRifle = "models/weapons/c_models/c_sniperrifle/c_sniperrifle.mdl";
     public const string Knife = "models/weapons/c_models/c_knife/c_knife.mdl";
 
+    /// <summary>
+    /// The BLU skin of a robot model, its held weapon and its ragdoll: robots are
+    /// BLU, MvM's invaders (<see cref="Mode.DescentMode.RobotTeam"/>). TF2's rule
+    /// for a player and a weapon: RED 0, BLU 1 (<c>C_TFPlayer::GetSkin</c>,
+    /// c_tf_player.cpp:7808-7821; <c>CTFWeaponBase::GetSkin</c>,
+    /// tf_weaponbase.cpp:4925-4937). Every bot model has four families (RED,
+    /// BLU and their invulnerable sheens), the giants' too; a model with one
+    /// (the sentry buster, the shotgun) draws it, as the studio renderer takes
+    /// family 0 for a skin past its last.
+    /// </summary>
+    public const int BluSkin = 1;
+
+    /// <summary>
+    /// The skin a robot body is drawn in (<see cref="BluSkin"/>), but the Tank's:
+    /// stock's <c>CTFTankBoss</c> sets none, so its BLU tank is family 0 (its
+    /// second is the <c>tankbody2_final</c> look).
+    /// </summary>
+    public static int BodySkin(string model) => model == TankModel ? 0 : BluSkin;
+
+    /// <summary>
+    /// Whether the template's death leaves a ragdoll (<see cref="RobotRagdolls"/>):
+    /// every robot's does, as MvM's robots leave a <c>tf_ragdoll</c> (MvM never
+    /// gibs a robot, tf_player.cpp:10925-10927), but two whose death is not a
+    /// body: the Tank (stock's <c>CTFTankBoss</c> blows apart; it is no player
+    /// and leaves no ragdoll) and the sentry buster, whose death is its blast
+    /// (<c>ChampionDeaths</c>, <c>RobotAttacks.Blast</c>).
+    /// </summary>
+    public static bool LeavesRagdoll(RobotTemplate t) => t.Class != "tank" && t.Attack != SentryBusterAttack;
+
     /// <summary>Whether the template's size class is drawn with the giant model where its class has one.</summary>
     public static bool IsBig(RobotTemplate t) => t.Size is "giant" or "boss";
 

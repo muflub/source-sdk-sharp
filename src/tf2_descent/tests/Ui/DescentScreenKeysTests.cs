@@ -65,6 +65,21 @@ public sealed class DescentScreenKeysTests
         Assert.Equal("tf2_descent_ui party", final["p"]);
     }
 
+    /// <summary>
+    /// TF2 has no use key (E calls for a Medic and drops the flag), and Descent is played by
+    /// using things: a stall, a cage's button, loot, a gravestone, a portal pad, a revive. A
+    /// fresh config binds E to +use, and the keyboard page lists it, so a player whose config
+    /// predates the row can bind it there.
+    /// </summary>
+    [Fact]
+    public void E_uses_and_the_keyboard_page_lists_use()
+    {
+        var actions = Actions();
+
+        Assert.Equal("+use", Final(actions)["e"]);
+        Assert.Contains(actions.Actions(), a => a.Command == "+use");
+    }
+
     [Fact]
     public void M_toggles_the_automap()
     {
@@ -86,7 +101,7 @@ public sealed class DescentScreenKeysTests
     }
 
     [Fact]
-    public void The_window_keys_take_exactly_five_of_tf2s_binds()
+    public void The_window_keys_and_use_take_exactly_six_of_tf2s_binds()
     {
         var actions = Actions();
         var tf2Only = ClientKeyActions.Of(typeof(client::TF2.Client.MoveForwardKey).Assembly.GetTypes(), typeof(ClientKeyActions).Assembly);
@@ -102,6 +117,7 @@ public sealed class DescentScreenKeysTests
         Assert.Equal(new Dictionary<string, string>
         {
             ["c"] = "+voice_menu_3",
+            ["e"] = "dropitem",                    // use (+use): TF2 has no use key; its E dropped the flag
             ["i"] = "showmapinfo",
             ["k"] = "cl_decline_first_notification",
             ["m"] = "open_charinfo_direct",        // TF2's loadout, which Descent keeps closed (HE1)

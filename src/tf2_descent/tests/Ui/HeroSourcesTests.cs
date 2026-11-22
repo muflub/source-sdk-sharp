@@ -453,6 +453,33 @@ public sealed class HeroSourcesTests
     }
 
     [Fact]
+    public void A_backpack_potion_put_on_the_belt_and_a_belt_slot_taken_off_send_the_move_verb_with_the_belt_word()
+    {
+        var items = new FakeItems();
+        items.Held.Add(Item(1, ItemContainer.Backpack, 4, "health_small"));
+        items.Held.Add(Item(2, ItemContainer.Belt, 1, "mana_small"));
+        var lines = new Lines();
+        var actions = new Src.ItemActions(items, Content, lines, new Src.ItemPointer(new Clock()));
+
+        actions.ToBelt(4, 3);
+        actions.OffBelt(1, 9);
+
+        Assert.Equal(["tf2_descent_item_move 4 belt4", "tf2_descent_item_move belt2 9"], lines.Sent);
+    }
+
+    [Fact]
+    public void An_empty_cell_or_belt_slot_moves_nothing_to_or_from_the_belt()
+    {
+        var lines = new Lines();
+        var actions = new Src.ItemActions(new FakeItems(), Content, lines, new Src.ItemPointer(new Clock()));
+
+        actions.ToBelt(4, 0);
+        actions.OffBelt(2, 9);
+
+        Assert.Empty(lines.Sent);
+    }
+
+    [Fact]
     public void Using_an_empty_cell_sends_nothing()
     {
         var lines = new Lines();

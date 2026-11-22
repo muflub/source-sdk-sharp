@@ -255,6 +255,8 @@ public interface IDescentItemActions
     void Hover(int slotOrCell);
     void Use(int slotOrCell);
     void Move(int fromCell, int toCell);
+    void ToBelt(int cell, int beltSlot);          // a backpack potion onto a belt slot (0-based)
+    void OffBelt(int beltSlot, int cell);         // a belt slot's potion into a backpack cell
 }
 
 /// <summary>An item hovered anywhere: the tooltip's subject, plus the compare target when relevant.</summary>
