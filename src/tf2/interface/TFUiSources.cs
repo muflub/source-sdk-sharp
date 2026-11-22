@@ -849,6 +849,10 @@ public interface ITFDeathScreen
     /// <summary>Whether the killer still lives (<c>pKiller-&gt;IsAlive()</c>):
     /// the <c>_Dead</c> label arm (:383-401).</summary>
     bool KillerAlive { get; }
+
+    /// <summary>The screenshot hint is due: <c>ShowSnapshotPanelIn( 1.25 )</c>
+    /// from <c>freezecam_started</c>, the freeze frame's start (:253-256, :938-948).</summary>
+    bool SnapshotHintDue { get; }
 }
 
 /// <summary>

@@ -139,8 +139,19 @@ internal sealed class TFProxyPlayers(ITFPlayerData players, IClientStandalones s
             return null;
 
         int team = Core is { } resource && player < Slots ? resource.State.Team[player] : 0;
-        return new TFProxyPlayer(state, team, screen.LocalPlayerIndex == player);
+        return new TFProxyPlayer(state, team, screen.LocalPlayerIndex == player, WatchedFromDeath(player));
     }
+
+    /// <summary>
+    /// The killer the dead local player's death or freeze cam looks at
+    /// (c_tf_player.cpp:6866-6882: <c>OBS_MODE_FREEZECAM</c> or
+    /// <c>OBS_MODE_DEATHCAM</c>, and <c>GetObserverTarget() == this</c>).
+    /// </summary>
+    private bool WatchedFromDeath(int player)
+        => standalones.GetByIndex(screen.LocalPlayerIndex) is ClientSsPlayer local
+           && local.State.ObserverMode is GameMovement.ObsModeFreezeCam or GameMovement.ObsModeDeathCam
+           && (int)(local.State.ObserverTarget & ClientPlayerPrediction.HandleEntryMask) == player
+           && local.State.ObserverTarget != EntityHandle.None.Value;
 
     /// <summary>Whether the bound entity is a viewmodel, or rides one as its move parent
     /// (the viewmodel attachment): <c>vm_invis</c>'s remapped arm is theirs
@@ -216,7 +227,8 @@ internal sealed class TFProxyPlayers(ITFPlayerData players, IClientStandalones s
 /// <param name="State">The carrier: predicted for the local player, decoded for anyone else.</param>
 /// <param name="Team">The row the player resource holds for them (<c>GetTeamNumber</c>).</param>
 /// <param name="IsLocal">Stock's <c>IsLocalPlayer</c>.</param>
-internal readonly record struct TFProxyPlayer(TFPlayerNetState State, int Team, bool IsLocal);
+/// <param name="WatchedFromDeath">The killer the dead local player's death or freeze cam looks at.</param>
+internal readonly record struct TFProxyPlayer(TFPlayerNetState State, int Team, bool IsLocal, bool WatchedFromDeath = false);
 
 /// <summary>
 /// <c>CProxyModelGlowColor</c> ("ModelGlowColor",
@@ -324,14 +336,15 @@ internal abstract class TFProxyInvis(TFProxyPlayers players) : MaterialProxy
     /// <c>GetEffectiveInvisibilityLevel</c> (c_tf_player.cpp:6844-6898): the
     /// level capped at <c>tf_teammate_max_invis</c> for anyone the local view
     /// does not see as an enemy (<c>IsEnemyPlayer</c> :5384-5412 — the local
-    /// team's opposite number, the coaching arm aside). The deathcam/freezecam
-    /// and taunt-invisibility arms are the viewer's and the econ's
-    /// (docs/plans/tf2/deferred.tsv).
+    /// team's opposite number, the coaching arm aside), and for the enemy who
+    /// just killed us while the death or freeze cam looks at him ("show them
+    /// slightly less than full invis", :6863-6882). The taunt-invisibility arm
+    /// is the econ's (docs/plans/tf2/deferred.tsv).
     /// </summary>
     protected float EffectiveLevel(TFProxyPlayer player, IProxyBind bind)
     {
         float percent = Percent(player, bind);
-        if (!IsEnemyPlayer(player) && percent > Players.MaxInvis)
+        if ((!IsEnemyPlayer(player) || player.WatchedFromDeath) && percent > Players.MaxInvis)
             percent = Players.MaxInvis;
         return percent;
     }

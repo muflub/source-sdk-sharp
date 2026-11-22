@@ -31,8 +31,13 @@ namespace TF2.Client.Player;
 /// </summary>
 [SideService(Side.Client)]
 public sealed class TFObserverEyeAngles(TFClientCarriers carriers, IGameClock clock, BoundedConVars bounded)
-    : IObserverEyeAngles, IClientFrameThink
+    : IObserverEyeAngles, IClientFrameThink, IOrderedHook
 {
+    /// <summary>Its place in the client's frame thinks, of TF2's thousand.</summary>
+    public const int Order = 1_000_000 - 1_000 + 196;
+
+    public int HookOrder => Order;
+
     private readonly TFEyeAngleHistory _history = new();
 
     /// <summary>File every carrier whose decode moved since the last frame.</summary>

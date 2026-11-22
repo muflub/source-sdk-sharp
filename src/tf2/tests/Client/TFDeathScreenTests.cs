@@ -95,6 +95,44 @@ public sealed class TFDeathScreenTests
         Assert.False(source.Showing);
     }
 
+    /// <summary>The panel is the freeze cam's: up while the local player is
+    /// in it (show_freezepanel entering, hide_freezepanel leaving,
+    /// c_baseplayer.cpp:885-930), not from the death itself.</summary>
+    [Fact]
+    public void The_panel_is_up_only_in_the_freeze_cam()
+    {
+        var (source, deaths, engine) = Built();
+        ArriveKiller(engine.St, engine.Resources);
+        var local = (Standalone.ClientSsPlayer)engine.St.Local!;
+        local.State.ObserverMode = (int)global::SourceSharp.Abi.ObserverMode.DeathCam;
+
+        deaths.Raise(new DeathArgs(7, 9, "rocketlauncher", false, 0));
+        Assert.False(source.Showing);                    // the death cam: not yet
+
+        local.State.ObserverMode = (int)global::SourceSharp.Abi.ObserverMode.FreezeCam;
+        Assert.True(source.Showing);
+
+        local.State.ObserverMode = (int)global::SourceSharp.Abi.ObserverMode.Chase;
+        Assert.False(source.Showing);                    // watching after it: down
+    }
+
+    /// <summary>The screenshot hint 1.25 s after the freeze frame starts
+    /// (freezecam_started's ShowSnapshotPanelIn( 1.25 ), tf_hud_freezepanel.cpp:253-256).</summary>
+    [Fact]
+    public void The_screenshot_hint_waits_a_second_and_a_quarter_into_the_freeze_frame()
+    {
+        var freeze = new Freeze();
+        var clock = new Clock();
+        var (source, _, _) = Built(freeze, clock);
+        Assert.False(source.SnapshotHintDue);            // the camera is still flying
+
+        freeze.FreezeStartedAt = 10f;
+        clock.Now = 11.24f;
+        Assert.False(source.SnapshotHintDue);
+        clock.Now = 11.25f;
+        Assert.True(source.SnapshotHintDue);
+    }
+
     /// <summary>The killer's health is zero once they are dead, stock's
     /// !IsAlive arm (:363-366) — the row keeps its columns.</summary>
     [Fact]
@@ -186,18 +224,24 @@ public sealed class TFDeathScreenTests
 
     /// <summary>The screen over a strict engine, an empty standalone list
     /// and the event, not yet wired to any row.</summary>
-    private static (DeathScreen Source, DeathEvent Deaths, (Engine Engine, Standalones St, PlayerResources Resources)) Built()
+    private static (DeathScreen Source, DeathEvent Deaths, (Engine Engine, Standalones St, PlayerResources Resources)) Built(
+        Freeze? freeze = null, Clock? clock = null)
     {
         var engine = new Engine();
         engine.Returns("Hud.LocalPlayerIndex", 2);
         engine.Returns("Hud.LocalPlayerHealth", 0);
         var st = new Standalones();
+        // The local player, in the freeze cam: the panel's window.
+        var local = new Standalone.ClientSsPlayer(engine);
+        local.State.BindLocal();
+        local.State.ObserverMode = (int)global::SourceSharp.Abi.ObserverMode.FreezeCam;
+        st.Local = local;
         var resources = new PlayerResources();
         var deaths = new DeathEvent();
         var source = new DeathScreen(engine, st, new Roster((3, "Bob")), resources,
             new EventLink(deaths, new HurtEvent(), new ClientShared.ControlPointStartTouchEvent(),
                 new ClientShared.ControlPointEndTouchEvent(), new ClientShared.TeamplayWinPanelEvent(),
-                new ClientShared.TeamplayRoundStartEvent()));
+                new ClientShared.TeamplayRoundStartEvent()), freeze ?? new Freeze(), clock ?? new Clock());
         return (source, deaths, (engine, st, resources));
     }
 
@@ -229,7 +273,20 @@ public sealed class TFDeathScreenTests
 
         public IReadOnlyList<Standalone.ClientStandaloneEntity> Live() => All;
 
-        public Standalone.ClientStandaloneEntity? GetByIndex(int entityIndex) => null;
+        public Standalone.ClientStandaloneEntity? Local;
+
+        public Standalone.ClientStandaloneEntity? GetByIndex(int entityIndex) => entityIndex == 2 ? Local : null;
+    }
+
+    /// <summary>The camera's word: when the freeze frame began, or none.</summary>
+    private sealed class Freeze : client::SourceSharp.Client.Render.IObserverFreezeFrame
+    {
+        public float? FreezeStartedAt { get; set; }
+    }
+
+    private sealed class Clock : client::SourceSharp.Abi.IGameClock
+    {
+        public float Now { get; set; } = 10f;
     }
 
     /// <summary>The g_PR role: one slot answering its name, the rest nobody.</summary>

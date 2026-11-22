@@ -169,6 +169,24 @@ public sealed class TFEyeAngleTests
     }
 
     [Fact]
+    public void No_two_client_frame_thinks_of_the_mod_share_a_hook_order()
+    {
+        // The client's IClientFrameThink chain refuses a tie (StageUniqueness):
+        // live, TFObserverEyeAngles at the default 0 beside TFClientBodyDress
+        // threw on every frame.
+        var orders = typeof(History).Assembly.GetTypes()
+            .Where(t => t is { IsClass: true, IsAbstract: false }
+                        && typeof(client::SourceSharp.Client.IClientFrameThink).IsAssignableFrom(t))
+            .Select(t => (Type: t, Order: (System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(t)
+                                           as client::SourceSharp.Abi.IOrderedHook)?.HookOrder ?? 0))
+            .ToList();
+
+        Assert.Contains(orders, o => o.Type.Name == "TFObserverEyeAngles");
+        Assert.Empty(orders.GroupBy(o => o.Order).Where(g => g.Count() > 1)
+                           .Select(g => string.Join(", ", g.Select(o => o.Type.Name))));
+    }
+
+    [Fact]
     public void A_player_never_filed_has_no_answer()
         => Assert.False(new History().TryRead(5, 10f, Amount, out _));
 }

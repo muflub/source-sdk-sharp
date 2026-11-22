@@ -25,7 +25,8 @@ namespace TF2.Client.Ui;
 /// 306x38 with its brown bar, nemesis icon and label (:327-406), and the
 /// freeze-cam screenshot hint at c-83 50 166x40 (:409-467) — hidden when
 /// nothing is bound to screenshot, as stock's
-/// <c>ShowSnapshotPanel</c> does (:997-1003).
+/// <c>ShowSnapshotPanel</c> does (:997-1003), and only 1.25 s after the
+/// freeze frame starts (<c>ShowSnapshotPanelIn</c>, :253-256).
 ///
 /// <para>
 /// The label's and nemesis panel's arms read the death's flags
@@ -37,9 +38,9 @@ namespace TF2.Client.Ui;
 /// name one: stock also shows it when the killer still dominates us but
 /// this kill did not flag it (its live <c>m_bPlayerDominated</c> read,
 /// :601-626) — a bitfield this build does not carry
-/// (docs/divergences.md). The panel shows at the death, not on entering
-/// the freeze cam, and the hint shows at once, not 1.25 s in
-/// (<c>ShowSnapshotPanelIn</c>, :969-976): no freeze cam to delay from.
+/// (docs/divergences.md). The panel shows while the freeze cam is up
+/// (<c>show_freezepanel</c> on entering it, <c>hide_freezepanel</c> on leaving,
+/// c_baseplayer.cpp:885-930).
 /// </para>
 /// </summary>
 public sealed class TFFreezePanel(ITFDeathScreen death, IUiTextureLibrary textures, IUiLocalisation localise,
@@ -150,7 +151,7 @@ public sealed class TFFreezePanel(ITFDeathScreen death, IUiTextureLibrary textur
         // "[%s1] Save this moment!" (tf_english.txt:519) with the key in
         // place of %s1. Its own host rides centred (the "c-83" xpos).
         string? bound = keys.KeyFor("screenshot");
-        if (bound is { } key && key.Length > 0 && key != "(null)")
+        if (death.SnapshotHintDue && bound is { } key && key.Length > 0 && key != "(null)")
         {
             var shot = Stock.Screenshot.Rect(StockRect.Screen);
             var shotAt = StockRes.Spot(shot, StockRect.Screen);

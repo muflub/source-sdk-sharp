@@ -99,6 +99,7 @@ public sealed class FakeDeathScreen : ITFDeathScreen
     public int KillerMaxHealth { get; init; }
     public int KillerMaxBuffedHealth { get; init; }
     public bool KillerAlive { get; init; }
+    public bool SnapshotHintDue { get; init; } = true;
 }
 
 /// <summary>The mod's tokens the hint composes from; the #TF2_Freeze_*

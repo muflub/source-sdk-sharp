@@ -7,6 +7,7 @@
 
 using SourceSharp.Abi;
 using SourceSharp.Client;
+using SourceSharp.Client.Render;
 using SourceSharp.Client.Standalone;
 using SourceSharp.Client.Vgui;
 using SourceSharp.Shared;
@@ -29,12 +30,10 @@ namespace TF2.Client.Ui;
 /// falls when the local player lives again, stock's <c>hide_freezepanel</c>.
 ///
 /// <para>
-/// Divergences (docs/divergences.md): the nemesis arms read the death's
+/// Divergence (docs/divergences.md): the nemesis arms read the death's
 /// flags, where stock reads the killer's live replicated
 /// <c>m_bPlayerDominated</c> at panel time — an already-dominating killer's
-/// later kills show no nemesis panel (the per-pair bitfield is not carried);
-/// and the panel shows at the death, where stock shows on entering the
-/// freeze cam.
+/// later kills show no nemesis panel (the per-pair bitfield is not carried).
 /// </para>
 /// </summary>
 [SideService(Side.Client, As = [typeof(ITFDeathScreen)])]
@@ -52,14 +51,32 @@ public sealed class TFDeathScreen : ITFDeathScreen
     private int _attackerUserId;                     // 0: no killer row (the world, or their own hand)
     private int _flags;
 
+    private readonly IObserverFreezeFrame _freeze;
+    private readonly IGameClock _clock;
+
+    /// <summary><c>ShowSnapshotPanelIn( 1.25 )</c> (tf_hud_freezepanel.cpp:256).</summary>
+    public const float SnapshotHintDelay = 1.25f;
+
     public TFDeathScreen(IEngineHud screen, IClientStandalones standalones, IPlayerNames names,
-                         TFClientPlayerResources resources, EventLink events)
+                         TFClientPlayerResources resources, EventLink events, IObserverFreezeFrame freeze,
+                         IGameClock clock)
     {
-        (_screen, _standalones, _names, _resources) = (screen, standalones, names, resources);
+        (_screen, _standalones, _names, _resources, _freeze, _clock) = (screen, standalones, names, resources, freeze, clock);
         events.OnDeath(OnDeath);      // stock's ListenForGameEvent in the panel's constructor
     }
 
-    public bool Showing => _dead && _screen.LocalPlayerHealth <= 0;
+    /// <summary>
+    /// Up while the local player is dead and in the freeze cam: stock's
+    /// <c>show_freezepanel</c> fires entering it and <c>hide_freezepanel</c>
+    /// leaving it (c_baseplayer.cpp:885-930).
+    /// </summary>
+    public bool Showing => _dead && _screen.LocalPlayerHealth <= 0
+                           && _standalones.GetByIndex(_screen.LocalPlayerIndex) is ClientSsPlayer
+                           {
+                               State.ObserverMode: (int)ObserverMode.FreezeCam,
+                           };
+
+    public bool SnapshotHintDue => _freeze.FreezeStartedAt is { } started && _clock.Now >= started + SnapshotHintDelay;
 
     public int DeathFlags => _flags;
 

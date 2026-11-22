@@ -2312,6 +2312,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<IHooks<Render.IObserverEyeAngles>>(locator => new Hooks<Render.IObserverEyeAngles>(locator, Log));
         _observerCamera = _services.Create<Render.ObserverCamera>();
         _services.AddInstance(_observerCamera);
+        _services.AddInstance<Render.IObserverFreezeFrame>(_observerCamera);
 
         // THE NAMED RENDER TARGETS (C7, rendertexture.cpp's getters): which
         // texture each slot finds, and which references the material system's
