@@ -394,7 +394,11 @@ public sealed class TFMovementRules : IMovementRules
             && _hooks.Int(0, "set_weapon_mode", held) == ShovelSpeedBoostMode)
         {
             float maxHealth = _classes[state.Class()].MaxHealth;
-            float health = _entities.GetHealth(new EntityHandle((uint)playerIndex));
+            // The real handle, serial and all: after a changelevel the slot's
+            // handle carries a serial, and a bare index reads another slot or
+            // nothing through the engine's handle table (the shovel's arm
+            // would take the full-health band).
+            float health = _entities.GetHealth(_engines.GetHandle(playerIndex));
             inputs = inputs with
             {
                 ActiveWeapon = TFWeaponId.Shovel,

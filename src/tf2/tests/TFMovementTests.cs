@@ -1931,6 +1931,34 @@ public sealed class TFMovementRulesTests
         Assert.Equal(240f, rules.MaxSpeedScale(Index, 400f, false, 0), 0.5f);
     }
 
+    /// <summary>
+    /// The shovel's health read goes through the player's REAL handle, serial
+    /// and all (a changelevel leaves the slot's handle carrying one). A bare
+    /// index crosses the engine's handle table as a different slot, so the
+    /// health comes back wrong and the walk takes the wrong band.
+    /// </summary>
+    [Fact]
+    public void The_held_shovels_speed_reads_the_health_through_the_players_serial_handle()
+    {
+        var players = new TFMovementFixtures.Players();
+        players.Add(Index, TFClass.Soldier);
+        var owners = new OwnersOf(new TFPlayerItems()) { Active = ShovelItem(2f) };
+        var engine = new RecordingEngine();
+        engine.Ignores("Players.GetObserverMode", "Players.GetTeam");
+
+        // The serial handle for the slot, and the health only that handle reads.
+        engine.ReturnsEachCall("Players.GetHandle",
+            () => new EntityHandle(0x0001_0000u | (uint)engine.Calls[^1].ArgAs<int>(0)));
+        engine.ReturnsEachCall("Entities.GetHealth",
+            () => engine.Calls[^1].ArgAs<EntityHandle>(0).Value == (0x0001_0000u | (uint)Index) ? 40 : 200);
+
+        var rules = TFMovementFixtures.Rules(players, owners: owners, hooks: new AttributeHooks(),
+                                  weapons: new HeldShovel(), engines: engine, entities: engine);
+
+        // 40/200 is the 0.2 band (1.6): the read must be the serial handle's.
+        Assert.Equal(384f, rules.MaxSpeedScale(Index, 400f, false, 0), 0.5f);
+    }
+
     /// <summary>The dash count and the jump height walk the ACTIVE weapon's item, both sides alike.</summary>
     [Fact]
     public void The_active_weapons_item_reaches_the_dash()

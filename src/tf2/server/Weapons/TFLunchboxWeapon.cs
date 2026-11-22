@@ -71,7 +71,10 @@ public sealed class TFLunchboxWeapon(ITFMapPlayers players, ITFPlayerResupply re
         if (attack.Command.OwnerIndex <= 0)
             return;
 
-        taunts.Handle(new EntityHandle((uint)attack.Command.OwnerIndex), TFTauntCommand.Command, default);
+        // The real handle, serial and all: after a changelevel the slot's
+        // handle carries one, and a bare index reads another slot (or nothing)
+        // through the engine's handle table, so the taunt would never land.
+        taunts.Handle(enginePlayers.GetHandle(attack.Command.OwnerIndex), TFTauntCommand.Command, default);
     }
 
     /// <summary>
@@ -82,7 +85,7 @@ public sealed class TFLunchboxWeapon(ITFMapPlayers players, ITFPlayerResupply re
     /// </summary>
     public void Bite(int playerIndex)
     {
-        var player = new EntityHandle((uint)playerIndex);
+        var player = enginePlayers.GetHandle(playerIndex);
         var item = owners.ItemOf(playerIndex, LunchboxName);
 
         // GetLunchboxType (tf_weapon_lunchbox.h:63): the held item's mode.
@@ -135,7 +138,7 @@ public sealed class TFLunchboxWeapon(ITFMapPlayers players, ITFPlayerResupply re
     /// </summary>
     public void Drink(int playerIndex)
     {
-        var player = new EntityHandle((uint)playerIndex);
+        var player = enginePlayers.GetHandle(playerIndex);
 
         // The stun gate (:18638): IsControlStunned reads here as the stunned
         // condition, the way the movement rules and the criteria words read it.

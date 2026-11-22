@@ -178,6 +178,35 @@ public sealed class TFLunchboxWeaponTests
     }
 
     /// <summary>
+    /// The eat's taunt ask goes through the player's REAL handle, serial and
+    /// all: after a changelevel the slot's handle carries a serial, and a bare
+    /// index crosses the handle table as another slot, so the heavy's sandwich
+    /// taunt would never land (the sandvich never eaten).
+    /// </summary>
+    [Fact]
+    public void TheEatTauntsThroughThePlayersSerialHandle()
+    {
+        var (rig, lunchbox, _, _, _) = Rig(TFClass.HeavyWeapons);
+        rig.Engine.Returns("Networking.EntityGetState", EntityState.OnGround);
+        rig.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
+
+        // Only the slot's real handle (0x00010003) is alive; a bare index is not.
+        rig.Engine.ReturnsEachCall("Players.IsAlive",
+            () => rig.Engine.Calls[^1].ArgAs<EntityHandle>(0) == PlayerRig.Player);
+
+        var files = TF2.Tests.Weapons.WeaponFixtures.WithExtras(TF2.Tests.Weapons.WeaponFixtures.Shipped());
+        var world = new TF2.Tests.Weapons.TFWeaponWorld(files: files);
+        var (w, vm) = world.Armed(Lunchbox, clip: 0, reserve: 1);
+        var attack = new WeaponAttackContext(world.Row(Lunchbox), w, vm, 10f, true, world.Arms,
+                                             new WeaponCommand(1, 0, PlayerRig.Index));
+        var script = new TFWeaponScripts(new RecordingLog(), files).Get(Lunchbox)!;
+
+        lunchbox.LunchboxEat(in attack, script);
+
+        Assert.True(rig.State.InCond(TFCond.Taunting));
+    }
+
+    /// <summary>
     /// The throw's rig: the player's world plus a second, item-side one whose
     /// registry stands in as the weapon's directory — the plate it creates is
     /// a real <see cref="HealthKit"/> there, spawned before the throw names it.

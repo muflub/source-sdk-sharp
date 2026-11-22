@@ -55,7 +55,7 @@ internal static class LoadoutDeps
         // it — the order a mod's source takes in the chain.
         var own = new TFInventoryItemSource(inventory,
                                             botInventory ?? new BotInventory(schema, engine, NoBots(), log),
-                                            bots ?? NoBots(), schema);
+                                            bots ?? NoBots(), schema, players ?? engine);
         return new TFLoadoutProvider(
             new Rules.ListHooks<ITFItemSource>([own, .. sources]),
             new Rules.ListHooks<ITFPlayerAttributeSource>(attributeSources ?? []),

@@ -37,7 +37,8 @@ public class TFBlastJumpTests
         owners ??= new ProjectileRig.FixedOwners();
         var rig = new PlayerRig().As(cls);
         var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), rig.Engine);
-        var jump = new TFBlastJumpState(rig.Carriers, conditions, rig.Engine, new NoEntities(), rig.Engine, rig.Engine);
+        var jump = new TFBlastJumpState(rig.Carriers, conditions, rig.Engine, new NoEntities(), rig.Engine, rig.Engine,
+                                        rig.Engine);
         jump.Attach(PlayerRig.Player);
 
         var blast = new TFBlastApplier(rig.Engine, rig.Engine, rig.Engine, new TFDamageScopes(), new DamageHitGroups(),
@@ -112,8 +113,13 @@ public class TFBlastJumpTests
         Assert.Equal(0, rig.Carriers.Predicted(PlayerRig.Index)!.AirDuckedCount);
     }
 
-    /// <summary>The landing (:1441-1483): the grounded tick clears the
-    /// condition and fires the landed event, whose only word is the userid.</summary>
+    /// <summary>The landing (:1441-1483), asked where stock asks it — at the
+    /// end of the command that carried the landing's movement
+    /// (<c>CBasePlayer::PhysicsSimulate</c> → <c>TFPlayerThink</c>, and here
+    /// the movement's server-side end-of-command
+    /// <c>Rules.EndCommand</c>): the grounded command end clears the
+    /// condition and fires the landed event, whose only word is the userid,
+    /// and no later command end fires it again.</summary>
     [Fact]
     public void Landing_clears_the_blast_jump_and_fires_the_landed_event()
     {
@@ -123,7 +129,8 @@ public class TFBlastJumpTests
         Assert.True(conditions.InCond(PlayerRig.Player, TFCond.Blastjumping));
 
         rig.Engine.Returns("Networking.EntityGetState", EntityState.OnGround);
-        jump.Tick(5f);
+        rig.Engine.Returns("Clock.Now", 5f);
+        rig.Carriers.EndCommand(PlayerRig.Index);
 
         Assert.False(conditions.InCond(PlayerRig.Player, TFCond.Blastjumping));
         Assert.Equal(TFBlastJump.None, jump.State);
@@ -132,6 +139,48 @@ public class TFBlastJumpTests
         Assert.Equal(9, rig.Engine.Last("GameEvents.EventSetInt")!.ArgAs<int>(2));
         Assert.Equal(1, rig.Engine.CountOf("GameEvents.EventSetBool")); // the jump's, not the landing's
         Assert.Equal(2, rig.Engine.CountOf("GameEvents.EventFire"));
+
+        rig.Carriers.EndCommand(PlayerRig.Index);                         // a later command end
+        Assert.Equal(2, rig.Engine.CountOf("GameEvents.EventFire"));      // fires once
+    }
+
+    /// <summary>A grounded blast, then the next command's end — the one whose
+    /// movement lifted the player off the ground, where stock's
+    /// <c>TFPlayerThink</c> arm is asked after that move
+    /// (<c>CBasePlayer::PhysicsSimulate</c>): the airborne command end keeps
+    /// the state and its condition, and only the grounded command end clears,
+    /// firing <c>rocket_jump_landed</c> exactly once (:1444-1483).</summary>
+    [Fact]
+    public void A_grounded_blast_keeps_its_state_through_the_airborne_command_end()
+    {
+        var (rig, blast, conditions, jump) = JumpRig();
+        AirborneAtHundred(rig, EntityState.OnGround);                      // grounded at the blast (:10266)
+        rig.Engine.Returns("Damage.TakeDamageAnswered", 50);               // the push claims the jump (:10275)
+
+        RocketJump(rig, blast);
+
+        Assert.True(conditions.InCond(PlayerRig.Player, TFCond.Blastjumping));
+        Assert.Equal(TFBlastJump.RocketJumped, jump.State);
+
+        rig.Engine.Returns("Networking.EntityGetState", EntityState.None); // the move lifted them off ground
+        rig.Carriers.EndCommand(PlayerRig.Player.EntryIndex);               // that command's end
+
+        Assert.True(conditions.InCond(PlayerRig.Player, TFCond.Blastjumping)); // kept while airborne
+        Assert.Equal(TFBlastJump.RocketJumped, jump.State);
+        Assert.Equal(1, rig.Engine.CountOf("GameEvents.EventFire"));           // rocket_jump only
+
+        rig.Engine.Returns("Networking.EntityGetState", EntityState.OnGround); // landed
+        rig.Engine.Returns("Clock.Now", 9f);
+        rig.Carriers.EndCommand(PlayerRig.Player.EntryIndex);
+
+        Assert.False(conditions.InCond(PlayerRig.Player, TFCond.Blastjumping));
+        Assert.Equal(TFBlastJump.None, jump.State);
+        Assert.Equal(9f, jump.LandTime);
+        Assert.Equal("rocket_jump_landed", rig.Engine.Last("GameEvents.EventCreate")!.ArgAs<string>(0));
+        Assert.Equal(2, rig.Engine.CountOf("GameEvents.EventFire"));           // jump + landed, once each
+
+        rig.Carriers.EndCommand(PlayerRig.Player.EntryIndex);                    // a later command end
+        Assert.Equal(2, rig.Engine.CountOf("GameEvents.EventFire"));             // fires once
     }
 
     /// <summary>Both bits ride: the sticky jump is named first on the landing
@@ -147,7 +196,7 @@ public class TFBlastJumpTests
         Assert.True(conditions.InCond(PlayerRig.Player, TFCond.Blastjumping));
 
         rig.Engine.Returns("Networking.EntityGetState", EntityState.OnGround);
-        jump.Tick(7f);
+        rig.Carriers.EndCommand(PlayerRig.Player.EntryIndex);
 
         Assert.Equal("sticky_jump_landed", rig.Engine.Last("GameEvents.EventCreate")!.ArgAs<string>(0));
     }
@@ -194,7 +243,7 @@ public class TFBlastJumpTests
         AirborneAtHundred(rig, EntityState.None);
         RocketJump(rig, blast);
 
-        jump.Tick(3f);
+        rig.Carriers.EndCommand(PlayerRig.Player.EntryIndex);   // the airborne command end
 
         Assert.True(conditions.InCond(PlayerRig.Player, TFCond.Blastjumping));
         Assert.Equal(1, rig.Engine.CountOf("GameEvents.EventFire"));
@@ -233,7 +282,9 @@ public class TFBlastJumpTests
     [Fact]
     public void The_latch_lives_one_command()
     {
-        var (_, _, conditions, jump) = JumpRig();
+        var (rig, _, conditions, jump) = JumpRig();
+        rig.Engine.Returns("Networking.EntityGetState", EntityState.None); // the landing ask's own reads
+        rig.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
 
         jump.NoteEnemyBlast();
         jump.EndCommand();

@@ -176,7 +176,7 @@ public sealed class TFDeathNoticeTests
     private static TFBlastJumpState Jump(CombatRig rig, TFBlastJump state)
     {
         var jump = new TFBlastJumpState(rig.Carriers, new TFPlayerConditions(rig.Carriers, rig.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), rig.Engine), rig.Engine,
-                                        new NoEntities(), rig.Engine, rig.Engine);
+                                        new NoEntities(), rig.Engine, rig.Engine, rig.Engine);
         jump.Attach(CombatRig.Victim);
         if (state != TFBlastJump.None)
         {

@@ -13,11 +13,14 @@ namespace TF2.Server.Rules;
 /// cannot disagree about who is on which side.
 /// </summary>
 [SideService(Side.Server, As = [typeof(ITFPlayerTeam)])]
-public sealed class TFServerPlayerTeam(ITeams teams) : ITFPlayerTeam
+public sealed class TFServerPlayerTeam(ITeams teams, IEnginePlayers players) : ITFPlayerTeam
 {
     public TFTeam Of(int playerIndex)
     {
-        int team = teams.Team(new EntityHandle((uint)playerIndex));
+        // The real handle, serial and all: after a changelevel the slot's
+        // handle carries one and a bare index crosses the engine's handle
+        // table as another slot, so the team read would land on someone else.
+        int team = teams.Team(players.GetHandle(playerIndex));
         return team is >= 0 and < (int)TFTeam.Count ? (TFTeam)team : TFTeam.Unassigned;
     }
 }
