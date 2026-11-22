@@ -93,12 +93,23 @@ public sealed class TFJumpRuleTests
         Assert.Equal(1, Jumps(Field(new TFJumpAdvice()), () => Running(health: (int)(Floor + TFJumpAdvice.Cost))));
     }
 
+    /// <summary>
+    /// Under the least health a jump may be begun with, the bot does not ask: the hard floor (lane G9, a jump by health may go
+    /// under the floor of 90, <see cref="SourceSharp.Ai.TF2.Jump.JumpHealthRule.HardFloor"/>), or the floor with that switch off.
+    /// </summary>
     [Fact]
     public void ABotUnderItsHealthFloorDoesNotAsk()
     {
         var advice = new TFJumpAdvice();
-        Assert.Equal(0, Jumps(Field(advice), () => Running(health: (int)Floor - 1)));
+        Assert.Equal(0, Jumps(Field(advice), () => Running(health: (int)SourceSharp.Ai.TF2.Jump.JumpHealthRule.HardFloor - 1)));
         Assert.Empty(advice.Asks);
+        var off = new TFJumpAdvice();
+        var field = new TFField(tune: p => p with { GlanceRate = 0f }, jumps: off, feel: TFFeelSwitches.All with { JumpHealth = false });
+        Assert.Equal(0, Jumps(field, () => Running(health: (int)Floor - 1)));
+        Assert.Empty(off.Asks);
+        var on = new TFJumpAdvice();
+        Jumps(Field(on), () => Running(health: (int)Floor - 1));
+        Assert.NotEmpty(on.Asks);
     }
 
     [Fact]

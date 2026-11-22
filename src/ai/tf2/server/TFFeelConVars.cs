@@ -37,12 +37,22 @@ public sealed class TFFeelGlanceConVar : BoolConVar { }
 public sealed class TFFeelPrefireConVar : BoolConVar { }
 
 /// <summary>
-/// The feel layer's switches as the seven convars stand now. <see cref="TFBotGame"/> reads them when
+/// <c>ai_tf_feel_jumphealth</c> (lane G9): 0 and a Soldier's planned rocket jump keeps the health floor of 90 wherever it
+/// lands; 1 (the default) and one that lands by a health pack or a cabinet it may use may leave it under the floor
+/// (<see cref="TFFeelSwitches.JumpHealth"/>, <see cref="Jump.JumpHealthRule"/>). A bot reads it when added; the level's
+/// links are published by it when the level loads (a change takes a <c>changelevel</c>).
+/// </summary>
+[ConVar("ai_tf_feel_jumphealth", "1", Help = "0: a Soldier's rocket jump keeps the health floor of 90 even when it lands by a health pack; for bots added and levels loaded afterwards", Flags = ConVarFlags.Cheat)]
+public sealed class TFFeelJumpHealthConVar : BoolConVar { }
+
+/// <summary>
+/// The feel layer's switches as the eight convars stand now. <see cref="TFBotGame"/> reads them when
 /// it makes a bot's decider, which keeps them for its life.
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFFeelSwitchConVars(TFFeelCarrierConVar carrier, TFFeelSearchConVar search, TFFeelAimConVar aim, TFFeelRetreatConVar retreat,
-                                        TFFeelFriendGateConVar friendGate, TFFeelGlanceConVar glance, TFFeelPrefireConVar prefire)
+                                        TFFeelFriendGateConVar friendGate, TFFeelGlanceConVar glance, TFFeelPrefireConVar prefire,
+                                        TFFeelJumpHealthConVar jumpHealth)
 {
-    public TFFeelSwitches Read() => new(carrier.Value, search.Value, aim.Value, retreat.Value, friendGate.Value, glance.Value, prefire.Value);
+    public TFFeelSwitches Read() => new(carrier.Value, search.Value, aim.Value, retreat.Value, friendGate.Value, glance.Value, prefire.Value, jumpHealth.Value);
 }

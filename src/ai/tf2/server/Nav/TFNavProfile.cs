@@ -28,7 +28,8 @@ namespace SourceSharp.Ai.TF2.Nav;
 /// from the level's entities when the map's lump is compressed (<see cref="TFPlacedEntities"/>).</item>
 /// <item>The Soldier blast jumps (lane G5c-2b): its searches take the level's blast links
 /// (<see cref="TFBlastLinks"/>), each that costs no more health than it has over the floor a jump
-/// leaves it at (<see cref="TFDecider.RocketJumpHealthFloor"/>), and none the bots' own tries say fail (lane G5e).</item>
+/// leaves it at (<see cref="TFDecider.RocketJumpHealthFloor"/>), and none the bots' own tries say fail (lane G5e). A link
+/// that lands by a health pack costs a search what the pack does not give back (lane G9, <see cref="JumpHealthRule"/>).</item>
 /// <item>Where its team's players died (lane G4a): a bot's searches weigh its team's field of the
 /// experience's routes (<see cref="ExperienceRouteSlot"/>) by its Cunning (<see cref="TFRouteWeights"/>).</item>
 /// </list>
@@ -101,8 +102,13 @@ public sealed class TFNavProfile(ITFActorFacts actors, ITFLevelEntities placed, 
         return weight > 0f && routes.Current.For(team) is { } hazard ? new NavHazardAllowance(hazard, weight) : default;
     }
 
-    /// <summary>The health a bot of <paramref name="health"/> may spend on a link: what it has over the floor a jump must leave it at, none under it.</summary>
-    public static float LinkHealthOf(int health) => MathF.Max(0f, health - TFDecider.RocketJumpHealthFloor);
+    /// <summary>
+    /// The health a bot of <paramref name="health"/> may spend on a link: what it has over the floor a jump must leave it at,
+    /// under 0 under it. A link's published health is what a search spends on it (lane G9: under its blast's cost for a link
+    /// that lands by a health pack, <see cref="JumpHealthRule.Spend"/>, which may be under 0), so a bot under the floor is
+    /// still let onto a link its landing's pack pays for, and onto no other (every blast costs).
+    /// </summary>
+    public static float LinkHealthOf(int health) => health - TFDecider.RocketJumpHealthFloor;
 
     /// <summary>
     /// The visualizers' solids, from the map's lump or, when the lump is compressed (every shipped

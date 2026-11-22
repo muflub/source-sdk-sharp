@@ -234,12 +234,17 @@ public sealed class NavProfileTests : IDisposable
         Assert.Null(profile.LinksFor(Player).Shut);
     }
 
+    /// <summary>
+    /// A bot under the jump's floor has a budget under 0 (lane G9: a link that lands by a health pack may spend under 0,
+    /// <see cref="SourceSharp.Ai.TF2.Jump.JumpHealthRule.Spend"/>), so it takes no link that costs anything.
+    /// </summary>
     [Fact]
-    public void ABotUnderTheJumpsFloorMaySpendNothing()
+    public void ABotUnderTheJumpsFloorMaySpendNothingALinkCosts()
     {
         var (profile, published) = Tf(TFClass.Soldier, (int)SourceSharp.Ai.TF2.Trees.TFDecider.RocketJumpHealthFloor - 10);
         published.Set = Links();
-        Assert.Equal(0f, profile.LinksFor(Player).Health);
+        Assert.Equal(-10f, profile.LinksFor(Player).Health);
+        Assert.True(published.Set.Links[0].Health > 0f && published.Set.Links[0].Health > profile.LinksFor(Player).Health, "every link here costs: none is the bot's");
     }
 
     [Fact]

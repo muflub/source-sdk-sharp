@@ -207,6 +207,14 @@ if (args.Length >= 1 && args[0] == "navsize")
 if (args.Length >= 1 && args[0] == "navrooms")
     return NavRoomsTool.Run(args[1..], Console.Out, Console.Error);
 
+//   navsplit write <map.navhull> <map.bsp> <out-dir> [counted|all|r,r,..] | check <hl2mp|tf2> <map.navhull> <map.bsp> <region> <part.navhull>   a file per sealed space, and the room index
+if (args.Length >= 1 && args[0] == "navsplit")
+    return NavSplitTool.Run(args[1..], Console.Out, Console.Error);
+
+//   navcells <hl2mp|tf2> <room.navhull> <map.bsp> where | variant <base|tele+reach+k4+nosight..>   where a room's cells are, and what makes its graph smaller
+if (args.Length >= 1 && args[0] == "navcells")
+    return NavCellsTool.Run(args[1..], Console.Out, Console.Error);
+
 //   jumps <map.nav3d> <map.bsp> <soldier.txt> <out.json> <build> <commit> [candidate-limit]   TF2's blast-jump place finder on the map, measured
 if (args.Length >= 1 && args[0] == "jumps")
     return JumpPlacesTool.Run(args[1..], Console.Out, Console.Error);

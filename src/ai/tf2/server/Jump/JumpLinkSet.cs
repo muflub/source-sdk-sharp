@@ -27,18 +27,42 @@ public sealed class JumpLinkSet
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(jumps);
+        return new JumpLinkSet(NavLinks.Build(graph, LinksOf(jumps, null), costs), [.. jumps]);
+    }
+
+    /// <summary>
+    /// The same jumps over <paramref name="graph"/> (lane G9), each link's <see cref="NavLink.Health"/> (what a route search
+    /// spends on it) <paramref name="spends"/>' for it, index for index, and weighed as <see cref="Of"/> weighs it, at its
+    /// jump's own health: a link that lands by health (<see cref="JumpHealthRule.Spend"/>) is taken with less to spend, and
+    /// a route through it costs what it did.
+    /// </summary>
+    public JumpLinkSet WithSpends(NavGraph graph, IReadOnlyList<float> spends, NavLinkCosts costs)
+    {
+        ArgumentNullException.ThrowIfNull(graph);
+        ArgumentNullException.ThrowIfNull(spends);
+        if (spends.Count != _jumps.Length)
+            throw new ArgumentException($"{spends.Count} spends for {_jumps.Length} links", nameof(spends));
+        var weighed = new float[_jumps.Length];
+        for (int i = 0; i < weighed.Length; i++)
+            weighed[i] = _jumps[i].Health;
+        return new JumpLinkSet(NavLinks.Build(graph, LinksOf(_jumps, spends), costs, weighed), _jumps);
+    }
+
+    /// <summary>The links of <paramref name="jumps"/>, a link a jump in their order, each spending its jump's health or <paramref name="spends"/>' for it.</summary>
+    private static NavLink[] LinksOf(IReadOnlyList<JumpLink> jumps, IReadOnlyList<float>? spends)
+    {
         var links = new NavLink[jumps.Count];
         for (int i = 0; i < links.Length; i++)
         {
             JumpLink j = jumps[i];
             JumpStart start = j.Recipe.Start();
-            links[i] = new NavLink(j.From, j.To, NavLinkKind.Blast, j.Seconds, j.Health, j.Robustness, i)
+            links[i] = new NavLink(j.From, j.To, NavLinkKind.Blast, j.Seconds, spends?[i] ?? j.Health, j.Robustness, i)
             {
                 Start = new AiVector(start.Origin.X, start.Origin.Y, start.Origin.Z),
             };
         }
 
-        return new JumpLinkSet(NavLinks.Build(graph, links, costs), [.. jumps]);
+        return links;
     }
 
     /// <summary>The links a search takes.</summary>

@@ -18,7 +18,7 @@ public enum TFPrefireRefusal : byte
     /// <summary>Further round than a human turn from where the bot looks.</summary>
     Turn,
 
-    /// <summary>Not a rocket for it and the jump's two kept back.</summary>
+    /// <summary>No rocket loaded.</summary>
     Clip,
 
     /// <summary>The game answered the line, and the last place seen too, blocked.</summary>
@@ -34,8 +34,8 @@ public enum TFPrefireRefusal : byte
 /// <para>Allowed: a rocket launcher in hand (a weapon whose projectile flies flat); no enemy in sight (a teammate in sight is no reason to stop); a target remembered
 /// and out of sight that the core believes (lost from sight within 2.5 s, heard within 1.5 s); the root's branch about
 /// the enemy (Fight, Defend, Guard, Search: not delivering the flag nor fetching it, nor going for health, roaming or on
-/// the course); no jump under way or begun this decide; not held still; a rocket for it and, for a bot that rocket
-/// jumps, <see cref="RocketJumpRockets"/> left for the jump.</para>
+/// the course); no jump under way or begun this decide; not held still; a rocket loaded. A bot that rocket jumps keeps
+/// none back for the jump (user, 2026-11-13): at a link's start with too few, the jump waits for the reload.</para>
 /// <para>In reach: at least <see cref="PrefireNearest"/> from the eye (the blast), at most <see cref="PrefireFarthest"/>,
 /// the belief still within its seconds when the rocket lands (its age now and the rocket's flight), and within
 /// <see cref="PrefireTurnDeg"/> of the view unless already firing.</para>
@@ -130,7 +130,11 @@ public sealed partial class TFDecider
             return;
         }
 
-        bool belief = PrefireAllowed(danger: false), danger = (_dangerPending || (_prefire.Aiming && _prefireDanger)) && PrefireAllowed(danger: true);
+        bool clipShort = false;
+        bool belief = PrefireAllowed(danger: false, ref clipShort),
+             danger = (_dangerPending || (_prefire.Aiming && _prefireDanger)) && PrefireAllowed(danger: true, ref clipShort);
+        // One decide is one refusal, though both shots asked.
+        _prefireRefused[(int)TFPrefireRefusal.Clip] += clipShort ? 1 : 0;
         bool allowed = _prefire.Aiming ? (_prefireDanger ? danger : belief) : belief || danger;
         bool spent = _prefire.Firing && _now >= _prefire.Until;
         if (!_prefire.Gate(allowed, _now, _tick))
@@ -202,9 +206,10 @@ public sealed partial class TFDecider
     /// <summary>
     /// Whether a prefire may go on this decide (the type's summary says which rules): at a belief, or with
     /// <paramref name="danger"/> at the place a teammate was just killed from, which wants no target and goes on the bot's
-    /// way to the flag or with its carrier too.
+    /// way to the flag or with its carrier too. <paramref name="clipShort"/> is set when the clip refused it (the caller
+    /// counts the decide once).
     /// </summary>
-    private bool PrefireAllowed(bool danger)
+    private bool PrefireAllowed(bool danger, ref bool clipShort)
     {
         if (!Feel.Prefire || (!danger && _target is null) || _targetSighted || HeldStill || Busy || _action.Kind != ActionKind.None)
             return false;
@@ -214,9 +219,9 @@ public sealed partial class TFDecider
                    : _root.Chosen?.Name is not (Fight or Defend or Guard or Search))
             return false;
         _rocketSpeed = own.ProjectileSpeed;
-        if (_self.Clip < (MayRocketJump ? RocketJumpRockets + 1 : 1))
+        if (_self.Clip < 1)
         {
-            _prefireRefused[(int)TFPrefireRefusal.Clip]++;
+            clipShort = true;
             return false;
         }
 

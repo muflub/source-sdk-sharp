@@ -288,7 +288,7 @@ public sealed class JumpBook(JumpBookSettings settings) : IJumpAdvisor
 
             if (_plans.Count >= settings.Plans)
                 _plans.RemoveAt(0);
-            JumpPlan kept = plan with { Id = _nextId++ };
+            JumpPlan kept = plan with { Id = _nextId++, Heals = _heals is { } heals ? heals.Near(new AiVector(plan.Touch.X, plan.Touch.Y, plan.Touch.Z)) : [] };
             // A plan's number stays under the links' (NavLinks.ArgumentBase), so a one-shot names one or the other.
             if (_nextId >= NavLinks.ArgumentBase)
                 _nextId = 1;
@@ -310,7 +310,29 @@ public sealed class JumpBook(JumpBookSettings settings) : IJumpAdvisor
             _working = null;
             _links = null;
             _linkPlans = null;
+            _heals = null;
             Array.Clear(_routes);
+        }
+    }
+
+    private JumpHeals? _heals;
+
+    /// <summary>
+    /// The level's heal places (lane G9), or null: a stretch's plan answered after they are set carries those near its touch
+    /// (<see cref="JumpPlan.Heals"/>). Set when the level's links' task has them; another level clears them.
+    /// </summary>
+    public JumpHeals? Heals
+    {
+        get
+        {
+            lock (_gate)
+                return _heals;
+        }
+
+        set
+        {
+            lock (_gate)
+                _heals = value;
         }
     }
 

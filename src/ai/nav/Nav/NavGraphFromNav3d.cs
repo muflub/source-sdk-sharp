@@ -56,6 +56,15 @@ public static class NavGraphFromNav3d
     /// </summary>
     public const int Revision = 5;
 
+    /// <summary>
+    /// The revision of the rule that admits the extra hulls (<see cref="NavNumbers.ExtraHulls"/>):
+    /// part of the numbers' name in the cache only when they name extra hulls
+    /// (<see cref="NavGraphCache.NumbersKey"/>), so a change to that rule renames the graphs that
+    /// carry the hulls' bits and no other. Raise it with any change to which cells admit an extra
+    /// hull; a change to anything else the derivation yields raises <see cref="Revision"/>.
+    /// </summary>
+    public const int ExtraHullRevision = 1;
+
     // The most leaves one column, or jump links one leaf, may answer.
     private const int MaxLinks = 512;
 

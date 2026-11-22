@@ -110,6 +110,7 @@ public sealed partial class TFDecider : IDecider
         StartFeel(setup.Seed);
         StartExperience(setup.Seed);
         StartPrefire(setup.Seed);
+        StartPoints(setup.Seed);
         StartRoles(CtfRoleSplit);
         _launcher = KindNamed(SoldierLauncher);
         _shotgun = KindNamed(SoldierShotgun);
@@ -149,6 +150,7 @@ public sealed partial class TFDecider : IDecider
         _leaf = "";
         _verdict = "";
         _hasGoal = false;
+        _say = SayIntent.Nothing;
         Streak();
         NotePrefireOutcome();
         NoteTeammateDeaths();
@@ -159,9 +161,11 @@ public sealed partial class TFDecider : IDecider
             _prefire.End();
             DiedOnTry();
             _roaming = _defendPicked = _healing = false;
+            TeamPlayDied();
             _lastTarget = null;
             _jumpUntil = default;
             (_courseNeed, _courseNoWaySince) = (0f, -1);
+            HealthJumpDied();
             if (_endsLastTick.Value > 0)
                 ForgetEnds();
             Trace.Begin(tick);
@@ -182,6 +186,7 @@ public sealed partial class TFDecider : IDecider
 
         ReadObjectives();
         ReadCourse();
+        ReadPoints();
         ChooseTarget();
         _interrupted = NoteInterrupts();
         SeeThings();
@@ -202,7 +207,7 @@ public sealed partial class TFDecider : IDecider
         Trace.End(in reason);
         Tick expires = tick + IntentCommand.LifetimeTicks;
         Doing = WithPrefire(WithStreak(new DoingRecord(BranchName(), _leaf, _hasGoal, _goal, _target?.Id ?? ActorId.None, _verdict, 0f, 0f, 0f, 0f, 0f, 0f, expires)));
-        return new IntentCommand(_bot, tick, seq, expires, _move, _look, _action, reason);
+        return new IntentCommand(_bot, tick, seq, expires, _move, _look, _action, reason, _say);
     }
 
     /// <summary>The doing record's branch: the subtree's name and the root's chosen child, made once per class, not per decide.</summary>
@@ -260,6 +265,8 @@ public sealed partial class TFDecider : IDecider
             new BtScored<TFDecider>(Defend, d => d.Weigh(Defend, d.DefendUtility()), Act("defend", d => d.GoDefend()), new BtCommit(3f, 0.1f)),
             new BtScored<TFDecider>(Search, d => d.Weigh(Search, d.SearchUtility()), Act("search", d => d.GoSearch()), new BtCommit(2f, 0.1f)),
             new BtScored<TFDecider>(Course, d => d.Weigh(Course, d.CourseUtility()), Act("course", d => d.GoCourse()), new BtCommit(2f, 0.1f)),
+            new BtScored<TFDecider>(PointsBranch, d => d.Weigh(PointsBranch, d.PointsUtility()), Act("points", d => d.GoPoints()), new BtCommit(2f, 0.1f)),
+            new BtScored<TFDecider>(TeamBranch, d => d.Weigh(TeamBranch, d.TeamUtility()), Act("team", d => d.GoTeam()), new BtCommit(2f, 0.1f)),
             new BtScored<TFDecider>(Roam, d => d.Weigh(Roam, 0.1f), Act("roam", d => d.GoRoam()), new BtCommit(1f, 0.05f)))
         {
             Interrupt = d => d._interrupted,
@@ -359,7 +366,7 @@ public sealed partial class TFDecider : IDecider
 
     private float SurviveUtility()
     {
-        if (Carrying || !WantsHealth || !HealPlace(out _))
+        if (Carrying || !(WantsHealth || JumpHealDue) || !HealPlace(out _))
             return 0f;
         return _targetSighted ? 0.82f : 0.9f;
     }
@@ -391,7 +398,9 @@ public sealed partial class TFDecider : IDecider
     {
         if (!HealPlace(out AiVector at))
             return false;
-        if (!_healing || at.DistanceTo(_healAt) > 1f)
+        // A heal that broke off (another branch ran between) starts its patience again: live on ss_ai_tf_pack, the bot that
+        // healed at a pack and went for it again a run later gave it up at once, the old visit's patience long spent (lane G9).
+        if (!_healing || at.DistanceTo(_healAt) > 1f || _now - _healLast > DecideSchedule.Period + 1)
             (_healing, _healAt, _healSince) = (true, at, _now);
         else if ((_now - _healSince) * _tick > HealPatienceSeconds)
         {
@@ -402,6 +411,7 @@ public sealed partial class TFDecider : IDecider
             (_healing, _healAt, _healSince) = (true, at, _now);
         }
 
+        _healLast = _now;
         GoTo(at, MoveSpeed.Run);
         _verdict = "hurt";
         return true;
@@ -412,11 +422,16 @@ public sealed partial class TFDecider : IDecider
 
     private bool _healing;
     private AiVector _healAt, _healSkip;
-    private Tick _healSince, _healSkipUntil;
+    private Tick _healSince, _healSkipUntil, _healLast;
 
-    /// <summary>The nearest health pack, or the team's own resupply cabinet, within <see cref="HealReach"/>.</summary>
+    /// <summary>
+    /// The nearest health pack, or the team's own resupply cabinet, within <see cref="HealReach"/>. First, the place a
+    /// jump by health owes (lane G9, <see cref="JumpHealDue"/>): the bot takes the pack its jump landed by.
+    /// </summary>
     private bool HealPlace(out AiVector at)
     {
+        if (JumpHealPlace(out at))
+            return true;
         at = default;
         float best = HealReach;
         ReadOnlySpan<ItemBelief> beliefs = _memory.Board.Items;

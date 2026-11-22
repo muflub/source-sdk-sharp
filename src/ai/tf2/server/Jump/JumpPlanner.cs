@@ -75,6 +75,13 @@ public sealed record JumpPlan(JumpRecipe Recipe, AiVector Goal, float Slide, flo
     /// </summary>
     public bool StartsStanding { get; init; }
 
+    /// <summary>
+    /// The heal places within a walk of where the jump comes down, nearest first (lane G9, <see cref="JumpHeals"/>): what
+    /// lets the tree begin it under the health floor (<see cref="JumpHealthRule"/>). None when the level's places were not
+    /// known yet, or none is near.
+    /// </summary>
+    public System.Collections.Immutable.ImmutableArray<JumpHeal> Heals { get; init; } = [];
+
     /// <summary>The direction of travel over the ground, a unit vector.</summary>
     public AiVector Way
     {

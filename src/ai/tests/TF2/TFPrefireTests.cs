@@ -8,7 +8,8 @@ namespace SourceSharp.Ai.Tests.TF2;
 /// A TF2 Soldier's rocket at the place an enemy it lost from sight is believed to be (lane Gp, the core's prefire) on the
 /// synthetic field (<see cref="TFField"/>): at the floor, only down a line the game answered clear, one rocket and then a
 /// wait; never so near its blast takes the bot, so far or so late the belief is stale when it lands, with an enemy in
-/// sight, with the flag in hand, with the rockets a jump needs, through a teammate, or with the switch off.
+/// sight, with the flag in hand, with no rocket loaded, through a teammate, or with the switch off; a bot that rocket jumps
+/// keeps no rockets back for its jump.
 /// </summary>
 public sealed class TFPrefireTests
 {
@@ -207,20 +208,29 @@ public sealed class TFPrefireTests
         Assert.Equal(TFDecider.Deliver, f.Branch);
     }
 
-    [Fact]
-    public void ItKeepsTheRocketsAJumpNeeds()
+    /// <summary>A Soldier that rocket jumps (a book of jumps) and has one rocket loaded, a seen-then-lost enemy; its rockets and clip refusals.</summary>
+    private static (int Fired, int Clip) Jumper(int clip)
     {
-        int Fired(int clip, bool jumper)
-        {
-            TFField f = Sure(jumps: jumper ? new TFJumpAdvice(null) : null);
-            SelfState self = TFField.Self(Mid, clip: clip);
-            SeeThenLose(f, self, 600f);
-            return Run(f, _ => self, 4).Count(Prefired);
-        }
+        TFField f = Sure(jumps: new TFJumpAdvice(null));
+        SelfState self = TFField.Self(Mid, clip: clip);
+        SeeThenLose(f, self, 600f);
+        int fired = Run(f, _ => self, 4).Count(Prefired);
+        return (fired, Refused(f, TFPrefireRefusal.Clip));
+    }
 
-        Assert.Equal(0, Fired(TFDecider.RocketJumpRockets, jumper: true));
-        Assert.True(Fired(TFDecider.RocketJumpRockets + 1, jumper: true) > 0);
-        Assert.True(Fired(1, jumper: false) > 0);
+    /// <summary>The ruling of 2026-11-13: the rockets a jump needs are not kept back; one loaded is enough, as for any bot.</summary>
+    [Fact]
+    public void ARocketJumperPrefiresWithOneRocketLoaded()
+    {
+        Assert.True(Jumper(1).Fired > 0);
+    }
+
+    [Fact]
+    public void WithNoRocketLoadedItDoesNotPrefire()
+    {
+        (int fired, int clip) = Jumper(0);
+        Assert.Equal(0, fired);
+        Assert.True(clip > 0, "the stimulus: a decide refused for the clip");
     }
 
     [Fact]

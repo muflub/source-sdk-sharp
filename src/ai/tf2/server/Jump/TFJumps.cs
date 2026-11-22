@@ -108,9 +108,12 @@ public sealed class TFJumps : IFrameLifecycle, IGameLifecycle, IDebugRouteProvid
     /// <param name="experience">Where each try of a link is written (lane G5e, <see cref="TFLinkExperience.StatOf"/>); null: nowhere.</param>
     /// <param name="skip"><c>ai_tf_links_skip</c>: a place the level's link pass proposes no landing in (lane G6b); null: none.</param>
     /// <param name="snapshots">Where the experience's snapshot is read for the jumps players showed (lane G6b): the experience's own slot when null.</param>
+    /// <param name="jumpHealth"><c>ai_tf_feel_jumphealth</c> (lane G9): read when a level's links are published; on (or null), a link that lands by a health pack is published with what a search spends on it (<see cref="JumpHeals.Spends"/>).</param>
     public TFJumps(BlastJumpSims sims, TFWeaponScripts scripts, TFClassTable classes, IAiNavigation nav, ILog log, ITFLevelEntities? placed = null,
-                   TFBlastLinks? published = null, ExperienceService? experience = null, TFLinksSkipConVar? skip = null, ExperienceSlot? snapshots = null)
+                   TFBlastLinks? published = null, ExperienceService? experience = null, TFLinksSkipConVar? skip = null, ExperienceSlot? snapshots = null,
+                   TFFeelJumpHealthConVar? jumpHealth = null)
     {
+        _jumpHealthSwitch = jumpHealth;
         _sims = sims;
         _scripts = scripts;
         _classes = classes;
@@ -126,6 +129,11 @@ public sealed class TFJumps : IFrameLifecycle, IGameLifecycle, IDebugRouteProvid
     }
 
     private readonly ExperienceService? _experience;
+    private readonly TFFeelJumpHealthConVar? _jumpHealthSwitch;
+    private volatile JumpHeals? _heals;
+    private NavLinkCosts _linkCosts = new() { RunSpeed = 1f };
+    private bool _jumpHealth = true;
+    private int _jumpHealthMax = Trees.TFDecider.SoldierHealth;
     private readonly TFLinksSkipConVar? _skip;
     private readonly ExperienceSlot? _snapshots;
     private volatile JumpLinkOutcome? _shapeOutcome;
@@ -278,31 +286,47 @@ public sealed class TFJumps : IFrameLifecycle, IGameLifecycle, IDebugRouteProvid
         var work = new JumpLinkWork(level.Nav.Graph, columns, _sims.Create(columns, launcher, _tick), _sims.Create(JumpEnvelope.OpenAir(), launcher, _tick), limits, search, places,
                                     seeds, new NavLinkCosts { RunSpeed = limits.RunSpeed }, cache, path, key, ThreadCpuClock.Micros(), skip);
         var costs = new NavLinkCosts { RunSpeed = limits.RunSpeed };
+        _linkCosts = costs;
         _learning = _snapshots is null ? null
             : new JumpLearning(level.Nav.Graph, _sims.Create(columns, launcher, _tick), _sims.Create(JumpEnvelope.OpenAir(), launcher, _tick), limits, search,
                                new ShownJumpFitSettings(), costs, ThreadCpuClock.Micros());
         _learnState = _learning is null ? "no experience" : "waiting for the links";
+        // The heal places and the switch are read here, on the game's thread; the places' walks are flooded on the task.
+        JumpHealPlace[] healPlaces = _placed is null ? [] : JumpHeals.PlacesOf(_placed.Read());
+        _jumpHealth = _jumpHealthSwitch?.Value ?? true;
+        _jumpHealthMax = _classes[TFClass.Soldier].MaxHealth > 0 ? _classes[TFClass.Soldier].MaxHealth : Trees.TFDecider.SoldierHealth;
+        _heals = null;
         var slot = new NavLinkSlot();
         _linkSlot = slot;
         var cancel = new CancellationTokenSource();
         _linkCancel = cancel;
         _linkState = "finding";
         CancellationToken token = cancel.Token;
+        NavGraph graph = level.Nav.Graph;
         _linkWork = Task.Run(() =>
         {
             try
             {
+                JumpHeals heals = JumpHeals.Of(graph, healPlaces);
+                lock (_linkGate)
+                {
+                    token.ThrowIfCancellationRequested();
+                    _heals = heals;
+                    _desk.Book.Heals = heals;
+                }
+
                 JumpLinkOutcome outcome = work.Run(token);
+                (JumpLinkSet published, JumpPlan[] plans) = Publishable(graph, outcome.Set, outcome.Plans, heals, costs);
                 lock (_linkGate)
                 {
                     // Published only while this is still the level's work: a stop takes the gate before it empties the fields.
                     token.ThrowIfCancellationRequested();
-                    _linkSet = outcome.Set;
+                    _linkSet = published;
                     _linkOutcome = outcome;
                     _shapeOutcome = outcome;
-                    slot.Links = outcome.Set.Links;
-                    _desk.Book.SetLinks(outcome.Set.Links, outcome.Plans);
-                    _published.Set = outcome.Set;
+                    slot.Links = published.Links;
+                    _desk.Book.SetLinks(published.Links, plans);
+                    _published.Set = published;
                     _linkState = outcome.FromCache ? "read from the cache" : outcome.CacheError is { } why ? $"found; not cached: {why}" : "found";
                 }
 
@@ -324,6 +348,41 @@ public sealed class TFJumps : IFrameLifecycle, IGameLifecycle, IDebugRouteProvid
         }, token);
     }
 
+    /// <summary>
+    /// A set of links as it is published (lane G9): each link's plan with the heal places by its landing
+    /// (<see cref="JumpPlan.Heals"/>), and, with <c>ai_tf_feel_jumphealth</c> on, each link spending what its landing's place
+    /// does not give back (<see cref="JumpHeals.Spends"/>, a Soldier's health against the floor); off, or with no link that lands
+    /// by health, the set as found.
+    /// </summary>
+    private (JumpLinkSet Set, JumpPlan[] Plans) Publishable(NavGraph graph, JumpLinkSet set, IReadOnlyList<JumpPlan> plans, JumpHeals heals, NavLinkCosts costs)
+    {
+        var withHeals = new JumpPlan[plans.Count];
+        for (int i = 0; i < withHeals.Length; i++)
+            withHeals[i] = plans[i] with { Heals = heals.NearCell(set.Links[i].To) };
+        if (!_jumpHealth)
+            return (set, withHeals);
+        float[] spends = heals.Spends(set, withHeals, _jumpHealthMax, Trees.TFDecider.RocketJumpHealthFloor);
+        // No link lands by health: the set as found, its hash and every mask over it as they were.
+        for (int i = 0; i < spends.Length; i++)
+        {
+            if (spends[i] < set.JumpOf(i).Health)
+                return (set.WithSpends(graph, spends, costs), withHeals);
+        }
+
+        return (set, withHeals);
+    }
+
+    /// <summary>Links of the published set that spend less than their blast costs: those that land by health.</summary>
+    private int LinksByHealth()
+    {
+        if (_linkSet is not { } set)
+            return 0;
+        int n = 0;
+        for (int i = 0; i < set.Links.Count; i++)
+            n += set.Links[i].Health < set.JumpOf(i).Health ? 1 : 0;
+        return n;
+    }
+
     /// <summary>Cancels the links' work under way (it stops within one candidate's search) and empties the slot; waits for it when asked.</summary>
     private void StopLinks(bool wait)
     {
@@ -339,7 +398,9 @@ public sealed class TFJumps : IFrameLifecycle, IGameLifecycle, IDebugRouteProvid
             _learnOutcome = null;
             _learnState = "no navigation";
             _published.Set = null;
+            _heals = null;
             _desk.Book.SetLinks(null, null);
+            _desk.Book.Heals = null;
         }
 
         foreach (Task? running in (ReadOnlySpan<Task?>)[_linkWork, _learnWork])
@@ -400,6 +461,9 @@ public sealed class TFJumps : IFrameLifecycle, IGameLifecycle, IDebugRouteProvid
             try
             {
                 JumpLearnOutcome outcome = learning.Learn(snapshot, shape.Set, shape.Plans, token);
+                (JumpLinkSet Set, JumpPlan[] Plans)? publish = outcome.Set is { } learned && _heals is { } heals
+                    ? Publishable(level.Nav.Graph, learned, outcome.Plans, heals, _linkCosts)
+                    : outcome.Set is { } bare ? (bare, [.. outcome.Plans]) : null;
                 lock (_linkGate)
                 {
                     // Published only while this is still the level's work, as the shape pass's links are.
@@ -408,12 +472,13 @@ public sealed class TFJumps : IFrameLifecycle, IGameLifecycle, IDebugRouteProvid
                     _learnPasses++;
                     _learnFlights += outcome.Flights;
                     _learnCpuMs += outcome.CpuMs;
-                    if (outcome.Set is { } set)
+                    if (publish is { } g)
                     {
                         long start = System.Diagnostics.Stopwatch.GetTimestamp();
+                        JumpLinkSet set = g.Set;
                         _linkSet = set;
                         slot.Links = set.Links;
-                        _desk.Book.SetLinks(set.Links, outcome.Plans);
+                        _desk.Book.SetLinks(set.Links, g.Plans);
                         _published.Set = set;
                         _learnPublishUs = System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMicroseconds;
                         _learnPublishes++;
@@ -460,7 +525,7 @@ public sealed class TFJumps : IFrameLifecycle, IGameLifecycle, IDebugRouteProvid
             json.Append(i == 0 ? "" : ",").Append(CultureInfo.InvariantCulture,
                 $"{{\"index\":{i},\"from\":{l.From},\"to\":{l.To},\"start\":[{l.Start.X:F1},{l.Start.Y:F1},{l.Start.Z:F1}],\"takeoff\":[{j.Recipe.Takeoff.X:F1},{j.Recipe.Takeoff.Y:F1},{j.Recipe.Takeoff.Z:F1}],"
                 + $"\"landing\":[{j.Recipe.Landing.X:F1},{j.Recipe.Landing.Y:F1},{j.Recipe.Landing.Z:F1}],\"family\":\"{j.Family}\",\"rise\":{j.Recipe.Landing.Z - j.Recipe.Takeoff.Z:F0},"
-                + $"\"origin\":\"{(j.Practiced ? "practice" : j.Shown ? "shown" : "shape")}\",\"seconds\":{j.Seconds:F3},\"health\":{j.Health:F1},\"robustness\":{j.Robustness:F2},\"walk_seconds\":{(j.WalkSeconds is { } w ? w.ToString("F2", CultureInfo.InvariantCulture) : "null")}}}");
+                + $"\"origin\":\"{(j.Practiced ? "practice" : j.Shown ? "shown" : "shape")}\",\"seconds\":{j.Seconds:F3},\"health\":{j.Health:F1},\"spend\":{l.Health:F1},\"robustness\":{j.Robustness:F2},\"walk_seconds\":{(j.WalkSeconds is { } w ? w.ToString("F2", CultureInfo.InvariantCulture) : "null")}}}");
         }
 
         return json.Append(']').ToString();
@@ -551,6 +616,7 @@ public sealed class TFJumps : IFrameLifecycle, IGameLifecycle, IDebugRouteProvid
         json.Append(CultureInfo.InvariantCulture,
             $"\"ai.jump.work.pieces\":{d.Planned + d.Predicted},\"ai.jump.work.flights\":{d.Flights},\"ai.jump.work.floods\":{d.Floods},\"ai.jump.work.cpu.us\":{d.WorkMicros:F0},"
             + $"\"ai.jump.work.faults\":{d.Faults},\"ai.jump.open.ms\":{_openMs:F1},"
+            + $"\"links.jump_health\":{(_jumpHealth ? "true" : "false")},\"links.by_health\":{LinksByHealth()},\"heals.places\":{_heals?.Places.Count ?? 0},"
             + $"\"links.state\":{AiJson.Quote(_linkState)},\"links\":{_linkSet?.Links.Count ?? 0},\"links.shape\":{(_linkOutcome is { } lo ? lo.Set.Links.Count : 0)},\"links.from_cache\":{(_linkOutcome?.FromCache == true ? "true" : "false")},"
             + $"\"links.cpu.ms\":{_linkOutcome?.CpuMs ?? 0d:F1},\"links.pass.ms\":{_linkOutcome?.PassMs ?? 0d:F1},\"links.candidates\":{_linkOutcome?.Candidates ?? 0},\"links.flights\":{_linkOutcome?.Flights ?? 0},\"links.seeds\":{_linkSeeds},\"links.skip\":{AiJson.Quote(_linkSkip?.ToString() ?? "")},"
             + $"\"ai.jump.link.begun\":{_program.LinksBegun},\"ai.jump.link.reported\":{_desk.Book.RouteCounts.Notes},\"ai.jump.link.advised\":{_desk.Book.RouteCounts.Advised},"

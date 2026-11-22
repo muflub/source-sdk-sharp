@@ -118,6 +118,25 @@ public sealed class NavHullsTests
         => Assert.NotEqual(NavGraphCache.NumbersKey(With(TFNavProfile.ModNumbers, Small, Middle), 56f),
                            NavGraphCache.NumbersKey(With(TFNavProfile.ModNumbers, Middle, Small), 56f));
 
+    /// <summary>
+    /// After the hulls, the revision of the rule that admits them (<see cref="NavGraphFromNav3d.ExtraHullRevision"/>):
+    /// a graph the extra hulls' old rule wrote is not served for the new one, and a name without hulls
+    /// keeps the ten numbers' hash (<see cref="WithNoHullsTF2sNameIsTheTenNumbersHash"/>).
+    /// </summary>
+    [Fact]
+    public void AHullListsNameCarriesTheRevisionOfTheRuleThatAdmitsThem()
+    {
+        NavNumbers n = With(TFNavProfile.ModNumbers, Small, Giant);
+        Span<byte> bits = stackalloc byte[(10 + 4 + 1) * 4];
+        ReadOnlySpan<float> values = [n.HullWidth, n.StandHeight, n.CrouchHeight, n.StepHeight, n.MaxJumpRise, n.MaxCrouchJumpRise, n.SafeDrop,
+                                      n.MaxDoubleJumpRise, n.WideHull ? 1f : 0f, n.CrouchOnlyCost, Small.Width, Small.Height, Giant.Width, Giant.Height];
+        for (int i = 0; i < values.Length; i++)
+            BinaryPrimitives.WriteSingleLittleEndian(bits[(i * 4)..], values[i]);
+        BinaryPrimitives.WriteInt32LittleEndian(bits[(values.Length * 4)..], NavGraphFromNav3d.ExtraHullRevision);
+
+        Assert.Equal(Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bits))[..16], NavGraphCache.NumbersKey(n, 56f));
+    }
+
     [Fact]
     public void TheSameHullsGiveTheSameName()
         => Assert.Equal(NavGraphCache.NumbersKey(With(TFNavProfile.ModNumbers, Small, Middle, Giant), 56f),

@@ -10,12 +10,14 @@ namespace SourceSharp.Ai.TF2.Trees;
 /// special (<see cref="Carrier"/>), a sound is not gone to (<see cref="Search"/>), the aim's error
 /// is a new draw at each decide (<see cref="Aim"/>), health is gone for under 40 % by everyone
 /// (<see cref="Retreat"/>), a teammate in the way holds no fire (<see cref="FriendGate"/>), and
-/// the bot does not glance off its way (<see cref="Glance"/>), and it fires at nothing it has not seen (<see cref="Prefire"/>).
+/// the bot does not glance off its way (<see cref="Glance"/>), and it fires at nothing it has not seen (<see cref="Prefire"/>),
+/// and a rocket jump keeps the health floor wherever it lands (<see cref="JumpHealth"/>, lane G9).
 /// </summary>
-public readonly record struct TFFeelSwitches(bool Carrier, bool Search, bool Aim, bool Retreat, bool FriendGate, bool Glance, bool Prefire = true)
+public readonly record struct TFFeelSwitches(bool Carrier, bool Search, bool Aim, bool Retreat, bool FriendGate, bool Glance, bool Prefire = true,
+                                             bool JumpHealth = true)
 {
     /// <summary>Every part on: the layer as it is.</summary>
-    public static TFFeelSwitches All => new(true, true, true, true, true, true, true);
+    public static TFFeelSwitches All => new(true, true, true, true, true, true, true, true);
 }
 
 /// <summary>

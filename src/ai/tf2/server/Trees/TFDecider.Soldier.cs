@@ -19,7 +19,9 @@ public sealed partial class TFDecider
     /// <summary>
     /// A rocket jump is begun by a bot moving at least <see cref="RocketJumpSpeed"/> whose health
     /// after the jump's blast (the simulator's cost for the recipe) is at least
-    /// <see cref="RocketJumpHealthFloor"/>: over the share at which it would leave for a health pack.
+    /// <see cref="RocketJumpHealthFloor"/>: over the share at which it would leave for a health pack. Or under it, when
+    /// the jump lands by a health pack or a cabinet the bot may use and that pays for it (lane G9,
+    /// <see cref="Jump.JumpHealthRule"/>).
     /// </summary>
     public const float RocketJumpHealthFloor = 90f, RocketJumpSpeed = 150f;
 
@@ -160,13 +162,14 @@ public sealed partial class TFDecider
     /// </summary>
     private void RocketJump()
     {
-        if (JumpUnderWay() || !JumpPays(out Jump.JumpPlan? plan))
+        NoteHealthJump();
+        if (JumpUnderWay() || !JumpPays(out Jump.JumpPlan? plan, out JumpPaid paid))
             return;
         _action = new ActionIntent(ActionKind.Ability, FireStyle.Tap, AbilityCall.Pack(_rocketJumpRow, plan.Id), ++_oneShot);
         _jumpUntil = _now + (int)(RocketJumpBusySeconds / _tick);
         _nextJumpAt = _now + (int)(RocketJumpEverySeconds / _tick);
         RocketJumps++;
-        JumpBegun(plan);
+        JumpBegun(plan, paid);
         _verdict = "rocket jump";
     }
 
@@ -177,16 +180,17 @@ public sealed partial class TFDecider
     /// level's book has for the stretch ahead that the bot's health covers (<see cref="JumpAdvised"/>). The book's
     /// jumps are the ones the simulator says beat the walk; nothing is flown or searched for here.
     /// </summary>
-    private bool JumpPays([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Jump.JumpPlan? plan)
+    private bool JumpPays([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Jump.JumpPlan? plan, out JumpPaid paid)
     {
         plan = null;
+        paid = JumpPaid.No;
         if (!MayRocketJump)
             return false;
         Jump.JumpLinkRefusal why = JumpRefusalNow, refused = Jump.JumpLinkRefusal.Health;
         bool linkMay = LinkMayBegin(why);
-        if (linkMay && RouteLinkAdvised(out plan, out refused))
+        if (linkMay && RouteLinkAdvised(out plan, out refused, out paid))
             return true;
-        if (why == Jump.JumpLinkRefusal.None && JumpAdvised(out plan))
+        if (why == Jump.JumpLinkRefusal.None && JumpAdvised(out plan, out paid))
             return true;
         // A wait at a link's start is counted with its reason (the book counts it only when the route has one here).
         Jumps!.LinkRefused(_bot.Slot, _now, _goal, linkMay ? refused : why);

@@ -67,6 +67,14 @@
 #       spawns, teleports, teleport destinations, cabinets and capture areas (the N
 #       largest listed too; 20); with --derive, what that one region costs to derive
 #       alone, step by step as navsize says it (open|regions|region|derive|sight|cache).
+#   tools/ai-replay navsplit <map> [--mod tf2|test] [--regions counted|all|R,R,..] [--config ..]
+#       the map's .navhull as a file per sealed space (each region the counted entities are in,
+#       or those named) in bin/<config>/ai-replay/<map>-rooms/, with the room index
+#       (<map>.navrooms: which region a place is in) and the room table (<map>.navrooms.json).
+#   tools/ai-replay navcells <map> --room R [--variant base|tele+reach+k4+nosight..] [--config ..]
+#       where room R's cells are (navsplit's file of it): inside a teleport back, reached from its
+#       ways in or not, flat or at an edge, edges per cell; with --variant, one way of making its
+#       graph smaller measured step by step in a process of its own.
 #   tools/ai-replay jumps <map> [--config debug|release] [--limit N] [--routes]
 #       TF2's blast-jump place finder (JumpPlaces, plan_bots_teams_tf2_part_g G.5 step 4) on the
 #       map's tf2 navigation, offline, on one thread: the candidates, the links kept, the flights,
@@ -124,7 +132,7 @@ if [[ "$verb" == style ]]; then
   "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c Debug -v q --nologo >/dev/null
   exec "$dotnet" "$root/bin/debug/tools/ai-replay/SourceSharp.Ai.Replay.dll" style "$skills"
 fi
-[[ ( "$verb" =~ ^(nav|metrics|jank|threat|chokes|navsize|navrooms|jumps)$ && -n "${2:-}" ) || ( "$verb" =~ ^(heat|verify|tactics|cost)$ && -n "${3:-}" ) ]] || { sed -n '2,81p' "$0"; exit 2; }
+[[ ( "$verb" =~ ^(nav|metrics|jank|threat|chokes|navsize|navrooms|navsplit|navcells|jumps)$ && -n "${2:-}" ) || ( "$verb" =~ ^(heat|verify|tactics|cost)$ && -n "${3:-}" ) ]] || { sed -n '2,89p' "$0"; exit 2; }
 if [[ "$verb" == navsize ]]; then
   map="$2"; shift 2
   config=debug; mod=test; ext=nav3d; stop=cache; sight=sight
@@ -203,6 +211,44 @@ if [[ "$verb" == navrooms ]]; then
   cfg=Debug; [[ "$config" == release ]] && cfg=Release
   "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c "$cfg" -v q --nologo >/dev/null
   exec "$dotnet" "$root/bin/$config/tools/ai-replay/SourceSharp.Ai.Replay.dll" navrooms "$game" "$nav" "$bsp" "${what[@]}"
+fi
+if [[ "$verb" == navsplit || "$verb" == navcells ]]; then
+  map="$2"; shift 2
+  config=debug; mod=tf2; regions=counted; room=""; variant=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --config) config="$2"; shift 2 ;;
+      --mod) mod="$2"; shift 2 ;;
+      --regions) regions="$2"; shift 2 ;;
+      --room) room="$2"; shift 2 ;;
+      --variant) variant="$2"; shift 2 ;;
+      *) echo "ai-replay $verb: what is $1?" >&2; exit 2 ;;
+    esac
+  done
+  case "$mod" in
+    test) game=hl2mp; dirs=("$root/bin/$config/mods/test/maps") ;;
+    tf2) game=tf2; dirs=("$root/bin/$config/mods/tf2/maps" "$root/bin/$config/content/tf/maps" "$root/bin/$config/content/tf/download/maps") ;;
+    *) echo "ai-replay $verb: no numbers for the mod $mod (test or tf2)" >&2; exit 2 ;;
+  esac
+  bsp=""
+  for d in "${dirs[@]}"; do [[ -z "$bsp" && -f "$d/$map.bsp" ]] && bsp="$d/$map.bsp"; done
+  [[ -n "$bsp" ]] || { echo "ai-replay: no $map.bsp in ${dirs[*]}" >&2; exit 1; }
+  out="$root/bin/$config/ai-replay/$map-rooms"
+  cfg=Debug; [[ "$config" == release ]] && cfg=Release
+  "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c "$cfg" -v q --nologo >/dev/null
+  dll="$root/bin/$config/tools/ai-replay/SourceSharp.Ai.Replay.dll"
+  if [[ "$verb" == navsplit ]]; then
+    nav="$root/bin/$config/mods/$mod/maps/$map.navhull"
+    [[ -f "$nav" ]] || { echo "ai-replay: no $nav: build it with tools/ai-nav-build $map --mod $mod --hull" >&2; exit 1; }
+    exec "$dotnet" "$dll" navsplit write "$nav" "$bsp" "$out" "$regions"
+  fi
+  [[ -n "$room" ]] || { echo "ai-replay navcells: which room? --room R" >&2; exit 2; }
+  part="$out/$map.r$room.navhull"
+  [[ -f "$part" ]] || { echo "ai-replay: no $part: tools/ai-replay navsplit $map --regions $room first" >&2; exit 1; }
+  if [[ -n "$variant" ]]; then
+    exec "$dotnet" "$dll" navcells "$game" "$part" "$bsp" variant "$variant"
+  fi
+  exec "$dotnet" "$dll" navcells "$game" "$part" "$bsp" where
 fi
 if [[ "$verb" == cost ]]; then
   map="$2"; recording="$3"; shift 3

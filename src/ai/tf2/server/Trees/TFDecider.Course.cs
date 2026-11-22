@@ -11,7 +11,11 @@ namespace SourceSharp.Ai.TF2.Trees;
 ///
 /// <list type="bullet">
 /// <item><b>Health.</b> The follower says when its route to the stage has no way and the least health a link it left
-/// out for the bot's health costs (<see cref="NavLinkStep.Need"/>, read through the book: <see cref="Jump.IJumpAdvisor.RouteSaid"/>).
+/// out for the bot's health costs (<see cref="NavLinkStep.Need"/>, read through the book: <see cref="Jump.IJumpAdvisor.RouteSaid"/>):
+/// what a search spends on it, which for a link that lands by a health pack is what the pack does not give back (lane G9,
+/// <see cref="Jump.JumpHealthRule.Spend"/>; under 0 for a cheap jump by a big pack), so the bot does not walk back to heal
+/// for a jump its landing's pack pays for. A link the tree refuses at its start for the health though the route took it
+/// (the pack believed gone) is healed for at its blast's cost.
 /// While the bot's health less that is under <see cref="RocketJumpHealthFloor"/> it heals: in a resupply cabinet's zone
 /// (its team's or every team's) it waits there, which refills a player every 3 s; else it goes to the nearest such zone
 /// or health pack on its own floor (a pack on a stage below is no way back); then back to the stage.</item>
@@ -152,6 +156,9 @@ public sealed partial class TFDecider
 
     private float CourseUtility()
     {
+        // A points level (lane Gc, TFDecider.Points.cs) is the stances' branches'.
+        if (_onPoints)
+            return 0f;
         if (!MayRocketJump || !_onCourse)
             return 0f;
         if (_courseDone)
@@ -255,13 +262,18 @@ public sealed partial class TFDecider
         {
             if (said.IsLink)
                 _courseNoWaySince = -1;
-            else if (said.NoWay && said.Need > 0f)
+            else if (said.NoWay && said.Need != 0f)
                 (_courseNeed, _courseNoWaySince) = (said.Need, -1);
             else if (said.NoWay && _courseNoWaySince < 0)
                 _courseNoWaySince = _now.Value;
         }
 
-        if (_courseNeed > 0f && _self.Health - _courseNeed < RocketJumpHealthFloor)
+        // A link the route stood at last decide that the tree refused for the health though the route took it (lane G9: a jump by
+        // health whose pack the bot now believes gone, which a search cannot know): healed for, at its plain cost.
+        if (Feel.JumpHealth && _linkHealthRefusedAt.Value != 0 && _now - _linkHealthRefusedAt <= DecideSchedule.Period + 1)
+            _courseNeed = MathF.Max(_courseNeed, _linkHealthRefused);
+
+        if (_courseNeed != 0f && _self.Health - _courseNeed < RocketJumpHealthFloor)
             return CourseHeal();
         _courseNeed = 0f;
 
