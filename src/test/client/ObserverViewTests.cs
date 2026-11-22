@@ -113,6 +113,34 @@ public class ObserverViewTests
     }
 
     [Fact]
+    public void TheFreezeCamWithNoTargetIsTheDeathCam()
+    {
+        // CalcFreezeCamView: no observer target, CalcDeathCamView.
+        var view = new ObserverView { Freeze = new FreezeFrame(Vector.Zero, 9f, 100f, 0f, 0.4f) };
+        var world = new World();
+        view.Calc(Inputs(ObserverMode.FreezeCam, null), world);
+        Assert.Equal(ObserverTraceFilter.SimplePassingSelf, world.Traces[0].Filter);
+    }
+
+    [Fact]
+    public void AWallCloseToTheTargetLiftsTheFreezeCamAndAimsAtTheEyes()
+    {
+        // The trace out from the target stops half way: the camera stays in
+        // front of the wall, lifted by 0.85 of the height to the eyes, and
+        // looks at the eyes (camDesired), not the chest.
+        var view = new ObserverView { Freeze = new FreezeFrame(new Vector(0, 0, 64), 0f, 100f, 0f, 0.4f) };
+        var world = new World(fraction: 0.5f);
+        var v = view.Calc(Inputs(ObserverMode.FreezeCam, Target()), world)!.Value;
+
+        Assert.Equal(2, world.Traces.Count);
+        Assert.All(world.Traces, t => Assert.Equal(ObserverTraceFilter.SimplePassingTarget, t.Filter));
+        Assert.Equal(7, world.Traces[0].Pass);
+        Assert.Equal(new Vector(100, 0, 64), world.Traces[1].Start);   // the eyes, camDesired
+        Assert.True(view.SentFreezeFrame, "curtime 10 is past the 0.4 flight");
+        Assert.NotEqual(new Vector(0, 0, 64), v.Origin);
+    }
+
+    [Fact]
     public void RoamingIsThePlayersOwnEyeEvenWithATargetNetworked()
     {
         // C_BasePlayer::GetObserverTarget answers NULL in roaming, so

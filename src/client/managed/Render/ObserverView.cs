@@ -53,7 +53,22 @@ public enum ObserverTraceFilter
 
     /// <summary>CTraceFilterSimple passing the local player (the death camera's).</summary>
     SimplePassingSelf = 1,
+
+    /// <summary>CTraceFilterSimple passing the target (the freeze camera's).</summary>
+    SimplePassingTarget = 2,
 }
+
+/// <summary>
+/// C_BasePlayer's freeze-frame state, set the frame the freeze cam begins
+/// (c_baseplayer.cpp:885-891): where the camera starts, when, how far from
+/// the target it stops and how far above its eyes.
+/// </summary>
+/// <param name="Start">m_vecFreezeFrameStart: the view the camera leaves from (MainViewOrigin).</param>
+/// <param name="StartTime">m_flFreezeFrameStartTime.</param>
+/// <param name="Distance">m_flFreezeFrameDistance: RandomFloat( spec_freeze_distance_min, _max ).</param>
+/// <param name="ZOffset">m_flFreezeZOffset: RandomFloat( -30, 20 ).</param>
+/// <param name="TravelTime">spec_freeze_traveltime.</param>
+public readonly record struct FreezeFrame(Vector Start, float StartTime, float Distance, float ZOffset, float TravelTime);
 
 /// <summary>The world the camera traces against: UTIL_TraceHull, MASK_SOLID, WALL_MIN..WALL_MAX.</summary>
 public interface IObserverWorld
@@ -70,8 +85,7 @@ public interface IObserverWorld
 /// across frames, m_flObserverChaseDistance, is this object's.
 ///
 /// <para>
-/// LEFT AS STOCK LEAVES THEM, OR OUT: CalcFreezeCamView is TF2's freeze frame
-/// and answers the roaming view here; spec_track and the prediction-error
+/// LEFT AS STOCK LEAVES THEM, OR OUT: spec_track and the prediction-error
 /// smoothing vector of CalcRoamingView are not carried (no spec_track convar,
 /// and the player's prediction error is not smoothed in this build); the
 /// HLTV arm of the in-eye view is out (no HLTV client); a model scale is 1.
@@ -90,6 +104,18 @@ public sealed class ObserverView
 
     /// <summary>m_flObserverChaseDistance.</summary>
     public float ChaseDistance { get; set; }
+
+    /// <summary>
+    /// The players' standing hull height, VEC_HULL_MAX's z (the mod's view
+    /// vectors: 72 stock, 82 in TF2): the freeze cam aims at its middle.
+    /// </summary>
+    public float HullHeight { get; set; } = 72f;
+
+    /// <summary>The freeze cam's flight, or null outside it (<see cref="FreezeFrame"/>).</summary>
+    public FreezeFrame? Freeze { get; set; }
+
+    /// <summary>m_bSentFreezeFrame: the flight arrived and the picture was frozen.</summary>
+    public bool SentFreezeFrame { get; set; }
 
     /// <summary>
     /// The view the last frame drew (CViewRender's m_View, which stock hands
@@ -115,8 +141,8 @@ public sealed class ObserverView
             // movement flies. With the target it was the target's eye, and
             // the free flight moved a player nobody saw from.
             case ObserverMode.Roaming: return Roaming(input with { Target = null });
-            case ObserverMode.Fixed:
-            case ObserverMode.FreezeCam: return Roaming(input);
+            case ObserverMode.Fixed: return Roaming(input);
+            case ObserverMode.FreezeCam: return FreezeCam(input, world);
             case ObserverMode.InEye: return InEye(input, world);
             case ObserverMode.PointOfInterest:
             case ObserverMode.Chase: return Chase(input, LastAngles, world);
@@ -124,13 +150,18 @@ public sealed class ObserverView
         }
     }
 
-    // C_BasePlayer::GetChaseCamViewOffset
-    private static Vector ChaseCamViewOffset(in ObserverTarget target)
+    /// <summary>VEC_VIEW and VEC_DUCK_VIEW of the mod's view vectors (64 and 28 stock, 72 and 45 in TF2).</summary>
+    public Vector View { get; set; } = ViewHeight;
+
+    public Vector DuckView { get; set; } = DuckViewHeight;
+
+    // C_BasePlayer::GetChaseCamViewOffset: VEC_VIEW_SCALED and VEC_DUCK_VIEW_SCALED.
+    private Vector ChaseCamViewOffset(in ObserverTarget target)
     {
         if (target.IsPlayer)
         {
             if (target.Alive)
-                return target.Ducking ? DuckViewHeight : ViewHeight;
+                return target.Ducking ? DuckView : View;
             return DeadViewHeight;
         }
         return target.ViewOffset;
@@ -195,6 +226,67 @@ public sealed class ObserverView
         if (input.Target is { } target)
             return new ObserverViewResult(target.EyePosition, target.EyeAngles, false);
         return new ObserverViewResult(input.EyePosition, input.EyeAngles, false);
+    }
+
+    // C_BasePlayer::CalcFreezeCamView (c_baseplayer.cpp:1652-1730): fly from
+    // where the view was to a spot in front of the target, at its eyes'
+    // height plus the random offset, and look at its chest (its eyes when a
+    // wall pushes the camera close). The caller freezes the picture once
+    // SentFreezeFrame turns true.
+    private ObserverViewResult FreezeCam(in ObserverInputs input, IObserverWorld world)
+    {
+        if (input.Target is not { } target || Freeze is not { } freeze)
+            return DeathCam(input, world);
+
+        float elapsed = input.CurTime - freeze.StartTime;
+        float blend = SimpleSpline(Math.Clamp(elapsed / freeze.TravelTime, 0f, 1f));
+
+        Vector camDesired = target.CamOrigin + ChaseCamViewOffset(target);
+        Vector camTarget = camDesired;
+        camTarget = target.Alive
+            // Look at their chest, not their head.
+            ? new Vector(camTarget.X, camTarget.Y, camTarget.Z - HullHeight * 0.5f)
+            // Look over the ragdoll, not through it.
+            : new Vector(camTarget.X, camTarget.Y, camTarget.Z + DeadViewHeight.Z);
+
+        // A view position in front of the target: from the camera's own spot
+        // (the last frame's view), on the target's plane.
+        Vector eyeOnPlane = new(LastOrigin.X, LastOrigin.Y, camTarget.Z);
+        Vector toTarget = (camTarget - eyeOnPlane).Normalized;
+
+        // Stop a few units away, at the target's eye height plus the offset.
+        Vector targetPos = camTarget - toTarget * freeze.Distance;
+        targetPos = new Vector(targetPos.X, targetPos.Y, target.EyePosition.Z + freeze.ZOffset);
+
+        // Out from the target, so the camera stays in front of any wall.
+        ObserverTrace trace = world.TraceHull(camTarget, targetPos, ObserverTraceFilter.SimplePassingTarget, target.Index);
+        if (trace.Fraction < 1.0f)
+        {
+            // Close: aim at the eyes, and lift the view so it does not look up a chin.
+            targetPos = trace.End;
+            camTarget = camDesired;
+            targetPos = new Vector(targetPos.X, targetPos.Y,
+                                   targetPos.Z + MathF.Abs(camTarget.Z - targetPos.Z) * 0.85f);
+            trace = world.TraceHull(camTarget, targetPos, ObserverTraceFilter.SimplePassingTarget, target.Index);
+            targetPos = trace.End;
+        }
+
+        // Look directly at the target.
+        Vector look = (camTarget - targetPos).Normalized;
+        QAngle angles = QAngle.FromVector(VectorAngles(look));
+        Vector origin = freeze.Start + (targetPos - freeze.Start) * blend;
+
+        if (elapsed >= freeze.TravelTime)
+            SentFreezeFrame = true;
+
+        return new ObserverViewResult(origin, angles, false);
+    }
+
+    // mathlib's SimpleSpline: 3x^2 - 2x^3.
+    internal static float SimpleSpline(float value)
+    {
+        float squared = value * value;
+        return 3 * squared - 2 * squared * value;
     }
 
     // C_BasePlayer::CalcDeathCamView

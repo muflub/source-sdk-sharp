@@ -27,7 +27,10 @@ public interface IObserverEyeAngles
 /// </summary>
 public sealed class ObserverCamera(IObserverCameraSlots slots, IClientStandalones standalones, IEngineHud hud,
                                    ViewReadout view, IGameClock clock, ClForceCameraConVar forceCamera,
-                                   IRenderPolicyWishes policy, IHooks<IObserverEyeAngles> eyes)
+                                   IRenderPolicyWishes policy, IHooks<IObserverEyeAngles> eyes,
+                                   MovementRulesResolver movement, IUniformRandom random, IViewFreezeFrame freezeFrame,
+                                   ClSpecFreezeTimeConVar freezeTime, ClSpecFreezeTravelTimeConVar travelTime,
+                                   SpecFreezeDistanceMinConVar distanceMin, SpecFreezeDistanceMaxConVar distanceMax)
 {
     // WALL_OFFSET (c_baseplayer.h): the camera's hull.
     public const float WallOffset = 6.0f;
@@ -51,6 +54,15 @@ public sealed class ObserverCamera(IObserverCameraSlots slots, IClientStandalone
 
     /// <summary>Frames an observer view was drawn.</summary>
     public long Frames { get; private set; }
+
+    /// <summary>
+    /// When the freeze cam's flight arrived and froze the picture (stock's
+    /// client-side <c>freezecam_started</c>), or null outside it: the freeze
+    /// panel's screenshot hint counts from it.
+    /// </summary>
+    public float? FreezeStartedAt { get; private set; }
+
+    private bool _inFreeze;
 
     public void Pass()
     {
@@ -77,6 +89,12 @@ public sealed class ObserverCamera(IObserverCameraSlots slots, IClientStandalone
             return;
         }
 
+        // The mod's view vectors: the chase cam's height and the freeze cam's aim.
+        MovementParams hull = movement.Constants;
+        _view.View = hull.View;
+        _view.DuckView = hull.DuckView;
+        _view.HullHeight = hull.HullMax.Z;
+
         Vector eye = view.Known ? view.Eye : state.Origin + state.ViewOffset;
         var viewAngles = new QAngle(view.Pitch, view.Yaw, 0f);
         if (!_published)
@@ -90,12 +108,21 @@ public sealed class ObserverCamera(IObserverCameraSlots slots, IClientStandalone
                                        state.PunchAngle, frameTime, now, _deathTime,
                                        forceCamera.Value == 0, null);
         LastInputs = input;
+        Freeze(mode == ObserverMode.FreezeCam, eye, now);
         WatchInEye(mode == ObserverMode.InEye && input.Target is { IsPlayer: true } watched ? watched.Index : 0);
         ObserverViewResult? result = _view.Calc(input, new World(slots, hud.LocalPlayerIndex));
         if (result is not { } v)
         {
             Release();
             return;
+        }
+
+        // The flight arrived: freeze the picture for spec_freeze_time
+        // (CalcFreezeCamView's view->FreezeFrame and freezecam_started).
+        if (_inFreeze && _view.SentFreezeFrame && FreezeStartedAt is null)
+        {
+            FreezeStartedAt = now;
+            freezeFrame.ViewFreezeFrame(freezeTime.Value, now);
         }
 
         slots.SetView(true, v.Origin, v.Angles, v.SetViewAngles);
@@ -126,8 +153,36 @@ public sealed class ObserverCamera(IObserverCameraSlots slots, IClientStandalone
         }
     }
 
+    /// <summary>
+    /// The freeze cam's edges (C_BasePlayer::PostDataUpdate, c_baseplayer.cpp:885-930):
+    /// entering it starts the flight from the view as it is, at a random
+    /// distance and height; leaving it ends the frozen picture.
+    /// </summary>
+    private void Freeze(bool inFreeze, Vector eye, float now)
+    {
+        if (inFreeze == _inFreeze)
+            return;
+
+        _inFreeze = inFreeze;
+        if (inFreeze)
+        {
+            Vector start = _published ? _view.LastOrigin : eye;
+            _view.Freeze = new FreezeFrame(start, now, random.RandomFloat(distanceMin.Value, distanceMax.Value),
+                                           random.RandomFloat(-30f, 20f), travelTime.Value);
+            _view.SentFreezeFrame = false;
+            FreezeStartedAt = null;
+            return;
+        }
+
+        _view.Freeze = null;
+        _view.SentFreezeFrame = false;
+        FreezeStartedAt = null;
+        freezeFrame.ViewFreezeFrame(0f, now);
+    }
+
     private void Release()
     {
+        Freeze(false, Vector.Zero, clock.Now);
         WatchInEye(0);
         if (_published)
             slots.SetView(false, Vector.Zero, QAngle.Zero, false);

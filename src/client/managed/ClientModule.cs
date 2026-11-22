@@ -1138,6 +1138,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<Render.Shadows.IShadowWorldControl>(locator => locator.Require<Render.Shadows.ClientShadowSystem>());
         _services.AddFactory<Render.Shadows.IFlashlightShadows>(locator => locator.Require<Render.Shadows.ClientShadowSystem>());
         _services.AddFactory<IClientRenderPlan>(locator => locator.Require<Render.RenderPlanHost>());
+        _services.AddFactory<Render.IViewFreezeFrame>(locator => locator.Require<Render.RenderPlanHost>());
         _services.AddFactory<MaterialProxies.IMaterialProxyReadings>(
             locator => (MaterialProxies.MaterialProxyHost)locator.Require<IClientMaterialProxies>());
         // The world's light at a point, which the particle sims tint by.
