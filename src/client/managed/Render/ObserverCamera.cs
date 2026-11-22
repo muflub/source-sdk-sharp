@@ -29,6 +29,15 @@ public interface IObserverFreezeFrame
 }
 
 /// <summary>
+/// The freeze frame's start, held apart from the camera so a mod's UI source
+/// built before the camera can be handed it (the camera writes it).
+/// </summary>
+public sealed class ObserverFreezeFrame : IObserverFreezeFrame
+{
+    public float? FreezeStartedAt { get; set; }
+}
+
+/// <summary>
 /// The observer's camera, once a frame at FRAME_RENDER_START after the drawn
 /// poses (plan_client_novalve C7 item 5): the local player's networked
 /// ObserverMode and ObserverTarget, through <see cref="ObserverView"/>, into the
@@ -40,8 +49,8 @@ public sealed class ObserverCamera(IObserverCameraSlots slots, IClientStandalone
                                    IRenderPolicyWishes policy, IHooks<IObserverEyeAngles> eyes,
                                    MovementRulesResolver movement, IUniformRandom random, IViewFreezeFrame freezeFrame,
                                    ClSpecFreezeTimeConVar freezeTime, ClSpecFreezeTravelTimeConVar travelTime,
-                                   SpecFreezeDistanceMinConVar distanceMin, SpecFreezeDistanceMaxConVar distanceMax)
-    : IObserverFreezeFrame
+                                   SpecFreezeDistanceMinConVar distanceMin, SpecFreezeDistanceMaxConVar distanceMax,
+                                   ObserverFreezeFrame frozen)
 {
     // WALL_OFFSET (c_baseplayer.h): the camera's hull.
     public const float WallOffset = 6.0f;
@@ -71,7 +80,11 @@ public sealed class ObserverCamera(IObserverCameraSlots slots, IClientStandalone
     /// client-side <c>freezecam_started</c>), or null outside it: the freeze
     /// panel's screenshot hint counts from it.
     /// </summary>
-    public float? FreezeStartedAt { get; private set; }
+    public float? FreezeStartedAt
+    {
+        get => frozen.FreezeStartedAt;
+        private set => frozen.FreezeStartedAt = value;
+    }
 
     private bool _inFreeze;
 

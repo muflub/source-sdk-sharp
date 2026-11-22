@@ -248,6 +248,37 @@ public sealed class ControlPointTests
     }
 
     [Fact]
+    public void The_last_playable_stage_s_win_is_a_forced_reset_win()
+    {
+        var rig = new ObjectiveRig();
+        rig.Point("cp_a", 0, TFTeam.Red);
+        var b = rig.Point("cp_b", 1, TFTeam.Blue);
+        var c = rig.Point("cp_c", 2, TFTeam.Blue);
+        rig.Spawn<TeamControlPointRound>(TeamControlPointRound.MapClass, ("targetname", "round_1"),
+                                         ("cpr_cp_names", "cp_a cp_b"), ("cpr_priority", "1"));
+        rig.Spawn<TeamControlPointRound>(TeamControlPointRound.MapClass, ("targetname", "round_2"),
+                                         ("cpr_cp_names", "cp_b cp_c"), ("cpr_priority", "0"));
+        var master = rig.Master();
+        rig.StartRound();
+
+        // The first stage falls with round_2 still ahead: no forced reset.
+        b.SetOwner(Red, makeSound: true, [1]);
+        Assert.False(rig.Control.Wins[0].ForceMapReset);
+
+        // Stock's PreviousRoundEnd (tf_gamerules.cpp:5478-5487) fires the round's end
+        // output before the machine enters RESTART, which frees the master to select
+        // round_2 on the next RoundActivate walk. Walk the restart as the flow does it.
+        master.FireRoundEndOutput();
+        rig.StartRound();
+
+        // Nothing is left to play, so NumPlayableControlPointRounds()==0 and the last
+        // stage's win carries the forced map reset (team_control_point_master.cpp:651).
+        c.SetOwner(Red, makeSound: true, [1]);
+        Assert.Equal(2, rig.Control.Wins.Count);
+        Assert.True(rig.Control.Wins[1].ForceMapReset);
+    }
+
+    [Fact]
     public void A_round_names_its_points_by_whole_names()
     {
         var rig = new ObjectiveRig();

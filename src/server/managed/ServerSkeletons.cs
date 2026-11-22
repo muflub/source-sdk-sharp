@@ -157,8 +157,10 @@ public sealed class ServerSkeletons : IServerStandaloneSkeletons, IStandaloneHit
     }
 
     public ServerSkeletons(IStandaloneBlocks blocks, StudioModels models, IGameClock clock, ILog log,
-                           IFwdPhysicsSurfaceProps surfaceProps, AnimThreeWayBlendConVar? threeWayBlend = null)
+                           IFwdPhysicsSurfaceProps surfaceProps, AnimThreeWayBlendConVar? threeWayBlend = null,
+                           Func<EntityHandle, ICustomTraceTarget?>? customTargets = null)
     {
+        _customTargets = customTargets;
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
         _models = models ?? throw new ArgumentNullException(nameof(models));
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
@@ -191,6 +193,11 @@ public sealed class ServerSkeletons : IServerStandaloneSkeletons, IStandaloneHit
 
     /// <summary>The engine's hitbox traces (IManagedBones::TestHitboxes).</summary>
     public long HitboxTraces { get; private set; }
+
+    /// <summary>The engine's traces an entity answered itself (<see cref="ICustomTraceTarget"/>).</summary>
+    public long CustomTraces { get; private set; }
+
+    private readonly Func<EntityHandle, ICustomTraceTarget?>? _customTargets;
 
     /// <summary>The cost counters back to zero.</summary>
     public void ResetCost()
@@ -779,6 +786,13 @@ public sealed class ServerSkeletons : IServerStandaloneSkeletons, IStandaloneHit
     /// </summary>
     public bool TestHitboxes(EntityHandle entity, Span<byte> block, in BoneRay ray, int contentsMask, BoneTrace tr)
     {
+        // An entity that answers its traces itself (its custom ray or box test) answers before its hitboxes.
+        if (_customTargets?.Invoke(entity) is { } custom)
+        {
+            CustomTraces++;
+            return custom.TestTrace(ray, contentsMask, tr);
+        }
+
         if (!Read(block, out EngineBlock read))
         {
             return false;

@@ -152,7 +152,7 @@ public sealed class HostingServicesTests
         var c = new ServiceContainer();
         c.Add<MessageClaimer>();
         var log = new ListLog();
-        var driver = new ClientLifecycleDriver(c, log);
+        var driver = new ClientLifecycleDriver(c, log, new Slots());
 
         Assert.True(driver.Message(3, "mine", [0xAB, 0x01]));
         Assert.False(driver.Message(3, "other", []));
@@ -163,19 +163,38 @@ public sealed class HostingServicesTests
         Assert.Contains(log.Lines, l => l.Contains("'other'") && l.Contains("not claimed"));
     }
 
-    private static (ClientLifecycleDriver Driver, Watcher Watcher, ListLog Log) Driver()
+    /// <summary>The engine's user id in each slot (-1 for none), and which slots are bots (no address).</summary>
+    private sealed class Slots : IConnectedClients
+    {
+        public Dictionary<int, int> Users { get; } = new();
+        public HashSet<int> Bots { get; } = new();
+
+        public int UserId(int entIndex) => Users.TryGetValue(entIndex, out int user) ? user : -1;
+        public string? Address(int entIndex) => Users.ContainsKey(entIndex) && !Bots.Contains(entIndex) ? "203.0.113.7:27005" : null;
+        public ulong SteamId64(int entIndex) => 0;
+        public float? AvgLatency(int entIndex) => null;
+        public string? ClientConVar(int entIndex, string name) => null;
+        public void Kick(int entIndex, string reason) { }
+        public void ClientCommand(int entIndex, string command) { }
+        public void Reconnect(int entIndex) { }
+    }
+
+    private static (ClientLifecycleDriver Driver, Watcher Watcher, ListLog Log, Slots Slots) Driver()
     {
         var c = new ServiceContainer();
         c.Add<Watcher>();
         c.Add<Thrower>();
         var log = new ListLog();
-        return (new ClientLifecycleDriver(c, log), c.Require<Watcher>(), log);
+        var slots = new Slots();
+        slots.Users[1] = 2;
+        slots.Users[3] = 12;
+        return (new ClientLifecycleDriver(c, log, slots), c.Require<Watcher>(), log, slots);
     }
 
     [Fact]
     public void Connecting_returns_the_first_refusal_and_a_throwing_hook_does_not_refuse()
     {
-        var (driver, watcher, log) = Driver();
+        var (driver, watcher, log, _) = Driver();
 
         Assert.Null(driver.Connecting("ok", "1.2.3.4:5"));
         Assert.Equal("no", driver.Connecting("banned", "1.2.3.4:5"));
@@ -184,17 +203,147 @@ public sealed class HostingServicesTests
     }
 
     [Fact]
-    public void A_player_removal_is_a_disconnect_except_while_a_level_shuts_down()
+    public void A_level_change_takes_the_client_out_of_the_game_without_a_departure()
     {
-        var (driver, watcher, _) = Driver();
+        var (driver, watcher, _, _) = Driver();
+        driver.PutInServer(1);
+        driver.Active(1);
 
-        driver.PlayerRemoved(3);
-        driver.LevelShuttingDown = true;
-        driver.PlayerRemoved(4);
-        driver.LevelShuttingDown = false;
+        // The engine's changelevel, in its order (host.cpp Host_Changelevel):
+        // InactivateClients takes each client out of the game, ClientDisconnect
+        // removing its player entity, and only then does the level shut down.
+        // The client comes back on the next level with the same connection.
+        driver.LevelShutdown();
+        driver.PutInServer(1);
+        driver.Active(1);
+
+        Assert.Equal(["active 1", "active 1"], watcher.Seen);
+    }
+
+    [Fact]
+    public void The_engines_disconnect_reports_the_slot_its_user_id_is_in()
+    {
+        var (driver, watcher, _, _) = Driver();
+        driver.Active(1);
+        driver.Active(3);
+
+        driver.Disconnected(12);
+
+        Assert.Equal(["active 1", "active 3", "left 3"], watcher.Seen);
+    }
+
+    [Fact]
+    public void A_departure_is_reported_once()
+    {
+        var (driver, watcher, _, _) = Driver();
+        driver.Active(3);
+
+        driver.Disconnected(12);
+        driver.Disconnected(12);
+
+        Assert.Equal(["active 3", "left 3"], watcher.Seen);
+    }
+
+    [Fact]
+    public void A_client_that_leaves_while_the_next_level_loads_is_reported()
+    {
+        var (driver, watcher, _, slots) = Driver();
+        driver.Active(3);
+        driver.LevelShutdown();
+        slots.Users.Remove(3);      // no player in the slot while the client loads
+
+        driver.Disconnected(12);
+
+        Assert.Equal(["active 3", "left 3"], watcher.Seen);
+    }
+
+    [Fact]
+    public void A_client_put_in_the_server_and_never_active_is_reported_when_it_leaves()
+    {
+        var (driver, watcher, _, _) = Driver();
+        driver.PutInServer(3);
+
+        driver.Disconnected(12);
+
+        Assert.Equal(["left 3"], watcher.Seen);
+    }
+
+    [Fact]
+    public void A_user_id_no_slot_holds_reports_nothing()
+    {
+        var (driver, watcher, _, _) = Driver();
+        driver.Active(3);
+
+        driver.Disconnected(99);
+
+        Assert.Equal(["active 3"], watcher.Seen);
+    }
+
+    [Fact]
+    public void A_new_user_id_in_a_slot_reports_the_client_before_it_first()
+    {
+        var (driver, watcher, log, slots) = Driver();
+        driver.Active(3);
+
+        // The engine's same-address reconnect: ClientDisconnect, no event, a new connection.
+        slots.Users[3] = 15;
+        driver.PutInServer(3);
+        driver.Active(3);
+
+        Assert.Equal(["active 3", "left 3", "active 3"], watcher.Seen);
+        Assert.Contains(log.Lines, l => l.Contains("client 3 (user 12) left with no disconnect: user 15 has the slot"));
+    }
+
+    [Fact]
+    public void A_bot_the_level_change_drops_is_forgotten_unreported()
+    {
+        var (driver, watcher, _, slots) = Driver();
+        slots.Users[5] = 20;
+        slots.Bots.Add(5);
         driver.Active(5);
+        driver.Active(3);
 
-        Assert.Equal(["left 3", "active 5"], watcher.Seen);
+        driver.LevelShutdown();
+        slots.Users[5] = 21;        // the next level's bot, in the same slot
+        driver.PutInServer(5);
+        driver.Disconnected(12);    // the human stayed known
+
+        Assert.Equal(["active 5", "active 3", "left 3"], watcher.Seen);
+    }
+
+    [Fact]
+    public void After_a_hot_reload_the_clients_in_the_slots_are_heard_leaving()
+    {
+        var (driver, watcher, _, _) = Driver();
+
+        driver.Carried(8);
+        driver.Disconnected(2);
+
+        Assert.Equal(["left 1"], watcher.Seen);
+    }
+
+    [Fact]
+    public void The_driver_hears_the_engines_player_disconnect_event()
+    {
+        var (driver, watcher, _, _) = Driver();
+        var disconnects = new SourceSharp.Shared.PlayerDisconnectEvent();
+        driver.Listen(disconnects);
+        driver.Active(3);
+
+        disconnects.Raise(new SourceSharp.Shared.PlayerDisconnectArgs("someone", 12, "Kicked by Console"));
+
+        Assert.Equal(["active 3", "left 3"], watcher.Seen);
+    }
+
+    [Fact]
+    public void A_reported_departure_is_said_with_how_many_participants_heard_it()
+    {
+        var (driver, _, log, _) = Driver();
+        driver.Active(3);
+
+        driver.Disconnected(12);
+
+        Assert.Single(log.Lines, l => l == "[SourceSharp/Clients] client 3 left: 2 participant(s) told\n");
     }
 
     //-------------------------------------------------------------------------

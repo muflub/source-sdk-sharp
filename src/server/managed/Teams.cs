@@ -59,6 +59,15 @@ public interface ITeams
     JoinTeamResult Join(EntityHandle player, int requested);
 
     /// <summary>
+    /// <see cref="Join(EntityHandle, int)"/>, the player_team event's
+    /// <c>silent</c> flag set as asked (stock's
+    /// <c>ChangeTeam( iTeamNum, bAutoTeam, bSilent )</c>): a silent change
+    /// moves the player all the same, and the clients' chat says nothing of it.
+    /// An implementation with no silent change of its own joins aloud.
+    /// </summary>
+    JoinTeamResult Join(EntityHandle player, int requested, bool silent) => Join(player, requested);
+
+    /// <summary>
     /// The active mode's <see cref="IGameMode.Spawns"/> answer, else the first
     /// spawn point any registered <see cref="ISpawnSelector"/> names, else
     /// <see cref="EntityHandle.None"/> for the core's walk.
@@ -327,7 +336,10 @@ public sealed class Teams : ITeams, ITeamAssignment
     public int Count(int team) => Players(team).Count;
 
     /// <inheritdoc/>
-    public JoinTeamResult Join(EntityHandle player, int requested)
+    public JoinTeamResult Join(EntityHandle player, int requested) => Join(player, requested, silent: false);
+
+    /// <inheritdoc/>
+    public JoinTeamResult Join(EntityHandle player, int requested, bool silent)
     {
         // Only a managed player has a join to make: the observer half needs
         // its record, and a handle that is not one has no team to be on.
@@ -369,7 +381,7 @@ public sealed class Teams : ITeams, ITeamAssignment
             if (!_observers.AllowsSpectators())
                 return JoinTeamResult.SpectatorsNotAllowed;
 
-            ChangeTeam(player, TeamSpectator);
+            ChangeTeam(player, TeamSpectator, silent);
             return _observers.JoinTeam(joiner, arg, now);
         }
 
@@ -406,7 +418,7 @@ public sealed class Teams : ITeams, ITeamAssignment
         // what this player was doing (stock's StopObserverMode and
         // STATE_ACTIVE before ChangeTeam) — then the team itself.
         JoinTeamResult outcome = _observers.JoinTeam(joiner, arg, now, lastTeam);
-        ChangeTeam(player, requested);
+        ChangeTeam(player, requested, silent);
         return outcome;
     }
 
@@ -415,7 +427,7 @@ public sealed class Teams : ITeams, ITeamAssignment
     /// (player.cpp:7649-7693): the player's current team is no change at all,
     /// then the player_team event, then the one ABI store.
     /// </summary>
-    private void ChangeTeam(EntityHandle player, int team)
+    private void ChangeTeam(EntityHandle player, int team, bool silent = false)
     {
         int oldTeam = _players.GetTeam(player);
 
@@ -428,7 +440,7 @@ public sealed class Teams : ITeams, ITeamAssignment
         // the team change come after this one" — and the client's ChatNotices
         // already listens: join with the event unraised and the HUD never
         // hears about the move.
-        FirePlayerTeam(player, team, oldTeam);
+        FirePlayerTeam(player, team, oldTeam, silent);
 
         _players.SetTeam(player, team);
 
@@ -520,10 +532,10 @@ public sealed class Teams : ITeams, ITeamAssignment
 
     /// <summary>
     /// player_team, the stock spelling: userid, the new team, the old one, no
-    /// disconnect, not auto, not silent, and the player's name as the server
+    /// disconnect, not auto, silent as asked, and the player's name as the server
     /// knows it. Same create/set/fire sequence as DeathNotice and PlayerNames.
     /// </summary>
-    private void FirePlayerTeam(EntityHandle player, int team, int oldTeam)
+    private void FirePlayerTeam(EntityHandle player, int team, int oldTeam, bool silent)
     {
         IntPtr e = _events.EventCreate("player_team");
         if (e == IntPtr.Zero)
@@ -537,7 +549,7 @@ public sealed class Teams : ITeams, ITeamAssignment
         _events.EventSetInt(e, "oldteam", oldTeam);
         _events.EventSetBool(e, "disconnect", false);
         _events.EventSetBool(e, "autoteam", false);
-        _events.EventSetBool(e, "silent", false);
+        _events.EventSetBool(e, "silent", silent);
         _events.EventSetString(e, "name", name);
         _events.EventFire(e);
     }

@@ -2554,6 +2554,16 @@ ss_cpptest(standalone_fb_texture_test
     INCLUDES public public/tier0 public/tier1
     SOURCES sourcesharp/test/standalone_fb_texture_test.cpp)
 
+# The dynamic mesh taken off its override at the client's level shutdown
+# (dynamic_mesh_override.h, header-only): a buffered fetch with no vertex or
+# index override, bound to vgui/white, so the world's freed vertex buffer is
+# never flushed through at the next level's first draw (crash-uidraw).
+ss_cpptest_engine_headers(dynamic_mesh_override_test
+    DEFINES CLIENT_DLL ${_ss_fwd_client_sdl}
+    OPTIONS ${_ss_fwd_client_vendor_wno}  # Valve headers on -I, not -isystem
+    INCLUDES ${_ss_fwd_client_vendor}
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/dynamic_mesh_override_test.cpp)
+
 # The placing shadow's box (standalone_shadow_hull.h, header-only): the
 # collision hull widened by (10, 10, 0), stock's placing arm of
 # GetShadowRenderBounds (c_obj_sentrygun.cpp:588) -- not the model's render

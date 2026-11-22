@@ -68,6 +68,9 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
 {
     private readonly TFRevengeCrits _revenge = revenge;
 
+    private EntityHandle _lastTeammateHelper = EntityHandle.None;
+    private float _lastTeammateHelperTime = -1f;
+
     public const string MapClass = "obj_sentrygun";
 
     /// <summary><c>SENTRY_THINK_DELAY</c>.</summary>
@@ -425,6 +428,15 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
     {
         bool didWork = base.OnWrenchHit(player);
 
+        // Stock's assist stamp (tf_obj_sentrygun.cpp:704-713): whoever but the
+        // builder swung is the last teammate helper, and the swing starts the
+        // window — worked or not, upgraded or not.
+        if (player != Builder)
+        {
+            _lastTeammateHelper = player;
+            _lastTeammateHelperTime = GameTime;
+        }
+
         if (IsUpgrading)
             return didWork;
 
@@ -457,6 +469,21 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
         }
 
         return didWork;
+    }
+
+    /// <summary>
+    /// <c>CObjectSentrygun::GetAssistingTeammate</c> (tf_obj_sentrygun.cpp:2251-2257):
+    /// the teammate who last swung the wrench, while the swing is inside the
+    /// window; nobody before one ever landed, and nobody once it aged out.
+    /// </summary>
+    public EntityHandle AssistingTeammate(float maxDuration, float now)
+    {
+        // Stock's IntervalTimer read (:2253): not started, or older than the
+        // window, is nobody.
+        if (maxDuration > 0f && (_lastTeammateHelperTime < 0f || now - _lastTeammateHelperTime > maxDuration))
+            return EntityHandle.None;
+
+        return _lastTeammateHelper;
     }
 
     /// <summary>

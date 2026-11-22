@@ -443,6 +443,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // trace filter asks; the core's rule passes teammates as the server's
         // does, from the published mp_teammates_pass.
         _services.AddFactory<IHooks<IEntityCollideRule>>(locator => new Hooks<IEntityCollideRule>(locator, Log));
+        _services.AddFactory<IHooks<IPredictionTraceClip>>(locator => new Hooks<IPredictionTraceClip>(locator, Log));
         _services.AddInstance(new ClientTeammatesPassRule(_services.Require<MpTeammatesPassConVar>(), _standalones));
         // And the props and brush entities, which the same client trace misses:
         // the prediction clips the solid partition native lists, deciding as the
@@ -452,7 +453,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         var entityClip = new PredictionEntityClip(_services.Require<IEngineWorldQuery>(),
             _services.Require<IHooks<IEntityCollideRule>>(), predictionMaxClients);
         var playerClip = new PredictionPlayerClip(_standalones, _services.Require<IEngineEntityRender>(),
-            _services.Require<IHooks<IEntityCollideRule>>(), predictionMaxClients, entityClip);
+            _services.Require<IHooks<IEntityCollideRule>>(), predictionMaxClients, entityClip,
+            _services.Require<IHooks<IPredictionTraceClip>>());
         _services.AddInstance(playerClip);
         _movement = MovementRunner.For(_engine, _services.Require<IFwdEngineTrace>(), _services.Require<IFwdPhysicsSurfaceProps>(),
             world => new ClientPredictionMoveWorld(world,
@@ -893,6 +895,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // HudElementKeyInput walk): the walk lives on the key input below, and
         // resolves lazily like the rest, after the mods registered.
         _services.AddFactory<IHooks<Vgui.IHudMenuKeys>>(locator => new Hooks<Vgui.IHudMenuKeys>(locator, log));
+        // The game's group for a broken clientside piece (TF's DEBRIS arm of
+        // BreakModelCreateSingle): resolved at the first break, after the mods registered.
+        _services.AddFactory<IHooks<TempEnts.IBreakPieceGroupRule>>(locator => new Hooks<TempEnts.IBreakPieceGroupRule>(locator, log));
         _logAttachment = _engine.AttachLog(log);
         _services.AddInstance<IProcessEnvironment>(new ProcessEnvironment());
         // The wall clock, for what reads the date (TF2's holiday calendar).
@@ -1448,6 +1453,11 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                                         locator.Require<IGameClock>(), locator.Require<ILog>());
         });
 
+        // The freeze frame's start, which the observer camera writes and a mod's
+        // freeze panel reads; registered before the mods, whose UI sources can
+        // be built before the camera is (Initialize builds it last).
+        var observerFreeze = new Render.ObserverFreezeFrame();
+        _services.AddInstance(observerFreeze).AddInstance<Render.IObserverFreezeFrame>(observerFreeze);
         _modServices = SideServices.Register(_services, Side.Client, LoadedAssemblies.Types(typeof(ClientModule).Assembly, Log));
         if (_modServices.Count > 0)
         {
@@ -1606,7 +1616,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                                          _services.Require<IEngineEnvironment>(), Log,
                                          _services.Require<IFwdPhysicsSurfaceProps>(),
                                          _services.Require<ClAnimThreeWayBlendConVar>(), () => _ragdolls,
-                                         entity => _weaponEffects is { } host ? host.BoneSpin(entity) : null);
+                                         entity => _weaponEffects is { } host ? host.BoneSpin(entity) : null,
+                                         entity => _standalones.Get(entity) as SourceSharp.Shared.Bones.ICustomTraceTarget);
         _services.AddInstance(_skeletons);
 
         // The skeletons' batch table across cs_cl_reload: native may hold its
@@ -1897,7 +1908,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                 _ragdollPhysics, new TempEnts.PoolPhysicsPropSlots(_tempEntPool), _services.Require<IClientModelNames>(),
                 _services.Require<BreakModels>(), _services.Require<IGameClock>(),
                 () => propEnvironment.Globals.IsAvailable ? propEnvironment.Globals.MaxClients : 1,
-                _services.Require<IRandomSeeds>(), Log, _services.Create<TempEnts.PropBreakLimits>());
+                _services.Require<IRandomSeeds>(), Log, _services.Create<TempEnts.PropBreakLimits>(),
+                _services.Require<IHooks<TempEnts.IBreakPieceGroupRule>>());
             _tempEntFrame.Driver = physicsProps;
             _services.AddInstance(physicsProps);
         }
@@ -2312,7 +2324,6 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<IHooks<Render.IObserverEyeAngles>>(locator => new Hooks<Render.IObserverEyeAngles>(locator, Log));
         _observerCamera = _services.Create<Render.ObserverCamera>();
         _services.AddInstance(_observerCamera);
-        _services.AddInstance<Render.IObserverFreezeFrame>(_observerCamera);
 
         // THE NAMED RENDER TARGETS (C7, rendertexture.cpp's getters): which
         // texture each slot finds, and which references the material system's

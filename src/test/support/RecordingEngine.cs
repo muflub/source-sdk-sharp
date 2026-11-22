@@ -1058,6 +1058,7 @@ public sealed class RecordingEngine :
     int IEngineWorldQuery.GetArea(Vector origin) => Record<int>("WorldQuery.GetArea", origin);
     HullResult IEngineWorldQuery.TraceHull(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore) => Record<HullResult>("WorldQuery.TraceHull", start, end, mins, maxs, mask, ignore);
     SurfaceTraceResult IEngineWorldQuery.TraceBox(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore) => Record<SurfaceTraceResult>("WorldQuery.TraceBox", start, end, mins, maxs, mask, ignore);
+    SurfaceTraceResult IEngineWorldQuery.TraceBoxInGroup(Vector start, Vector end, Vector mins, Vector maxs, uint contentsMask, EntityHandle ignore, int collisionGroup) => Record<SurfaceTraceResult>("WorldQuery.TraceBoxInGroup", start, end, mins, maxs, contentsMask, ignore, collisionGroup);
     EntityHullTrace IEngineWorldQuery.EntityTraceHull(EntityHandle entity, Vector start, Vector end, Vector mins, Vector maxs, uint mask, int collisionGroup) => Record<EntityHullTrace>("WorldQuery.EntityTraceHull", entity, start, end, mins, maxs, mask, collisionGroup);
     TraceResult IEngineWorldQuery.TraceLine(Vector start, Vector end, TraceMask mask, EntityHandle ignore) => Record<TraceResult>("WorldQuery.TraceLine", start, end, mask, ignore);
     SurfaceTraceResult IEngineWorldQuery.TraceLineSurface(Vector start, Vector end, TraceMask mask, EntityHandle ignore) => Record<SurfaceTraceResult>("WorldQuery.TraceLineSurface", start, end, mask, ignore);

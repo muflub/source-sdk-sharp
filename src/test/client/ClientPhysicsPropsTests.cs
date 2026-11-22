@@ -88,12 +88,30 @@ public class ClientPhysicsPropsTests
         "break { \"model\" \"props_junk/wood_crate001a_chunk01\" \"offset\" \"10 0 0\" \"fadetime\" \"8\" }\n"
       + "break { \"model\" \"props_junk/wood_crate001a_chunk02\" \"multiplayer_break\" \"server\" }";
 
-    private ClientPhysicsProps Props()
+    private ClientPhysicsProps Props(params IBreakPieceGroupRule[] pieceGroups)
     {
         var descriptors = new ModelDescriptors(_ => 0, _ => CrateModel, _log);
         var breaks = new BreakModels(new Names().IndexOf, null, index => index == Crate ? CrateBreaks : null, descriptors, _log);
         _vphysics.Surfaces["wood_crate"] = 9;
-        return new ClientPhysicsProps(_vphysics, _slots, new Names(), breaks, _clock, () => _maxClients, new Seeds(), _log);
+        return new ClientPhysicsProps(_vphysics, _slots, new Names(), breaks, _clock, () => _maxClients, new Seeds(), _log,
+                                      pieceGroups: pieceGroups.Length > 0 ? new PieceGroups(pieceGroups) : null);
+    }
+
+    /// <summary>TF's arm of BreakModelCreateSingle: a broken piece is DEBRIS.</summary>
+    private sealed class DebrisPieces : IBreakPieceGroupRule
+    {
+        public EngineCollisionGroup Group(EngineCollisionGroup group) => EngineCollisionGroup.Debris;
+    }
+
+    private sealed class PieceGroups(params IBreakPieceGroupRule[] all) : IHooks<IBreakPieceGroupRule>
+    {
+        public IReadOnlyList<IBreakPieceGroupRule> All => all;
+
+        public void Each(string what, Action<IBreakPieceGroupRule> call)
+        {
+            foreach (var rule in all)
+                call(rule);
+        }
     }
 
     [Fact]
@@ -334,6 +352,49 @@ public class ClientPhysicsPropsTests
         Assert.Equal(EngineCollisionGroup.PushAway, group);
         Assert.Equal(EngineCollisionGroup.None, ClientPhysicsProps.GroupFor(piece: true, health: 0f));
         Assert.Equal(EngineCollisionGroup.PushAway, ClientPhysicsProps.GroupFor(piece: false, health: 0f));
+    }
+
+    [Fact]
+    public void A_games_piece_rule_gives_a_broken_piece_its_group()
+    {
+        var props = Props(new DebrisPieces());
+
+        props.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 1, 0);
+
+        Assert.Single(_slots.Made);
+        Assert.True(props.TryGroup(props.HandleOf(_slots.Made[0].Slot), out EngineCollisionGroup group));
+        Assert.Equal(EngineCollisionGroup.Debris, group);
+    }
+
+    [Fact]
+    public void A_games_piece_rule_leaves_a_whole_prop_PUSHAWAY()
+    {
+        var props = Props(new DebrisPieces());
+
+        props.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 0, 0);
+
+        Assert.True(props.TryGroup(props.HandleOf(_slots.Made[0].Slot), out EngineCollisionGroup group));
+        Assert.Equal(EngineCollisionGroup.PushAway, group);
+    }
+
+    [Fact]
+    public void The_report_names_each_props_group_and_model()
+    {
+        var props = Props(new DebrisPieces());
+
+        props.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 1, 0);
+
+        var row = Assert.Single(props.Report());
+        Assert.Equal(EngineCollisionGroup.Debris, row.Group);
+        Assert.Contains("wood_crate001a_chunk01", row.Model, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_piece_with_no_health_turns_NONE_only_from_PUSHAWAY()
+    {
+        // Stock: if ( GetCollisionGroup() == COLLISION_GROUP_PUSHAWAY ) SetCollisionGroup( COLLISION_GROUP_NONE ).
+        Assert.Equal(EngineCollisionGroup.None, ClientPhysicsProps.GroupFor(piece: true, health: 0f, EngineCollisionGroup.PushAway));
+        Assert.Equal(EngineCollisionGroup.Debris, ClientPhysicsProps.GroupFor(piece: true, health: 0f, EngineCollisionGroup.Debris));
     }
 
     [Fact]

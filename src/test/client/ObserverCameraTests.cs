@@ -124,7 +124,8 @@ public class ObserverCameraTests
                                         DeclaredConVars.Holding<ClSpecFreezeTimeConVar>("4.0"),
                                         DeclaredConVars.Holding<ClSpecFreezeTravelTimeConVar>("0.4"),
                                         DeclaredConVars.Holding<SpecFreezeDistanceMinConVar>("96"),
-                                        DeclaredConVars.Holding<SpecFreezeDistanceMaxConVar>("200"));
+                                        DeclaredConVars.Holding<SpecFreezeDistanceMaxConVar>("200"),
+                                        new ObserverFreezeFrame());
         return (camera, slots, me);
     }
 

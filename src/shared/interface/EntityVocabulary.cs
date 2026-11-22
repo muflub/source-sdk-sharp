@@ -33,6 +33,12 @@ public enum SolidFlags
 {
     None = 0,
 
+    /// <summary>A ray against it asks the entity (its TestCollision, answered in managed code: <c>ICustomTraceTarget</c>).</summary>
+    CustomRayTest = 0x0001,
+
+    /// <summary>A swept box against it asks the entity, as <see cref="CustomRayTest"/> does a ray.</summary>
+    CustomBoxTest = 0x0002,
+
     /// <summary>Not solid right now, whatever shape it has.</summary>
     NotSolid = 0x0004,
 

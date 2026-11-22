@@ -259,4 +259,58 @@ public class PredictionPlayerClipTests
 
         Assert.Equal(2, chain.All.Count);
     }
+
+    /// <summary>A clip member that stops the hull at a wall across +X at <see cref="X"/> (a crate the server stops the walk at).</summary>
+    private sealed class Wall(float x, EntityHandle entity) : IPredictionTraceClip
+    {
+        public float X => x;
+
+        public bool Clip(in Vector start, in Vector end, in Vector mins, in Vector maxs, int mask, out MoveTrace hit)
+        {
+            hit = default;
+            float reach = x - maxs.X;
+            if (end.X <= reach)
+                return false;
+            float t = (reach - start.X) / (end.X - start.X);
+            hit = new MoveTrace { Fraction = t, EndPos = new Vector(reach, start.Y, start.Z), PlaneNormal = new Vector(-1f, 0f, 0f), HitEntity = entity };
+            return true;
+        }
+    }
+
+    private sealed class Clips(params IPredictionTraceClip[] all) : IHooks<IPredictionTraceClip>
+    {
+        public IReadOnlyList<IPredictionTraceClip> All => all;
+        public void Each(string what, Action<IPredictionTraceClip> call) { foreach (var c in all) call(c); }
+    }
+
+    [Fact]
+    public void A_clip_member_nearer_than_every_player_stops_the_predicted_walk_and_is_its_ground()
+    {
+        var engine = Fake().Returns("EntityRender.IsDormant", false);
+        var crate = new EntityHandle(0x0002_00EEu);
+        var clip = new PredictionPlayerClip(new Players(), engine, new Rules(), () => 0, clips: new Clips(new Wall(40f, crate)));
+        clip.BeginCommand(new MoveConstants { HullMin = HullMin, HullMax = HullMax, DuckHullMin = HullMin, DuckHullMax = new Vector(16f, 16f, 36f) });
+        Vector end = new(100f, 0f, 0f);
+
+        MoveTrace tr = clip.Clip(MoveTrace.Clear(end), EntityHandle.None, Vector.Zero, end, HullMin, HullMax, MaskPlayerSolid, PlayerMovement);
+
+        Assert.Equal(0.24f, tr.Fraction, 5);
+        Assert.Equal(crate, tr.HitEntity);
+        Assert.True(tr.HasEntity && tr.HasGround);
+        Assert.Equal(-1, clip.LastGroundIndex);
+    }
+
+    [Fact]
+    public void A_clip_member_that_stops_nothing_leaves_the_world_answer()
+    {
+        var engine = Fake().Returns("EntityRender.IsDormant", false);
+        var clip = new PredictionPlayerClip(new Players(), engine, new Rules(), () => 0, clips: new Clips(new Wall(400f, EntityHandle.None)));
+        clip.BeginCommand(new MoveConstants { HullMin = HullMin, HullMax = HullMax, DuckHullMin = HullMin, DuckHullMax = new Vector(16f, 16f, 36f) });
+        Vector end = new(100f, 0f, 0f);
+
+        MoveTrace tr = clip.Clip(MoveTrace.Clear(end), EntityHandle.None, Vector.Zero, end, HullMin, HullMax, MaskPlayerSolid, PlayerMovement);
+
+        Assert.Equal(1f, tr.Fraction);
+        Assert.False(tr.HasEntity);
+    }
 }

@@ -166,7 +166,9 @@ public:
 
 	virtual void WorldSpaceTriggerBounds(Vector* pMins, Vector* pMaxs) const OVERRIDE;
 
-	virtual bool TestCollision(const Ray_t&, unsigned int, trace_t&) OVERRIDE { return false; }
+	// The client shell's TestCollision (stock C_BaseAnimating's): an entity whose solid flags ask
+	// for a custom ray or box test answers through TestHitboxes, so managed code answers it.
+	virtual bool TestCollision(const Ray_t& ray, unsigned int fContentsMask, trace_t& tr) OVERRIDE;
 
 	// Ray against the model's hitboxes via IManagedBones. False means use the box.
 	virtual bool TestHitboxes(const Ray_t& ray, unsigned int fContentsMask, trace_t& tr) OVERRIDE;

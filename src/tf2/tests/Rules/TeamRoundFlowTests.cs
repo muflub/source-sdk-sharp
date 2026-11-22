@@ -240,6 +240,22 @@ public sealed class TeamRoundFlowTests
     }
 
     [Fact]
+    public void With_nextlevel_set_a_forced_reset_win_ends_the_game_after_the_bonus_time()
+    {
+        var rig = new RoundRig();
+        rig.Settings.NextLevel = "ctf_2fort";
+        rig.Running();
+
+        rig.Flow.SetWinningTeam(TFTeam.Blue, WinReason.AllPointsCaptured, forceMapReset: true);
+        Assert.Equal(0, rig.End.Intermissions);
+
+        Assert.True(rig.RunUntil(() => rig.Flow.State != RoundState.TeamWin, limit: 20f));
+        Assert.Equal(RoundState.GameOver, rig.Flow.State);
+        Assert.Equal(1, rig.End.Intermissions);
+        Assert.Equal(1, rig.Announcer.Count("game_over NextLevel CVAR"));
+    }
+
+    [Fact]
     public void A_lead_of_mp_windifference_ends_the_game()
     {
         var rig = new RoundRig();

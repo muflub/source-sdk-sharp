@@ -80,4 +80,76 @@ public class BaseKeyTests
     [Fact]
     public void A_brush_takes_no_skin()
         => Assert.Empty(Keyed(EntityNames.TriggerMultiple, ("skin", "2")).Skins.Skin);
+
+    /// <summary>
+    /// The class's last word on its draw, after its keys and its spawn: the
+    /// last EntityRender.SetVisible made for it. cp_granary keys "rendermode"
+    /// "10" on two func_illusionary light-fill slabs (lights/white_fill, under
+    /// the silo platforms either side of the middle), which ours drew white.
+    /// </summary>
+    private static bool DrawnAfterSpawn(string className, params (string Key, string Value)[] keys)
+    {
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(PropPhysics).Assembly);
+        registry.Services = Services(out var engine);
+        engine.Strict = false;
+        engine.Returns("Precache.PrecacheModel", 3).Returns("EntityRender.GetModelKeyValueText", null);
+
+        registry.KeyValue(Ent, className, "model", "*82");
+        foreach (var (key, value) in keys)
+            registry.KeyValue(Ent, className, key, value);
+        registry.Spawn(Ent, className);
+
+        var last = engine.Last("EntityRender.SetVisible");
+        Assert.True(last is not null, $"{className} never said whether it is drawn");
+        return (bool)last!.Value.Args[1]!;
+    }
+
+    /// <summary>
+    /// kRenderNone (RenderMode_t 10, const.h) draws nothing: stock's
+    /// C_BaseEntity::ShouldDraw (c_baseentity.cpp:1447) refuses it whatever the
+    /// entity's effects say, and CBaseEntity keys "rendermode" for every class.
+    /// </summary>
+    [Theory]
+    [InlineData(EntityNames.FuncIllusionary)]
+    [InlineData(EntityNames.FuncBrush)]
+    [InlineData(EntityNames.FuncWall)]
+    public void A_brush_keyed_render_mode_none_is_not_drawn(string className)
+        => Assert.False(DrawnAfterSpawn(className, ("rendermode", "10")));
+
+    /// <summary>The retention half: any other mode leaves the brush drawn.</summary>
+    [Theory]
+    [InlineData(EntityNames.FuncIllusionary, "0")]
+    [InlineData(EntityNames.FuncIllusionary, "9")]
+    [InlineData(EntityNames.FuncBrush, "0")]
+    [InlineData(EntityNames.FuncWall, "5")]
+    public void A_brush_keyed_another_render_mode_is_drawn(string className, string mode)
+        => Assert.True(DrawnAfterSpawn(className, ("rendermode", mode)));
+
+    [Fact]
+    public void A_brush_with_no_render_mode_key_is_drawn()
+        => Assert.True(DrawnAfterSpawn(EntityNames.FuncIllusionary));
+
+    /// <summary>
+    /// Keyed after its spawn (an AddOutput, a SetKeyValue), the mode reaches the
+    /// draw at once and back again, as stock's client reads m_nRenderMode each frame.
+    /// </summary>
+    [Fact]
+    public void A_render_mode_keyed_after_spawn_hides_and_shows_the_brush()
+    {
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(PropPhysics).Assembly);
+        registry.Services = Services(out var engine);
+        engine.Strict = false;
+        engine.Returns("Precache.PrecacheModel", 3).Returns("EntityRender.GetModelKeyValueText", null);
+        registry.KeyValue(Ent, EntityNames.FuncIllusionary, "model", "*82");
+        registry.Spawn(Ent, EntityNames.FuncIllusionary);
+        Assert.True((bool)engine.Last("EntityRender.SetVisible")!.Value.Args[1]!);
+
+        registry.KeyValue(Ent, EntityNames.FuncIllusionary, "rendermode", "10");
+        Assert.False((bool)engine.Last("EntityRender.SetVisible")!.Value.Args[1]!);
+
+        registry.KeyValue(Ent, EntityNames.FuncIllusionary, "rendermode", "0");
+        Assert.True((bool)engine.Last("EntityRender.SetVisible")!.Value.Args[1]!);
+    }
 }

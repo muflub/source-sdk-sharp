@@ -39,7 +39,8 @@ namespace SourceSharp.Client;
 /// </summary>
 public sealed class PredictionPlayerClip(IClientStandalones standalones, IEngineEntityRender render,
                                          IHooks<IEntityCollideRule> rules, Func<int> maxClients,
-                                         PredictionEntityClip? entities = null)
+                                         PredictionEntityClip? entities = null,
+                                         IHooks<IPredictionTraceClip>? clips = null)
 {
     /// <summary><c>DIST_EPSILON</c> (enginetrace / cmodel): the gap a trace keeps from what it hits.</summary>
     public const float DistEpsilon = 0.03125f;
@@ -130,6 +131,27 @@ public sealed class PredictionPlayerClip(IClientStandalones standalones, IEngine
             int hitIndex = entities.Clip(ref best, mover, start, end, mins, maxs, mask, collisionGroup);
             if (hitIndex >= 0)
                 bestIndex = hitIndex;
+        }
+
+        // What else the server's traces stop at (IPredictionTraceClip: an entity answering its own
+        // traces), merged as an entity is: it replaces the answer when it starts solid or stops sooner.
+        if (_hulls && world.Fraction != 0f && clips is not null)
+        {
+            IReadOnlyList<IPredictionTraceClip> all = clips.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                if (!all[i].Clip(start, end, mins, maxs, (int)mask, out MoveTrace hit))
+                    continue;
+
+                if (hit.AllSolid || hit.StartSolid || hit.Fraction < best.Fraction)
+                {
+                    hit.StartSolid = best.StartSolid || hit.StartSolid;
+                    hit.HasEntity = true;
+                    hit.HasGround = true;
+                    best = hit;
+                    bestIndex = -1;
+                }
+            }
         }
 
         // What the loop will name as its ground if this trace found one.

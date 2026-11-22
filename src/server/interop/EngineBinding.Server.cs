@@ -2965,6 +2965,9 @@ internal sealed unsafe partial class EngineWorldQuery
     public SurfaceTraceResult TraceBox(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore = default)
         => E.TraceBox(start, end, mins, maxs, mask, ignore);
 
+    public SurfaceTraceResult TraceBoxInGroup(Vector start, Vector end, Vector mins, Vector maxs, uint contentsMask, EntityHandle ignore, int collisionGroup)
+        => E.TraceBox(start, end, mins, maxs, contentsMask, ignore, collisionGroup);
+
     public EntityHullTrace EntityTraceHull(EntityHandle entity, Vector start, Vector end, Vector mins, Vector maxs, uint mask, int collisionGroup)
         => E.EntityTraceHull(entity, start, end, mins, maxs, mask, collisionGroup);
 

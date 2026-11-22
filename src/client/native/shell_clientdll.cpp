@@ -65,6 +65,7 @@
 #include "shell_managed_areas_client.h"
 #include "shell_view_executor_client.h"
 #include "shell_map_material_reload.h"
+#include "dynamic_mesh_override.h"
 #include "shell_effects_list_client.h"
 #include "shell_effects_client.h"
 #include "shell_managed_particles.h"
@@ -1393,6 +1394,9 @@ void CShellClientDLL::ResetStringTablePointers()
 
 void CShellClientDLL::LevelShutdown()
 {
+	// Before the engine frees the world's meshes (dynamic_mesh_override.h).
+	SourceSharp_DropDynamicMeshOverride(m_Engines.m_pMaterials);
+
 	if (!m_bLevelInitialized)
 		return;
 

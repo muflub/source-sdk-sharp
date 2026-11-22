@@ -65,27 +65,123 @@ public sealed class EngineClients(IClientInfo info, IEnginePlayers players, IEng
 /// <summary>
 /// Calls every registered <see cref="IClientLifecycle"/>, as LifecycleDriver
 /// does for <see cref="IGameLifecycle"/>: in a unique order, each call isolated.
+///
+/// <para>
+/// A DEPARTURE IS THE ENGINE'S <c>player_disconnect</c>, NOT THE PLAYER'S
+/// REMOVAL. A level change takes every client out of the game first
+/// (Host_Changelevel: InactivateClients, each through ClientDisconnect, which
+/// removes the player entity) and shuts the level down after, so the removal
+/// cannot tell a level change from a client leaving; the event can: the
+/// engine fires it in CGameClient::Disconnect only, before ClientDisconnect,
+/// while the player still stands. Stock's own listeners for a real departure
+/// hear that event (tf_gamestats, tf_gc_server); its ClientDisconnect skips
+/// the rules on g_fGameOver, a flag only the rules' own map end sets.
+/// </para>
+///
+/// <para>
+/// The event names a user id, so the driver keeps who is in each slot: the
+/// engine's user id when the client is put in the server and again when it is
+/// active. A level change keeps the connection and its id, so a client that
+/// leaves while loading the next level is still found by it. A slot whose
+/// client went with no event (the engine's same-address reconnect) shows as a
+/// new id in it: the old occupant's departure is reported then, first. The
+/// engine drops its fake clients with a level silently (InactivateClients
+/// clears them): a bot is forgotten at the level's shutdown, unreported, as
+/// the level change it is.
+/// </para>
 /// </summary>
-public sealed class ClientLifecycleDriver : IPlayerRemovals
+public sealed class ClientLifecycleDriver
 {
     private readonly IReadOnlyList<IClientLifecycle> _participants;
     private readonly ILog _log;
+    private readonly IConnectedClients _clients;
 
-    public ClientLifecycleDriver(ServiceContainer services, ILog log)
+    /// <summary>The client in a slot: the engine's user id for its connection, and whether it is a bot.</summary>
+    private readonly record struct Occupant(int UserId, bool Bot);
+
+    private readonly Dictionary<int, Occupant> _occupants = new();
+
+    public ClientLifecycleDriver(ServiceContainer services, ILog log, IConnectedClients clients)
     {
         var found = services.ResolveAll<IClientLifecycle>();
         StageUniqueness.Require(found, p => p.ClientLifecycleOrder, "ClientLifecycleOrder", nameof(LifecycleStage));
         _participants = found.OrderBy(p => p.ClientLifecycleOrder).ToArray();
         _log = log;
+        _clients = clients;
     }
 
     public IReadOnlyList<IClientLifecycle> Participants => _participants;
 
+    /// <summary>Hears the engine's <c>player_disconnect</c>: the one sign that a client left.</summary>
+    public void Listen(IGameEvent<PlayerDisconnectArgs> disconnects)
+        => disconnects.Fired += e => Disconnected(e.UserId);
+
+    /// <summary>The client in <paramref name="entIndex"/> was put in the server: it occupies the slot.</summary>
+    public void PutInServer(int entIndex) => Occupy(entIndex);
+
     /// <summary>
-    /// Set while a level shuts down: every player entity is removed then, and
-    /// the clients stay connected, so a removal is not a disconnect.
+    /// A hot reload put this driver under a running level: the clients in the
+    /// slots up to <paramref name="maxClients"/> are the ones it knows.
     /// </summary>
-    public bool LevelShuttingDown { get; set; }
+    public void Carried(int maxClients)
+    {
+        for (int i = 1; i <= maxClients; i++)
+            Occupy(i);
+    }
+
+    /// <summary>
+    /// The level shuts down. The clients stay connected through it, and are not
+    /// told anything; the engine's bots do not stay (InactivateClients clears
+    /// them without a disconnect), so they are forgotten here.
+    /// </summary>
+    public void LevelShutdown()
+    {
+        foreach (var slot in _occupants.Where(o => o.Value.Bot).Select(o => o.Key).ToArray())
+            _occupants.Remove(slot);
+    }
+
+    /// <summary>
+    /// The engine's <c>player_disconnect</c> for <paramref name="userId"/>: the
+    /// slot it was in is reported as a departure. An id the driver never saw in
+    /// a slot was no client in the game, and nothing is told.
+    /// </summary>
+    public void Disconnected(int userId)
+    {
+        foreach (var (slot, occupant) in _occupants)
+        {
+            if (occupant.UserId != userId)
+                continue;
+
+            _occupants.Remove(slot);
+            Departed(slot);
+            return;
+        }
+    }
+
+    /// <summary>
+    /// Records who is in <paramref name="entIndex"/>; a different id there than
+    /// before means the client before left with no event, and is reported first.
+    /// </summary>
+    private void Occupy(int entIndex)
+    {
+        int userId = _clients.UserId(entIndex);
+        if (userId < 0)
+            return;
+
+        if (_occupants.TryGetValue(entIndex, out var was) && was.UserId != userId)
+        {
+            _log.Msg($"[SourceSharp/Clients] client {entIndex} (user {was.UserId}) left with no disconnect: user {userId} has the slot\n");
+            Departed(entIndex);
+        }
+
+        _occupants[entIndex] = new Occupant(userId, _clients.Address(entIndex) is null);
+    }
+
+    private void Departed(int entIndex)
+    {
+        _log.Msg($"[SourceSharp/Clients] client {entIndex} left: {_participants.Count} participant(s) told\n");
+        Each("OnClientDisconnected", p => p.OnClientDisconnected(entIndex));
+    }
 
     /// <summary>The first participant's refusal, or null to admit. A throwing participant does not refuse.</summary>
     public string? Connecting(string name, string address)
@@ -106,7 +202,11 @@ public sealed class ClientLifecycleDriver : IPlayerRemovals
         return null;
     }
 
-    public void Active(int entIndex) => Each("OnClientActive", p => p.OnClientActive(entIndex));
+    public void Active(int entIndex)
+    {
+        Occupy(entIndex);
+        Each("OnClientActive", p => p.OnClientActive(entIndex));
+    }
 
     /// <summary>The client's userinfo changed; every participant reads its own convars.</summary>
     public void SettingsChanged(int entIndex) => Each("OnClientSettingsChanged", p => p.OnClientSettingsChanged(entIndex));
@@ -129,15 +229,6 @@ public sealed class ClientLifecycleDriver : IPlayerRemovals
 
         _log.Warning($"[SourceSharp] client {entIndex}'s message '{key}' ({payload.Length} bytes) was not claimed\n");
         return false;
-    }
-
-    /// <summary>A player entity went away; reported only when it was a client leaving.</summary>
-    public void PlayerRemoved(int entIndex)
-    {
-        if (LevelShuttingDown || entIndex <= 0)
-            return;
-
-        Each("OnClientDisconnected", p => p.OnClientDisconnected(entIndex));
     }
 
     private void Each(string what, Action<IClientLifecycle> call)

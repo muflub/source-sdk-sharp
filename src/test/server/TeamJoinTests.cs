@@ -198,6 +198,33 @@ public class TeamJoinTests
     }
 
     [Fact]
+    public void ASilentJoinFiresPlayerTeamWithItsSilentFlagSet()
+    {
+        // CBasePlayer::ChangeTeam( iTeamNum, bAutoTeam, bSilent ): the event's
+        // "silent", which the clients' chat says nothing for.
+        var rig = new Rig();
+        rig.Engine.Returns("GameEvents.EventCreate", new IntPtr(42));
+        var teams = rig.BuildTeams();
+
+        Assert.Equal(JoinTeamResult.Playing, teams.Join(Handles[0], 2, silent: true));
+
+        Assert.Equal(1, rig.Engine.CountOf("Players.SetTeam"));
+        Assert.Contains(rig.Engine.AllOf("GameEvents.EventSetBool"), c => (string)c.Args[1]! == "silent" && (bool)c.Args[2]!);
+    }
+
+    [Fact]
+    public void APlainJoinIsNotSilent()
+    {
+        var rig = new Rig();
+        rig.Engine.Returns("GameEvents.EventCreate", new IntPtr(42));
+        var teams = rig.BuildTeams();
+
+        teams.Join(Handles[0], 2);
+
+        Assert.Contains(rig.Engine.AllOf("GameEvents.EventSetBool"), c => (string)c.Args[1]! == "silent" && !(bool)c.Args[2]!);
+    }
+
+    [Fact]
     public void NoPolicyAcceptsAnyRealTeamAndCarriesTheOldTeamIntoTheEvent()
     {
         var rig = new Rig();

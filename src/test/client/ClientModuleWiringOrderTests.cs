@@ -138,6 +138,22 @@ public class ClientModuleWiringOrderTests
     }
 
     [Fact]
+    public void The_freeze_frame_a_mods_panel_takes_is_registered_before_the_mods()
+    {
+        // TF2's freeze panel source takes IObserverFreezeFrame by constructor
+        // and is built when the UI loads, before Initialize creates the
+        // observer camera: registered with the camera, the TF2 UI did not
+        // load live ("no service is registered for IObserverFreezeFrame").
+        string source = Source();
+        int registered = source.IndexOf("AddInstance<Render.IObserverFreezeFrame>(", StringComparison.Ordinal);
+        int mods = source.IndexOf("SideServices.Register(_services, Side.Client", StringComparison.Ordinal);
+        int camera = source.IndexOf("_services.Create<Render.ObserverCamera>()", StringComparison.Ordinal);
+
+        Assert.True(registered >= 0 && mods >= 0 && camera >= 0, "the three lines are where the fact expects them");
+        Assert.True(registered < mods, "IObserverFreezeFrame is registered before the mods' services");
+    }
+
+    [Fact]
     public void A_creation_moved_above_its_parameter_is_caught()
     {
         // The negative control: the same source with FxRoutineEnvironment's

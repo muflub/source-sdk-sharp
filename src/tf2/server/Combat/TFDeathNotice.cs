@@ -8,10 +8,13 @@
 using SourceSharp.Abi;
 using SourceSharp.Server;
 
+using TF2.Server.Buildings;
+using TF2.Server.Medigun;
 using TF2.Server.Player;
 using TF2.Shared;
 using TF2.Shared.Combat;
 using TF2.Shared.Econ;
+using TF2.Shared.Player;
 
 namespace TF2.Server.Combat;
 
@@ -38,9 +41,17 @@ namespace TF2.Server.Combat;
 ///   (:12429-12439).
 /// </para>
 /// <para>
-/// — <c>assister</c>: <c>GetAssister</c> (:12690-12736), here the second most
-///   recent damager within <c>TF_TIME_ASSIST_KILL</c> (3 s) when it is not the
-///   scorer, else -1; never for a suicide.
+/// — <c>assister</c>: <c>GetAssister</c> (:12690-12736), first answer wins:
+///   the victim's named assist (their victim-side condition's giver or their
+///   control stun's, <c>DetermineAssistForKill</c> :11000-11010), the scorer's
+///   first healer when that healer is a medic and the inflictor is no sentry,
+///   the giver of the scorer's buff conditions
+///   (<c>GetConditionAssistFromAttacker</c>), the second most recent damager
+///   within <c>TF_TIME_ASSIST_KILL</c> (3 s) when it is not the scorer, and
+///   for a sentry inflictor the gun's last teammate helper; else -1; never
+///   for a suicide. The kept assister gets the kill-assist stat
+///   (<see cref="TFPlayerStats.Increment"/>, stock's <c>Event_AssistKill</c>
+///   :11514-11518).
 /// </para>
 /// <para>
 /// — <c>damagebits</c>, <c>customkill</c> and <c>crit_type</c>: the killing
@@ -57,9 +68,9 @@ namespace TF2.Server.Combat;
 /// </para>
 ///
 /// <para>
-/// Not yet: the econ item icon and log names, the kill streaks, the healer,
-/// condition and sentry assists, feign death, first blood, the deflected
-/// projectiles and the sentry levels (<c>docs/plans/tf2/deferred.tsv</c>).
+/// Not yet: the econ item icon and log names, the kill streaks, feign death,
+/// first blood, the deflected projectiles and the sentry levels
+/// (<c>docs/plans/tf2/deferred.tsv</c>).
 /// </para>
 /// </summary>
 [SideService(Side.Server)]
@@ -72,7 +83,9 @@ namespace TF2.Server.Combat;
 public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entities, TFDamageRecords records,
                                   IGameClock clock, TFPlayerCarriers carriers, ILevelInfo level,
                                   TFDominations dominations,
-                                  ITFWeaponOwners owners, AttributeHooks attributes)
+                                  ITFWeaponOwners owners, AttributeHooks attributes,
+                                  ITFPlayerHealing healing, ITFPlayerConditions conditions,
+                                  IEntityDirectory directory, ITFPlayerStats stats)
     : IDeathNoticeHook, IOrderedHook
 {
     /// <summary>Stage 2.7's band (+700..+799 of TF2's thousand).</summary>
@@ -105,8 +118,7 @@ public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entiti
         var (weapon, weaponId) = KillingWeapon(hit?.Custom ?? TFDamageCustom.None, scorer, death.Inflictor, death.Victim,
                                                hit?.WeaponName ?? "", hit?.Weapon ?? TFWeaponId.None);
 
-        EntityHandle assister = scorer != EntityHandle.None && scorer != death.Victim
-            ? records.RecentDamager(victimIndex, 1, TFCombatDefs.TimeAssistKill, now) : EntityHandle.None;
+        EntityHandle assister = Assister(death, scorer, now);
         if (assister == scorer || (assister != EntityHandle.None && !entities.IsValid(assister)))
             assister = EntityHandle.None;
 
@@ -154,6 +166,11 @@ public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entiti
             deathFlags |= Australium; // MUTATED
 
         fields.SetInt("death_flags", deathFlags);
+        // The assister's own credit, after the flags (stock's Event_AssistKill
+        // over SetDeathFlags, tf_gamerules.cpp:11514-11518): the kill-assist
+        // stat rides on the kept assister, and on nobody else.
+        if (assister != EntityHandle.None)
+            stats.Increment(assister, TFStat.Killassists);
         fields.SetInt("stun_flags", 0);
         // Stock reads the victim's state directly (tf_gamerules.cpp:13116,
         // RocketJumped() == 1): a death in the air carries the word, one after
@@ -298,6 +315,95 @@ public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entiti
             "tf_projectile_healing_bolt" => "crusaders_crossbow",
             _ => name,
         };
+    }
+
+    /// <summary>
+    /// <c>CTFGameRules::GetAssister</c> (:12690-12736): first answer wins —
+    /// the victim's named assist, the scorer's medic healer (through no
+    /// sentry inflictor), the giver of the scorer's buff conditions, the
+    /// second recent damager when it is not the scorer, and for a sentry
+    /// inflictor the gun's last teammate helper. Nobody for a suicide.
+    /// </summary>
+    private EntityHandle Assister(in DeathNoticeFacts death, EntityHandle scorer, float now)
+    {
+        // Nobody else for a suicide (:12697-12698).
+        if (scorer == EntityHandle.None || scorer == death.Victim)
+            return EntityHandle.None;
+
+        // If an assist has been specified already, use it (:12701-12704).
+        EntityHandle named = NamedAssist(death.Victim.EntryIndex);
+        if (named != EntityHandle.None)
+            return named;
+
+        // The scorer's first healer, when that healer is a medic and the
+        // inflictor is no sentry (:12706-12713): stock's Head() of the healer
+        // array, so only the first healer answers and the rest of the array
+        // waits behind it.
+        foreach (int healerIndex in healing.HealerIndexes(scorer.EntryIndex))
+        {
+            if (owners.ClassOf(healerIndex) == TFClass.Medic
+                && !(death.Inflictor != EntityHandle.None && directory.Get(death.Inflictor) is TFSentryGun))
+                return players.GetHandle(healerIndex);
+            break;
+        }
+
+        // The giver of a buff condition on the scorer (:12715-12718,
+        // GetConditionAssistFromAttacker tf_player_shared.cpp:1319-1347): the
+        // order-sensitive list, a giver who is the scorer themselves skipped.
+        if (conditions.Of(scorer.EntryIndex) is { } buffed)
+        {
+            foreach (TFCond cond in new[] { TFCond.Offensebuff, TFCond.Defensebuff,
+                                            TFCond.Regenondamagebuff, TFCond.Nohealingdamagebuff })
+            {
+                if (!buffed.Has(cond))
+                    continue;
+                EntityHandle giver = buffed.Provider(cond);
+                if (giver != EntityHandle.None && giver != scorer)
+                    return giver;
+            }
+        }
+
+        // The second recent damager, when it is not the scorer (:12720-12724).
+        EntityHandle recent = records.RecentDamager(death.Victim.EntryIndex, 1, TFCombatDefs.TimeAssistKill, now);
+        if (recent != EntityHandle.None && recent != scorer)
+            return recent;
+
+        // The sentry's last teammate helper (:12726-12733), within the window.
+        if (death.Inflictor != EntityHandle.None && directory.Get(death.Inflictor) is TFSentryGun gun)
+            return gun.AssistingTeammate(TFCombatDefs.TimeAssistKill, now);
+
+        return EntityHandle.None;
+    }
+
+    /// <summary>
+    /// What <c>DetermineAssistForKill</c> (tf_player.cpp:10992-11021) latches
+    /// onto the victim for <c>GetAssister</c>'s first arm: the giver of the
+    /// first tracked victim-side condition, overridden by the control stun's
+    /// stunner. Nobody for the scorer's own kill (:11012-11020), the gate the
+    /// notice's cleanup answers alike.
+    /// </summary>
+    private EntityHandle NamedAssist(int victimIndex)
+    {
+        EntityHandle giver = EntityHandle.None;
+
+        // GetConditionAssistFromVictim (tf_player_shared.cpp:1291-1314): the
+        // first tracked cond names its giver, even when it names nobody.
+        if (conditions.Of(victimIndex) is { } set)
+        {
+            foreach (TFCond cond in new[] { TFCond.Urine, TFCond.MadMilk, TFCond.Markedfordeath, TFCond.Gas })
+            {
+                if (!set.Has(cond))
+                    continue;
+                giver = set.Provider(cond);
+                break;
+            }
+        }
+
+        // The control stun's stunner outranks the conditions (:11006-11010).
+        if (carriers.Part<TFStunStack>(victimIndex) is { } stack && stack.IsControlStunned())
+            giver = stack.ActiveStun?.Attacker ?? EntityHandle.None;
+
+        return giver;
     }
 }
 

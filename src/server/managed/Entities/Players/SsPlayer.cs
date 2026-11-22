@@ -51,11 +51,6 @@ public sealed class SsPlayer : AnimatingEntity
     /// Being drawn is not <c>Entities</c>' area, so it arrives by constructor —
     /// the base class's rule for every area whose subject is not always this
     /// entity. See <see cref="OnKilled"/> for what this class does with it.
-    /// <para>
-    /// <paramref name="removals"/> turns this entity's removal into a client's
-    /// disconnect (plan_host_sdk §2.3); tests that build a player by hand leave
-    /// it out.
-    /// </para>
     /// </summary>
     // This composition's player command queues (statics to zero), whose entry
     // for this player goes when it does. Null for a player built without one.
@@ -94,7 +89,6 @@ public sealed class SsPlayer : AnimatingEntity
 
     public SsPlayer(IEngineEntityRender render, IEnginePlayers players, PhysicsDamageQueue impacts,
                     FluidTouches fluid, SvInfiniteAuxPowerConVar infiniteAux, PlayerDebugPrintDamageConVar printDamage,
-                    IPlayerRemovals? removals = null,
                     PlayerCommandQueue? commands = null, IUserMessageSender? messages = null,
                     IEngineHost? host = null, DamageInflictors? inflictors = null,
                     IPlayerShadows? shadows = null, IGameRules? rules = null,
@@ -130,7 +124,6 @@ public sealed class SsPlayer : AnimatingEntity
         _render   = render;
         _players  = players;
         _impacts  = impacts;
-        _removals = removals;
         _models   = models;
         _clock    = clock;
         _animLayers = animLayers;
@@ -166,7 +159,6 @@ public sealed class SsPlayer : AnimatingEntity
     private readonly IPlayerShadows? _shadows;
     private readonly PhysicsDamageQueue _impacts;
     private readonly FluidTouches _fluid;
-    private readonly IPlayerRemovals? _removals;
     private readonly IUserMessageSender? _messages;
     private readonly IEngineHost? _host;
     private readonly DamageInflictors? _inflictors;
@@ -399,7 +391,6 @@ public sealed class SsPlayer : AnimatingEntity
     {
         _commands?.Forget(Handle);
         _moves?.Forget(Handle);
-        _removals?.PlayerRemoved(Entities.GetIndex(Handle));
         _wardrobe?.Forget(Handle);
     }
 

@@ -41,6 +41,15 @@ public interface IEngineWorldQuery
     /// </summary>
     SurfaceTraceResult TraceBox(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore = default);
 
+    /// <summary>
+    /// <see cref="TraceBox"/> with the engine's own contents mask and a collision group: stock's
+    /// <c>UTIL_TraceHull( start, end, mins, maxs, mask, ignore, collisionGroup )</c>, whose
+    /// <c>CTraceFilterSimple</c> passes what the group does not collide with (a player's
+    /// movement, <c>COLLISION_GROUP_PLAYER_MOVEMENT</c>, passes debris: dropped ammo packs and
+    /// weapons). <see cref="TraceBox"/> is this in <c>COLLISION_GROUP_NONE</c>.
+    /// </summary>
+    SurfaceTraceResult TraceBoxInGroup(Vector start, Vector end, Vector mins, Vector maxs, uint contentsMask, EntityHandle ignore, int collisionGroup);
+
     /// <inheritdoc cref="EngineSide.EntityTraceHull"/>
     EntityHullTrace EntityTraceHull(EntityHandle entity, Vector start, Vector end, Vector mins, Vector maxs,
                                     uint mask, int collisionGroup);

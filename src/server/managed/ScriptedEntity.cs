@@ -1931,8 +1931,42 @@ public abstract class ScriptedEntity
     protected void RotateTo(Vector destination, float speed)
         => Movement.MoveToAngles(Handle, destination, speed);
 
-    /// <summary>Whether this brush is drawn.</summary>
-    protected void SetVisible(bool visible) => Render.SetVisible(Handle, visible);
+    /// <summary>
+    /// Whether this brush is drawn. An entity keyed kRenderNone is not, whatever
+    /// its class asks: stock's C_BaseEntity::ShouldDraw (c_baseentity.cpp:1447)
+    /// refuses that render mode before it reads EF_NODRAW.
+    /// </summary>
+    protected void SetVisible(bool visible)
+    {
+        _drawAsked = visible;
+        Render.SetVisible(Handle, visible && !_renderNone);
+    }
+
+    /// <summary>RenderMode_t's kRenderNone (const.h).</summary>
+    private const int RenderModeNone = 10;
+
+    /// <summary>
+    /// The map keyed "rendermode" kRenderNone (CBaseEntity's m_nRenderMode).
+    /// Not a [SaveField]: the base's own fields are outside the walk both save
+    /// tiers agree on (SaveTierAgreementTests), and the hidden draw is the
+    /// engine's state, which a managed reload keeps.
+    /// </summary>
+    private bool _renderNone;
+
+    /// <summary>What the class last asked of <see cref="SetVisible"/>; null before it asked.</summary>
+    private bool? _drawAsked;
+
+    /// <summary>
+    /// CBaseEntity's "rendermode" key, for a class that does not take it
+    /// itself. Keyed again after the class has said whether it is drawn, the
+    /// draw follows at once, as stock's client reads the mode each frame.
+    /// </summary>
+    internal void TakeRenderMode(int mode)
+    {
+        _renderNone = mode == RenderModeNone;
+        if (_drawAsked is bool asked)
+            Render.SetVisible(Handle, asked && !_renderNone);
+    }
 
     /// <summary>
     /// The solid type <see cref="SetSolidity(BrushSolidity)"/> gives this brush:
@@ -3159,7 +3193,8 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
     /// <summary>
     /// The keys CBaseEntity takes for every class that does not take them
     /// itself: disableshadows (CBaseEntity::KeyValue's EF_NOSHADOW, any
-    /// entity). CBaseAnimating's are <see cref="AnimatingVars"/>.
+    /// entity) and rendermode (its m_nRenderMode keyfield, whose kRenderNone
+    /// the client never draws). CBaseAnimating's are <see cref="AnimatingVars"/>.
     /// </summary>
     private bool TakeBaseKey(ScriptedEntity instance, EntityHandle handle, string lowered, string value)
     {
@@ -3168,6 +3203,10 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
             case "disableshadows":
                 if (Atoi(value) != 0 && Services?.Resolve(typeof(SourceSharp.Server.IEntityEffectBits)) is SourceSharp.Server.IEntityEffectBits bits)
                     bits.Set(handle, EntityEffect.NoShadow, true);
+                return true;
+
+            case "rendermode":
+                instance.TakeRenderMode(Atoi(value));
                 return true;
         }
 

@@ -227,6 +227,9 @@ public sealed class TF2MenuCompositionTests : IDisposable
         // the still projector answers the one read the paint makes.
         services.AddInstance<IClientBeamExecutor>(new StillProjector());
         services.AddInstance(new ViewReadout());
+        // The freeze panel's freeze-frame start (the module registers the
+        // holder before the side services; the observer camera writes it).
+        services.AddInstance<SourceSharp.Client.Render.IObserverFreezeFrame>(new SourceSharp.Client.Render.ObserverFreezeFrame());
         // The minimap's world and the world markers' view (the module registers the engine's
         // by factory): the Descent automap and robot bars read them; nobody about, nothing seen.
         services.AddInstance<IMinimapWorld>(new NoMinimapWorld());

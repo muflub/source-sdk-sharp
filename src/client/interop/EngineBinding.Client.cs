@@ -2261,6 +2261,7 @@ internal sealed unsafe partial class EngineWorldQuery
     public int EntitiesInSphere(Vector center, float radius, Span<EntityHandle> into) => 0;
     public HullResult TraceHull(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore = default) => new HullResult(false, false, EntityHandle.None);
     public SurfaceTraceResult TraceBox(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore = default) => new SurfaceTraceResult(false, 1f, end, Vector.Zero, EntityHandle.None, -1, 0);
+    public SurfaceTraceResult TraceBoxInGroup(Vector start, Vector end, Vector mins, Vector maxs, uint contentsMask, EntityHandle ignore, int collisionGroup) => new SurfaceTraceResult(false, 1f, end, Vector.Zero, EntityHandle.None, -1, 0);
     public EntityHullTrace EntityTraceHull(EntityHandle entity, Vector start, Vector end, Vector mins, Vector maxs, uint mask, int collisionGroup) => new EntityHullTrace(start, true, true);
     public TraceResult TraceLine(Vector start, Vector end, TraceMask mask, EntityHandle ignore = default) => new TraceResult(false, 1f, end, Vector.Zero, EntityHandle.None);
     public SurfaceTraceResult TraceLineSurface(Vector start, Vector end, TraceMask mask, EntityHandle ignore = default) => new SurfaceTraceResult(false, 1f, end, Vector.Zero, EntityHandle.None, -1, 0);

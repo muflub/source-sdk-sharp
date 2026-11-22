@@ -145,11 +145,11 @@ public partial class ServerSkeletonsTests
         public Props Props { get; } = new();
         public ServerSkeletons Skeletons { get; }
 
-        public Rig()
+        public Rig(Func<EntityHandle, ICustomTraceTarget?>? custom = null)
         {
             Memory.Models[Model] = Chain();
             Blocks.Held[Entity] = Block(new NVector(100f, 0f, 0f));
-            Skeletons = new ServerSkeletons(Blocks, new StudioModels(Memory), Clock, Log, Props);
+            Skeletons = new ServerSkeletons(Blocks, new StudioModels(Memory), Clock, Log, Props, customTargets: custom);
         }
 
         public EngineBlock Read(EntityHandle entity) => MemoryMarshal.Read<EngineBlock>(Blocks.Held[entity]);
@@ -516,6 +516,50 @@ public partial class ServerSkeletonsTests
 
         Assert.False(rig.Skeletons.TestHitboxes(Entity, Block(new NVector(100f, 0f, 0f), hitboxSet: 4), ray,
                                                 BoneSetupTrace.ContentsSolid, new BoneTrace()));
+    }
+
+    /// <summary>An entity that answers its own traces: it records each and writes its fraction and hitbox.</summary>
+    private sealed class CustomTarget : ICustomTraceTarget
+    {
+        public List<(BoneRay Ray, int Mask)> Asked { get; } = [];
+
+        public bool TestTrace(in BoneRay ray, int contentsMask, BoneTrace tr)
+        {
+            Asked.Add((ray, contentsMask));
+            tr.Fraction = 0.25f;
+            tr.HitBox = 7;
+            return true;
+        }
+    }
+
+    [Fact]
+    public void AnEntityThatAnswersItsOwnTracesAnswersInsteadOfItsHitboxes()
+    {
+        var target = new CustomTarget();
+        Rig rig = new(h => h == Entity ? target : null);
+        var ray = BoneRay.FromBox(new NVector(0f, 0f, 0f), new NVector(200f, 0f, 0f), new NVector(-16f, -16f, 0f), new NVector(16f, 16f, 72f));
+        var tr = new BoneTrace();
+
+        bool tested = rig.Skeletons.TestHitboxes(Entity, rig.Blocks.Held[Entity], ray, BoneSetupTrace.ContentsSolid, tr);
+
+        Assert.True(tested);
+        var asked = Assert.Single(target.Asked);
+        Assert.Equal((ray.Start, ray.Extents, BoneSetupTrace.ContentsSolid), (asked.Ray.Start, asked.Ray.Extents, asked.Mask));
+        Assert.Equal((0.25f, 7), (tr.Fraction, tr.HitBox));
+        Assert.Equal((1L, 0L), (rig.Skeletons.CustomTraces, rig.Skeletons.HitboxTraces));
+    }
+
+    [Fact]
+    public void AnEntityWithNoTraceOfItsOwnIsTestedByItsHitboxes()
+    {
+        var target = new CustomTarget();
+        Rig rig = new(h => h == Other ? target : null);
+        var ray = BoneRay.FromPoints(new NVector(105f, -50f, 10f), new NVector(105f, 50f, 10f));
+
+        rig.Skeletons.TestHitboxes(Entity, rig.Blocks.Held[Entity], ray, BoneSetupTrace.ContentsSolid, new BoneTrace());
+
+        Assert.Empty(target.Asked);
+        Assert.Equal((0L, 1L), (rig.Skeletons.CustomTraces, rig.Skeletons.HitboxTraces));
     }
 
     // ---- the cost counters ---------------------------------------------------

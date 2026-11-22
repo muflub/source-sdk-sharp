@@ -169,6 +169,26 @@ public sealed class TraceMaskFoldTests : System.IDisposable
         Assert.Equal(8, _traces.Group);
     }
 
+    /// <summary>UTIL_TraceHull with a group: a player's movement (8) passes debris, which COLLISION_GROUP_NONE's box sweep hits.</summary>
+    [Fact]
+    public void ABoxSweepInAGroupCarriesItsOwnMaskGroupAndEntity()
+    {
+        var body = new EntityHandle(45u | (2u << 12));
+        _side.TraceBox(Vector.Zero, new Vector(0, 0, 1), new Vector(-24, -24, 0), new Vector(24, 24, 82), 0x200480bu, body, 8);
+
+        Assert.Equal(0x200480b, s_Mask);
+        Assert.Equal(body, _traces.Pass);
+        Assert.Equal(8, _traces.Group);
+    }
+
+    [Fact]
+    public void ABoxSweepWithNoGroupIsInCollisionGroupNone()
+    {
+        _side.TraceBox(Vector.Zero, new Vector(0, 0, 1), new Vector(-16, -16, -16), new Vector(16, 16, 16), TraceMask.Solid);
+
+        Assert.Equal(0, _traces.Group);
+    }
+
     [Fact]
     public void WithNoRouteTheSideTracesNothingAndSaysClear()
     {

@@ -1241,3 +1241,4 @@ src/tf2/server/Player/TFEyeAngles.cs	ports CTFPlayer::PostThink's m_angEyeAngles
 src/tf2/client/Player/TFObserverEyeAngles.cs	ports C_TFPlayer::EyeAngles' networked m_angEyeAngles and its LATCH_SIMULATION_VAR interpolation (c_tf_player.cpp)
 src/server/managed/ObserverConVars.cs	ports spec_freeze_time and spec_freeze_traveltime (player.cpp)
 src/client/managed/Render/ObserverConVars.cs	ports the client spec_freeze_* convars (c_baseplayer.cpp) and CViewRender::FreezeFrame's contract
+src/client/native/dynamic_mesh_override.h	native code built against SDK headers (imaterialsystem.h): a buffered GetDynamicMesh with no override at the client level shutdown, so the shader API never flushes through the freed world vertex buffer a BindBatch left as its override

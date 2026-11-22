@@ -82,6 +82,12 @@ public class CollisionGroupParityTests
 
         Assert.True(FsolidBit(text, "FSOLID_VOLUME_CONTENTS") == (int)SolidFlags.VolumeContents,
                     "SolidFlags.VolumeContents is FSOLID_VOLUME_CONTENTS");
+
+        Assert.True(FsolidBit(text, "FSOLID_CUSTOMRAYTEST") == (int)SolidFlags.CustomRayTest,
+                    "SolidFlags.CustomRayTest is FSOLID_CUSTOMRAYTEST");
+
+        Assert.True(FsolidBit(text, "FSOLID_CUSTOMBOXTEST") == (int)SolidFlags.CustomBoxTest,
+                    "SolidFlags.CustomBoxTest is FSOLID_CUSTOMBOXTEST");
     }
 
     /// <summary>

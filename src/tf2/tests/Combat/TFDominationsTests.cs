@@ -228,7 +228,8 @@ public sealed class TFDominationsTests
         var dominations = new TFDominations(new TFPlayerCarriers());
         Kills(dominations, CombatRig.Victim.EntryIndex, CombatRig.Attacker.EntryIndex, 3);
         var notice = new TFDeathNotice(rig.Engine, rig.Engine, rig.Records, rig.Clock, rig.Carriers, rig.Level, dominations,
-                                       rig.Owners, new TF2.Shared.Econ.AttributeHooks());
+                                       rig.Owners, new TF2.Shared.Econ.AttributeHooks(),
+                                       rig.Healing, rig.Conditions, rig.Entities, rig.Stats);
         var fields = new TFDeathNoticeTests.Fields();
 
         notice.Fill(new DeathNoticeFacts(CombatRig.Victim, CombatRig.Attacker, CombatRig.Attacker,
