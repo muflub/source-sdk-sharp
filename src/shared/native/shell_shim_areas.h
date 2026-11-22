@@ -326,6 +326,10 @@ public:
 									float* pOutEndXYZ, int32_t* pOutEntityIndex, float* pOutEntityOriginXYZ) override;
 	int32_t ScreenOverlaySet(const char* pszName) override;
 	int32_t ScreenOverlayGet(char* pOutName, int32_t nNameBytes) override;
+	int32_t ClientSolidEntities(int32_t* pOutWords, float* pOutBounds, int32_t nCapacity) override;
+	int32_t ClientClipHullToEntities(const float* pStartXYZ, const float* pEndXYZ, const float* pMinsXYZ,
+									 const float* pMaxsXYZ, int32_t nMask, const int32_t* pEntityIndices,
+									 int32_t nEntities, SourceSharpMoveTraceResult* pOut) override;
 
 	// What the delegated slots call, set by the tier that owns each object.
 	CWorldRenderClient* m_pWorldRenderClient = nullptr;

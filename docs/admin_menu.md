@@ -4,6 +4,9 @@
 server: change the map, the game mode and the game's settings (friendly fire, time
 limit and so on), kick a player, restart the game, and what mods add (`IAdminMenuProvider`: the AI's bots). Menus nest; the server builds them
 and a choice goes back as an id, so nothing a client sends is ever a command.
+A game with no use for one of the core's folders (Map, Mode, Players, Settings,
+Votes, Restart) hides it with an `IAdminMenuScope`, keyed by `AdminCoreFolders`,
+and offers its own through a provider (TF2 Descent's levels and dev verbs).
 
 ## Who is an admin
 

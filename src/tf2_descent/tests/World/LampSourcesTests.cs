@@ -24,7 +24,7 @@ public sealed class LampSourcesTests
 
     private static LampSettings Lamp => R.Content.Lamp;
 
-    private static readonly RolledAffix Light20 = new("of_light", 10000);    // +20 % lamp range, its top roll
+    private static readonly RolledAffix Light30 = new("of_light", 10000);    // +30 % lamp range, its top roll
     private static readonly RolledAffix Radiant30 = new("radiant", 10000);   // +30 % lamp brightness, its top roll
 
     private static HeroStats Worn(HeroSheet sheet, params EquippedItem[] items) =>
@@ -36,10 +36,10 @@ public sealed class LampSourcesTests
     [Fact]
     public void Of_light_on_a_hat_raises_the_lamps_range()
     {
-        var stats = Worn(Soldier(R), new EquippedItem("hat", Item("cap", 1, 10, Light20)));
+        var stats = Worn(Soldier(R), new EquippedItem("hat", Item("cap", 1, 10, Light30)));
 
-        Assert.Equal(20, stats.LampRangeBonus, 9);
-        Assert.Equal(Lamp.Light.Radius * 1.2, stats.LampRadius, 9);
+        Assert.Equal(30, stats.LampRangeBonus, 9);
+        Assert.Equal(Lamp.Light.Radius * 1.3, stats.LampRadius, 9);
         Assert.Equal(1, stats.LampBrightness);
     }
 
@@ -55,7 +55,7 @@ public sealed class LampSourcesTests
     [Fact]
     public void An_unusable_hat_grants_the_lamp_nothing()
     {
-        var hat = Item("cap", 1, 10, Light20, Radiant30) with { Durability = 0, MaxDurability = 0 };
+        var hat = Item("cap", 1, 10, Light30, Radiant30) with { Durability = 0, MaxDurability = 0 };
         var result = Eq.Resolve(Soldier(R), [new EquippedItem("hat", hat)]);
         var stats = R.Heroes.Stats(Soldier(R), result.Contributions);
 
@@ -68,13 +68,13 @@ public sealed class LampSourcesTests
     [Fact]
     public void A_helmet_whose_brawn_requirement_is_unmet_grants_the_lamp_nothing_until_it_is_met()
     {
-        var helmet = new EquippedItem("hat", Item("helmet", 1, 10, Light20));   // requires 25 Brawn
+        var helmet = new EquippedItem("hat", Item("helmet", 1, 10, Light30));   // requires 25 Brawn
 
         var unmet = Worn(Soldier(R, brawn: 24), helmet);
         var met = Worn(Soldier(R, brawn: 25), helmet);
 
         Assert.Equal(Lamp.Light.Radius, unmet.LampRadius);
-        Assert.Equal(Lamp.Light.Radius * 1.2, met.LampRadius, 9);
+        Assert.Equal(Lamp.Light.Radius * 1.3, met.LampRadius, 9);
     }
 
     [Fact]
@@ -83,8 +83,8 @@ public sealed class LampSourcesTests
         var one = R.Skills.Stats(WithLamplighter(1), SkillBonuses.None);
         var five = R.Skills.Stats(WithLamplighter(5), SkillBonuses.None);
 
-        Assert.Equal((8.0, 15.0), (one.LampRangeBonus, one.LampBrightnessBonus));
-        Assert.Equal((40.0, 75.0), (five.LampRangeBonus, five.LampBrightnessBonus));
+        Assert.Equal((15.0, 15.0), (one.LampRangeBonus, one.LampBrightnessBonus));
+        Assert.Equal((75.0, 75.0), (five.LampRangeBonus, five.LampBrightnessBonus));
     }
 
     [Fact]
@@ -102,8 +102,8 @@ public sealed class LampSourcesTests
         var sheet = WithLamplighter(5);
         var gear = Eq.Resolve(sheet,
         [
-            new EquippedItem("hat", Item("cap", 1, 10, Radiant30, Light20)),
-            new EquippedItem("trinket1", Item("dog_tags", 1, 10, Radiant30, Light20)),
+            new EquippedItem("hat", Item("cap", 1, 10, Radiant30, Light30)),
+            new EquippedItem("trinket1", Item("dog_tags", 1, 10, Radiant30, Light30)),
         ]);
         var stats = R.Skills.Stats(sheet, SkillBonuses.None, gear.Contributions);
 

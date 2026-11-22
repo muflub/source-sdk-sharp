@@ -2267,7 +2267,7 @@ internal unsafe struct ShimStandaloneClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimViewClient</c> through its forwarders (SSFwd_ShimViewClient): 31 slot(s).
+/// <c>IShimViewClient</c> through its forwarders (SSFwd_ShimViewClient): 33 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimViewClientFwd : IForwarderTable
@@ -2367,6 +2367,12 @@ internal unsafe struct ShimViewClientFwd : IForwarderTable
 
     // int32_t IShimViewClient::ScreenOverlayGet( char *, int32_t )
     public delegate* unmanaged<void*, byte*, int, int> ScreenOverlayGet;
+
+    // int32_t IShimViewClient::ClientSolidEntities( int32_t *, float *, int32_t )
+    public delegate* unmanaged<void*, void*, void*, int, int> ClientSolidEntities;
+
+    // int32_t IShimViewClient::ClientClipHullToEntities( const float *, const float *, const float *, const float *, int32_t, const int32_t *, int32_t, SourceSharpMoveTraceResult * )
+    public delegate* unmanaged<void*, void*, void*, void*, void*, int, void*, int, void*, int> ClientClipHullToEntities;
 }
 
 /// <summary>

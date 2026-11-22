@@ -54,11 +54,14 @@ public interface IPredictedWeaponFx
     /// it stops, the sound matching what it stopped on:
     /// <paramref name="hitPlayerSound"/> for a player,
     /// <paramref name="hitWorldSound"/> otherwise. Nothing heard on a miss.
-    /// The default keeps the plain arm above, for a recording fx that never
-    /// heard the sounds' names.
+    /// When the line meets nothing the swing's own box (<paramref name="hull"/>)
+    /// sweeps the same endpoints, as stock's hull arm does
+    /// (<c>tf_weaponbase_melee.cpp:509-534</c>), and a stop on the world is moved
+    /// onto the surface by <c>FindHullIntersection</c>. The default keeps the
+    /// plain arm above, for a recording fx that never heard the sounds' names.
     /// </summary>
-    void MeleeSwing(in PredictedShot shot, in WeaponType type, float range, string hitWorldSound,
-                    string hitPlayerSound)
+    void MeleeSwing(in PredictedShot shot, in WeaponType type, float range, in MeleeHull hull,
+                    string hitWorldSound, string hitPlayerSound)
         => MeleeSwing(in shot, in type);
 
     /// <summary>The .357's "disorient the player": the view angles knocked up to a degree each way.</summary>
@@ -217,15 +220,37 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
         ImpactAlong(shot, Angles.Vectors(shot.ViewAngles).Forward, type.MeleeRange, DamageType.Club);
     }
 
-    public void MeleeSwing(in PredictedShot shot, in WeaponType type, float range, string hitWorldSound,
-                           string hitPlayerSound)
+    public void MeleeSwing(in PredictedShot shot, in WeaponType type, float range, in MeleeHull hull,
+                           string hitWorldSound, string hitPlayerSound)
     {
         if (!_predictWeapons.Value)
             return;
 
-        ClientTraceResult hit = ImpactAlong(shot, Angles.Vectors(shot.ViewAngles).Forward, range, DamageType.Club);
+        Vector forward = Angles.Vectors(shot.ViewAngles).Forward;
+        ClientTraceResult hit = ImpactAlong(shot, forward, range, DamageType.Club);
         if (!hit.Hit)
-            return;
+        {
+            // Stock's hull arm (tf_weaponbase_melee.cpp:509-534): when the swing's
+            // line meets nothing, sweep the swing's box along the same endpoints.
+            // The line alone stops short of a wall the box reaches (the blue
+            // spawn's end wall in 2fort). Where the box stops is its CENTRE, a
+            // half-extent off the wall, and the impact effect looks only 8 units
+            // past the point it is handed (fx_impact.cpp's traceExt): a stop on
+            // the world is moved onto the surface first, as stock's
+            // FindHullIntersection does (:525-530), or the wall takes no mark.
+            Vector end = shot.Eye + forward * range;
+            var half = new Vector(hull.HalfExtent, hull.HalfExtent, hull.HalfExtent);
+            ClientBoxTrace box = _world.ClientTraceHullEntities(shot.Eye, end, half * -1f, half, TraceMask.Solid,
+                                                                shot.PlayerIndex,
+                                                                _candidates.AllBut(shot.PlayerIndex));
+            if (!box.Hit)
+                return;
+
+            hit = box.EntityIndex == 0 && FindHullIntersection(in shot, box.End, in hull) is { Hit: true } surface
+                ? surface
+                : new ClientTraceResult(true, box.Fraction, box.End, default, 0, box.EntityIndex, 0, 0);
+            DispatchImpact(in hit, forward, DamageType.Club);
+        }
 
         // What the swing stopped on, by the trace's own index: a player gets
         // the flesh sound, anything else the world's (stock's OnSwingHit). The
@@ -336,8 +361,61 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
         if (round is { } ammo && (_world.PointContents(tr.End) & Liquid) != 0 && SplashInto(shot, end, in ammo))
             return tr;
 
-        if ((tr.SurfaceFlags & SurfSky) != 0)
+        DispatchImpact(in tr, dir, damageType);
+        return tr;
+    }
+
+    /// <summary>
+    /// <c>FindHullIntersection</c> (<c>shared/tf/tf_weaponbase.cpp:113-155</c>):
+    /// the point on the surface a swing's box stopped against. A line to twice
+    /// the box's stop first; when that meets nothing, a line to each corner of
+    /// the intersect box around that point, the nearest hit kept. Stock asks it
+    /// only of a world (or BSP model) stop; this side asks it of the world,
+    /// there being no brush-model read on the client. A miss when no line hits.
+    /// </summary>
+    private ClientTraceResult FindHullIntersection(in PredictedShot shot, Vector boxEnd, in MeleeHull hull)
+    {
+        Vector hullEnd = shot.Eye + (boxEnd - shot.Eye) * 2f;
+        ClientTraceResult tr = _world.ClientTraceLine(shot.Eye, hullEnd, TraceMask.Solid, TraceFilter.Simple,
+                                                      shot.PlayerIndex);
+        if (tr.Hit)
             return tr;
+
+        ClientTraceResult best = default;
+        float distance = 1e6f;
+        for (int i = 0; i < 8; i++)
+        {
+            // Stock's i, j, k nest x outermost and z innermost: the order breaks a tie.
+            var corner = new Vector(hullEnd.X + ((i & 4) == 0 ? hull.IntersectMins.X : hull.IntersectMaxs.X),
+                                    hullEnd.Y + ((i & 2) == 0 ? hull.IntersectMins.Y : hull.IntersectMaxs.Y),
+                                    hullEnd.Z + ((i & 1) == 0 ? hull.IntersectMins.Z : hull.IntersectMaxs.Z));
+            ClientTraceResult line = _world.ClientTraceLine(shot.Eye, corner, TraceMask.Solid, TraceFilter.Simple,
+                                                            shot.PlayerIndex);
+            if (!line.Hit)
+                continue;
+
+            float d = (line.End - shot.Eye).Length;
+            if (d < distance)
+            {
+                best = line;
+                distance = d;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>
+    /// <c>UTIL_ImpactTrace</c>'s arms: nothing on the sky, else the
+    /// <c>"Impact"</c> effect <c>C_BaseEntity::ImpactTrace</c> dispatches with
+    /// the trace's surfaceprop, hitbox and entity — the decal, the flecks and
+    /// the surface sound the client's own callback makes of them. Shared by a
+    /// bullet's thin stop and a swing's hull stop.
+    /// </summary>
+    private void DispatchImpact(in ClientTraceResult tr, Vector dir, DamageType damageType)
+    {
+        if ((tr.SurfaceFlags & SurfSky) != 0)
+            return;
 
         var data = new EffectData
         {
@@ -351,7 +429,6 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
         };
 
         _effects.Dispatch("Impact", in data);
-        return tr;
     }
 
     /// <summary>

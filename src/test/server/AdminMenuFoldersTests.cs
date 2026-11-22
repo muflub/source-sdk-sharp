@@ -173,4 +173,41 @@ public class AdminMenuFoldersTests
 
         Assert.Equal(1, cancelled);
     }
+
+    private sealed class Hides(params string[] hidden) : IAdminMenuScope
+    {
+        public bool Offers(string folder) => !hidden.Contains(folder);
+    }
+
+    private static List<(string Key, Func<AdminNode> Make)> CoreSix(List<string> built)
+        => [.. AdminCoreFolders.All.Select(key => (key, (Func<AdminNode>)(() => { built.Add(key); return new AdminNode(key, key, () => { }); })))];
+
+    [Fact]
+    public void WithNoScopeEveryCoreFolderIsShownInOrder()
+    {
+        var built = new List<string>();
+
+        var shown = AdminMenuBuilder.CoreFolders(CoreSix(built), []);
+
+        Assert.Equal(["map", "mode", "players", "settings", "votes", "restart"], shown.Select(n => n.Label));
+    }
+
+    [Fact]
+    public void AFolderAScopeDoesNotOfferIsLeftOutAndNeverBuilt()
+    {
+        var built = new List<string>();
+
+        var shown = AdminMenuBuilder.CoreFolders(CoreSix(built), [new Hides(AdminCoreFolders.Mode, AdminCoreFolders.Restart)]);
+
+        Assert.Equal(["map", "players", "settings", "votes"], shown.Select(n => n.Label));
+        Assert.Equal(["map", "players", "settings", "votes"], built);
+    }
+
+    [Fact]
+    public void AFolderIsShownOnlyWhileEveryScopeOffersIt()
+    {
+        var shown = AdminMenuBuilder.CoreFolders(CoreSix([]), [new Hides(AdminCoreFolders.Map), new Hides(AdminCoreFolders.Votes)]);
+
+        Assert.Equal(["mode", "players", "settings", "restart"], shown.Select(n => n.Label));
+    }
 }

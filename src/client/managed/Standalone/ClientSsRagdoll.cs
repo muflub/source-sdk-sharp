@@ -516,6 +516,11 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
         PosedFromThePlayer = sequence >= 0;
         PosedFrom = PosedFromThePlayer ? player : EntityHandle.None;
 
+        // A body no player left names the sequence it stood in
+        // (RagdollNetState.Sequence): the server's own last pose for it.
+        if (sequence < 0 && State.Sequence > 0)
+            sequence = State.Sequence;
+
         if (sequence < 0)
         {
             foreach (string activity in Hl2PostureLayer.Activities(PlayerPosture.Idle))

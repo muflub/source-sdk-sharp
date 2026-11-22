@@ -1819,7 +1819,19 @@ public abstract class ScriptedEntity
     }
 
     /// <summary>Gives this entity a model. Must happen during spawn, so it can be precached.</summary>
-    protected void SetModel(string model) => Render.SetModel(Handle, model);
+    protected void SetModel(string model)
+    {
+        Render.SetModel(Handle, model);
+        OnModelWorn();
+    }
+
+    /// <summary>
+    /// After <see cref="SetModel"/>: the skeleton is on sequence 0 now (stock's
+    /// SetModel's SetSequence( 0 ), which the render binding carries out). A
+    /// class that sends its own copy of the sequence to the client sends the
+    /// reset here, as stock's networked m_nSequence carries it.
+    /// </summary>
+    private protected virtual void OnModelWorn() { }
 
     /// <summary>Makes this entity a trigger of the given half-extents that a player can walk into.</summary>
     protected void MakePickup(float sizeX, float sizeY, float sizeZ)

@@ -335,7 +335,7 @@ public sealed class TownVerbTests
     }
 
     /// <summary>The Lost &amp; Found (R5, D6): in town, with no window open, the hero reclaims what his lost corpse held, for the fee.</summary>
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task The_reclaim_verb_takes_back_a_lost_corpse_in_town_for_the_fee()
     {
         var rig = new TownRig();
@@ -359,7 +359,7 @@ public sealed class TownVerbTests
     /// one, so a refused reclaim showed the hero nothing at all. With no window open the answer
     /// is a notice too.
     /// </summary>
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task A_reclaim_refused_with_no_window_open_is_told_as_a_notice()
     {
         var rig = new TownRig();
@@ -375,7 +375,7 @@ public sealed class TownVerbTests
         Assert.Equal(("#Descent_Town_" + LedgerRefusals.LostAndFoundFee, ""), (notice.Text, notice.Arg));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task A_reclaim_done_with_no_window_open_is_told_as_a_notice()
     {
         var rig = new TownRig();
@@ -390,7 +390,7 @@ public sealed class TownVerbTests
         Assert.Equal(TownStatusTokens.Done("reclaim"), rig.Of<Notice>().Last().Text);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task A_verb_answered_in_an_open_window_sends_no_notice()
     {
         var rig = new TownRig();
@@ -403,7 +403,7 @@ public sealed class TownVerbTests
         Assert.Equal((1, 0), (rig.Of<TownStatus>(mark).Count, rig.Of<Notice>(mark).Count));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task The_reclaim_verb_with_nothing_lost_is_refused_in_words()
     {
         var rig = new TownRig();
@@ -414,7 +414,7 @@ public sealed class TownVerbTests
         Assert.Equal("#Descent_Town_" + LedgerRefusals.NothingLost, rig.Status.Token);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_stash_window_carries_the_rules_capacity()
     {
         var rig = new TownRig();

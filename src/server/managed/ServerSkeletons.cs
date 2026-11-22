@@ -127,7 +127,7 @@ public interface ISkeletonAnimationRewind
 /// wants them.
 /// </para>
 /// </summary>
-public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes, IGameLifecycle, ISaveCustom, IMergedAttachments,
+public sealed class ServerSkeletons : IServerStandaloneSkeletons, IStandaloneHitboxes, IGameLifecycle, ISaveCustom, IMergedAttachments,
                                       ISkeletonAnimationRewind
 {
     private readonly IStandaloneBlocks _blocks;
@@ -266,7 +266,7 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
         // A clock that is not the constructor's (sequence 0, rate 1, never
         // started) was set by SetPoseSequence, which read the duration and
         // the loop flag at the model's own defaults: so does this.
-        if (state.Sequence != 0 || state.PlaybackRate != 1.0f || state.AnimTime != 0.0f)
+        if (state.ClockStarted)
         {
             StudioHdr? hdr = _models.OpenStudioHdr(block.Head.ModelIndex);
 
@@ -574,6 +574,22 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
 
         BoneEntityState state = StateOf(entity, block);
         _driver.SetPoseSequence(state, block.Head.ModelIndex, sequence, playbackRate, restart, _clock.Now, startCycle);
+        WriteClock(span, state);
+        return true;
+    }
+
+    /// <inheritdoc/>
+    public bool ModelChanged(EntityHandle entity)
+    {
+        Span<byte> span = _blocks.Block(entity);
+
+        if (!Read(span, out EngineBlock block))
+        {
+            return false;
+        }
+
+        BoneEntityState state = StateOf(entity, block);
+        _driver.ResetSequenceForModel(state, block.Head.ModelIndex, _clock.Now);
         WriteClock(span, state);
         return true;
     }

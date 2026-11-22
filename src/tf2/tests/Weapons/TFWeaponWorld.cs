@@ -23,9 +23,10 @@ internal sealed class RecordingArms : IWeaponArms
         new();
     public readonly List<(string Weapon, ShotDamage Shot)> Swings = new();
 
-    /// <summary>The swung-over arms call: the row, the reach it was handed, and
-    /// the script's two hit sounds.</summary>
-    public readonly List<(string Weapon, float Range, string HitWorldSound, string HitPlayerSound)> ArmSwings = new();
+    /// <summary>The swung-over arms call: the row, the reach and hull bounds it
+    /// was handed, and the script's two hit sounds.</summary>
+    public readonly List<(string Weapon, float Range, float HullHalfExtent, string HitWorldSound,
+                          string HitPlayerSound)> ArmSwings = new();
     public readonly List<string> Sounds = new();
     public readonly List<string> Launches = new();
     public readonly List<(int Fov, float Time)> Fovs = new();
@@ -57,8 +58,9 @@ internal sealed class RecordingArms : IWeaponArms
         Bullets.Add((type.Name, pellets, spreadDegrees, shot, fixedPellets));
     public void MeleeSwing(in WeaponType type) => throw new InvalidOperationException("the core swings a TF weapon with its damage");
     public void MeleeSwing(in WeaponType type, ShotDamage shot) => Swings.Add((type.Name, shot));
-    public void MeleeSwing(in WeaponType type, float range, string hitWorldSound, string hitPlayerSound) =>
-        ArmSwings.Add((type.Name, range, hitWorldSound, hitPlayerSound));
+    public void MeleeSwing(in WeaponType type, float range, in MeleeHull hull, string hitWorldSound,
+                           string hitPlayerSound) =>
+        ArmSwings.Add((type.Name, range, hull.HalfExtent, hitWorldSound, hitPlayerSound));
     public int SwingsShown { get; private set; }
     public void SwingShown() => SwingsShown++;
     public readonly List<SourceSharp.Shared.Anim.WeaponGestureTrigger> Gestures = new();

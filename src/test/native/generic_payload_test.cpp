@@ -519,17 +519,18 @@ TEST(PayloadTiers, EveryTierHasADistinctName)
 TEST(PayloadTiers, RealPropCountIsTheHierarchysForEveryShell)
 {
 	// The row count of StandaloneNetFields: 11 since m_nSkin (2026-10-19),
-	// 12 since m_nBody (2026-10-25), 14 since m_vecMins/m_vecMaxs (2026-11-10).
-	EXPECT_EQ(14, SourceSharp_TierRealProps(SS_SHELL_STANDALONE));
+	// 12 since m_nBody (2026-10-25), 14 since m_vecMins/m_vecMaxs (2026-11-10),
+	// 15 since m_CollisionGroup (2026-11-15).
+	EXPECT_EQ(15, SourceSharp_TierRealProps(SS_SHELL_STANDALONE));
 
 	// The retired value answers the LIVE count, not a stale three. An old
 	// managed build asking about shell 0 must be told what the tables actually
 	// carry, or its inspector reports a prop total short at every tier.
-	EXPECT_EQ(14, SourceSharp_TierRealProps(SS_SHELL_NETENTITY));
+	EXPECT_EQ(15, SourceSharp_TierRealProps(SS_SHELL_NETENTITY));
 
 	// The numbers the managed schema panel shows for the 32-byte tier, spelled
 	// out because they are what a reader compares a dump against.
-	EXPECT_EQ(22, SourceSharp_TierRealProps(SS_SHELL_STANDALONE) + SourceSharp_TierWords(0));
+	EXPECT_EQ(23, SourceSharp_TierRealProps(SS_SHELL_STANDALONE) + SourceSharp_TierWords(0));
 }
 
 //=============================================================================//

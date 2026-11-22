@@ -1280,6 +1280,8 @@ internal unsafe interface IViewClientArea
     int ClientTraceHullEntities(float* a0, float* a1, float* a2, float* a3, int a4, int a5, int* a6, int a7, float* a8, float* a9, int* a10, float* a11);
     int ScreenOverlaySet(byte* a0);
     int ScreenOverlayGet(byte* a0, int a1);
+    int ClientSolidEntities(int* a0, float* a1, int a2);
+    int ClientClipHullToEntities(float* a0, float* a1, float* a2, float* a3, int a4, int* a5, int a6, MoveTraceBlob* a7);
 }
 
 /// <summary>
@@ -1322,6 +1324,8 @@ internal sealed unsafe class ViewClientArea : IViewClientArea
     public int ClientTraceHullEntities(float* a0, float* a1, float* a2, float* a3, int a4, int a5, int* a6, int a7, float* a8, float* a9, int* a10, float* a11) { return _shim.Table->ClientTraceHullEntities(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11); }
     public int ScreenOverlaySet(byte* a0) { return _shim.Table->ScreenOverlaySet(_shim.Self, a0); }
     public int ScreenOverlayGet(byte* a0, int a1) { return _shim.Table->ScreenOverlayGet(_shim.Self, a0, a1); }
+    public int ClientSolidEntities(int* a0, float* a1, int a2) { return _shim.Table->ClientSolidEntities(_shim.Self, a0, a1, a2); }
+    public int ClientClipHullToEntities(float* a0, float* a1, float* a2, float* a3, int a4, int* a5, int a6, MoveTraceBlob* a7) { return _shim.Table->ClientClipHullToEntities(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
 }
 
 /// <summary>

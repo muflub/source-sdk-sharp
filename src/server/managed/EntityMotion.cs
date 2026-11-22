@@ -478,9 +478,15 @@ public sealed class EntityMotion
             trace = new TraceResult(false, 1f, step.Destination, Vector.Zero, EntityHandle.None);
 
         // A flyer made not solid sweeps without CONTENTS_MONSTER, so a player
-        // in its way is flown through and the world still stops it.
+        // in its way is flown through — AND THE WORLD STILL STOPS IT. Stock's
+        // sweep is a MASK change, not a cleared trace: the step carries on to
+        // whatever brush stands past the player. Asking the step again with the
+        // brush-only mask is how this side says that, there being no per-entity
+        // filter on the ABI's trace. Clearing the step instead (which is what
+        // stood here) flew the flyer through the world as well: a passed player
+        // standing on the floor let the projectile fall straight through it.
         if (mover.PassCharacters && trace.Entity != EntityHandle.None && _entities.IsPlayer(trace.Entity))
-            trace = new TraceResult(false, 1f, step.Destination, Vector.Zero, EntityHandle.None);
+            trace = WorldOnly(handle, mover, input, step);
 
         FlightResult result = MoveMath.ResolveFlight(input, step, trace.Fraction,
                                                      trace.End, trace.Normal);
@@ -536,6 +542,24 @@ public sealed class EntityMotion
         _movers[entity] = mover;
         _order.Add(entity);
         return mover;
+    }
+
+    /// <summary>
+    /// The step traced again against the world alone: what a flyer's sweep sees
+    /// once a character it flies through is left out of it. Stock gets this from
+    /// its mask — <c>PhysicsCheckSweep</c> dropping <c>CONTENTS_MONSTER</c>, or
+    /// <c>CTFBaseRocket::PhysicsSolidMaskForEntity</c> leaving the other team's
+    /// <c>CONTENTS_*TEAM</c> bit out — so the sweep carries on PAST the player
+    /// and a wall behind them still stops the shot. This ENGINE's trace has no
+    /// per-entity filter, so the same answer comes from tracing the step with
+    /// the brush-only mask, which finds that wall.
+    /// </summary>
+    private TraceResult WorldOnly(EntityHandle handle, Mover mover, in FlightInput input, in FlightStep step)
+    {
+        Vector hull = mover.Hull;
+        return hull.X != 0f || hull.Y != 0f || hull.Z != 0f
+            ? Swept(_world.TraceBox(input.Origin, step.Destination, hull * -1f, hull, TraceMask.Brushes, handle))
+            : _world.TraceLine(input.Origin, step.Destination, TraceMask.Brushes, handle);
     }
 
     /// <summary>

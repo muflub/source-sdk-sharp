@@ -454,6 +454,121 @@ public class CorpseTests
     }
 
     // ---------------------------------------------------------------------
+    // A body no player left (Corpses.Leave)
+    // ---------------------------------------------------------------------
+
+    private static readonly CorpseShot Shot = new("models/bots/soldier/bot_soldier.mdl",
+                                                  new Vector(40f, -20f, 8f), new Vector(0f, 60f, 0f))
+    {
+        Velocity = new Vector(90f, 0f, 0f),
+        Force = new Vector(0f, 3000f, 1500f),
+        ForceBone = 0,
+        Skin = 1,
+        Sequence = 23,
+    };
+
+    /// <summary>
+    /// A body left by something that is not a player wears the model it was
+    /// handed, where and facing as it was told, dressed before the spawn — and
+    /// reads nothing off any player, because there is none to read.
+    /// </summary>
+    [Fact]
+    public void ALeftBodyWearsTheModelPlaceAndFacingItWasHanded()
+    {
+        var engine = Fake();
+        engine.Returns("Entities.Create", Body);
+        engine.Returns("Entities.IsValid", true);
+        var corpses = Service(engine, out _);
+
+        Assert.True(corpses.Leave(Shot) == Body, "the left body is made and returned");
+
+        var order = engine.Calls.Select(c => c.Member).ToList();
+        int spawn = order.IndexOf("Entities.Spawn");
+        Assert.True(spawn > order.IndexOf("EntityRender.SetModel") && spawn > order.IndexOf("Entities.SetOrigin")
+                    && spawn > order.IndexOf("Entities.SetAngles") && order.IndexOf("Entities.SetAngles") >= 0,
+                    "model, place and facing are set before the spawn");
+        Assert.Equal(EntityNames.Hl2mpRagdoll, engine.Last("Entities.Create")!.Value.ArgAs<string>(0));
+        Assert.Equal(Shot.Model, engine.Last("EntityRender.SetModel")!.Value.ArgAs<string>(1));
+        Assert.Equal(Shot.Origin, engine.Last("Entities.SetOrigin")!.Value.ArgAs<Vector>(1));
+        Assert.Equal(Shot.Angles, engine.Last("Entities.SetAngles")!.Value.ArgAs<Vector>(1));
+        Assert.Equal(0, engine.CountOf("EntityRender.GetModelName") + engine.CountOf("Entities.GetOrigin"));
+    }
+
+    /// <summary>The left body carries its throw, its velocity, its pose and no player.</summary>
+    [Fact]
+    public void ALeftBodyCarriesItsThrowItsPoseAndNoPlayer()
+    {
+        var engine = Fake();
+        engine.Returns("Entities.Create", Body);
+        engine.Returns("Entities.IsValid", true);
+        var corpses = Service(engine, out var body);
+
+        corpses.Leave(Shot);
+
+        Assert.Equal(Shot.Force, body.State.Force);
+        Assert.Equal(Shot.Velocity, body.State.Velocity);
+        Assert.Equal((short)0, body.State.ForceBone);
+        Assert.Equal((short)23, body.State.Sequence);
+        Assert.Equal((short)-1, body.State.PlayerIndex);
+        Assert.Equal(Shot.Origin, body.State.Origin);
+    }
+
+    /// <summary>The left body is drawn in the skin it was handed, through the server's skins.</summary>
+    [Fact]
+    public void ALeftBodyIsDrawnInTheSkinItWasHanded()
+    {
+        var engine = Fake();
+        engine.Returns("Entities.Create", Body);
+        engine.Returns("Entities.IsValid", true);
+        var skins = new RecordingServerSkins();
+        var body = new SsRagdoll(engine);
+        body.State.BindLocal();
+        var corpses = new Corpses(new RecordingLog(), engine, engine, new OneBody(body), players: engine, skins: skins);
+
+        corpses.Leave(Shot);
+
+        Assert.Equal(new[] { (Body, 1) }, skins.Set);
+    }
+
+    /// <summary>Left bodies stand under the same cap as players' bodies, and the oldest goes.</summary>
+    [Fact]
+    public void LeftBodiesShareTheCapAndTheOldestGoes()
+    {
+        var engine = Fake();
+        engine.Returns("Entities.Create", Body);
+        engine.Returns("Entities.IsValid", true);
+        var corpses = Service(engine, out _);
+        corpses.Limit = 3;
+
+        corpses.Leave(Shot);
+        engine.Returns("Entities.Create", SecondBody);
+        corpses.Leave(Shot);
+        engine.Returns("Entities.Create", ThirdBody);
+        corpses.Leave(Shot);
+        Assert.Equal(0, engine.CountOf("Entities.Remove"));
+
+        engine.Returns("Entities.Create", FourthBody);
+        corpses.Leave(Shot);
+
+        var removed = Assert.Single(engine.Calls, c => c.Member == "Entities.Remove");
+        Assert.Equal(Body, removed.ArgAs<EntityHandle>(0));
+        Assert.Equal(3, corpses.Count);
+    }
+
+    /// <summary>With bodies turned off, nothing is left.</summary>
+    [Fact]
+    public void BodiesTurnedOffLeaveNothing()
+    {
+        var engine = Fake();
+        engine.Returns("Entities.Create", Body);
+        var corpses = Service(engine, out _);
+        corpses.Enabled = false;
+
+        Assert.Equal(EntityHandle.None, corpses.Leave(Shot));
+        Assert.Equal(0, engine.CountOf("Entities.Create"));
+    }
+
+    // ---------------------------------------------------------------------
     // The dead player themselves
     // ---------------------------------------------------------------------
 
@@ -1096,6 +1211,28 @@ public class CorpseTests
           + "and it says which of the two it used");
 
         Assert.True(body.IsRagdoll, "and the body still collapses");
+    }
+
+    /// <summary>
+    /// A body no player left collapses from the sequence the server named
+    /// (<see cref="RagdollNetState.Sequence"/>), not the HL2 idle a model with
+    /// other animations may not have.
+    /// </summary>
+    [Fact]
+    public void ABodyNoPlayerLeftCollapsesFromTheSequenceItNamed()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+
+        var body = Viewer(engine);
+        body.State.Sequence = 23;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.Equal(23, body.PosedAs);
+        Assert.False(body.PosedFromThePlayer);
+        Assert.Equal(23, engine.Last("EntityRender.PlaySequence")!.Value.ArgAs<int>(1));
     }
 
     /// <summary>

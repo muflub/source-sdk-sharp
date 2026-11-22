@@ -10,6 +10,15 @@ using SourceSharp.Abi;
 namespace SourceSharp.Shared;
 
 /// <summary>
+/// A melee swing's box, for the hull arm its line falls back on when the line
+/// meets nothing: <see cref="HalfExtent"/> each way (the bounds the behaviour
+/// scaled), and the box <c>FindHullIntersection</c> spreads its corner lines
+/// over when the swing's box stopped on the world (stock passes the mod's
+/// <c>VEC_DUCK_HULL_MIN</c>/<c>MAX</c>, <c>tf_weaponbase_melee.cpp:529</c>).
+/// </summary>
+public readonly record struct MeleeHull(float HalfExtent, Vector IntersectMins, Vector IntersectMaxs);
+
+/// <summary>
 /// What one side must do for the weapon machine — the hands, where
 /// <see cref="WeaponLogic"/> is the head.
 ///
@@ -121,12 +130,15 @@ public interface IWeaponArms
 
     /// <summary>
     /// One melee swing tracing <paramref name="range"/> from the eye and,
-    /// where it stops, the sound matching what it stopped on:
+    /// where it stops, the sound matching what it stops on:
     /// <paramref name="hitPlayerSound"/> for a player,
-    /// <paramref name="hitWorldSound"/> otherwise. The default swings the
-    /// plain arm above, for arms that never heard the sounds' names.
+    /// <paramref name="hitWorldSound"/> otherwise. When its line meets nothing
+    /// the swing's box (<paramref name="hull"/>) sweeps the same endpoints after
+    /// it, stock's hull arm (<c>tf_weaponbase_melee.cpp:509-534</c>). The default
+    /// swings the plain arm above, for arms that never heard the sounds' names.
     /// </summary>
-    void MeleeSwing(in WeaponType type, float range, string hitWorldSound, string hitPlayerSound)
+    void MeleeSwing(in WeaponType type, float range, in MeleeHull hull, string hitWorldSound,
+                    string hitPlayerSound)
         => MeleeSwing(in type);
 
     /// <summary>

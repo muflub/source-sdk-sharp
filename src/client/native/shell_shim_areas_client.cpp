@@ -684,6 +684,19 @@ int32_t CShimViewClient::ScreenOverlayGet(char* pOutName, int32_t nNameBytes)
 	return m_pShellViewRender->ScreenOverlayGet(pOutName, nNameBytes);
 }
 
+int32_t CShimViewClient::ClientSolidEntities(int32_t* pOutWords, float* pOutBounds, int32_t nCapacity)
+{
+	return m_pWorldQueryClient->ClientSolidEntities(pOutWords, pOutBounds, nCapacity);
+}
+
+int32_t CShimViewClient::ClientClipHullToEntities(const float* pStartXYZ, const float* pEndXYZ, const float* pMinsXYZ,
+												  const float* pMaxsXYZ, int32_t nMask, const int32_t* pEntityIndices,
+												  int32_t nEntities, SourceSharpMoveTraceResult* pOut)
+{
+	return m_pWorldQueryClient->ClientClipHullToEntities(pStartXYZ, pEndXYZ, pMinsXYZ, pMaxsXYZ, nMask, pEntityIndices,
+														 nEntities, pOut);
+}
+
 int32_t CShimDiagnosticsClient::ClientNotShipped(int32_t iIndex, char* pOutName, int32_t nNameBytes, char* pOutReason,
 												 int32_t nReasonBytes, int32_t* pOutCount, int32_t* pOutTotal)
 {

@@ -272,6 +272,41 @@ public sealed class ServerBoneDriver
         s.InvalidateBoneCache();
     }
 
+    /// <summary>
+    /// <c>CBaseAnimating::SetModel</c>'s <c>SetSequence( 0 )</c>
+    /// (baseanimating.cpp 2685), for the model <paramref name="modelIndex"/>
+    /// just worn, the same one again included: stock has no early out.
+    /// SetSequence writes m_nSequence alone, so the cycle stays where the old
+    /// sequence had it, the rate and the loop flag stay, and from here the
+    /// cycle advances at sequence 0's rate on the new model (StudioFrameAdvance
+    /// reads the rate of the sequence set). A skeleton no sequence was ever
+    /// played on keeps its clock stopped: a stock entity that never advances
+    /// keeps m_flCycle 0.
+    /// </summary>
+    public void ResetSequenceForModel(BoneEntityState s, int modelIndex, float now)
+    {
+        s.InvalidateBoneCache();
+
+        if (!s.ClockStarted)
+        {
+            return;
+        }
+
+        float cycle = s.SequenceCycle(now);
+
+        s.Sequence = 0;
+        s.AnimTime = now;
+        s.StartCycle = cycle;
+        s.SeqDuration = 0.0f;
+
+        StudioHdr? hdr = _models.OpenStudioHdr(modelIndex);
+
+        if (hdr is not null)
+        {
+            BoneLibrary.SequenceFacts(hdr, 0, null, out s.SeqDuration, out _);
+        }
+    }
+
     /// <summary><c>PoseCycle</c>: the server clock's cycle (the arithmetic is
     /// the library's, the clock is this side's).</summary>
     public float PoseCycle(BoneEntityState s, float now)

@@ -100,6 +100,25 @@ public interface IEngineWorldQuery
                                             TraceMask mask, int passEntityIndex,
                                             ReadOnlySpan<int> entityIndices);
 
+    /// <summary>
+    /// The CLIENT's solid partition: every solid, non-dormant entity, written
+    /// into <paramref name="into"/> as far as it holds. Answers how many there
+    /// are, which may be more than it wrote. The shells are in no spatial
+    /// partition, so this is the list a client trace that must stop on
+    /// entities chooses from. The server answers none.
+    /// </summary>
+    int ClientSolidEntities(Span<ClientSolidEntity> into);
+
+    /// <summary>
+    /// A CLIENT movement hull, <paramref name="mins"/> to <paramref name="maxs"/>
+    /// under the engine mask <paramref name="mask"/>, clipped against the
+    /// entities named by INDEX and nothing else (no world): the nearest stop
+    /// as a movement trace, merged as the engine merges entity clips. Answers
+    /// the index stopped on, or -1 with a clear trace. The server answers -1.
+    /// </summary>
+    int ClientClipHullToEntities(Vector start, Vector end, Vector mins, Vector maxs, uint mask,
+                                 ReadOnlySpan<int> entityIndices, out MoveTrace trace);
+
     /// <inheritdoc cref="EngineSide.ClientEntityModelType"/>
     ModelType? ClientEntityModelType(int entIndex);
     /// <summary>
@@ -726,3 +745,28 @@ public readonly record struct SoundScriptParams(float Volume, int Pitch, int Pit
 /// </summary>
 public readonly record struct EntityHullTrace(Vector EndPos, bool StartSolid, bool AllSolid,
                                               EntityHandle Entity = default, float Fraction = 0f);
+
+/// <summary>
+/// One entity of the CLIENT's solid partition, as
+/// <see cref="IEngineWorldQuery.ClientSolidEntities"/> lists it: solid and not
+/// dormant, which is every shell the client's engine trace would have clipped
+/// had the shells been in its spatial partition. Which of them a trace may stop
+/// on is the caller's decision.
+/// </summary>
+/// <param name="Index">The entity index.</param>
+/// <param name="Handle">Its handle.</param>
+/// <param name="SolidType">What its collideable answers.</param>
+/// <param name="SolidFlags">The FSOLID_* bits.</param>
+/// <param name="CollisionGroup">Its <c>Collision_Group_t</c>, from the wire.</param>
+/// <param name="ModelType">Its model's <see cref="Abi.ModelType"/> numbering, or -1 for no model.</param>
+/// <param name="Mins">Its world-space surrounding box, low corner.</param>
+/// <param name="Maxs">And high corner.</param>
+public readonly record struct ClientSolidEntity(
+    int Index,
+    EntityHandle Handle,
+    SolidType SolidType,
+    SolidFlags SolidFlags,
+    int CollisionGroup,
+    int ModelType,
+    Vector Mins,
+    Vector Maxs);

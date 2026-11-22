@@ -144,6 +144,12 @@ public sealed class BoneEntityState
         ? AnimTime - StartCycle * SeqDuration / PlaybackRate
         : AnimTime;
 
+    /// <summary>
+    /// Whether a sequence was ever played on this clock: it is not the
+    /// constructor's (sequence 0, rate 1, never started).
+    /// </summary>
+    public bool ClockStarted => Sequence != 0 || PlaybackRate != 1.0f || AnimTime != 0.0f;
+
     /// <summary><c>m_flSeqDuration</c> / <c>m_flPoseSeqDuration</c>.</summary>
     public float SeqDuration;
 

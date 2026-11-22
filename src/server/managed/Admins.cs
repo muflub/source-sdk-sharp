@@ -232,18 +232,28 @@ public sealed class AdminMenuBuilder(IEngineConsole console, IEnginePlayers play
 {
     public IReadOnlyList<AdminNode> Build(int slot)
     {
-        var items = new List<AdminNode>
-        {
-            AdminNode.Folder("#SS_UI_Admin_Map", Maps(candidates.All(), line => console.ExecuteServerCommand(line + "\n"))),
-            AdminNode.Folder("#SS_UI_Admin_Mode", Modes()),
-            AdminNode.Folder("#SS_UI_Admin_Players", Players(slot)),
-            AdminNode.Folder("#SS_UI_Vote_Settings", Settings(catalog.Active?.Settings ?? [], writes.Current, writes.Write)),
-            AdminNode.Folder("#SS_UI_Admin_Votes", Votes()),
-            new("#SS_UI_Admin_Restart", "restart", () => console.ExecuteServerCommand("mp_restartgame 1\n")),
-        };
+        var items = CoreFolders(
+        [
+            (AdminCoreFolders.Map, () => AdminNode.Folder("#SS_UI_Admin_Map", Maps(candidates.All(), line => console.ExecuteServerCommand(line + "\n")))),
+            (AdminCoreFolders.Mode, () => AdminNode.Folder("#SS_UI_Admin_Mode", Modes())),
+            (AdminCoreFolders.Players, () => AdminNode.Folder("#SS_UI_Admin_Players", Players(slot))),
+            (AdminCoreFolders.Settings, () => AdminNode.Folder("#SS_UI_Vote_Settings", Settings(catalog.Active?.Settings ?? [], writes.Current, writes.Write))),
+            (AdminCoreFolders.Votes, () => AdminNode.Folder("#SS_UI_Admin_Votes", Votes())),
+            (AdminCoreFolders.Restart, () => new AdminNode("#SS_UI_Admin_Restart", "restart", () => console.ExecuteServerCommand("mp_restartgame 1\n"))),
+        ], services.ResolveAll<IAdminMenuScope>());
         foreach (var provider in services.ResolveAll<IAdminMenuProvider>())
             items.AddRange(provider.AdminItems(slot));
         return items;
+    }
+
+    /// <summary>
+    /// The core's folders, each by its <see cref="AdminCoreFolders"/> key, that every one of
+    /// <paramref name="scopes"/> offers; a hidden folder is never built.
+    /// </summary>
+    public static List<AdminNode> CoreFolders(IReadOnlyList<(string Key, Func<AdminNode> Make)> folders, IEnumerable<IAdminMenuScope> scopes)
+    {
+        var all = scopes.ToList();
+        return [.. folders.Where(f => all.TrueForAll(s => s.Offers(f.Key))).Select(f => f.Make())];
     }
 
     /// <summary>

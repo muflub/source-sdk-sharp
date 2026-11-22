@@ -124,7 +124,7 @@ public sealed class LampStatsTests
     [Fact]
     public void A_range_ceiling_that_lights_past_the_lights_own_range_is_out_of_range()
     {
-        var error = One(PlantedLamp(n => n["range"]!["max"] = 600));   // 720 x 7 = 5,040 > 4,096
+        var error = One(PlantedLamp(n => n["range"]!["max"] = 800));   // 480 x 9 = 4,320 > 4,096
 
         Assert.Equal(ContentRule.OutOfRange, error.Rule);
         Assert.Contains("range.max", error.Message);

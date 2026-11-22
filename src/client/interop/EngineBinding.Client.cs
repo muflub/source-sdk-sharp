@@ -2136,6 +2136,90 @@ internal sealed unsafe partial class EngineWorldQuery
                                    entIndex, new Vector(origin[0], origin[1], origin[2]));
     }
 
+    /// <inheritdoc/>
+    public unsafe int ClientSolidEntities(Span<ClientSolidEntity> into)
+    {
+        const int Words = 6;
+        int[] words = System.Buffers.ArrayPool<int>.Shared.Rent(Math.Max(1, into.Length * Words));
+        float[] bounds = System.Buffers.ArrayPool<float>.Shared.Rent(Math.Max(1, into.Length * Words));
+        try
+        {
+            int total;
+
+            // ONE CROSSING FOR THE WHOLE PARTITION: the records come back as two buffers.
+            fixed (int* w = words)
+            fixed (float* b = bounds)
+            {
+                total = _viewClientArea.ClientSolidEntities(w, b, into.Length);
+            }
+
+            int written = Math.Min(total, into.Length);
+            for (int i = 0; i < written; i++)
+            {
+                int o = i * Words;
+                into[i] = new ClientSolidEntity(
+                    words[o],
+                    new EntityHandle((uint)words[o + 1]),
+                    (SolidType)words[o + 2],
+                    (SolidFlags)words[o + 3],
+                    words[o + 4],
+                    words[o + 5],
+                    new Vector(bounds[o], bounds[o + 1], bounds[o + 2]),
+                    new Vector(bounds[o + 3], bounds[o + 4], bounds[o + 5]));
+            }
+
+            return total;
+        }
+        finally
+        {
+            System.Buffers.ArrayPool<int>.Shared.Return(words);
+            System.Buffers.ArrayPool<float>.Shared.Return(bounds);
+        }
+    }
+
+    /// <inheritdoc/>
+    public unsafe int ClientClipHullToEntities(Vector start, Vector end, Vector mins, Vector maxs, uint mask,
+                                               ReadOnlySpan<int> entityIndices, out MoveTrace trace)
+    {
+        float* s = stackalloc float[3] { start.X, start.Y, start.Z };
+        float* e = stackalloc float[3] { end.X, end.Y, end.Z };
+        float* lo = stackalloc float[3] { mins.X, mins.Y, mins.Z };
+        float* hi = stackalloc float[3] { maxs.X, maxs.Y, maxs.Z };
+        MoveTraceBlob blob = default;
+        int hit;
+
+        // One crossing for the whole list, as the other entity clips.
+        fixed (int* indices = entityIndices)
+        {
+            hit = _viewClientArea.ClientClipHullToEntities(s, e, lo, hi, (int)mask, indices, entityIndices.Length,
+                                                           &blob);
+        }
+
+        if (hit < 0)
+        {
+            trace = MoveTrace.Clear(end);
+            return -1;
+        }
+
+        trace = new MoveTrace
+        {
+            Fraction = blob.Fraction,
+            EndPos = new Vector(blob.EndPosX, blob.EndPosY, blob.EndPosZ),
+            PlaneNormal = new Vector(blob.PlaneNormalX, blob.PlaneNormalY, blob.PlaneNormalZ),
+            PlaneDist = blob.PlaneDist,
+            StartSolid = blob.StartSolid != 0,
+            AllSolid = blob.AllSolid != 0,
+            SurfaceProps = blob.SurfaceProps,
+            SurfaceFlags = blob.SurfaceFlags,
+            Contents = blob.Contents,
+            HasGround = blob.HasGround != 0,
+            GroundVelocity = new Vector(blob.GroundVelocityX, blob.GroundVelocityY, blob.GroundVelocityZ),
+            HasEntity = blob.HasEntity != 0,
+            HitWorld = blob.HitWorld != 0,
+        };
+        return hit;
+    }
+
     /// <summary>
     /// The same trace, choosing which entities it may hit. See
     /// <see cref="TraceFilter"/> for why this is an enumeration and not an

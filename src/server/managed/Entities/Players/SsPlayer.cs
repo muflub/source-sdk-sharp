@@ -1026,10 +1026,15 @@ public sealed class SsPlayer : AnimatingEntity
                     // sequence over on every drive and EntitySetSequence
                     // always restarts: a write per tick would pin the
                     // server's cycle at zero. A new sequence, or the
-                    // machine's own restart (a re-entered one-shot), writes.
+                    // machine's own restart (a re-entered one-shot), writes;
+                    // so does a sequence the skeleton is no longer playing,
+                    // asked as stock's ComputeMainSequence asks
+                    // GetSequence(): a model change puts it back to 0
+                    // (SetModel's SetSequence( 0 )), and the gait goes back on.
                     PlaySequence: (sequence, _, restart) =>
                     {
-                        if (restart || sequence != _skeletonSequence)
+                        _render.SequenceState(Handle, out int playing, out float _, out float _, out bool _, out int _);
+                        if (restart || sequence != _skeletonSequence || sequence != playing)
                             _render.SetSequence(Handle, sequence);
 
                         _skeletonSequence = sequence;

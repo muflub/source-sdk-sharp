@@ -794,6 +794,91 @@ public class EntityMotionTests
     }
 
     /// <summary>
+    /// A flyer with <see cref="EntityMotion.PassCharacters"/> set flies THROUGH a
+    /// character — but not through the world beyond it. Stock's sweep is a MASK
+    /// change (<c>PhysicsCheckSweep</c> making the sweep without
+    /// <c>CONTENTS_MONSTER</c>), not a cleared trace: the step carries on to
+    /// whatever brush stands past the player. The first shape of this arm reset
+    /// the whole step to "nothing hit, reach the destination", which flew the
+    /// flyer through the world too — the floor a passed character stands on went
+    /// unnoticed and the projectile was lost in it.
+    /// </summary>
+    [Fact]
+    public void APassedCharacterStillLeavesTheWorldInTheWay()
+    {
+        var (motion, engine, directory) = AMotionPass();
+        var projectile = Bound(directory, TheProjectile);
+        var character = new EntityHandle(0x0001_0000u | 4);
+
+        engine.Returns("Entities.GetParent", EntityHandle.None)
+              .Returns("Entities.GetOrigin", Vector.Zero)
+              .Returns("Entities.IsPlayer", true)
+              .Ignores("Entities.SetOrigin", "Entities.SetVelocity")
+              .ReturnsEachCall("WorldQuery.TraceLine", () =>
+                  // The step's own trace stops on the character (0.5); the
+                  // re-trace that leaves it out finds the floor beyond (0.8).
+                  engine.Calls.Count(c => c.Member == "WorldQuery.TraceLine") == 1
+                      ? new TraceResult(true, 0.5f, new Vector(0f, 7.5f, 0f), new Vector(0f, -1f, 0f), character)
+                      : new TraceResult(true, 0.8f, new Vector(0f, 12f, 0f), new Vector(0f, 0f, 1f), EntityHandle.None));
+
+        motion.Launch(TheProjectile, new Vector(0f, 1000f, 0f), 0f, 0, TheShooter);
+        motion.PassCharacters(TheProjectile, true);
+        motion.RunFrame(0.015f);
+
+        // The character was passed: the impact names the world, not the body.
+        Assert.Equal(new[] { EntityHandle.None }, projectile.Touched);
+
+        // And the world stopped it: the floor at 12, not the step's destination 15.
+        var origin = (Vector)engine.Last("Entities.SetOrigin")!.Value.Args[1]!;
+        Assert.Equal(12f, origin.Y, 0.01f);
+
+        // The second trace asked the brush-only mask — what "the world" means here.
+        var traces = engine.AllOf("WorldQuery.TraceLine").ToArray();
+        Assert.Equal(2, traces.Length);
+        Assert.Equal(TraceMask.Brushes, traces[1].ArgAs<TraceMask>(2));
+    }
+
+    /// <summary>
+    /// The same fix on the HULL arm, which is the one a boxed flyer's step takes
+    /// (the RPG missile's box before it ignites). The hull's mask table maps an
+    /// unnamed mask to MASK_SOLID, which still carries CONTENTS_MONSTER: without
+    /// <see cref="TraceMask.Brushes"/> mapped there, the re-trace would find the
+    /// very character it is meant to leave out.
+    /// </summary>
+    [Fact]
+    public void APassedCharacterStillLeavesTheWorldInTheWayForAHulledFlyer()
+    {
+        var (motion, engine, directory) = AMotionPass();
+        var projectile = Bound(directory, TheProjectile);
+        var character = new EntityHandle(0x0001_0000u | 4);
+
+        engine.Returns("Entities.GetParent", EntityHandle.None)
+              .Returns("Entities.GetOrigin", Vector.Zero)
+              .Returns("Entities.IsPlayer", true)
+              .Ignores("Entities.SetOrigin", "Entities.SetVelocity")
+              .ReturnsEachCall("WorldQuery.TraceBox", () =>
+                  engine.Calls.Count(c => c.Member == "WorldQuery.TraceBox") == 1
+                      ? new SurfaceTraceResult(true, 0.5f, new Vector(0f, 7.5f, 0f), new Vector(0f, -1f, 0f), character, -1, 0)
+                      : new SurfaceTraceResult(true, 0.8f, new Vector(0f, 12f, 0f), new Vector(0f, 0f, 1f), EntityHandle.None, -1, 0));
+
+        motion.Launch(TheProjectile, new Vector(0f, 1000f, 0f), 0f, 0, TheShooter, hull: new Vector(4f, 4f, 4f));
+        motion.PassCharacters(TheProjectile, true);
+        motion.RunFrame(0.015f);
+
+        Assert.Equal(new[] { EntityHandle.None }, projectile.Touched);
+
+        var origin = (Vector)engine.Last("Entities.SetOrigin")!.Value.Args[1]!;
+        Assert.Equal(12f, origin.Y, 0.01f);
+
+        var boxes = engine.AllOf("WorldQuery.TraceBox").ToArray();
+        Assert.Equal(2, boxes.Length);
+        Assert.Equal(TraceMask.Brushes, boxes[1].ArgAs<TraceMask>(4));
+        // The re-trace swept the box the launch gave it, not a ray.
+        Assert.Equal(new Vector(4f, 4f, 4f), boxes[1].ArgAs<Vector>(3));
+        Assert.False(engine.Called("WorldQuery.TraceLine"), "a hulled flyer traced a ray as well");
+    }
+
+    /// <summary>
     /// The velocity is written back to the shell only on the frames it MOVED.
     /// A rocket flies flat and never changes it, so writing every frame would
     /// be a native call per flyer per frame for a value nothing read.

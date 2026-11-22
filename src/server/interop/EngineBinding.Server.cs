@@ -1470,11 +1470,18 @@ internal sealed unsafe partial class EngineEntityRender
         _networkServerArea = networkServerArea ?? throw new ArgumentNullException(nameof(networkServerArea));
     }
 
-    /// <summary>Precaches and applies a model.</summary>
+    /// <summary>
+    /// Precaches and applies a model, then resets the skeleton's sequence as
+    /// stock's CBaseAnimating::SetModel does (SetSequence( 0 ) after
+    /// UTIL_SetModel). An empty name changes nothing: native ignores it.
+    /// </summary>
     public void SetModel(EntityHandle entity, string model)
     {
         var bytes = Encoding.UTF8.GetBytes(model + "\0");
         fixed (byte* p = bytes) { _modelsServerArea.EntitySetModel(entity.Value, p); }
+
+        if (!string.IsNullOrEmpty(model))
+            (_skeletons.Skeletons as IServerStandaloneSkeletons)?.ModelChanged(entity);
     }
 
     /// <summary>
@@ -3015,5 +3022,12 @@ internal sealed unsafe partial class EngineWorldQuery
                                                    TraceMask mask, int passEntityIndex,
                                                    ReadOnlySpan<int> entityIndices)
         => new ClientBoxTrace(false, 1f, end, -1, Vector.Zero);
+    public int ClientSolidEntities(Span<ClientSolidEntity> into) => 0;
+    public int ClientClipHullToEntities(Vector start, Vector end, Vector mins, Vector maxs, uint mask,
+                                        ReadOnlySpan<int> entityIndices, out MoveTrace trace)
+    {
+        trace = MoveTrace.Clear(end);
+        return -1;
+    }
     public int GetArea(Vector origin) => _server.GetArea(origin);
 }

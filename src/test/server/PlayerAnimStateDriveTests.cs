@@ -54,6 +54,13 @@ public class PlayerAnimStateDriveTests
         engine.Returns("Entities.GetAngles", Vector.Zero);
         engine.Returns("Entities.GetEyeAngles", Vector.Zero);
 
+        // The skeleton plays what was last written to it, as the server's does.
+        engine.ReturnsEachCall("EntityRender.SequenceState.sequence",
+                               () => SkeletonWrites(engine).DefaultIfEmpty(0).Last());
+        engine.Ignores("EntityRender.SequenceState", "EntityRender.SequenceState.cycle",
+                       "EntityRender.SequenceState.duration", "EntityRender.SequenceState.looping",
+                       "EntityRender.SequenceState.starts");
+
         var models = new ModelDescriptors(_ => 1, _ => Model, new RecordingLog());
         models.AttachSource(new PlayerModel());
 
@@ -106,6 +113,27 @@ public class PlayerAnimStateDriveTests
 
         Assert.True(writes.SequenceEqual(new[] { RunSequence, JumpSequence }),
             $"the run, then the jump, each written once ({string.Join(",", writes)})");
+    }
+
+    /// <summary>
+    /// A model change puts the skeleton back on sequence 0 (stock's SetModel's
+    /// SetSequence( 0 )); the gait the machine still plays is written again on
+    /// the next drive, as stock's ComputeMainSequence compares GetSequence().
+    /// A respawn re-wears the player's model.
+    /// </summary>
+    [Fact]
+    public void AGaitTheSkeletonNoLongerPlaysAfterAModelChangeIsWrittenAgain()
+    {
+        var (player, engine) = Running();
+        player.UpdateAnimState(10f);
+        player.UpdateAnimState(10.015f);
+
+        engine.Returns("EntityRender.SequenceState.sequence", 0);
+        player.UpdateAnimState(10.03f);
+
+        var writes = SkeletonWrites(engine);
+        Assert.True(writes.SequenceEqual(new[] { RunSequence, RunSequence }),
+            $"the run, then the run again once the skeleton plays 0 ({string.Join(",", writes)})");
     }
 
     //-------------------------------------------------------------------------

@@ -109,13 +109,14 @@ internal static class TraceMasks
 
     /// <summary>
     /// A hull trace's mask: a shot, a swing (MASK_SHOT_HULL, the bludgeon's
-    /// near-miss hull), or solid. Anything that would fit or not --
-    /// env_entity_maker's question -- is asked against MASK_SOLID.
+    /// near-miss hull), the brush-only world, or solid. Anything that would fit
+    /// or not -- env_entity_maker's question -- is asked against MASK_SOLID.
     /// </summary>
     public static int Hull(TraceMask mask) => mask switch
     {
         TraceMask.Shot => Shot,
         TraceMask.ShotHull => ShotHull,
+        TraceMask.Brushes => SolidBrushOnly,
         _ => Solid,
     };
 }

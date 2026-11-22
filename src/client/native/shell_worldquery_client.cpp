@@ -39,8 +39,7 @@ namespace
 {
 // Stock's CTraceFilterSkipPlayerAndViewModel: skips players, view models and
 // the two debris groups, and hits a thing that is no entity. The rule is in
-// flashlight_trace_filter.h. A shell's collision group is not networked, so the
-// debris arm cannot fire yet.
+// flashlight_trace_filter.h.
 class CSkipPlayerAndViewModelFilter : public CTraceFilter
 {
 public:
@@ -478,6 +477,129 @@ int32_t CWorldQueryClient::ClientTraceHullEntities(const float* pStartXYZ, const
 		pOutEntityOriginXYZ[2] = vecOrigin.z;
 	}
 	return bHit ? 1 : 0;
+}
+
+// ClientSolidEntities: the client's solid partition as the engine would hold it
+// (stock's PARTITION_CLIENT_SOLID_EDICTS: solid, and not dormant), which the
+// shells are not in. Each is six words and its world box; which of them a
+// trace may stop on is managed's decision.
+int32_t CWorldQueryClient::ClientSolidEntities(int32_t* pOutWords, float* pOutBounds, int32_t nCapacity)
+{
+	CClientEntityList& list = m_Standalone.EntityList();
+	const int nHighest = list.GetHighestEntityIndex();
+	int32_t nCount = 0;
+
+	for (int i = 1; i <= nHighest; ++i)
+	{
+		IClientEntity* pEnt = list.EntityFromIndex(i);
+		ICollideable* pCollide = pEnt ? pEnt->GetCollideable() : NULL;
+
+		if (!pCollide || pEnt->IsDormant() ||
+			!ClipCandidateIsSolid((int)pCollide->GetSolid(), pCollide->GetSolidFlags()))
+			continue;
+
+		if (pOutWords && pOutBounds && nCount < nCapacity)
+		{
+			const model_t* pModel = pEnt->GetModel();
+			int32_t* pWords = pOutWords + nCount * 6;
+			pWords[0] = i;
+			pWords[1] = (int32_t)pEnt->GetRefEHandle().ToInt();
+			pWords[2] = (int32_t)pCollide->GetSolid();
+			pWords[3] = pCollide->GetSolidFlags();
+			pWords[4] = pCollide->GetCollisionGroup();
+			pWords[5] = (pModel && m_Engines.m_pModelInfo) ? (int32_t)m_Engines.m_pModelInfo->GetModelType(pModel) : -1;
+
+			Vector vecMins, vecMaxs;
+			pCollide->WorldSpaceSurroundingBounds(&vecMins, &vecMaxs);
+			float* pBounds = pOutBounds + nCount * 6;
+			pBounds[0] = vecMins.x;
+			pBounds[1] = vecMins.y;
+			pBounds[2] = vecMins.z;
+			pBounds[3] = vecMaxs.x;
+			pBounds[4] = vecMaxs.y;
+			pBounds[5] = vecMaxs.z;
+		}
+
+		++nCount;
+	}
+
+	return nCount;
+}
+
+// ClientClipHullToEntities: a movement hull clipped against the entities managed
+// chose, and no world (the movement trace has that). The entities merge as
+// CEngineTrace::ClipTraceToTrace merges them: a clip that starts solid or stops
+// sooner replaces the answer, and a start inside anything stays a start inside.
+int32_t CWorldQueryClient::ClientClipHullToEntities(const float* pStartXYZ, const float* pEndXYZ, const float* pMinsXYZ,
+													const float* pMaxsXYZ, int32_t nMask, const int32_t* pEntityIndices,
+													int32_t nEntities, SourceSharpMoveTraceResult* pOut)
+{
+	if (!pOut)
+		return -1;
+
+	memset(pOut, 0, sizeof(*pOut));
+	pOut->flFraction = 1.0f;
+
+	if (!pStartXYZ || !pEndXYZ || !pMinsXYZ || !pMaxsXYZ)
+		return -1;
+
+	const Vector vecStart(pStartXYZ[0], pStartXYZ[1], pStartXYZ[2]);
+	const Vector vecEnd(pEndXYZ[0], pEndXYZ[1], pEndXYZ[2]);
+	pOut->vecEndPos[0] = vecEnd.x;
+	pOut->vecEndPos[1] = vecEnd.y;
+	pOut->vecEndPos[2] = vecEnd.z;
+
+	Ray_t ray;
+	ray.Init(vecStart, vecEnd, Vector(pMinsXYZ[0], pMinsXYZ[1], pMinsXYZ[2]),
+			 Vector(pMaxsXYZ[0], pMaxsXYZ[1], pMaxsXYZ[2]));
+
+	trace_t best;
+	memset(&best, 0, sizeof(best));
+	best.fraction = 1.0f;
+	int32_t nHitIndex = -1;
+	bool bStartSolid = false;
+
+	for (int32_t i = 0; pEntityIndices && i < nEntities; ++i)
+	{
+		IClientEntity* pEnt = m_Standalone.EntityList().EntityFromIndex(pEntityIndices[i]);
+		ICollideable* pCollide = pEnt ? pEnt->GetCollideable() : NULL;
+
+		if (!pCollide || !ClipCandidateIsSolid((int)pCollide->GetSolid(), pCollide->GetSolidFlags()))
+			continue;
+
+		trace_t tr;
+		m_Engines.m_pTrace->ClipRayToCollideable(ray, (unsigned int)nMask, pCollide, &tr);
+
+		if (tr.allsolid || tr.startsolid || tr.fraction < best.fraction)
+		{
+			best = tr;
+			nHitIndex = pEntityIndices[i];
+		}
+		bStartSolid = bStartSolid || tr.startsolid;
+	}
+
+	if (nHitIndex < 0)
+		return -1;
+
+	pOut->flFraction = best.fraction;
+	pOut->vecEndPos[0] = best.endpos.x;
+	pOut->vecEndPos[1] = best.endpos.y;
+	pOut->vecEndPos[2] = best.endpos.z;
+	pOut->vecPlaneNormal[0] = best.plane.normal.x;
+	pOut->vecPlaneNormal[1] = best.plane.normal.y;
+	pOut->vecPlaneNormal[2] = best.plane.normal.z;
+	pOut->flPlaneDist = best.plane.dist;
+	pOut->bStartSolid = (bStartSolid || best.startsolid) ? 1 : 0;
+	pOut->bAllSolid = best.allsolid ? 1 : 0;
+	pOut->nSurfaceProps = best.surface.surfaceProps;
+	pOut->nSurfaceFlags = best.surface.flags;
+	pOut->nContents = best.contents;
+	// A shell is an entity of this side's table: it is ground, as GroundFromTrace
+	// answers for one, and the client's ground never moves (MovementGroundVelocity).
+	pOut->bHasGround = 1;
+	pOut->bHasEntity = 1;
+	pOut->bHitWorld = 0;
+	return nHitIndex;
 }
 
 int32_t CWorldQueryClient::ClientEntityRenderPose(int32_t nEntityIndex, float* pOutOriginXYZ, float* pOutAngles)

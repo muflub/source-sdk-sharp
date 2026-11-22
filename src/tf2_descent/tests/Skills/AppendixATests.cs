@@ -80,7 +80,7 @@ public sealed class AppendixATests
         ["haggler"] = new(5, [N("floor", 3, 15), N("stat:price_buy_pct", -4, -20), N("stat:price_sell_pct", 4, 20)]),
         ["field_rations"] = new(5, [N("floor", 3, 15), N("stat:potion_restore_pct", 8, 40), N("stat:potion_cooldown_pct", -6, -30)]),
         // Not in Appendix A: the miner's lamp's skill (the user, 2026-11-13; provisional numbers).
-        ["lamplighter"] = new(5, [N("floor", 3, 15), N("stat:lamp_radius_pct", 8, 40), N("stat:lamp_brightness_pct", 15, 75)]),
+        ["lamplighter"] = new(5, [N("floor", 3, 15), N("stat:lamp_radius_pct", 15, 75), N("stat:lamp_brightness_pct", 15, 75)]),
     };
 
     /// <summary>Appendix A's "needs" column and synergy lines, as edges.</summary>

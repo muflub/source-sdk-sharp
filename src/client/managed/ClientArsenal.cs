@@ -1364,10 +1364,11 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
 
         // The swing's own reach and its two sounds ride to the fx, so the
         // impact hears which sound fits what it stopped on.
-        public void MeleeSwing(in WeaponType type, float range, string hitWorldSound, string hitPlayerSound)
+        public void MeleeSwing(in WeaponType type, float range, in MeleeHull hull, string hitWorldSound,
+                               string hitPlayerSound)
         {
             if (_owner._hasEye)
-                _owner._fx?.MeleeSwing(in _owner._shot, in type, range, hitWorldSound, hitPlayerSound);
+                _owner._fx?.MeleeSwing(in _owner._shot, in type, range, in hull, hitWorldSound, hitPlayerSound);
         }
 
         // A shot's muzzle flash and brass: the viewmodel they ride is this

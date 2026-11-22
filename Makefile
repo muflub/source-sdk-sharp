@@ -694,7 +694,7 @@ ai-nav:
 # HULL=1 builds the map's hull navigation, maps/MAP.navhull, instead (plan_bots_teams_tf2_part_g
 # G.7): the one a map too tall for a .nav3d has (a jump map, found in content/tf/download/maps
 # too), and the one the loader prefers when a map has both.
-TF_NAV_MAPS := ctf_2fort
+TF_NAV_MAPS := ctf_2fort cp_granary
 
 ai-nav-tf:
 	$(call require-setup,$(CONFIG))

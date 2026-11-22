@@ -47,6 +47,10 @@ public:
 									const float* pMaxsXYZ, int32_t nMask, int32_t nPassEntityIndex,
 									const int32_t* pEntityIndices, int32_t nEntities, float* pOutFraction,
 									float* pOutEndXYZ, int32_t* pOutEntityIndex, float* pOutEntityOriginXYZ);
+	int32_t ClientSolidEntities(int32_t* pOutWords, float* pOutBounds, int32_t nCapacity);
+	int32_t ClientClipHullToEntities(const float* pStartXYZ, const float* pEndXYZ, const float* pMinsXYZ,
+									 const float* pMaxsXYZ, int32_t nMask, const int32_t* pEntityIndices,
+									 int32_t nEntities, SourceSharpMoveTraceResult* pOut);
 
 private:
 	const CClientEngineInterfaces& m_Engines;

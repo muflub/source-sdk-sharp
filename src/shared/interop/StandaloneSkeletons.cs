@@ -109,6 +109,21 @@ public interface IStandaloneSkeletons
 }
 
 /// <summary>
+/// The server's skeleton asks beyond the shared ones: what a model change
+/// does to the skeleton. The client's model changes arrive over the wire with
+/// the sequence the server sent, as stock's networked m_nSequence does.
+/// </summary>
+public interface IServerStandaloneSkeletons : IStandaloneSkeletons
+{
+    /// <summary>
+    /// <c>CBaseAnimating::SetModel</c>'s skeleton half, after the model is
+    /// worn: the sequence back to 0, the cycle where it was. False when the
+    /// handle names no standalone entity.
+    /// </summary>
+    bool ModelChanged(EntityHandle entity);
+}
+
+/// <summary>
 /// The client's skeleton asks beyond the shared ones (plan
 /// physics_bones_native_zero 1.2, client half): the layers, the merge source
 /// and the sequence clock, which only the client poses from. Each answers as

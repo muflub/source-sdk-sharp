@@ -260,6 +260,32 @@ public interface IAdminMenuProvider
     IEnumerable<AdminNode> AdminItems(int slot);
 }
 
+/// <summary>The keys of the admin menu's own folders, as an <see cref="IAdminMenuScope"/> names them.</summary>
+public static class AdminCoreFolders
+{
+    public const string Map = "map";
+    public const string Mode = "mode";
+    public const string Players = "players";
+    public const string Settings = "settings";
+    public const string Votes = "votes";
+    public const string Restart = "restart";
+
+    /// <summary>Every key, in the menu's order.</summary>
+    public static IReadOnlyList<string> All => [Map, Mode, Players, Settings, Votes, Restart];
+}
+
+/// <summary>
+/// What a game says of the admin menu's own folders (<see cref="AdminCoreFolders"/>): one
+/// with no use for a folder (its levels are not the map cycle, its one mode is its own)
+/// hides it, and offers its own through an <see cref="IAdminMenuProvider"/>. A folder is
+/// shown while every registered scope offers it.
+/// </summary>
+public interface IAdminMenuScope
+{
+    /// <summary>Whether the core's folder <paramref name="folder"/> (an <see cref="AdminCoreFolders"/> key) is shown.</summary>
+    bool Offers(string folder);
+}
+
 /// <summary>The admin menu as text on the wire, and its pieces.</summary>
 public static class AdminMenuText
 {
