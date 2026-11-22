@@ -106,4 +106,19 @@ public sealed partial class HostLink : IHostItems
 
     public Task<HostResult<IReadOnlyList<HostItem>>> Salvage(string steamId, string itemId) =>
         Leased(steamId, (sdk, held) => sdk.Items.Salvage(held.Lease, itemId));
+
+    public Task<HostResult<HostItem>> Move(string steamId, string itemId, HostContainer container, int slot) =>
+        Leased(steamId, (sdk, held) => sdk.Items.Move(held.Lease, itemId, container, slot));
+
+    public Task<HostResult<HostItem>> Consume(string steamId, string itemId, int count) =>
+        Leased(steamId, (sdk, held) => sdk.Items.Consume(held.Lease, itemId, count));
+
+    public Task<HostResult<IReadOnlyList<HostItem>>> Wear(string steamId, IReadOnlyList<HostWear> entries) =>
+        Leased(steamId, (sdk, held) => sdk.Items.Wear(held.Lease, entries));
+
+    public Task<HostResult<HostItem>> Repair(string steamId, string itemId, HostRepairKind kind, string? kitId) =>
+        Leased(steamId, (sdk, held) => sdk.Items.Repair(held.Lease, itemId, kind, kitId));
+
+    public Task<HostResult<IReadOnlyList<HostItem>>> OpenContainer(string steamId, uint containerSeq) =>
+        Leased(steamId, async (sdk, held) => Named(await sdk.Items.OpenContainer(held.Lease, containerSeq)));
 }

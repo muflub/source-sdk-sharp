@@ -54,7 +54,8 @@ public static class DescentRooms
     /// Each room of a depth's library as the shapes built it, as dressed
     /// (<see cref="Dressing.RoomDresser"/>), and the theme it is dressed in:
     /// the depth's, or for a way in (<c>room_role up</c>) the theme's
-    /// <see cref="RoomTheme.Arrival"/>, redrawn in it first.
+    /// <see cref="RoomTheme.Arrival"/>, redrawn in it first, and for a room of the theme's
+    /// <see cref="RoomTheme.CaveFamilies"/> its <see cref="RoomTheme.Caves"/>.
     /// </summary>
     public static IReadOnlyList<(Room Built, Room Dressed, RoomTheme Theme)> Dressed(int depth, ulong seed)
     {
@@ -62,8 +63,10 @@ public static class DescentRooms
         var rooms = new List<(Room, Room, RoomTheme)>();
         foreach (Room room in Built(depth, seed))
         {
-            var (built, use) = room.Role == RoomRole.Up && theme.Arrival is { } arrival ? (theme.Redraw(room, arrival), arrival) : (room, theme);
-            rooms.Add((built, Dressing.RoomDresser.Dress(built, use, seed), use));
+            var (built, use) = room.Role == RoomRole.Up && theme.Arrival is { } arrival ? (theme.Redraw(room, arrival), arrival)
+                : theme.Caves is { } caves && theme.CaveFamilies.Contains(Dressing.RoomDresser.Family(room.Name)) ? (theme.Redraw(room, caves), caves)
+                : (room, theme);
+            rooms.Add((built, Dressing.RoomDresser.Dress(built, use, seed, Breakables.CapAt(depth)), use));
         }
 
         return rooms;
@@ -112,7 +115,7 @@ public static class DescentRooms
         var dressed = Dressed(depth, seed);
         var rooms = dressed.Select(r => r.Dressed).ToArray();
         var findings = rooms.SelectMany(RoomLint.Check)
-            .Concat(dressed.SelectMany(r => Dressing.DressLint.Check(r.Built, r.Dressed, r.Theme))).ToArray();
+            .Concat(dressed.SelectMany(r => Dressing.DressLint.Check(r.Built, r.Dressed, r.Theme, Breakables.CapAt(depth)))).ToArray();
         if (findings.Length > 0)
             throw new InvalidOperationException("the library does not lint clean:\n  " + string.Join("\n  ", findings.Select(f => f.ToString())));
 

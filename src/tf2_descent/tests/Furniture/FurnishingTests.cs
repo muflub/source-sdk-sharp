@@ -21,6 +21,9 @@ public sealed class FurnishingTests
     private static readonly string[] Pois =
         ["descent_mark_shrine", "descent_mark_container", "descent_mark_dispenser", "descent_mark_barrel", "descent_mark_trap"];
 
+    /// <summary>The breakables' own markers, which the map session's dresser is to emit (a crate, a barrel).</summary>
+    private static readonly string[] BreakablePois = ["descent_mark_breakable_crate", "descent_mark_breakable_barrel"];
+
     /// <summary>A room with <paramref name="each"/> markers of every furniture kind and two pack spawns.</summary>
     private static RoomMarkers Room(string id, int each) =>
         new(id, [.. Pois.SelectMany(p => Enumerable.Range(0, each).Select(i => new FurnitureMarker($"{id}.{p}.{i}", p))),
@@ -32,9 +35,9 @@ public sealed class FurnishingTests
         string.Join(";", f.In(room).Select(p => $"{p.Marker}={p.Variant}/{p.KeyId}/{p.Trap}"));
 
     [Fact]
-    public void The_marker_kinds_are_the_five_furniture_markers_the_rooms_declare()
+    public void The_marker_kinds_are_the_five_furniture_markers_the_rooms_declare_and_the_breakables()
     {
-        Assert.Equal(Pois, Table.Markers.Select(m => m.Poi));
+        Assert.Equal(Pois.Concat(BreakablePois), Table.Markers.Select(m => m.Poi));
     }
 
     [Fact]
@@ -57,7 +60,7 @@ public sealed class FurnishingTests
             placed += f.Placed.Length;
             foreach (var room in Level)
                 foreach (var rule in Table.Markers)
-                    Assert.True(f.In(room.Room).Count(p => p.Kind == rule.Kind) <= rule.PerRoom,
+                    Assert.True(f.In(room.Room).Count(p => p.Kind == rule.Kind && OnPoi(p, rule)) <= rule.PerRoom,
                         $"seed {seed}: {room.Room} holds more than {rule.PerRoom} {rule.Kind}");
         }
         Assert.True(placed > 2000);
@@ -67,10 +70,14 @@ public sealed class FurnishingTests
     public void Each_kind_reaches_its_limit_in_a_room_with_enough_markers()
     {
         // The limit is the bound, not a ceiling never met: over 2000 seeds each kind fills to it.
-        foreach (var rule in Table.Markers)
+        // The breakables' own markers are not in these rooms (their limit is the dresser's, not met here).
+        foreach (var rule in Table.Markers.Where(r => Pois.Contains(r.Poi)))
             Assert.Contains(Enumerable.Range(0, 2000), s =>
-                Placement.Furnish((ulong)s, Level).In("hall").Count(p => p.Kind == rule.Kind) == rule.PerRoom);
+                Placement.Furnish((ulong)s, Level).In("hall").Count(p => p.Kind == rule.Kind && OnPoi(p, rule)) == rule.PerRoom);
     }
+
+    /// <summary>Whether <paramref name="p"/> stands on a marker of <paramref name="rule"/>'s poi (the rooms' marker ids name it), not one another rule passed over.</summary>
+    private static bool OnPoi(Placed p, MarkerRule rule) => p.Marker.Contains("." + rule.Poi + ".", StringComparison.Ordinal);
 
     [Fact]
     public void A_marker_is_furnished_at_its_kinds_fill_chance_over_20k_seeds()
@@ -78,7 +85,8 @@ public sealed class FurnishingTests
         foreach (var rule in Table.Markers)
         {
             RoomMarkers[] one = [new("r", [new FurnitureMarker("m", rule.Poi)])];
-            int filled = Enumerable.Range(0, 20_000).Count(s => Placement.Furnish((ulong)s, one).Placed.Length == 1);
+            // Filled by the rule's kind: a passed-over marker may hold its otherwise breakable instead.
+            int filled = Enumerable.Range(0, 20_000).Count(s => Placement.Furnish((ulong)s, one).Placed.Count(p => p.Kind == rule.Kind) == 1);
 
             Assert.InRange(100.0 * filled / 20_000, rule.FillPct - 1.5, rule.FillPct + 1.5);
         }

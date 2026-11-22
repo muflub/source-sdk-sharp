@@ -36,6 +36,12 @@ reads the file as before. Tag `LITE`, little-endian:
 The file is rewritten as the map tools' writer lays one out (the directory
 after the 96-byte header, each section on a four-byte boundary); the sections
 before keep their bytes, and an earlier LITE section is replaced.
+
+It then writes the level's boss arena (tools/descent-arena: the section ARNA)
+from the level's .arena beside the rooms preview's directory (MapGen's
+descent-level writes <level>.arena there, `{}` for a level with no arena), so
+the Makefile's one step after the previews writes both; a missing .arena is a
+failure.
 """
 import importlib.machinery
 import importlib.util
@@ -211,7 +217,26 @@ def run(bsp, preview_dir):
         os.path.basename(map2d), len(got), len(rooms),
         '%.0f to %.0f (mean %.1f)' % (min(got), max(got), sum(got) / len(got)) if got else 'none',
         sum(1 for _, fl in values if fl & DARK)))
-    return 0 if len(got) == len(rooms) else 1
+    arena_file = arena_file_of(bsp, preview_dir)
+    if not os.path.isfile(arena_file):
+        print('descent-room-light: no %s (MapGen descent-level writes it beside the level)' % arena_file)
+        return 1
+    arena_rc = arena().run(bsp, arena_file)
+    return 0 if len(got) == len(rooms) and arena_rc == 0 else 1
+
+
+def arena_file_of(bsp, preview_dir):
+    """The level's .arena: <the rooms preview's parent>/<the level>.arena, where descent-level writes it."""
+    return os.path.join(os.path.dirname(os.path.abspath(preview_dir)), os.path.splitext(os.path.basename(bsp))[0] + '.arena')
+
+
+def arena():
+    """tools/descent-arena as a module."""
+    loader = importlib.machinery.SourceFileLoader('descent_arena', os.path.join(HERE, 'descent-arena'))
+    spec = importlib.util.spec_from_loader('descent_arena', loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
 
 
 def show(map2d):
@@ -266,6 +291,9 @@ def self_test():
     expect(flags == [False, False, True], 'a room with no light inside its cells is not dark (or one with a light is)')
     g = gate()
     expect(g.LEVEL1_VIEW > 0, 'descent-gate has no LEVEL1_VIEW')
+    expect(arena_file_of('/d/maps/tf2_descent-10-s1.bsp', '/d/tf2_descent-10-s1-rooms') == '/d/tf2_descent-10-s1.arena',
+           'the level\'s .arena is not read beside its rooms preview')
+    expect(arena().self_test() == 0, 'tools/descent-arena\'s self-test fails')
     for b in bad:
         print('descent-room-light self-test: FAIL: ' + b)
     print('descent-room-light self-test: %s' % ('FAIL' if bad else 'ok'))

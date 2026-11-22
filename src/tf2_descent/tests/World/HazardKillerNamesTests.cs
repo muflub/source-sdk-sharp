@@ -17,6 +17,7 @@ public sealed class HazardKillerNamesTests
         public double Now { get; set; } = 50;
         public int Depth => 1;
         public IReadOnlyList<(string Kind, Vector Min, Vector Max)> MapVolumes(IReadOnlyList<string> kinds) => [];
+        public IReadOnlyList<(int Phase, string Kind, Vector Min, Vector Max)> StagedVolumes(IReadOnlyList<string> kinds, int lastPhase) => [];
         public bool IsAlive(EntityHandle player) => true;
         public Vector Feet(EntityHandle player) => default;
         public void Hurt(EntityHandle victim, float amount, DamageType bits, Vector at) { }

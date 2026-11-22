@@ -195,6 +195,46 @@ public static class Parts
     public static RoomBuilder Post(this RoomBuilder b, float x, float y, float half)
         => b.WithBox(new Point(x - half, y - half, b.Floor), new Point(x + half, y + half, b.CeilingUnderside));
 
+    /// <summary>
+    /// A lump of rock from <paramref name="z0"/> to <paramref name="z1"/> inside the box (<paramref name="cx"/> ±
+    /// <paramref name="rx"/>, <paramref name="cy"/> ± <paramref name="ry"/>): its footprint an uneven convex polygon
+    /// (its corners on the ellipse at angles the seed turns), its top that footprint drawn in by half toward a point off
+    /// its middle, so each side leans in by its own amount and it reads as broken rock, not a block (brief p15: the
+    /// Bore's cover and rubble were plain cubes). Every corner is on a whole unit and each side's four corners lie in
+    /// one plane (the top's edges are the footprint's, halved).
+    /// </summary>
+    public static Brush Rock(float cx, float cy, float rx, float ry, float z0, float z1, Surface surface, RoomSeed rng, int sides = 7)
+    {
+        if (sides < 5 || rx < 16 || ry < 16 || z1 <= z0)
+            throw new ArgumentException($"a rock needs five sides, 16 of radius and a height ({sides}, {rx} by {ry}, {z0} to {z1})");
+        float x = MathF.Round(cx), y = MathF.Round(cy), turn = rng.Int(0, 360);
+        // Even offsets from the middle, so the halved top lands on whole units.
+        static float Even(float v) => 2 * MathF.Round(v / 2);
+        var foot = new (float X, float Y)[sides];
+        for (int i = 0; i < sides; i++)
+        {
+            float a = (turn + 360f * (i + rng.Int(-30, 31) / 100f) / sides) * MathF.PI / 180;
+            foot[i] = (Even(rx * MathF.Cos(a)), Even(ry * MathF.Sin(a)));
+        }
+
+        // The top's middle, off the footprint's by up to a fifth of each radius.
+        float ox = MathF.Round(rx * rng.Int(-20, 21) / 100f), oy = MathF.Round(ry * rng.Int(-20, 21) / 100f);
+        Point Low((float X, float Y) p) => new(x + p.X, y + p.Y, z0);
+        Point High((float X, float Y) p) => new(x + ox + p.X / 2, y + oy + p.Y / 2, z1);
+        var faces = new List<BrushFace>
+        {
+            new([.. foot.Select(High)], surface),
+            new([.. foot.Reverse().Select(Low)], surface),
+        };
+        for (int i = 0; i < sides; i++)
+        {
+            var (a, c) = (foot[i], foot[(i + 1) % sides]);
+            faces.Add(new([Low(a), Low(c), High(c), High(a)], surface));
+        }
+
+        return new Brush(faces, surface);
+    }
+
     /// <summary>A box from the floor up <paramref name="height"/> over <paramref name="r"/>.</summary>
     public static RoomBuilder Block(this RoomBuilder b, Rect r, float height, Surface? surface = null)
         => b.WithBox(new Point(r.X0, r.Y0, b.Floor), new Point(r.X1, r.Y1, b.Floor + height), surface);

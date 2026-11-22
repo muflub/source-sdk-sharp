@@ -23,6 +23,7 @@ E - Use: a stall, the cage, loot, a gravestone, a friend
 C - Character sheet
 I - Inventory
 K - Skills
+Tab - Map overlay: the map over the view
 M - Automap
 P - Party
 L - Miner's lamp

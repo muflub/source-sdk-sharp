@@ -148,7 +148,8 @@ public sealed partial class HookOrderTests
     public void Client_hook_implementations_have_distinct_orders()
     {
         // The registrar's hooks, and the core's client hook the mod implements.
-        var hooks = ClientHooksOf(new ClientRegistrar()).Append(typeof(IClientLevelHook)).ToList();
+        var hooks = ClientHooksOf(new ClientRegistrar()).Append(typeof(IClientLevelHook))
+            .Append(typeof(client::SourceSharp.Client.TempEnts.IBreakPieceGroupRule)).ToList();
         Assert.True(hooks.Count >= 4, $"only {hooks.Count} client hook type(s) found");
 
         ClientAssertDistinct(typeof(ClientRegistrar).Assembly, Side.Client, hooks);

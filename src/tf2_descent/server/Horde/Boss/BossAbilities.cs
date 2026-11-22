@@ -50,7 +50,7 @@ public enum BossRefusal
 /// </list>
 /// </summary>
 [SideService(Side.Server)]
-public sealed class BossAbilities(IHordeRules rules, IBossWorld world, IBossAdds adds, IHordeHeroes heroes, BossEncounter encounter, ILog log)
+public sealed class BossAbilities(IHordeRules rules, IBossWorld world, IBossAdds adds, IHordeHeroes heroes, BossEncounter encounter, ArenaStage stage, ILog log)
     : IRobotAbility, IHordeTicker, IOrderedHook
 {
     /// <summary>In the boss band, after the encounter (its phase is current before a windup lands).</summary>
@@ -84,6 +84,9 @@ public sealed class BossAbilities(IHordeRules rules, IBossWorld world, IBossAdds
 
     public long Stations { get; private set; }
 
+    /// <summary>The Tank's stations drilled (not its final), this level.</summary>
+    public long Drills { get; private set; }
+
     public long Roofs { get; private set; }
 
     public long RoofHits { get; private set; }
@@ -110,8 +113,11 @@ public sealed class BossAbilities(IHordeRules rules, IBossWorld world, IBossAdds
             case HordeAbilities.TankStation:
                 Station(horde, body, row, action.OneShotSeq, now);
                 return true;
+            case HordeAbilities.TankDrilled:
+                Drilled(action.OneShotSeq, now);
+                return true;
             case HordeAbilities.TankRoof:
-                Roof(horde, body, row, now);
+                Roof(horde, body, row, action.OneShotSeq, now);
                 return true;
             default:
                 return false;
@@ -154,7 +160,7 @@ public sealed class BossAbilities(IHordeRules rules, IBossWorld world, IBossAdds
         Array.Clear(_special);
         _summoned.Clear();
         Array.Clear(_refused);
-        Telegraphs = Landed = Shots = SlamHits = Summons = Stations = Roofs = RoofHits = 0;
+        Telegraphs = Landed = Shots = SlamHits = Summons = Stations = Drills = Roofs = RoofHits = 0;
     }
 
     private void Special(HordeController horde, RobotBody body, int row, int phase, long now)
@@ -254,7 +260,7 @@ public sealed class BossAbilities(IHordeRules rules, IBossWorld world, IBossAdds
         ulong seed = roster.Seed(row) ^ ((ulong)(phase + 1) * 0xD1B54A32D192ED03UL);
         int k = 0;
         foreach (var add in BossRules.AddsOf(script, phase))
-            adds.Summon(horde, row, add.Template, add.Count, seed + (ulong)k++ * 0x632BE59BD9B4E019UL, now);
+            adds.Summon(horde, row, add.Template, add.Count, seed + (ulong)k++ * 0x632BE59BD9B4E019UL, now, legs: phase + 1);
     }
 
     private void Station(HordeController horde, RobotBody body, int row, int station, long now)
@@ -272,10 +278,18 @@ public sealed class BossAbilities(IHordeRules rules, IBossWorld world, IBossAdds
             $"[TF2Descent/Boss] tank: station {station} reached at ({body.Position.X:0},{body.Position.Y:0}), drilling, tick {now}\n"));
     }
 
-    private void Roof(HordeController horde, RobotBody body, int row, long now)
+    private void Drilled(int station, long now)
+    {
+        Drills++;
+        log.Msg(string.Create(CultureInfo.InvariantCulture, $"[TF2Descent/Boss] tank: station {station} drilled, rolling on, tick {now}\n"));
+        stage.StationDrilled(station);
+    }
+
+    private void Roof(HordeController horde, RobotBody body, int row, int station, long now)
     {
         var s = rules.Rules.Bosses.Settings;
         Roofs++;
+        stage.StationDrilled(station);
         world.Sound(body.Handle, s.Sounds.Roof);
         int n = heroes.Gather(horde.Level!, _places, _eyes);
         int room = horde.Roster!.HomeRoom(row);
@@ -291,7 +305,7 @@ public sealed class BossAbilities(IHordeRules rules, IBossWorld world, IBossAdds
 
         RoofHits += hit;
         log.Msg(string.Create(CultureInfo.InvariantCulture,
-            $"[TF2Descent/Boss] tank: the last pillar falls: the roof comes down on {hit} hero(es) for {s.Tank.RoofDamage}, tick {now}\n"));
+            $"[TF2Descent/Boss] tank: the last pillar (station {station}) falls: the roof comes down on {hit} hero(es) for {s.Tank.RoofDamage}, tick {now}\n"));
     }
 
     /// <summary><paramref name="d"/> turned by <paramref name="degrees"/> about the vertical.</summary>
@@ -306,5 +320,5 @@ public sealed class BossAbilities(IHordeRules rules, IBossWorld world, IBossAdds
 
     /// <summary>The verbs' counters as one line for <c>tf2_descent_boss</c>.</summary>
     public string Line() => string.Create(CultureInfo.InvariantCulture,
-        $"specials: telegraphs {Telegraphs}, landed {Landed}, volley shots {Shots}, slam hits {SlamHits}; summons {Summons}; tank stations {Stations}, roofs {Roofs} (hitting {RoofHits}); refused: {string.Join(", ", Enum.GetValues<BossRefusal>().Select(r => $"{r} {_refused[(int)r]}"))}");
+        $"specials: telegraphs {Telegraphs}, landed {Landed}, volley shots {Shots}, slam hits {SlamHits}; summons {Summons}; tank stations {Stations}, drilled {Drills}, roofs {Roofs} (hitting {RoofHits}); refused: {string.Join(", ", Enum.GetValues<BossRefusal>().Select(r => $"{r} {_refused[(int)r]}"))}");
 }

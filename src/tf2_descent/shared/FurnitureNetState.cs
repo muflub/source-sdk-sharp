@@ -37,6 +37,7 @@ public enum FurnitureKindId : byte
     Dispenser,
     Explosive,
     Trap,
+    Breakable,
 }
 
 /// <summary>How a piece of furniture is, as bits of <see cref="FurnitureNetState.Flags"/>.</summary>
@@ -66,14 +67,17 @@ public enum FurnitureFlags : byte
 /// id, the name a hero reads (a localisation token: a shrine's is the rules'
 /// hint, never its effect), and the TF2 models it wears, standing and spent
 /// or opened. No art of Descent's own: every model is TF2's or HL2's, from
-/// the mod's GAME path.
+/// the mod's GAME path. A crate's or barrel's spent model is the one its break
+/// shatters: the mining crate's own break leaves its body standing (its first
+/// stage, <c>miningcrate001_break01</c>), so it breaks as that body, whose
+/// pieces are all splinters.
 /// </summary>
 public sealed record FurnitureEntry(FurnitureKindId Kind, string Variant, string NameToken, string Model, string SpentModel);
 
 /// <summary>
 /// Every variant the rules can place (furniture.json), numbered for the wire.
 /// A fact holds it to the rules: every shrine effect, container kind,
-/// explosive and trap has its entry, and a shrine's name is the rules' own.
+/// explosive, trap and breakable has its entry, and a shrine's name is the rules' own.
 /// </summary>
 public static class FurnitureCatalog
 {
@@ -107,8 +111,11 @@ public static class FurnitureCatalog
     /// <summary>A stickybomb lying on the floor: the charge.</summary>
     public const string ChargeModel = "models/weapons/w_models/w_stickybomb.mdl";
 
+    /// <summary>Farm's wooden barrel: it breaks into staves (its prop_data, wooden.large, and its gibs).</summary>
+    public const string WoodenBarrelModel = "models/props_farm/wooden_barrel.mdl";
+
     /// <summary>How many entries the catalog holds: wire numbers 1 to this.</summary>
-    public const int Count = 17;
+    public const int Count = 19;
 
     private static (FurnitureKindId Kind, string Variant, string Name, string Model, string Spent)? Row(int number) => number switch
     {
@@ -129,6 +136,8 @@ public static class FurnitureCatalog
         15 => (FurnitureKindId.Trap, "flame_jet", "#Descent_Furniture_FlameJet", PlateModel, PlateModel),
         16 => (FurnitureKindId.Trap, "charge", "#Descent_Furniture_Charge", ChargeModel, ChargeModel),
         17 => (FurnitureKindId.Trap, "tesla_coil", "#Descent_Furniture_TeslaCoil", PlateModel, PlateModel),
+        18 => (FurnitureKindId.Breakable, "crate", "#Descent_Furniture_Crate", CrateModel, CrateOpenedModel),
+        19 => (FurnitureKindId.Breakable, "barrel", "#Descent_Furniture_WoodenBarrel", WoodenBarrelModel, WoodenBarrelModel),
         _ => null,
     };
 

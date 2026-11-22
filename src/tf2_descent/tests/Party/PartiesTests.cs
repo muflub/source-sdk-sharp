@@ -10,9 +10,9 @@ namespace TF2.Descent.Tests.Party;
 
 /// <summary>
 /// The parties the game is given (<see cref="Parties"/>), unhosted: a client who leaves the server
-/// leaves his party at the next frame; the departures a level change reports are the travellers',
-/// and the party is kept across the change (found live: both members reported gone at the change,
-/// and the party was lost).
+/// leaves his party at the next frame, or at the next level's init when the level ends first. A
+/// level change reports no departure (the core's <c>player_disconnect</c>, 7ba83b22e and 274fff686),
+/// so a departure pending at the init is a real one, never a traveller's.
 /// </summary>
 public sealed class PartiesTests
 {
@@ -47,16 +47,16 @@ public sealed class PartiesTests
     }
 
     [Fact]
-    public async Task The_departures_a_level_change_reports_keep_the_travellers_in_their_party()
+    public async Task A_client_who_leaves_in_a_levels_last_frame_leaves_his_party_whatever_the_next_level_does()
     {
-        await Party(A, B);
+        await Party(A, B, C);
 
-        _parties.OnClientDisconnected(A);
-        _parties.OnClientDisconnected(B);
+        _parties.OnClientDisconnected(C);   // the engine's player_disconnect, after the level's last frame
         _parties.OnLevelInit("tf2_descent-1-s1");
-        _parties.OnThink(0.015f);
 
-        Assert.Equal([Key(A), Key(B)], _parties.Of(Key(B))!.Members.ToArray());
+        Assert.Null(_parties.Of(Key(C)));
+        Assert.Equal([Key(A), Key(B)], _parties.Of(Key(A))!.Members.ToArray());
+        Assert.Empty(_parties.Departing);
     }
 
     private sealed class NoNames : IHostedPartyNames

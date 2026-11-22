@@ -7,6 +7,7 @@ using SourceSharp.MapFormats.Bsp;
 using SourceSharp.MapFormats.Bsp.Structs;
 
 using TF2.Descent.Ai.Level;
+using TF2.Descent.Server.Horde.Boss;
 using TF2.Descent.Server.Horde.Motion;
 
 namespace TF2.Descent.Server.Horde.Nav;
@@ -57,10 +58,19 @@ public enum HordeNavState : byte
 /// still running finishes and its result is dropped (its generation is old); the worker stepper
 /// is stopped.
 /// </para>
+///
+/// <para>
+/// <b>The arena's brushes</b> (<see cref="IArenaObstacles"/>, told by <see cref="ArenaStage"/> as
+/// it fires): the level's changes so far, by name, are kept from <see cref="Begin"/> to
+/// <see cref="End"/> (a second load starts as the map ships), and the paths plan with them
+/// (<see cref="HordeArenaObstacles"/>): handed over with the graph when it is ready, and a new
+/// obstacle state at each change after (<see cref="HordePaths.Obstruct"/>), whose new epoch has
+/// every walker plan again at its next turn.
+/// </para>
 /// </summary>
-[SideService(Side.Server)]
+[SideService(Side.Server, As = [typeof(IArenaObstacles)])]
 public sealed class HordeNav(IEngineFiles files, RobotMotion motion, IMotionWorld world, HordeMotionSyncConVar sync, IHordeClock clock, ILog log)
-    : IDisposable
+    : IArenaObstacles, IDisposable
 {
     /// <summary>Static-prop cells tested against the engine's world a tick: about 2 us each in a debug build (11,067 on depth 1 seed 1 took 14 to 27 ms in all), so a level is probed in under a second.</summary>
     public const int ProbesPerTick = 256;
@@ -87,6 +97,7 @@ public sealed class HordeNav(IEngineFiles files, RobotMotion motion, IMotionWorl
     private double _probeMicros;
     private WorkerMotionStepper? _worker;
     private string _map = "";
+    private readonly Dictionary<string, bool> _arena = new(StringComparer.Ordinal);
 
     /// <summary>The brains' paths: one object for the process, given each level's graph when it is ready.</summary>
     public HordePaths Paths { get; } = new();
@@ -127,6 +138,37 @@ public sealed class HordeNav(IEngineFiles files, RobotMotion motion, IMotionWorl
 
     public string? Failure => _failure;
 
+    /// <summary>The arena's brushes changed this level, by name: enabled or not.</summary>
+    public IReadOnlyDictionary<string, bool> Arena => _arena;
+
+    /// <summary>The arena brushes' obstacles that block the paths now (0 before the graph is ready).</summary>
+    public int ArenaBlocking { get; private set; }
+
+    /// <summary>
+    /// The brushes named <paramref name="name"/> were enabled or disabled: kept for the level, and,
+    /// once the graph is ready, the paths plan with the arena as it stands now.
+    /// </summary>
+    public void Changed(string name, bool enabled)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        _arena[name] = enabled;
+        if (State != HordeNavState.Ready || _data is not { } data)
+            return;
+        ArenaBrushRole role = HordeArenaObstacles.RoleOf(name);
+        if (role == ArenaBrushRole.None)
+            return;
+        NavObstacleState state = HordeArenaObstacles.State(data.Nav, data.Open, _arena, out int blocking);
+        ArenaBlocking = blocking;
+
+        // Only a change the paths plan with names a new epoch (a platform never blocks: its drop changes nothing).
+        bool changed = HordePaths.EpochOf(data.Identity, state) != Paths.Epoch;
+        if (changed)
+            Paths.Obstruct(state);
+        int count = HordeArenaObstacles.Count(data.Nav, name);
+        log.Msg(string.Create(CultureInfo.InvariantCulture,
+            $"[TF2Descent/Horde] nav: {name} {(enabled ? "enabled" : "disabled")} ({role}, {count} obstacle(s) of the name): {(HordeArenaObstacles.Blocks(role, enabled) ? "blocks" : "open")}; {blocking} arena obstacle(s) block, epoch {Paths.Epoch:x8} ({Paths.ClassMicros:0} us for the classes' cells): {(changed ? "paths in hand are planned again" : "paths unchanged")}\n"));
+    }
+
     /// <summary>The stepper the motion runs now, by name.</summary>
     public string StepperName => motion.Stepper is WorkerMotionStepper ? "worker (voxels)" : "inline (engine)";
 
@@ -139,6 +181,7 @@ public sealed class HordeNav(IEngineFiles files, RobotMotion motion, IMotionWorl
         _map = map;
         _level = level;
         _begunTick = clock.Tick;
+        _arena.Clear();
         byte[]? nav = files.ReadGameFileBytes($"maps/{map}.nav3d");
         if (nav is null)
         {
@@ -178,6 +221,7 @@ public sealed class HordeNav(IEngineFiles files, RobotMotion motion, IMotionWorl
         _map = map;
         _level = level;
         _begunTick = clock.Tick;
+        _arena.Clear();
         byte[]? nav = files.ReadGameFileBytes($"maps/{map}.nav3d");
         if (nav is null)
         {
@@ -312,11 +356,13 @@ public sealed class HordeNav(IEngineFiles files, RobotMotion motion, IMotionWorl
             return;
 
         _data = data.WithBlocks(_blocks!);
-        Paths.Ready(_data, _level!);
+        NavObstacleState arena = HordeArenaObstacles.State(_data.Nav, _data.Open, _arena, out int blocking);
+        ArenaBlocking = blocking;
+        Paths.Ready(_data, _level!, arena);
         State = HordeNavState.Ready;
         _readyTick = clock.Tick;
         log.Msg(string.Create(CultureInfo.InvariantCulture,
-            $"[TF2Descent/Horde] nav ready: {_map}, {_readyTick - _begunTick} ticks after the level began; {_data.BlockedCells} of {candidates.Length} static-prop cells blocked ({_probeMicros:0} us of probes on the game thread), epoch {Paths.Epoch:x8}; robots plan on the graph\n"));
+            $"[TF2Descent/Horde] nav ready: {_map}, {_readyTick - _begunTick} ticks after the level began; {_data.BlockedCells} of {candidates.Length} static-prop cells blocked ({_probeMicros:0} us of probes on the game thread), {blocking} arena obstacle(s) block ({_arena.Count} arena change(s) this level), epoch {Paths.Epoch:x8} ({Paths.ClassMicros:0} us for the classes' cells); robots plan on the graph\n"));
     }
 
     private void PickStepper()
@@ -352,6 +398,8 @@ public sealed class HordeNav(IEngineFiles files, RobotMotion motion, IMotionWorl
         _data = null;
         _level = null;
         _blocks = null;
+        _arena.Clear();
+        ArenaBlocking = 0;
         State = HordeNavState.None;
     }
 

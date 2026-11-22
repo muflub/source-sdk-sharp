@@ -31,7 +31,7 @@ public sealed class FurnitureCommandTests
         rig.Stand(FurnitureRig.SlotA, dispenser, new Vector(20, 0, 0));
         rig.Heroes.LifeOf[FurnitureRig.SlotA] = 50;
         rig.Service.Dispense(100, 1);
-        var before = rig.Service.Rows.Select(r => (r.StateText(), rig.Service.Look(r))).ToList();
+        var before = rig.Pooled.Select(r => (r.StateText(), rig.Service.Look(r))).ToList();
         var rooms = rig.Service.Rows.Select(r => r.Room).Distinct().ToList();
 
         rig.Rooms.Asleep.UnionWith(rooms);
@@ -41,8 +41,8 @@ public sealed class FurnitureCommandTests
         rig.Service.CheckRooms();
 
         Assert.True(allData);
-        Assert.Equal(before, rig.Service.Rows.Select(r => (r.StateText(), rig.Service.Look(r))).ToList());
-        Assert.All(rig.Service.Rows, r => Assert.Equal(rig.Service.Look(r).Model, r.Entity!.Model));
+        Assert.Equal(before, rig.Pooled.Select(r => (r.StateText(), rig.Service.Look(r))).ToList());
+        Assert.All(rig.Pooled, r => Assert.Equal(rig.Service.Look(r).Model, r.Entity!.Model));
         Assert.Equal(FurnitureFlags.Spent, (FurnitureFlags)shrine.Entity!.State.Flags);
         Assert.Equal(FurnitureFlags.Opened, (FurnitureFlags)container.Entity!.State.Flags);
     }

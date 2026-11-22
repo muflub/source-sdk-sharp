@@ -125,12 +125,8 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
             return DropResult.Refused(LedgerRefusals.UnknownBase);
         if (await Ensure(drop.Hero) is not { } h)
             return DropResult.Refused(LedgerRefusals.NoHero);
-        var row = Rules.LevelTable(drop.Depth);
-        var ctx = drop.Tier >= 0
-            ? new ItemRollContext(h.Sheet.ClassId, h.Sheet.Level, drop.Depth, row.ItemLevel, drop.Tier, row.LootTable, "container")
-            : new ItemRollContext(h.Sheet.ClassId, h.Sheet.Level, drop.Depth, row.ItemLevel, 0,
-                Rules.Content.ItemSettings.ForcedBasePrefix + drop.Potion, "container");
-        var item = Rules.ItemRules.Roller.Roll(ctx, drop.Seed);
+        // The rules' item for the roll, the one the host mints for a hosted container (LootRules.ContainerItem).
+        var item = Rules.Loot.ContainerItem(h.Sheet.ClassId, h.Sheet.Level, drop.Depth, drop.Tier, drop.Tier >= 0 ? null : drop.Potion, drop.Seed)!;
         return new DropResult(true, null, [Place(new FloorItem(NextId(), item, drop.Hero, drop.Position))]);
     }
 

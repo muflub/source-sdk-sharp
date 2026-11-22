@@ -70,7 +70,7 @@ public sealed class BossExit(IHordeCurrent horde, IHordeRules rules, IBossWorld 
 /// </list>
 /// </summary>
 [SideService(Side.Server)]
-public sealed class BossFallen(IHordeRules rules, IBossWorld world, ILootParty party, HeroSheets sheets, IHordeHeroes heroes, IHordeCurrent horde,
+public sealed class BossFallen(IHordeRules rules, IBossWorld world, ILootParty party, HeroSheets sheets, IHordeHeroes heroes, IHordeCurrent horde, ArenaStage stage,
                                ILog log)
     : IRobotKillHook, IOrderedHook
 {
@@ -119,7 +119,9 @@ public sealed class BossFallen(IHordeRules rules, IBossWorld world, ILootParty p
         log.Msg(string.Create(CultureInfo.InvariantCulture,
             $"[TF2Descent/Boss] {t.Name} ({t.Id}) is dead: kill {kill.Sequence} by player {kill.Killer}, level {kill.Level}, its {kill.Stats.Xp:0} XP and its own table paid by the chain before this\n"));
 
-        // The way down: every living hero on the level hears it and is told.
+        // The way down: its brush goes (the transition gate, BossExit, stays the authority), and
+        // every living hero on the level hears it and is told.
+        stage.Fallen();
         Opened++;
         if (horde.Current is { Level: { } level })
         {

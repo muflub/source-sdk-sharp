@@ -54,6 +54,13 @@ public sealed class FlatHullWalk
             props.Add((e.Origin!.Value + lo, e.Origin!.Value + hi));
         }
 
+        // A breakable (M34) is solid until broken.
+        foreach (RoomEntity e in room.Entities.Where(Breakables.Is))
+        {
+            Box b = Breakables.BoxOf(e);
+            props.Add((b.Mins, b.Maxs));
+        }
+
         var floored = new bool[n * n];
         var blocked = new bool[n * n];
         foreach (Brush b in solids)

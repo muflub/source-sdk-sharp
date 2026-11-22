@@ -8,6 +8,7 @@ using TF2.Descent.Ai.Far;
 using TF2.Descent.Ai.Level;
 using TF2.Descent.Ai.Motion;
 using TF2.Descent.Ai.Roster;
+using TF2.Descent.Ai.Senses;
 using TF2.Descent.Rules.Horde;
 using TF2.Descent.Server.Horde.Motion;
 
@@ -77,6 +78,9 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
     public HeroSight? Sight { get; private set; }
 
     public HordeSettings? Settings { get; private set; }
+
+    /// <summary>The level's alert log (dev: each robot's first alert of a spell, <c>tf2_descent_horde_alert_log</c>).</summary>
+    public HordeAlerts? Alerts { get; private set; }
 
     /// <summary>Bodies and weapons this controller made: all at <see cref="Begin"/>, never after.</summary>
     public int BodiesMade { get; private set; }
@@ -153,7 +157,8 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
         _embodiment = EmbodimentRules.For(settings, level, ticksPerSecond);
         _orders = HordeOrders.For(settings, level);
         _applier = new HordeOrderApplier(Roster, Pool, Bodies);
-        _far = FarSimulation.For(settings, level, ticksPerSecond);
+        Alerts = HordeAlerts.For(settings.RosterCapacity, settings.AlertMemorySeconds, ticksPerSecond);
+        _far = FarSimulation.For(settings, level, ticksPerSecond, Alerts);
         _decideInterval = Math.Max(1, (long)Math.Round(ticksPerSecond / DecideHz));
         _farInterval = FarSimulation.Interval(settings, ticksPerSecond);
         _nextDecide = now;
@@ -224,6 +229,7 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
         Pool = null;
         Bodies = null;
         Sight = null;
+        Alerts = null;
         _embodiment = null;
         _orders = null;
         _applier = null;

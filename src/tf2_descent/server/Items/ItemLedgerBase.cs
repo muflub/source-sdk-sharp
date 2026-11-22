@@ -81,7 +81,7 @@ public abstract class ItemLedgerBase : IItemLedger
 
     /// <summary>The operation a transition carries out, for <see cref="Confirm"/>: its name and its arguments.</summary>
     protected sealed record Op(string Name, int Slot = -1, int To = -1, string? Text = null, long Id = 0, Vector Position = default,
-                              IReadOnlyList<int>? Slots = null);
+                              IReadOnlyList<int>? Slots = null, IReadOnlyList<WearEvents>? Wear = null);
 
     /// <summary>What a confirmation committed (the hero after it), or why it was refused.</summary>
     protected sealed record Confirmed(LedgerHero? After, string? Refusal, IReadOnlyList<long>? Gone = null)
@@ -500,17 +500,17 @@ public abstract class ItemLedgerBase : IItemLedger
                 return LedgerResult.Refused(InventoryRefusals.Refused, h);
             if (inventory.Equipped.FirstOrDefault(p => p.Value.Id == e.ItemId) is { Value: { } worn } at)
             {
-                var item = durability.Hit(durability.Use(worn.Item, e.Uses).Item, e.Hits).Item;
+                var item = durability.Worn(worn.Item, e.Uses, e.Hits);
                 inventory = inventory with { Equipped = inventory.Equipped.SetItem(at.Key, worn with { Item = item }) };
             }
             else if (inventory.Backpack.FirstOrDefault(p => p.Value.Id == e.ItemId) is { Value: { } carried } bp)
             {
                 // Taken off before the write: its wear still counts where it is now.
-                var item = durability.Hit(durability.Use(carried.Item, e.Uses).Item, e.Hits).Item;
+                var item = durability.Worn(carried.Item, e.Uses, e.Hits);
                 inventory = inventory with { Backpack = inventory.Backpack.SetItem(bp.Key, carried with { Item = item }) };
             }
         }
-        return await Settle(new Op("wear"), h, new InventoryResult(inventory, h.Stash, [], null));
+        return await Settle(new Op("wear", Wear: events), h, new InventoryResult(inventory, h.Stash, [], null));
     });
 
     public Task<LedgerResult> RepairWorn(string hero, string equipSlot, WornRepair how) => Serial(hero, async () =>
@@ -521,12 +521,21 @@ public abstract class ItemLedgerBase : IItemLedger
             return LedgerResult.Refused(InventoryRefusals.NoItem, h);
         ItemInstance repaired;
         long cost = 0;
+        int kitSlot = -1;
         if (how == WornRepair.Field)
         {
-            var field = Rules.Repairs.Field(held.Item, h.Sheet.Level, RollSeed("field_repair"));
+            // A field repair spends one Repair Kit from the backpack, the lowest slot first: the rules'
+            // Repair(item, Field, kit, seed), the call the host makes (contract 1.1), so both ledgers agree.
+            var kit = h.Inventory.Backpack.FirstOrDefault(p => p.Value.Item.BaseId == Rules.Repairs.Kit);
+            if (kit.Value is null)
+                return LedgerResult.Refused(RepairRefusals.NoKit, h);
+            var field = Rules.Repair(Codec.ToRolled(held.Item), RepairKind.Field, Codec.ToRolled(kit.Value.Item), RollSeed("field_repair"));
             if (!field.Ok)
                 return LedgerResult.Refused(field.Refusal!, h);
-            repaired = field.Item!;
+            // Only the mutable half changes (ReplaceEquipped checks it): the worn item with the repair's numbers.
+            var answer = Codec.Instance(field.Produced[0]);
+            repaired = held.Item with { Durability = answer.Durability, MaxDurability = answer.MaxDurability, WearUses = answer.WearUses };
+            kitSlot = kit.Key;
         }
         else
         {
@@ -538,7 +547,9 @@ public abstract class ItemLedgerBase : IItemLedger
             repaired = TF2.Descent.Rules.Economy.Repairs.Restore(held.Item);
         }
         var result = Inv.ReplaceEquipped(h.Inventory, h.Stash, equipSlot, repaired);
-        return await Settle(new Op(how == WornRepair.Field ? "field_repair_worn" : "repair_worn", Text: equipSlot, Id: held.Id), h, result, cost: cost);
+        if (kitSlot >= 0 && result.Ok)
+            result = result with { Hero = result.Hero with { Backpack = result.Hero.Backpack.Remove(kitSlot) }, Left = [h.Inventory.Backpack[kitSlot]] };
+        return await Settle(new Op(how == WornRepair.Field ? "field_repair_worn" : "repair_worn", kitSlot, (int)how, equipSlot, held.Id), h, result, cost: cost);
     });
 
     public Task<LedgerResult> SetDurability(string hero, string equipSlot, int durability, int maxDurability) =>

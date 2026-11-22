@@ -34,7 +34,9 @@ public sealed record RoomEntry(IReadOnlyList<string> Tags, int Weight = 1, int M
 /// <c>weight</c>, <c>depths</c> [min, max], <c>jump</c>, <c>low</c> and
 /// <c>markers</c>, the fields its lint reads; plus <c>doors</c> (the walls a
 /// room opens on) and <c>height</c>, which plan task G1 asks the host to
-/// read and which it ignores until then, and <c>focus</c> (where a
+/// read and which it ignores until then, <c>breakables</c> (how many
+/// breakable points it holds, M34, which <c>descent-level</c> sums against
+/// the level cap), and <c>focus</c> (where a
 /// visitor's eye goes, room-local) and <c>cell</c>, which the preview's
 /// per-room cameras read (<see cref="DescentLevel.Cameras"/>).
 /// </summary>
@@ -90,6 +92,7 @@ public static class LibraryManifestWriter
                 w.WriteNumberValue(room.Focus.Z);
                 w.WriteEndArray();
                 w.WriteNumber("cell", room.Kit.Cell);
+                w.WriteNumber("breakables", Breakables.Of(room).Count);
                 if (room.Cells > 1)
                     w.WriteNumber("cells", room.Cells);
                 var (at, yaw) = PreviewCamera.Of(room);
@@ -99,6 +102,8 @@ public static class LibraryManifestWriter
                 w.WriteNumberValue(at.Z);
                 w.WriteNumberValue(yaw);
                 w.WriteEndArray();
+                if (room.Arena is { } arena)
+                    WriteArena(w, arena);
                 w.WriteEndObject();
             }
 
@@ -109,9 +114,48 @@ public static class LibraryManifestWriter
         return Encoding.UTF8.GetString(buffer.ToArray()) + "\n";
     }
 
-    /// <summary>The marker names a room's entry lists: each Descent marker's <c>poi_type</c> once, in order.</summary>
+    /// <summary>
+    /// A boss arena's <c>arena</c> entry, room-local (<see cref="ArenaData"/>): <c>boss</c> [x, y, z, yaw],
+    /// <c>track</c> [[x, y, z, flags], ...] in order, <c>mouths</c> [[x, y, z, yaw, leg], ...].
+    /// <c>descent-level</c> turns it with the room into the level's <c>.arena</c> file.
+    /// </summary>
+    private static void WriteArena(Utf8JsonWriter w, ArenaData arena)
+    {
+        w.WriteStartObject("arena");
+        w.WriteStartArray("boss");
+        foreach (float v in (float[])[arena.Boss.X, arena.Boss.Y, arena.Boss.Z, arena.BossYaw])
+            w.WriteNumberValue(v);
+        w.WriteEndArray();
+        w.WriteStartArray("track");
+        foreach (TrackPoint p in arena.Track)
+        {
+            w.WriteStartArray();
+            foreach (float v in (float[])[p.At.X, p.At.Y, p.At.Z, p.Flags])
+                w.WriteNumberValue(v);
+            w.WriteEndArray();
+        }
+
+        w.WriteEndArray();
+        w.WriteStartArray("mouths");
+        foreach (ArenaMouth m in arena.Mouths)
+        {
+            w.WriteStartArray();
+            foreach (float v in (float[])[m.At.X, m.At.Y, m.At.Z, m.Yaw, m.Leg])
+                w.WriteNumberValue(v);
+            w.WriteEndArray();
+        }
+
+        w.WriteEndArray();
+        w.WriteEndObject();
+    }
+
+    /// <summary>
+    /// The marker names a room's entry lists: each Descent marker's <c>poi_type</c> once, in order, its
+    /// breakables' among them (the server reads those markers too, M34).
+    /// </summary>
     public static IReadOnlyList<string> MarkersOf(Room room) =>
-        [.. room.Markers.Select(m => Markers.PoiType(m.Kind)).Distinct().Order(StringComparer.Ordinal)];
+        [.. room.Markers.Select(m => Markers.PoiType(m.Kind)).Concat(Breakables.Of(room).Select(b => b.Key("poi_type")!))
+            .Distinct().Order(StringComparer.Ordinal)];
 
     private static readonly CellFace[] DoorOrder = [CellFace.East, CellFace.West, CellFace.North, CellFace.South];
 

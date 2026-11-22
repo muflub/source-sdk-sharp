@@ -41,7 +41,10 @@ public interface IAutomapReveal
 /// then does its outline reach his client (<see cref="AutomapRoomWire"/>): the bounds of the cells it
 /// covers in map units, its storey and map label, a stub for each door it has, and the fixed
 /// markers the rules' <see cref="AutomapRules.View"/> shows in it (the way down and the way in as
-/// stairs, shrines). An unentered room is never sent. At each spawn the hero's whole map goes
+/// stairs, shrines). A room through a door of a revealed one is discovered
+/// (<see cref="AutomapRules.Discovered"/>, user 2026-11-15) and goes as its outline, storey and
+/// doors alone, flagged <see cref="AutomapRoomWire.Discovered"/>: no label, no marks; any other
+/// unentered room is never sent. At each spawn the hero's whole map goes
 /// again behind an <see cref="TF2.Descent.Shared.AutomapSync"/> (the client forgets its map when a level ends); a
 /// level change starts every map empty.
 /// </summary>
@@ -125,8 +128,10 @@ public sealed class AutomapService(ILevelData levels, Heroes heroes, HeroSheets 
         var map = _maps.GetValueOrDefault(key) ?? AutomapModel.Empty;
         if (map.Seen(roomKey))
             return false;
+        var before = map;
         _maps[key] = map = AutomapRules.Enter(map, _graph!, roomKey);
         Send(playerIndex, map, roomKey);
+        SendDiscovered(playerIndex, before, map);
         return true;
     }
 
@@ -169,6 +174,7 @@ public sealed class AutomapService(ILevelData levels, Heroes heroes, HeroSheets 
             foreach (string room in after.RoomsSeen)
                 if (!before.Seen(room))
                     Send(mate, after, room);
+            SendDiscovered(mate, before, after);
         }
     }
 
@@ -205,9 +211,12 @@ public sealed class AutomapService(ILevelData levels, Heroes heroes, HeroSheets 
         if (heroes.All.FirstOrDefault(h => h.Player == player) is not { PlayerIndex: > 0 } hero || !Refresh())
             return;
         var map = MapOf(hero.PlayerIndex);
-        sender.Send(new AutomapSync { Rooms = (byte)Math.Min(map.RoomsSeen.Count, 255) }, hero.PlayerIndex);
+        var discovered = AutomapRules.Discovered(map, _graph!);
+        sender.Send(new AutomapSync { Rooms = (byte)Math.Min(map.RoomsSeen.Count + discovered.Count, 255) }, hero.PlayerIndex);
         foreach (string room in map.RoomsSeen)
             Send(hero.PlayerIndex, map, room);
+        foreach (var room in discovered)
+            SendDiscovered(hero.PlayerIndex, map, room.Id);
     }
 
     /// <summary>A level's maps are its own.</summary>
@@ -320,6 +329,59 @@ public sealed class AutomapService(ILevelData levels, Heroes heroes, HeroSheets 
             MarkKind = [.. marks.Select(m => (byte)m.Kind)],
             MarkX = [.. marks.Select(m => AutomapRoomWire.Short(m.At.X))],
             MarkY = [.. marks.Select(m => AutomapRoomWire.Short(m.At.Y))],
+        };
+    }
+
+    /// <summary>The rooms <paramref name="after"/> discovers that <paramref name="before"/> did not, each sent to the hero as discovered.</summary>
+    private void SendDiscovered(int playerIndex, AutomapModel before, AutomapModel after)
+    {
+        var had = AutomapRules.Discovered(before, _graph!).Select(r => r.Id).ToHashSet(StringComparer.Ordinal);
+        foreach (var room in AutomapRules.Discovered(after, _graph!))
+            if (!had.Contains(room.Id))
+                SendDiscovered(playerIndex, after, room.Id);
+    }
+
+    private void SendDiscovered(int playerIndex, AutomapModel map, string roomKey)
+    {
+        if (DiscoveredWire(map, roomKey) is { } wire)
+        {
+            sender.Send(wire, playerIndex);
+            RoomsSent++;
+        }
+    }
+
+    /// <summary>
+    /// The discovered room <paramref name="roomKey"/> of <paramref name="map"/> on the wire: its
+    /// outline, storey and a stub for each door it has, flagged discovered, with no label and no
+    /// marks; null when the map has not discovered it (entered, or two doors from every room entered).
+    /// </summary>
+    public AutomapRoomWire? DiscoveredWire(AutomapModel map, string roomKey)
+    {
+        if (!Refresh() || AutomapRules.Discovered(map, _graph!).FirstOrDefault(r => r.Id == roomKey) is not { } shown
+            || !int.TryParse(roomKey, NumberStyles.None, CultureInfo.InvariantCulture, out int id) || id < 0 || id >= _level!.Rooms.Length || id > 254)
+            return null;
+        var room = _level.Rooms[id];
+        var doors = new List<LevelDoor>();
+        foreach (var d in _graph!.Doors)
+            if (d.Touches(roomKey) && DoorOf(d.Id) is { } door && doors.Count < AutomapRoomWire.MaxDoors)
+                doors.Add(door);
+        return new AutomapRoomWire
+        {
+            Room = (byte)id,
+            Storey = (byte)Math.Clamp(shown.Storey, 0, 255),
+            MinX = AutomapRoomWire.Short(room.Min.X),
+            MinY = AutomapRoomWire.Short(room.Min.Y),
+            MaxX = AutomapRoomWire.Short(room.Max.X),
+            MaxY = AutomapRoomWire.Short(room.Max.Y),
+            Label = "",
+            DoorX = [.. doors.Select(d => AutomapRoomWire.Short(d.Position.X))],
+            DoorY = [.. doors.Select(d => AutomapRoomWire.Short(d.Position.Y))],
+            DoorWidth = [.. doors.Select(d => AutomapRoomWire.Short(d.Width))],
+            DoorAlongY = [.. doors.Select(d => (byte)(MathF.Abs(d.Normal.X) > MathF.Abs(d.Normal.Y) ? 1 : 0))],
+            MarkKind = [],
+            MarkX = [],
+            MarkY = [],
+            Discovered = 1,
         };
     }
 

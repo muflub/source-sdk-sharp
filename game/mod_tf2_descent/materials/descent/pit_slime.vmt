@@ -1,0 +1,39 @@
+"Water"
+{
+	"%compilewater" 1
+	"$abovewater" 1
+	"$forceexpensive" 1
+	"$reflecttexture" "_rt_WaterReflection"
+	"$reflectamount" ".6"
+	"$reflecttint" "[.3 .36 .3]"
+	"$reflectentities" 0
+	"$envmap" "env_cubemap"
+	"$refracttexture" "_rt_WaterRefraction"
+	"$refractamount" "0.1"
+	"$normalmap" "water/tfwater001_normal"
+	"$bumpframe" "0"
+	"$surfaceprop" "water"
+	"$bottommaterial" "water/water_underworld_beneath"
+	"$fogenable" 1
+	"$fogcolor" "{14 24 9}"
+	"$fogstart" "0"
+	"$fogend" "40"
+	"Proxies"
+	{
+		"AnimatedTexture"
+		{
+			"animatedtexturevar" "$normalmap"
+			"animatedtextureframenumvar" "$bumpframe"
+			"animatedtextureframerate" 30.00
+		}
+		"TextureScroll"
+		{
+			"texturescrollvar" "$bumptransform"
+			"texturescrollrate" .05
+			"texturescrollangle" 45.00
+		}
+		"WaterLOD"
+		{
+		}
+	}
+}

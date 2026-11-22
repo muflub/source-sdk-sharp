@@ -62,4 +62,8 @@ public static class DescentPaints
     public static UiPaint MapRoomCurrent => UiPaint.FromGame(new UiColor(96, 106, 122, 150));
 
     public static UiPaint MapLine => UiPaint.FromGame(new UiColor(150, 158, 170, 255));
+
+    /// <summary>Automap: a discovered room (seen through a door, not entered): no fill, its
+    /// hairline at under half the explored one's strength (user 2026-11-15, "fainter color").</summary>
+    public static UiPaint MapLineDiscovered => UiPaint.FromGame(new UiColor(150, 158, 170, 110));
 }

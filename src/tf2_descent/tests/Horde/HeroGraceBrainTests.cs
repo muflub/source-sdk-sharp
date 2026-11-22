@@ -183,7 +183,8 @@ public sealed class HeroGraceBrainTests
         rig.Hero(Seat, Centre(3) + At(100, 100));
         rig.Lines.Clear = (_, _) => false;
         rig.Tick(30);
-        rig.Poses.Set(body, rig.Poses.Position(hurt) + At(400, 0), 0f);
+        // In earshot: within the pain's reach (horde.json's senses.hearing.pain) at the lowest hearing scale.
+        rig.Poses.Set(body, rig.Poses.Position(hurt) + At(200, 0), 0f);
         rig.Tick(30);
 
         rig.Brains.Hit(rig.Now + 1, hit, Seat, 30f, killed: false, rig.Poses.Position(hurt));

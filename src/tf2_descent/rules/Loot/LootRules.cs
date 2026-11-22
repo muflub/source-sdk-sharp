@@ -325,4 +325,81 @@ public sealed class LootRules
 
     /// <summary>The container hook for a depth, in the shape <see cref="ContainerRules.Open{TLoot}"/> takes.</summary>
     public Func<LootRequest, KillLoot> ContainerHook(int depth) => request => Container(request, depth);
+
+    /// <summary>
+    /// The item a container's roll gives one hero (both ledgers' and the host's): an item of
+    /// <paramref name="tier"/> from the depth's loot table, or a potion of base
+    /// <paramref name="potion"/>, at the depth's item level, rolled from <paramref name="seed"/>
+    /// with the hero's class and level; null when the roll gave neither.
+    /// </summary>
+    public ItemInstance? ContainerItem(string classId, int heroLevel, int depth, int tier, string? potion, ulong seed)
+    {
+        if (tier < 0 && potion is null) return null;
+        var row = _robots.Depth(depth);
+        var ctx = tier >= 0
+            ? new ItemRollContext(classId, heroLevel, depth, row.ItemLevel, tier, row.LootTable, "container")
+            : new ItemRollContext(classId, heroLevel, depth, row.ItemLevel, 0, _content.ItemSettings.ForcedBasePrefix + potion, "container");
+        return _items.Roller.Roll(ctx, seed);
+    }
+
+    /// <summary>The name a hosted container goes by in its roll: its number on the level.</summary>
+    public static string ContainerName(uint containerSeq) => "container:" + containerSeq.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// The request a hosted container's roll is made from (the contract's <c>ContainerDrops</c>): the
+    /// containers' table, for the opener as the host knows him (his sheet's name and class: the host
+    /// asks once per character), seeded from the instance seed and the container's number, as the
+    /// unhosted roll is seeded from the level seed, the container and the player.
+    /// </summary>
+    public LootRequest HostedContainer(ulong instanceSeed, uint containerSeq, string openerName, string openerClass)
+    {
+        string name = ContainerName(containerSeq), player = openerName + "/" + openerClass;
+        return new LootRequest(_content.Furniture.Containers.LootTable, name, player,
+            Seeded.From(instanceSeed, "container", name, player).NextULong());
+    }
+
+    /// <summary>
+    /// <c>IGameRules.ContainerDrops</c> (Host.Contracts 1.1): the roll of <see cref="HostedContainer"/>
+    /// by <see cref="Container"/>, its item by <see cref="ContainerItem"/>; none when it rolled
+    /// nothing (Australium is no item: the host mints none for a container).
+    /// </summary>
+    public IReadOnlyList<RolledItem> ContainerDrops(ulong instanceSeed, uint containerSeq, int depth, string openerName, string openerClass, int openerLevel)
+    {
+        var request = HostedContainer(instanceSeed, containerSeq, openerName, openerClass);
+        var roll = Container(request, depth);
+        var item = ContainerItem(openerClass, openerLevel, depth, roll.Item ? roll.Tier : -1,
+            roll.Outcome == LootOutcome.Potion ? roll.Potion : null, request.Seed);
+        return item is null ? [] : [_items.Codec.ToRolled(item)];
+    }
+
+    //-------------------------------------------------------------------------
+    // Breakables
+    //-------------------------------------------------------------------------
+
+    /// <summary>
+    /// One player's share of a broken crate or barrel whose roll was <paramref name="outcome"/>
+    /// (<see cref="BreakRules.Roll"/>), from his own <paramref name="request"/>
+    /// (<see cref="BreakRules.Request"/>): an item of the request's table's tiers at the depth; a
+    /// potion of the depth's band (its loot table's potions); a pile of the kill curve's Australium at
+    /// the depth, scaled by the breakables' share; nothing for any other outcome.
+    /// </summary>
+    public KillLoot Breakable(LootRequest request, BreakOutcome outcome, int depth)
+    {
+        var row = _robots.Depth(depth);
+        var r = Seeded.From(request.Seed, "break_loot", outcome.ToString(), row.Depth);
+        switch (outcome)
+        {
+            case BreakOutcome.Item:
+                return new KillLoot(LootOutcome.Item, BestTier(ref r, S.Table(request.LootTable).Tiers, row.Depth, 1, 0), null, 0);
+            case BreakOutcome.Potion:
+            {
+                var band = S.Table(row.LootTable).Potions;
+                return new KillLoot(LootOutcome.Potion, -1, band[r.Pick([.. band.Select(p => p.Weight)])].Base, 0);
+            }
+            case BreakOutcome.Australium:
+                return new KillLoot(LootOutcome.Nothing, -1, null, Amount(ref r, row.Depth, _content.Furniture.Breakables.AustraliumScale));
+            default:
+                return new KillLoot(LootOutcome.Nothing, -1, null, 0);
+        }
+    }
 }

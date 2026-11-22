@@ -50,6 +50,17 @@ public sealed class AutomapCanvas : UiPanel<AutomapProps>
         {
             for (int r = 0; r < _map.RoomCount; r++)
             {
+                // A discovered room (seen through a door, not entered) is its
+                // outline alone, fainter: no fill (user 2026-11-15).
+                if (_map.RoomDiscovered(r))
+                {
+                    ui.Rect((UiPaint)Tone.None, Size.Du(_map.RoomW(r) * sx), Size.Du(_map.RoomH(r) * sy))
+                        .At(UiAnchor.TopLeft)
+                        .Inset(new UiLength(_map.RoomX(r) * sx, false), new UiLength(_map.RoomY(r) * sy, false))
+                        .Border(DescentPaints.MapLineDiscovered, 1)
+                        .Layered();
+                    continue;
+                }
                 // Bright on the storey the view shows, and only as the server
                 // says: the hero's own storey's rooms read brighter (R23), so
                 // a tab on another storey dims them all.
@@ -87,7 +98,7 @@ public sealed class AutomapCanvas : UiPanel<AutomapProps>
             if (p.ShowLabels && p.Labels is { } labels)
                 for (int r = 0; r < _map.RoomCount; r++)
                 {
-                    if (_map.StoreyCount > 1 && _map.RoomStorey(r) != focus) continue;
+                    if ((_map.StoreyCount > 1 && _map.RoomStorey(r) != focus) || _map.RoomDiscovered(r)) continue;
                     bool bottom = BottomClearer(r, focus, heroShown);
                     float cx = (_map.RoomX(r) + _map.RoomW(r) / 2f) * sx;
                     float y = bottom

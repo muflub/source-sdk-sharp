@@ -70,11 +70,15 @@ public sealed class DescentPlugMaterialTests
             var written = DescentRooms.WriteMaterials(dir).Select(f => Path.GetRelativePath(dir, f).Replace('\\', '/')).Order();
 
             Assert.Equal(
-                ["materials/descent/breakthrough_plug.vmt", "materials/descent/chapel_plug.vmt", "materials/descent/collar_plug.vmt",
+                ["materials/descent/bore_plug.vmt", "materials/descent/breakthrough_plug.vmt", "materials/descent/brimstone_plug.vmt",
+                 "materials/descent/chapel_plug.vmt", "materials/descent/collar_plug.vmt",
                  "materials/descent/dripstone_plug.vmt", "materials/descent/dripstone_water.vmt", "materials/descent/grey_plug.vmt",
-                 "materials/descent/haulage_plug.vmt", "materials/descent/mill_plug.vmt", "materials/descent/mine_plug.vmt",
-                 "materials/descent/stopes_plug.vmt", "materials/descent/sunken_bed.vmt", "materials/descent/sunken_plug.vmt",
-                 "materials/descent/sunken_water.vmt"],
+                 "materials/descent/haulage_plug.vmt", "materials/descent/magazine_plug.vmt", "materials/descent/mill_plug.vmt", "materials/descent/mine_plug.vmt",
+                 "materials/descent/pit_plug.vmt", "materials/descent/pit_slime.vmt", "materials/descent/rot_mud.vmt", "materials/descent/rot_plug.vmt",
+                 "materials/descent/rot_rock.vmt",
+                 "materials/descent/stopes_plug.vmt", "materials/descent/sump_plug.vmt", "materials/descent/sump_scum.vmt",
+                 "materials/descent/sunken_bed.vmt", "materials/descent/sunken_plug.vmt",
+                 "materials/descent/sunken_water.vmt", "materials/descent/works_plug.vmt"],
                 written);
         }
         finally

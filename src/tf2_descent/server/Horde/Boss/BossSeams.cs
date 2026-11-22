@@ -30,11 +30,13 @@ public interface IRobotAbilityHands
 /// THE SEAM WHERE A BOSS CALLS ITS ADDS (HO13): <paramref name="count"/> robots of
 /// <paramref name="template"/> put on the roster in the arena of the boss in row
 /// <paramref name="bossRow"/> and lent bodies where the pool has them; answers how many went on
-/// the roster (fewer when the roster's 256 rows or the boss's share of adds run out).
+/// the roster (fewer when the roster's 256 rows or the boss's share of adds run out). The arena's
+/// mouths of legs 1 to <paramref name="legs"/> are open (the ARNA contract: a mouth's leg is the
+/// boss's 1-based phase that opens it).
 /// </summary>
 public interface IBossAdds
 {
-    int Summon(HordeController horde, int bossRow, string template, int count, ulong seed, long now);
+    int Summon(HordeController horde, int bossRow, string template, int count, ulong seed, long now, int legs = 1);
 }
 
 /// <summary>

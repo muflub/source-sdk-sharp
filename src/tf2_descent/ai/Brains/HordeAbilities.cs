@@ -22,9 +22,12 @@ public static class HordeAbilities
     /// <summary>A boss calling its phase's adds (HO13); the ask's <c>OneShotSeq</c> is the phase.</summary>
     public const int BossSummon = 5;
 
-    /// <summary>The Tank stopped at a station of its track (HO13); the ask's <c>OneShotSeq</c> is the station, the last its final.</summary>
+    /// <summary>The Tank stopped at a station of its track (HO13); the ask's <c>OneShotSeq</c> is the station's number along the track (1-based; <c>TankTrack.Route</c>).</summary>
     public const int TankStation = 6;
 
-    /// <summary>The Tank has drilled its last station: the roof comes down (HO13).</summary>
+    /// <summary>The Tank has drilled its last station: the roof comes down (HO13); the ask's <c>OneShotSeq</c> is the final station's number.</summary>
     public const int TankRoof = 7;
+
+    /// <summary>The Tank has drilled a station that is not its final and rolls on (the ARNA contract: that station's pillar falls); the ask's <c>OneShotSeq</c> is the station's number.</summary>
+    public const int TankDrilled = 8;
 }

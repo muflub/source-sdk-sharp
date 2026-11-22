@@ -149,7 +149,14 @@ public enum WornRepair
 /// <c>LootRequest.Seed</c>) at the depth's item level, on the floor at
 /// <paramref name="Position"/> for that hero alone.
 /// </summary>
-public sealed record ContainerDrop(string Hero, string Container, ulong Seed, int Tier, string? Potion, int Depth, Vector Position);
+public sealed record ContainerDrop(string Hero, string Container, ulong Seed, int Tier, string? Potion, int Depth, Vector Position)
+{
+    /// <summary>
+    /// The container's number on the level (a furniture row's index), which a hosted open names to
+    /// the host (SDK 2.7 <c>OpenContainer</c>); null for a drop the host cannot replay (a breakable's).
+    /// </summary>
+    public uint? Seq { get; init; }
+}
 
 /// <summary>
 /// The ledger's refusals that are not the rules' own (the rules' are
@@ -249,8 +256,10 @@ public interface IItemLedger
 
     /// <summary>
     /// A container's item or potion for its hero (WO3), rolled as the rules said and put on the
-    /// floor for him. Hosted it is refused (<see cref="LedgerRefusals.HostUnsupported"/>): the
-    /// host's <c>IGameRules</c> has no container roll and no call mints a container's drop.
+    /// floor for him. Hosted, the host opens the container numbered <see cref="ContainerDrop.Seq"/>
+    /// for him (SDK 2.7 <c>OpenContainer</c>: it replays the rules' roll, once per container and
+    /// hero) and what it minted lands here; a drop with no number is refused
+    /// (<see cref="LedgerRefusals.HostUnsupported"/>).
     /// </summary>
     Task<DropResult> ContainerDrop(ContainerDrop drop);
 
@@ -362,17 +371,23 @@ public interface IItemLedger
     // HE8 and HE9: consumables used, gear worn and repaired where it is worn
     //-------------------------------------------------------------------------
 
-    /// <summary>Uses one of the stack in a backpack slot (a scroll read, a tome learnt); the last one leaves. Hosted: no host call carries it.</summary>
+    /// <summary>Uses one of the stack in a backpack slot (a scroll read, a tome learnt); the last one leaves. Hosted: SDK 2.7 <c>Consume</c>.</summary>
     Task<LedgerResult> Consume(string hero, int slot);
 
     /// <summary>
     /// The wear gear took (HE9), applied by the rules' <c>Durability</c> to each item where it
-    /// is now, one write for all of them; an item no longer held is skipped. Hosted: no host
-    /// call carries it.
+    /// is now, one write for all of them; an item no longer held is skipped. Hosted: SDK 2.7
+    /// <c>Wear</c>, each item's events as the one amount that wears it.
     /// </summary>
     Task<LedgerResult> Wear(string hero, IReadOnlyList<WearEvents> events);
 
-    /// <summary>Repairs the item worn in an equipment slot (HE9, L7); the rules' refusal comes back as is. Hosted: no host call carries it.</summary>
+    /// <summary>
+    /// Repairs the item worn in an equipment slot (HE9, L7); the rules' refusal comes back as is.
+    /// A field repair spends one Repair Kit from the backpack (the lowest slot holding one;
+    /// <c>no_kit</c> without), at the hero level the kit was had at, on both ledgers: the rules'
+    /// <c>Repair(item, Field, kit, seed)</c>. Hosted: SDK 2.7 <c>Repair</c> of the kind, the town's
+    /// in the hub only; the waived town price has no host call.
+    /// </summary>
     Task<LedgerResult> RepairWorn(string hero, string equipSlot, WornRepair how);
 
     /// <summary>A dev mutation (<c>tf2_descent_wear</c>): the worn item's durability and maximum set as given, its wear progress cleared.</summary>

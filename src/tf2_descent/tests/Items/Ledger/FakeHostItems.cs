@@ -70,6 +70,10 @@ internal sealed class FakeHostItems(TF2DescentRules r) : IHostItems
         return minted;
     }
 
+    /// <summary>Mints <paramref name="item"/> as the hero's, in a slot of a container (the host's starting kit does this at creation).</summary>
+    public HostItem Carry(string hero, ItemInstance item, HostContainer container, int slot) =>
+        Store(Mint(item, HostOwnerKind.Character, hero, slot) with { Container = container });
+
     public IEnumerable<HostItem> Owned(HostOwnerKind kind, string ownerId) =>
         Items.Values.Where(i => i.Owner == kind && i.OwnerId == ownerId);
 
@@ -77,7 +81,8 @@ internal sealed class FakeHostItems(TF2DescentRules r) : IHostItems
 
     private int FreeSlot(string hero)
     {
-        var used = Owned(HostOwnerKind.Character, hero).Select(i => i.Slot).ToHashSet();
+        // Only backpack items take cells (SDK 2.7): what is worn or belted takes none.
+        var used = Owned(HostOwnerKind.Character, hero).Where(i => i.Container == HostContainer.Backpack).Select(i => i.Slot).ToHashSet();
         for (int s = 0; s < Capacity(hero); s++)
             if (!used.Contains(s)) return s;
         return -1;
@@ -174,7 +179,10 @@ internal sealed class FakeHostItems(TF2DescentRules r) : IHostItems
         int slot = FreeSlot(steamId);
         if (slot < 0)
             return Task.FromResult(No<HostItem>("no_capacity", HostError.NoCapacity));
-        return Task.FromResult(HostResult<HostItem>.Success(Store(item with { Owner = HostOwnerKind.Character, OwnerId = steamId, Slot = slot, ForCharacter = "" })));
+        return Task.FromResult(HostResult<HostItem>.Success(Store(item with
+        {
+            Owner = HostOwnerKind.Character, OwnerId = steamId, Slot = slot, ForCharacter = "", Container = HostContainer.Backpack,
+        })));
     }
 
     public Task<HostResult<HostItem>> Drop(string steamId, string itemId, Vector position)
@@ -186,17 +194,96 @@ internal sealed class FakeHostItems(TF2DescentRules r) : IHostItems
         return Task.FromResult(HostResult<HostItem>.Success(Store(item with { Owner = HostOwnerKind.World, OwnerId = "instance", Slot = -1, ForCharacter = "" })));
     }
 
-    public Task<HostResult<HostItem>> Move(string steamId, string itemId, int slot)
+    public Task<HostResult<HostItem>> Move(string steamId, string itemId, int slot) => Move(steamId, itemId, HostContainer.Backpack, slot);
+
+    /// <summary>The host's move into a container (DescentLedger.Move, SDK 2.7): in range, free, and allowed by the rules.</summary>
+    public Task<HostResult<HostItem>> Move(string steamId, string itemId, HostContainer container, int slot)
     {
         if (Fails("move", steamId))
             return Task.FromResult(Unreachable<HostItem>());
         if (OwnedBy(steamId, itemId) is not { } item)
             return Task.FromResult(No<HostItem>("wrong_owner", HostError.WrongOwner));
-        if (slot < 0 || slot >= Capacity(steamId))
+        var sheet = r.SheetCodec.Write(Sheets[steamId]);
+        if (slot < 0 || slot >= r.ContainerSlots(sheet, (ItemContainer)container))
             return Task.FromResult(No<HostItem>("bad_slot"));
-        if (Owned(HostOwnerKind.Character, steamId).Any(i => i.Slot == slot && i.Id != itemId))
+        if (Owned(HostOwnerKind.Character, steamId).Any(i => i.Container == container && i.Slot == slot && i.Id != itemId))
             return Task.FromResult(No<HostItem>("slot_taken"));
-        return Task.FromResult(HostResult<HostItem>.Success(Store(item with { Slot = slot })));
+        if (r.PlaceRefusal(sheet, Rolled(item), (ItemContainer)container, slot) is { } why)
+            return Task.FromResult(No<HostItem>(why));
+        return Task.FromResult(HostResult<HostItem>.Success(Store(item with { Container = container, Slot = slot })));
+    }
+
+    /// <summary>The host's use (DescentLedger.Consume): the rules' answer, the item ended (state Consumed) or its count lowered in place.</summary>
+    public Task<HostResult<HostItem>> Consume(string steamId, string itemId, int count)
+    {
+        if (Fails("consume", steamId))
+            return Task.FromResult(Unreachable<HostItem>());
+        if (count < 1)
+            return Task.FromResult(No<HostItem>("bad_count"));
+        if (OwnedBy(steamId, itemId) is not { } item)
+            return Task.FromResult(No<HostItem>("wrong_owner", HostError.WrongOwner));
+        var change = r.Consume(r.SheetCodec.Write(Sheets[steamId]), Rolled(item), count);
+        if (!change.Ok)
+            return Task.FromResult(No<HostItem>(change.Refusal!));
+        if (change.Consumed is [0] && change.Produced.Count == 0)
+        {
+            Items.Remove(itemId);
+            return Task.FromResult(HostResult<HostItem>.Success(item with { State = HostItemState.Consumed, Version = item.Version + 1 }));
+        }
+        if (change.Consumed.Count != 0 || change.Produced is not [{ } left] || left.Count != item.Count - count)
+            return Task.FromResult(No<HostItem>("rules_bad_consume"));
+        return Task.FromResult(HostResult<HostItem>.Success(With(item, r.ItemRules.Codec.Instance(left))));
+    }
+
+    /// <summary>The host's wear (DescentLedger.Wear): 1..64 items, each once, each amount above 0, the rules' answer; all or nothing.</summary>
+    public Task<HostResult<IReadOnlyList<HostItem>>> Wear(string steamId, IReadOnlyList<HostWear> entries)
+    {
+        if (Fails("wear", steamId))
+            return Task.FromResult(Unreachable<IReadOnlyList<HostItem>>());
+        WearBatches.Add([.. entries]);
+        if (entries.Count is 0 or > 64 || entries.Select(e => e.ItemId).Distinct().Count() != entries.Count)
+            return Task.FromResult(No<IReadOnlyList<HostItem>>("bad_entries"));
+        var worn = new List<(HostItem Item, ItemInstance After)>();
+        foreach (var e in entries)
+        {
+            if (e.Amount <= 0)
+                return Task.FromResult(No<IReadOnlyList<HostItem>>("bad_amount"));
+            if (OwnedBy(steamId, e.ItemId) is not { } item)
+                return Task.FromResult(No<IReadOnlyList<HostItem>>("wrong_owner", HostError.WrongOwner));
+            var change = r.Wear(Rolled(item), e.Amount);
+            if (!change.Ok)
+                return Task.FromResult(No<IReadOnlyList<HostItem>>(change.Refusal!));
+            worn.Add((item, r.ItemRules.Codec.Instance(change.Produced[0])));
+        }
+        return Task.FromResult(HostResult<IReadOnlyList<HostItem>>.Success([.. worn.Select(w => With(w.Item, w.After))]));
+    }
+
+    /// <summary>Every wear write the host was sent.</summary>
+    public List<List<HostWear>> WearBatches { get; } = [];
+
+    /// <summary>Whether this is the hub (a town repair is refused <c>not_a_hub</c> elsewhere).</summary>
+    public bool InHub { get; set; } = true;
+
+    /// <summary>The instance's seed and depth a container is replayed with.</summary>
+    public ulong InstanceSeed { get; set; } = 42;
+
+    public int Depth { get; set; } = 2;
+
+    private readonly HashSet<(uint Seq, string Hero)> _opened = [];
+
+    /// <summary>
+    /// The host's container (DescentLedger.OpenContainer): the rules' <c>ContainerDrops</c> for this
+    /// instance and the opener's sheet, minted to the floor for him; once per container and hero.
+    /// </summary>
+    public Task<HostResult<IReadOnlyList<HostItem>>> OpenContainer(string steamId, uint containerSeq)
+    {
+        if (Fails("open", steamId))
+            return Task.FromResult(Unreachable<IReadOnlyList<HostItem>>());
+        if (!_opened.Add((containerSeq, steamId)))
+            return Task.FromResult(No<IReadOnlyList<HostItem>>("already_opened"));
+        var drops = r.ContainerDrops(InstanceSeed, containerSeq, Depth, r.SheetCodec.Write(Sheets[steamId]));
+        return Task.FromResult(HostResult<IReadOnlyList<HostItem>>.Success(
+            [.. drops.Select(d => Store(Mint(r.ItemRules.Codec.Instance(d), HostOwnerKind.World, "instance", -1, steamId)))]));
     }
 
     public Task<HostResult<HostItem>> StashMove(string steamId, string itemId, bool toStash, int slot)
@@ -302,7 +389,36 @@ internal sealed class FakeHostItems(TF2DescentRules r) : IHostItems
 
     public Task<HostResult<HostItem>> Identify(string steamId, string itemId) => InPlace("identify", steamId, itemId, i => r.Identify(i, ++_seed));
 
-    public Task<HostResult<HostItem>> Repair(string steamId, string itemId) => InPlace("repair", steamId, itemId, r.Repair);
+    public Task<HostResult<HostItem>> Repair(string steamId, string itemId) => Repair(steamId, itemId, HostRepairKind.Town, null);
+
+    /// <summary>
+    /// The host's repair of a kind (DescentLedger.Repair): the town's in the hub only; the field's
+    /// names a kit of the hero's other than the item, which the rules may use up (index 1) in the
+    /// same write. The item changes in place.
+    /// </summary>
+    public async Task<HostResult<HostItem>> Repair(string steamId, string itemId, HostRepairKind kind, string? kitId)
+    {
+        if (kind == HostRepairKind.Town && !InHub)
+        {
+            Calls.Add($"repair {steamId}");
+            return No<HostItem>("not_a_hub", HostError.NotAHub);
+        }
+        HostItem? kit = null;
+        if (kind == HostRepairKind.Field && (string.IsNullOrEmpty(kitId) || kitId == itemId || (kit = OwnedBy(steamId, kitId)) is null))
+        {
+            Calls.Add($"repair {steamId}");
+            return No<HostItem>("bad_kit");
+        }
+        KitsNamed.Add(kitId);
+        var answer = await InPlace("repair", steamId, itemId,
+            i => r.Repair(i, (RepairKind)(int)kind, kit is null ? null : Rolled(kit), ++_seed));
+        if (answer.Ok && kit is not null)
+            Items.Remove(kit.Id);
+        return answer;
+    }
+
+    /// <summary>The kit each repair named (null for a town repair).</summary>
+    public List<string?> KitsNamed { get; } = [];
 
     private HostResult<IReadOnlyList<HostItem>> Transform(string op, string steamId, IReadOnlyList<string> inputs, Func<IReadOnlyList<RolledItem>, ItemChange> operate)
     {
@@ -362,7 +478,7 @@ internal sealed class FakeHostItems(TF2DescentRules r) : IHostItems
         {
             int slot = FreeSlot(steamId);
             if (slot < 0) break;
-            Store(item with { Owner = HostOwnerKind.Character, Slot = slot });
+            Store(item with { Owner = HostOwnerKind.Character, Slot = slot, Container = HostContainer.Backpack });
             n++;
         }
         Australium[steamId] += _corpseAustralium.GetValueOrDefault(steamId);

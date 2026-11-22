@@ -82,6 +82,15 @@ public interface ILeaseHook
     void OnLeaseLost(string steamId, LeaseLostReason reason, string detail);
 }
 
+/// <summary>
+/// A player's join answered (hosted): from here the client in <c>entIndex</c> is the host's
+/// character, named by <c>steamId</c> as the host knows him, his lease held and his sheet set.
+/// </summary>
+public interface IHeroJoinHook
+{
+    void OnHeroJoined(int entIndex, string steamId);
+}
+
 /// <summary>The SDK's connection to the service came or went.</summary>
 public interface IHostConnectionHook
 {
@@ -113,6 +122,7 @@ public sealed class TF2DescentServerRegistrar : ISideServiceRegistrar
         registry.AddHooks<IHostBootHook>();
         registry.AddHooks<IHostCommandHook>();
         registry.AddHooks<ILeaseHook>();
+        registry.AddHooks<IHeroJoinHook>();
         registry.AddHooks<IHostConnectionHook>();
         registry.AddHooks<IHopReadyHold>();
         // A robot's hits go to every member (HO3's blast push beside the tally).

@@ -45,6 +45,7 @@ public sealed class MotdFileTests
                 "|gameinfo_path|../tf2" => RepoLayout.Repo("game", "mod_tf2"),
                 "|gameinfo_path|../test" => RepoLayout.Repo("game", "mod_test"),
                 "|gameinfo_path|../../content/tf" => tfContent,
+                "|gameinfo_path|../../content/tf/download" => Path.Combine(tfContent, "download"),
                 "|gameinfo_path|custom/*" or "|gameinfo_path|download" => null,
                 _ when path.EndsWith(".vpk", StringComparison.Ordinal) => null,
                 _ when path.StartsWith("|all_source_engine_paths|", StringComparison.Ordinal) => null,
@@ -150,7 +151,7 @@ public sealed class MotdFileTests
         }
     }
 
-    /// <summary>Each letter key the message's KEYS list names is the
+    /// <summary>Each one-word key (a letter, Tab) the message's KEYS list names is the
     /// mod's own key action on that key, under that action's label (the
     /// first word or words after the key's " - "), so the list cannot drift from the
     /// binds a fresh config gets.</summary>
@@ -162,15 +163,17 @@ public sealed class MotdFileTests
             .ToArray();
         string[] lines = File.ReadAllLines(RepoLayout.Repo("game", "mod_tf2_descent", "motd.txt"));
         var rows = lines.SkipWhile(l => l != "KEYS").Skip(1)
-            .Where(l => l.Length > 4 && char.IsLetter(l[0]) && l[1..4] == " - ")
-            .Select(l => (Key: char.ToLowerInvariant(l[0]).ToString(), Text: l[4..]))
+            .Select(l => System.Text.RegularExpressions.Regex.Match(l, "^([A-Za-z]+) - (.+)$"))
+            .Where(m => m.Success)
+            .Select(m => (Key: m.Groups[1].Value.ToLowerInvariant(), Text: m.Groups[2].Value))
             .ToArray();
 
         // The stimulus: the list holds the use key and the window keys.
         Assert.Contains(rows, r => r.Key == "e");
+        Assert.Contains(rows, r => r.Key == "tab");
         Assert.True(rows.Length >= 5, $"{rows.Length} letter rows");
 
-        var wrong = rows.Where(r => !actions.Any(a => a.Keys.Contains(r.Key) && a.Label is { } label
+        var wrong = rows.Where(r => !actions.Any(a => a.Keys.Any(k => string.Equals(k, r.Key, StringComparison.OrdinalIgnoreCase)) && a.Label is { } label
                                                       && r.Text.StartsWith(label, StringComparison.Ordinal)))
                         .Select(r => $"{r.Key}: '{r.Text}' is no key action of the mod on that key")
                         .ToArray();

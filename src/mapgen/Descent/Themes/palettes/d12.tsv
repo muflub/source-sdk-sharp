@@ -1,0 +1,33 @@
+# Palette of depth 12 (the Sump), plan_descent_mine_levels.md E7; brief p14.
+# One row per asset the theme names: asset, kind (material, static, dynamic, water), role, why.
+# Chosen by query of /home/lodle/assetdb (average_colour, maps_used) and looked at (.scratch/p14-m*.jpg, p14-mod*.jpg).
+# DescentPaletteTests holds every row to the theme and to the database. '# rejected' lines are notes.
+asset	kind	role	why
+swamp/nature/swampmud003	material	floor	brown mud (#3c3228; the plan's), the sump's bottom
+swamp/brick/swampbrickwall001	material	wall	red-brown sewer brick (#543e36; the plan's); 18 maps
+swamp/concrete/swampcrete001	material	ceiling	cracked green concrete (the plan's) for the vault
+swamp/concrete/swampcrete001	material	block	poured green concrete for walkways, decks, steps and pillars: in rusted diamond plate (swampmetal001) a pillar room's pillar read as a big green steel drum (brief p15)
+swamp/metal/swampmetal001	material	trim	rusted steel for pilasters and the roof beam
+swamp/concrete/swampcrete001	material	wall-low	the green concrete lining along a wall's foot to 160
+swamp/brick/swampbrickwall001	material	large-wall	the brick at 0.5 on a larger room's walls
+swamp/concrete/swampcrete001	material	door-frame	a concrete culvert arch round each doorway
+props_gameplay/door_grate003_floorplate	static	door-sill	covers the doorway's floor under the plugs (the kit's sill)
+props_swamp/bug_zapper	static	lamp	a bug zapper hung from the roof (the plan's), cold violet-white
+props_swamp/bug_zapper	static	cover-lamp	a zapper where the others leave the floor dark
+props_c17/light_industrialbell01_on	static	pendant	a bell lamp on a cable over the tall rooms, sick yellow-green
+props_island/gantry_support_cable_128	static	pendant-cord	the cable the bell lamp hangs from
+props_island/gantry_support_cable_64	static	pendant-cord	a half length of the cable
+props_island/gantry_support_cable_32	static	pendant-cord	a quarter length of the cable
+props_island/parts/pipe_256	static	wall-prop	a red pipe rising from the floor and turning into the wall (its elbow toward -x); 13 maps
+props_island/parts/pipe_straight_384	static	wall-prop	a red riser pipe up a wall
+props_swamp/oildrum_open	static	wall-prop	an open drum against the wall (the plan's): the server's breakable barrel (M34)
+props_hydro/water_barrel_cluster	static	corner-pile	blue chemical barrels on a pallet in a corner; 52 maps
+props_coalmines/wood_debris3	static	corner-pile	drifted timber in a corner (non-solid)
+props_island/parts/pipe_256	static	floor-prop	a pipe stub standing out of the floor
+props_mining/industrial_pipe01_256_01	static	ceiling-run	white pipe along the walls under the roof (the plan's)
+props_swamp/oildrum_open	static	companion	an open drum beside a pile: the server's breakable barrel (M34)
+props_swamp/ropepile	static	companion	a coil of rope beside a pile
+props_farm/drain_pipe001	static	hung	a round grated drain in the wall at a player's knee; 62 maps
+nature/toxicslime002a_dx70	material	hazard-slime	the slime in the pools, flooded galleries and channels: HL2's toxic slime texture as a lit skin, drawn as descent/sump_scum; as TF2's murky water (descent/sump_slime) its fog drew a flat luminous sheet with no surface (brief p15)
+# rejected nature/toxicslime002a (the plan's slime): no texture in the database's TF2 rows
+# rejected props_farm/sewer_grate_end01 (the plan's): a pipe end 320 long whose cone would stand in the room, not in the wall

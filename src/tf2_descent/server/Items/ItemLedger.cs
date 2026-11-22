@@ -18,8 +18,22 @@ public sealed class ItemLedger(
     InMemoryItemLedger memory,
     HostedItemLedger hosted,
     HeroKeys keys,
-    ILog log) : IItemLedger, IGameLifecycle, IClientLifecycle
+    ILog log) : IItemLedger, IGameLifecycle, IClientLifecycle, IHeroJoinHook, IOrderedHook
 {
+    /// <summary>The join hook's place (the ledger is its one member today).</summary>
+    public int HookOrder => ModStages.First + 7;
+
+    /// <summary>
+    /// Hosted, a hero is loaded as his join answers (SDK 2.7: his kit is worn on the host from his
+    /// creation), so the load's change settles his TF kit and stats at once, not at whatever
+    /// first touches the ledger.
+    /// </summary>
+    public void OnHeroJoined(int entIndex, string steamId)
+    {
+        if (host.Mode == HostingMode.Hosted)
+            _ = hosted.Load(steamId);
+    }
+
     /// <summary>After HostService (First + 10), which decides the mode at PostInit.</summary>
     public int LifecycleOrder => ModStages.First + 73;
 

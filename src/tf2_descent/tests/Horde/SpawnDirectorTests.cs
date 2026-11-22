@@ -213,6 +213,28 @@ public sealed class SpawnDirectorTests
         Assert.True(ordinary > 1000);
     }
 
+    /// <summary>A reach that joins every floor: the navigation's answer where a giant's hull reaches every room.</summary>
+    private sealed class JoinsAll : IHullReach
+    {
+        public bool Joins(int room, AiVector at, double scale) => true;
+    }
+
+    [Fact]
+    public void With_the_navigations_reach_a_giant_stands_where_its_floor_joins_whatever_the_doors_sill()
+    {
+        // The sill rule guessed at a floor a giant could not climb to; the navigation measures it
+        // (giants climb stairs since 2026-11-15), so where its reach joins, the sill refuses nothing.
+        int giants = 0;
+        for (ulong seed = 0; seed < 3000; seed++)
+        {
+            var level = HordeLevel.Create(seed, 5, [Room(0), Room(1, Marker(1, 500, 500, Open()))], [Door(0, sill: 48)]);
+            giants += Director.Plan(level, 4, new JoinsAll()).Packs.SelectMany(p => p.Robots)
+                .Count(r => TheRules.Robots.Template(r.Roll.Template).Size == "giant");
+        }
+
+        Assert.True(giants > 20, $"{giants} giants posted behind the raised sill with a reach that joins");
+    }
+
     /// <summary>A level's floor by hull as a fact draws it: rooms whose floor a hull above a scale does not share with the arrival's.</summary>
     private sealed class CutOff(double above, params int[] rooms) : IHullReach
     {
@@ -227,8 +249,9 @@ public sealed class SpawnDirectorTests
 
     /// <summary>
     /// A room whose doors fit a giant but whose floor its hull does not share with the arrival
-    /// (depth 1 seed 1's widedrift rooms cut rooms 6, 16 and 17 off for scale 1.6 and up): the
-    /// director never posts a robot that large there.
+    /// (a corridor narrower than its hull, as <c>CutFloorLevel</c>'s; depth 1 seed 1's rooms 6,
+    /// 16 and 17 were cut off so for scale 1.6 and up until the sill fix of 2026-11-15, and are
+    /// reached now): the director never posts a robot that large there.
     /// </summary>
     [Fact]
     public void A_robot_is_never_posted_where_its_hulls_floor_does_not_join_the_arrivals()

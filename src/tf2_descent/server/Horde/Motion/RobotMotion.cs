@@ -18,10 +18,12 @@ namespace TF2.Descent.Server.Horde.Motion;
 /// most a tick old; none applied, the bodies hold): <b>accept</b> each with one
 /// hull sweep of the body's scaled hull from where it was last put to where the
 /// step left it, through the world, props, the other bodies and the heroes; a
-/// clear move is taken, a blocked one is clipped at the contact (no slide: the
-/// velocity into the face is removed, so the next step slides along it), and
-/// the body's state is corrected there, so the next step starts from where the
-/// body really is. A step that rose (a stair) and was blocked straight is tried
+/// clear move is taken, a blocked one is clipped at the contact and the rest of
+/// it goes on along the wall (one more sweep; the velocity into the face is
+/// removed), as the movement slides along the walls the step's own world knows:
+/// the voxels hold no arena brush or prop, and a body cutting a corner beside
+/// one stood against it for good while the accept stopped it whole. The body's
+/// state is corrected there, so the next step starts from where the body really is. A step that rose (a stair) and was blocked straight is tried
 /// once more, up and then across, as the movement itself climbs; one that fell
 /// (off a ledge), across and then down. (2) <b>face
 /// and write</b>: each lent body turns towards its look (the look's point, the
@@ -180,6 +182,9 @@ public sealed class RobotMotion(IMotionWorld world) : IRobotMotion, IRobotImpuls
     public long Pushes { get; private set; }
 
     public long Clips { get; private set; }
+
+    /// <summary>Steps the accept stopped at a wall and then slid along it (see <see cref="Apply"/>).</summary>
+    public long Slides { get; private set; }
 
     /// <summary>Ticks that applied no step though one was asked for (a stalled or refused stepper).</summary>
     public long Holds { get; private set; }
@@ -482,7 +487,11 @@ public sealed class RobotMotion(IMotionWorld world) : IRobotMotion, IRobotImpuls
                 next.Velocity = ClipVelocity(next.Velocity, t.Normal);
                 if (t.Normal.Z < FloorNormalZ)
                 {
-                    clipped = true;
+                    // A wall the step's world lacks (an arena brush, a prop, a hero): the rest of the step goes on along it.
+                    next.Origin = Slide(t.End, to, t.Normal, mins, maxs, info.Handle, ref next.Velocity);
+                    float wanted = new AiVector(to.X - start.X, to.Y - start.Y, 0f).Length2D;
+                    float got = new AiVector(next.Origin.X - start.X, next.Origin.Y - start.Y, 0f).Length2D;
+                    clipped = got < _settings.BlockedProgress * wanted;
                     blocker = t;
                 }
             }
@@ -581,6 +590,38 @@ public sealed class RobotMotion(IMotionWorld world) : IRobotMotion, IRobotImpuls
         _sweeps += 2;
         return !world.Sweep(start, across, mins, maxs, ignore).Hit && !world.Sweep(across, to, mins, maxs, ignore).Hit;
     }
+
+    /// <summary>
+    /// Where a step stopped at a wall at <paramref name="at"/> ends up when the rest of it, to
+    /// <paramref name="to"/>, goes on along the wall: the rest with its part into
+    /// <paramref name="normal"/> taken out, swept once (stock's <c>TryPlayerMove</c>, which clips
+    /// the move at each plane it meets and goes on along it). A second wall met on the way stops
+    /// it there, its part into that one taken out of <paramref name="velocity"/> too. The step's
+    /// own world (the voxels) slides along the walls it knows; this is for the ones it does not.
+    /// </summary>
+    private Vector Slide(in Vector at, in Vector to, in Vector normal, in Vector mins, in Vector maxs, EntityHandle ignore, ref Vector velocity)
+    {
+        var rest = to - at;
+        float into = rest.X * normal.X + rest.Y * normal.Y + rest.Z * normal.Z;
+        if (into < 0f)
+            rest -= normal * into;
+        if (rest.X * rest.X + rest.Y * rest.Y < SlideLeast * SlideLeast)
+            return at;
+
+        _sweeps++;
+        var end = at + rest;
+        var s = world.Sweep(at, end, mins, maxs, ignore);
+        if (s.StartSolid)
+            return at;
+        Slides++;
+        if (!s.Hit || s.Fraction >= 1f)
+            return end;
+        velocity = ClipVelocity(velocity, s.Normal);
+        return s.End;
+    }
+
+    /// <summary>A rest along a wall shorter than this on the floor plane is not swept.</summary>
+    private const float SlideLeast = 0.01f;
 
     private static Vector ClipVelocity(Vector v, Vector normal)
     {

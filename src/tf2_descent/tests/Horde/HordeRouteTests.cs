@@ -122,6 +122,30 @@ public sealed class HordeRouteTests
         Assert.Equal(1, route.ByRooms);
     }
 
+    // The arena changed (a pillar fell): the paths and the view name a new epoch. The path in hand is
+    // walked until the brain's turn, never dropped for the room route, and planned again then.
+    [Fact]
+    public void A_path_planned_before_the_epoch_changed_is_kept_until_the_brains_turn_and_planned_again_then()
+    {
+        var paths = new FakePaths();
+        var route = new HordeRoute(Row(4, markers: 0), paths);
+        var tick = new Tick(0);
+        while (!HordeRoute.SearchTurn(tick, 0))
+            tick = new Tick(tick.Value + 1);
+        route.Follow(tick, View(77), From, Goal, MoveSpeed.Run);
+        Assert.Equal(1, paths.Searches);   // the control: a path was planned under epoch 77
+
+        paths.Epoch = 78;
+        var between = route.Follow(new Tick(tick.Value + 1), View(78), From, Goal, MoveSpeed.Run);
+        Assert.Equal(MoveKind.Follow, between.Kind);
+        Assert.Equal(From + new AiVector(0f, 200f, 0f), between.Corner(0));
+        Assert.Equal(1, paths.Searches);
+        Assert.Equal(0, route.ByRooms);
+
+        route.Follow(new Tick(tick.Value + HordeRoute.SearchEveryTicks), View(78), From, Goal, MoveSpeed.Run);
+        Assert.Equal(2, paths.Searches);
+    }
+
     [Fact]
     public void With_the_graph_ready_the_move_is_the_paths_corners_for_the_views_class()
     {

@@ -462,6 +462,7 @@ file sealed class FakeAutomapFlat : IDescentAutomap
     public float RoomH(int r) => Rooms[r].H;
     public int RoomStorey(int r) => 1;
     public bool RoomCurrentStorey(int r) => true;
+    public bool RoomDiscovered(int r) => false;
 
     public int DoorStubCount => 3;
     public float DoorStubX(int i) => i switch { 0 => 256, 1 => 672, _ => 832 };

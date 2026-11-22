@@ -24,17 +24,30 @@ public static class PreviewCamera
     /// <summary>The camera of <paramref name="room"/>: its point (eye height) and its yaw, degrees counter-clockwise from +x.</summary>
     public static (Point At, float Yaw) Of(Room room)
     {
-        // A larger room is one open floor: its body's south-west corner, looking at its middle.
+        // A larger room is one open floor: its body's south-west corner, looking at its middle, walked in toward the
+        // middle until the eye stands in open air (brief p15: a bench or a stepping pillar in the corner).
         if (room.Cells > 1)
         {
             Rect r = room.Body;
-            var at = new Point(r.X0 + Inset, r.Y0 + Inset, room.Kit.Sill + Eye);
+            var solids = new Dressing.RoomSolids(room);
+            float cx = r.X0 + Inset, cy = r.Y0 + Inset, ddx = room.Focus.X - cx, ddy = room.Focus.Y - cy, run = MathF.Sqrt(ddx * ddx + ddy * ddy);
+            var at = new Point(cx, cy, room.Kit.Sill + Eye);
+            for (float d = 0; d < run - 128; d += 16)
+            {
+                var p = new Point(MathF.Round(cx + ddx * d / run), MathF.Round(cy + ddy * d / run), room.Kit.Sill + Eye);
+                if (InOpenAir(solids, p))
+                {
+                    at = p;
+                    break;
+                }
+            }
+
             return (at, MathF.Round((MathF.Atan2(room.Focus.Y - at.Y, room.Focus.X - at.X) * 180 / MathF.PI + 360) % 360));
         }
 
         var columns = new RoomColumns(room);
         // The dressing's props: a camera keeps clear of them, or a duct bend in the corner fills its view.
-        var props = room.Entities.Where(e => e.ClassName is "prop_static" or "prop_dynamic" && e.Origin is not null).Select(e => e.Origin!.Value).ToArray();
+        var props = room.Entities.Where(e => e.ClassName is "prop_static" or "prop_dynamic" && e.Origin is not null || Breakables.Is(e)).Select(e => e.Origin!.Value).ToArray();
         var floor = RoomLint.WalkedFloor(room, columns).ToDictionary(s => (s.I, s.J));
         Rect b = room.Body;
         Point focus = room.Focus;
@@ -71,6 +84,13 @@ public static class PreviewCamera
         float yaw = MathF.Atan2(focus.Y - chosen.At.Y, focus.X - chosen.At.X) * 180 / MathF.PI;
         return (chosen.At, MathF.Round((yaw + 360) % 360));
     }
+
+    /// <summary>How far round an eye nothing solid stands.</summary>
+    public const int EyeClear = 16;
+
+    /// <summary>Whether an eye at <paramref name="eye"/> stands in open air: no solid brush (the world's, a switched one's) within <see cref="EyeClear"/> of it.</summary>
+    public static bool InOpenAir(Dressing.RoomSolids solids, Point eye) =>
+        !solids.Blocked(eye - new Point(EyeClear, EyeClear, EyeClear), eye + new Point(EyeClear, EyeClear, EyeClear));
 
     /// <summary>Whether nothing solid stands between an eye at (<paramref name="x"/>, <paramref name="y"/>, <paramref name="z"/>) and the focus, a hand above its floor, sampled every 16.</summary>
     private static bool SeesFocus(RoomColumns columns, float x, float y, float z, Point focus)

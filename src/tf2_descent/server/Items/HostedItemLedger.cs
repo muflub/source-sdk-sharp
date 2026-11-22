@@ -86,12 +86,37 @@ public sealed class HostedItemLedger(IGameRules rules, IHooks<IItemLedgerHook> h
         }
         var character = answer.Value.Character;
         var sheet = SheetOf(character);
-        var inventory = new HeroInventory { Australium = character.Australium };
-        var backpack = Slots(answer.Value.Backpack, out int skipped);
+        var inventory = Carried(new HeroInventory { Australium = character.Australium }, answer.Value.Backpack, out int skipped);
         var stash = Slots(answer.Value.Stash, out int skippedStash);
         if (skipped + skippedStash > 0)
-            log.Warning($"[TF2Descent] {hero}: {skipped + skippedStash} items of an older schema are not shown\n");
-        return new LedgerHero(hero, sheet, inventory with { Backpack = backpack }, new StashState { Slots = stash });
+            log.Warning($"[TF2Descent] {hero}: {skipped + skippedStash} items of an older schema, or in no slot of ours, are not shown\n");
+        return new LedgerHero(hero, sheet, inventory, new StashState { Slots = stash });
+    }
+
+    /// <summary>
+    /// <paramref name="inventory"/> with what the hero carries on the host in its three containers
+    /// (SDK 2.7): backpack cells, the equipment slots (the host's slot is the index in the rules'
+    /// <c>EquipSlots</c>) and the belt. An item of an older schema, or in a slot the rules do not
+    /// have, is skipped and counted.
+    /// </summary>
+    private HeroInventory Carried(HeroInventory inventory, IEnumerable<HostItem> carried, out int skipped)
+    {
+        var all = carried.ToList();
+        var backpack = Slots(all.Where(i => i.Container == HostContainer.Backpack), out skipped);
+        var belt = Slots(all.Where(i => i.Container == HostContainer.Belt && i.Slot < Rules.Inventory.BeltSlots), out int skippedBelt);
+        skipped += skippedBelt + all.Count(i => i.Container == HostContainer.Belt && i.Slot >= Rules.Inventory.BeltSlots);
+        var equipped = System.Collections.Immutable.ImmutableSortedDictionary<string, Held>.Empty.WithComparers(StringComparer.Ordinal);
+        var names = Rules.EquipSlots;
+        foreach (var item in all.Where(i => i.Container == HostContainer.Equipped))
+        {
+            if (item.Slot < 0 || item.Slot >= names.Count || equipped.ContainsKey(names[item.Slot]) || Decode(item) is not { } instance)
+            {
+                skipped++;
+                continue;
+            }
+            equipped = equipped.Add(names[item.Slot], new Held(IdOf(item.Id), instance));
+        }
+        return inventory with { Backpack = backpack, Equipped = equipped, Belt = belt };
     }
 
     private System.Collections.Immutable.ImmutableSortedDictionary<int, Held> Slots(IEnumerable<HostItem> items, out int skipped)
@@ -124,14 +149,52 @@ public sealed class HostedItemLedger(IGameRules rules, IHooks<IItemLedgerHook> h
         return Rules.Heroes.New(c.ClassName, c.Name);
     }
 
-    /// <summary>The backpack again, as the host holds it, over <paramref name="basis"/>: after an operation whose outputs the host does not all answer.</summary>
+    /// <summary>What the hero carries again, as the host holds it, over <paramref name="basis"/>: after an operation whose outputs the host does not all answer.</summary>
     private async Task<Confirmed> Reloaded(LedgerHero basis, IReadOnlyList<long>? gone)
     {
         var answer = await host.Inventory(basis.Hero, false);
         if (!answer.Ok)
             return Confirmed.No(Refusal(answer.Refusal!));
-        var backpack = Slots(answer.Value.Backpack, out _);
-        return new Confirmed(basis with { Inventory = basis.Inventory with { Backpack = backpack } }, null, gone);
+        return new Confirmed(basis with { Inventory = Carried(basis.Inventory, answer.Value.Backpack, out _) }, null, gone);
+    }
+
+    /// <summary>
+    /// A later step of an operation the host carried out in parts was refused (<paramref name="refusal"/>):
+    /// what the hero carries is read back from the host and committed, so the ledger holds what the
+    /// host does, and the operation is refused with the host's reason.
+    /// </summary>
+    private async Task<Confirmed> Resynced(LedgerHero before, string refusal)
+    {
+        if (await Reloaded(before, []) is { After: { } after })
+            Commit("resync", before, after, []);
+        return Confirmed.No(refusal);
+    }
+
+    private string HostId(long id) => HostIdOf(id) ?? "";
+
+    /// <summary>Moves one item into a slot of a container on the host; the refusal as the ledger says it, or null.</summary>
+    private async Task<string?> MoveOnHost(string hero, long id, HostContainer container, int slot)
+    {
+        var r = await host.Move(hero, HostId(id), container, slot);
+        return r.Ok ? null : Refusal(r.Refusal!);
+    }
+
+    /// <summary>The backpack slot <paramref name="id"/> sits in after <paramref name="predicted"/>.</summary>
+    private static int BackpackSlotOf(LedgerHero predicted, long id) => predicted.Inventory.Backpack.First(p => p.Value.Id == id).Key;
+
+    /// <summary><paramref name="predicted"/> with the item <paramref name="id"/> as the host answered it, where it is (worn, carried, belted).</summary>
+    private LedgerHero WithAnswered(LedgerHero predicted, long id, HostItem answered)
+    {
+        if (Decode(answered) is not { } item)
+            return predicted;
+        var inv = predicted.Inventory;
+        foreach (var p in inv.Equipped.Where(p => p.Value.Id == id))
+            return predicted with { Inventory = inv with { Equipped = inv.Equipped.SetItem(p.Key, p.Value with { Item = item }) } };
+        foreach (var p in inv.Backpack.Where(p => p.Value.Id == id))
+            return predicted with { Inventory = inv with { Backpack = inv.Backpack.SetItem(p.Key, p.Value with { Item = item }) } };
+        foreach (var p in inv.Belt.Where(p => p.Value.Id == id))
+            return predicted with { Inventory = inv with { Belt = inv.Belt.SetItem(p.Key, p.Value with { Item = item }) } };
+        return predicted;
     }
 
     //-------------------------------------------------------------------------
@@ -248,11 +311,133 @@ public sealed class HostedItemLedger(IGameRules rules, IHooks<IItemLedgerHook> h
                 // The host answers one output of a recipe or a crate; the backpack as it holds it says all.
                 return await Reloaded(predicted, null);
             }
+            case "equip":
+                return await Equip(op, before, predicted);
+            case "unequip":
+            {
+                long id = before.Inventory.Equipped[op.Text!].Id;
+                return await MoveOnHost(hero, id, HostContainer.Backpack, BackpackSlotOf(predicted, id)) is { } why
+                    ? Confirmed.No(why) : new Confirmed(predicted, null);
+            }
+            case "to_belt":
+            {
+                // The host keeps a stack as one item and has no merge: only an empty belt slot is asked.
+                if (before.Inventory.Belt.ContainsKey(op.To))
+                    return Unsupported;
+                return await MoveOnHost(hero, before.Inventory.Backpack[op.Slot].Id, HostContainer.Belt, op.To) is { } why
+                    ? Confirmed.No(why) : new Confirmed(predicted, null);
+            }
+            case "from_belt":
+            {
+                long id = before.Inventory.Belt[op.Slot].Id;
+                return await MoveOnHost(hero, id, HostContainer.Backpack, BackpackSlotOf(predicted, id)) is { } why
+                    ? Confirmed.No(why) : new Confirmed(predicted, null);
+            }
+            case "drink":
+                return await Drink(op, before, predicted);
+            case "consume":
+            {
+                long id = before.Inventory.Backpack[op.Slot].Id;
+                var r = await host.Consume(hero, HostId(id), 1);
+                return r.Ok ? new Confirmed(Used(predicted, id, r.Value), null) : Confirmed.No(Refusal(r.Refusal!));
+            }
+            case "wear":
+                return await Wear(op, before, predicted);
+            case "repair_worn":
+            {
+                // The Engineer's repair is the host's town repair (hub only, priced by the host); a waived price has no call.
+                if (op.To != (int)WornRepair.Town)
+                    return Unsupported;
+                var r = await host.Repair(hero, HostId(op.Id), HostRepairKind.Town, null);
+                return r.Ok ? new Confirmed(WithAnswered(predicted, op.Id, r.Value), null) : Confirmed.No(Refusal(r.Refusal!));
+            }
+            case "field_repair_worn":
+            {
+                // The kit the rules chose (op.Slot) is used up by the host in the same write.
+                var r = await host.Repair(hero, HostId(op.Id), HostRepairKind.Field, HostId(before.Inventory.Backpack[op.Slot].Id));
+                return r.Ok ? new Confirmed(WithAnswered(predicted, op.Id, r.Value), null) : Confirmed.No(Refusal(r.Refusal!));
+            }
             default:
-                // stack, equip, unequip, to_belt, from_belt, drink, give, australium, and HE8/HE9's consume,
-                // wear, repair_worn, field_repair_worn, set_durability: no host call carries them.
+                // stack, give, australium and set_durability: no host call carries them.
                 return Unsupported;
         }
+    }
+
+    /// <summary>
+    /// An equip on the host (SDK 2.7 <c>Move</c> into the slot's index): the item from its backpack
+    /// cell into the equipment slot. An item worn there first goes to a free backpack cell (the
+    /// host refuses a taken slot), then, when the rules put it where the new one was, there. Each
+    /// is a host call of its own: a refusal after the first resyncs from the host.
+    /// </summary>
+    private async Task<Confirmed> Equip(Op op, LedgerHero before, LedgerHero predicted)
+    {
+        string hero = before.Hero, slot = op.Text!;
+        int index = Rules.EquipSlots.ToList().IndexOf(slot);
+        long id = before.Inventory.Backpack[op.Slot].Id;
+        if (!before.Inventory.Equipped.TryGetValue(slot, out var old))
+            return await MoveOnHost(hero, id, HostContainer.Equipped, index) is { } why ? Confirmed.No(why) : new Confirmed(predicted, null);
+
+        int to = BackpackSlotOf(predicted, old.Id);
+        int spare = Rules.Inventory.FreeSlot(before.Inventory, before.Sheet);
+        if (spare < 0)
+            return Unsupported;   // a swap through a full backpack: the host has no swap, and no cell to pass it through
+        if (await MoveOnHost(hero, old.Id, HostContainer.Backpack, spare) is { } off)
+            return Confirmed.No(off);
+        if (await MoveOnHost(hero, id, HostContainer.Equipped, index) is { } on)
+            return await Resynced(before, on);
+        if (to != spare && await MoveOnHost(hero, old.Id, HostContainer.Backpack, to) is { } back)
+            return await Resynced(before, back);
+        return new Confirmed(predicted, null);
+    }
+
+    /// <summary><paramref name="predicted"/> with the item <paramref name="id"/> as the host left it after a use: gone, or its count lowered.</summary>
+    private LedgerHero Used(LedgerHero predicted, long id, HostItem after) =>
+        after.State == HostItemState.Consumed ? predicted : WithAnswered(predicted, id, after);
+
+    /// <summary>
+    /// A potion drunk from the belt (SDK 2.7 <c>Consume</c>); when the rules refill the emptied belt
+    /// slot from the backpack, the refill is moved onto the belt too.
+    /// </summary>
+    private async Task<Confirmed> Drink(Op op, LedgerHero before, LedgerHero predicted)
+    {
+        string hero = before.Hero;
+        long id = before.Inventory.Belt[op.Slot].Id;
+        var r = await host.Consume(hero, HostId(id), 1);
+        if (!r.Ok)
+            return Confirmed.No(Refusal(r.Refusal!));
+        if (predicted.Inventory.Belt.TryGetValue(op.Slot, out var refill) && refill.Id != id
+            && await MoveOnHost(hero, refill.Id, HostContainer.Belt, op.Slot) is { } why)
+            return await Resynced(before, why);
+        return new Confirmed(Used(predicted, id, r.Value), null);
+    }
+
+    /// <summary>The most items one wear write carries (the host's limit).</summary>
+    public const int WearBatch = 64;
+
+    /// <summary>
+    /// Wear (SDK 2.7 <c>Wear</c>): each item the hero still wears or carries, its events summed into
+    /// the one amount that wears it (a weapon's uses, armour's hits: <c>Durability.Amount</c>), in
+    /// writes of at most <see cref="WearBatch"/>; an item no event wears is not sent. The items come
+    /// back as the host left them.
+    /// </summary>
+    private async Task<Confirmed> Wear(Op op, LedgerHero before, LedgerHero predicted)
+    {
+        var carried = before.Inventory.Equipped.Values.Concat(before.Inventory.Backpack.Values).ToDictionary(h => h.Id);
+        var amounts = new Dictionary<long, int>();
+        foreach (var e in op.Wear ?? [])
+            if (carried.TryGetValue(e.ItemId, out var held))
+                amounts[e.ItemId] = amounts.GetValueOrDefault(e.ItemId) + Rules.ItemRules.Durability.Amount(held.Item, e.Uses, e.Hits);
+        var entries = amounts.Where(p => p.Value > 0).Select(p => new HostWear(HostId(p.Key), p.Value)).ToList();
+        var after = predicted;
+        foreach (var batch in entries.Chunk(WearBatch))
+        {
+            var r = await host.Wear(before.Hero, batch);
+            if (!r.Ok)
+                return Confirmed.No(Refusal(r.Refusal!));
+            foreach (var answered in r.Value)
+                after = WithAnswered(after, IdOf(answered.Id), answered);
+        }
+        return new Confirmed(after, null);
     }
 
     /// <summary>The host prices with no stat of the buyer's: his price stats move nothing here.</summary>
@@ -261,7 +446,11 @@ public sealed class HostedItemLedger(IGameRules rules, IHooks<IItemLedgerHook> h
     /// <summary>The host's stock is asked each time (it restocks by its own rules).</summary>
     protected override bool KeepsStock => false;
 
-    /// <summary>The host carries no belt (X6): a potion gained stays in the backpack slot the host put it in.</summary>
+    /// <summary>
+    /// A potion gained stays in the backpack cell the host put it in: the host lands every pickup
+    /// and buy in the backpack (SDK 2.7), a stow onto the belt is a move of its own
+    /// (<see cref="IItemLedger.ToBelt"/>), and a merge into a belt stack has no host call.
+    /// </summary>
     protected override bool StowsPotions => false;
 
     protected override async Task<VendorAnswer> RollStock(LedgerHero hero, string vendor, long restock)
@@ -316,6 +505,8 @@ public sealed class HostedItemLedger(IGameRules rules, IHooks<IItemLedgerHook> h
                 return;
             }
             // After any operation of the hero's in flight: one that commits later would put back the Australium it read.
+            // SDK 2.7 books the whole roll to the killer and to every nearby member here, at the reveal. SDK 2.8 makes
+            // a kill's Australium one pile on the floor, shared by the party on pickup: its Claim credits it then.
             long booked = r.Value.AustraliumBooked;
             if (booked > 0)
                 await Serial(kill.Hero, () => Task.FromResult(Find(kill.Hero) is { } h
@@ -332,9 +523,23 @@ public sealed class HostedItemLedger(IGameRules rules, IHooks<IItemLedgerHook> h
     public override Task<DropResult> PotionDrop(string hero, string potionBase, uint killSeq, int depth, Vector position) =>
         Task.FromResult(DropResult.Refused(LedgerRefusals.HostUnsupported));
 
-    /// <summary>Refused: the host's rules have no container roll, and no host call mints a container's drop.</summary>
-    public override Task<DropResult> ContainerDrop(ContainerDrop drop) =>
-        Task.FromResult(DropResult.Refused(LedgerRefusals.HostUnsupported));
+    /// <summary>
+    /// A container opened by its hero (SDK 2.7 <c>OpenContainer</c>, numbered <see cref="ContainerDrop.Seq"/>):
+    /// the host replays the rules' roll (<c>ContainerDrops</c>) and mints it to this floor for him,
+    /// once per container and hero (a second open is refused <c>already_opened</c>); what it minted
+    /// is placed here for him to claim. The game's own roll is not sent: the host rolls. A drop with
+    /// no number (a breakable's, whose roll is keyed by its marker, which the host does not know) is
+    /// refused, nothing asked.
+    /// </summary>
+    public override async Task<DropResult> ContainerDrop(ContainerDrop drop)
+    {
+        if (drop.Seq is not { } seq)
+            return DropResult.Refused(LedgerRefusals.HostUnsupported);
+        var opened = await host.OpenContainer(drop.Hero, seq);
+        if (!opened.Ok)
+            return DropResult.Refused(Refusal(opened.Refusal!));
+        return new DropResult(true, null, [.. opened.Value.Select(i => OnFloor(i, drop.Hero, drop.Position)).OfType<FloorItem>()]);
+    }
 
     public override async Task<DropResult> BossDrop(BossDrop boss)
     {

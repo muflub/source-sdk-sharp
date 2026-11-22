@@ -35,7 +35,10 @@ public sealed class TFHeroClassPick(TFJoinClassCommand joinClass) : IHeroClassPi
 /// the moment the client is in the game,
 /// on every level. No team menu is asked for and none is needed; the class
 /// menu still changes the class. A bot is not a hero: robots place
-/// themselves.
+/// themselves. The chat says a player joined the heroes once a connection:
+/// the joins on later levels (a level change leaves him on no team) are
+/// silent, known by his user id, which a level change keeps and a reconnect
+/// does not.
 /// </summary>
 [SideService(Side.Server)]
 public sealed class HeroPlacement(IDescentModeState mode, IEnginePlayers players, ITeams teams, IBotPlayers bots,
@@ -44,6 +47,9 @@ public sealed class HeroPlacement(IDescentModeState mode, IEnginePlayers players
 {
     /// <summary>After TF2's band, at TF2 Descent's first mode stage.</summary>
     public const int Order = ModStages.First + 100;
+
+    /// <summary>The user ids whose join the chat has announced (the service outlives a level, as it must here).</summary>
+    private readonly HashSet<int> _announced = [];
 
     public int ClientLifecycleOrder => Order;
 
@@ -61,7 +67,7 @@ public sealed class HeroPlacement(IDescentModeState mode, IEnginePlayers players
 
         const int hero = (int)DescentMode.HeroTeam;
         if (teams.Team(player) != hero)
-            teams.Join(player, hero);
+            teams.Join(player, hero, silent: !_announced.Add(players.GetUserId(player)));
 
         if (teams.Team(player) != hero)
         {

@@ -1,0 +1,30 @@
+# Palette of depth 13 (Brimstone), plan_descent_mine_levels.md E7; brief p14.
+# One row per asset the theme names: asset, kind (material, static, dynamic, water), role, why.
+# Chosen by query of /home/lodle/assetdb (average_colour, maps_used) and looked at (.scratch/p14-m*.jpg, p14-mod*.jpg).
+# DescentPaletteTests holds every row to the theme and to the database. '# rejected' lines are notes.
+asset	kind	role	why
+nature/dirtfloor005b	material	floor	black ash speckled with cinders (#2c2a2a), darker and colder than the rock, so the fire's red falls on them in two tones (brief p15: the plan's blend drew floor and rock one rust red)
+nature/underworld_rockwall001	material	wall	black jagged rock (#453f3f; the plan's; 15 maps, Helltower's)
+nature/underworld_rockwall001	material	ceiling	the same rock overhead
+nature/rockwall002_island	material	block	dark rock veined with rust (#4d3f3a) for ledges, decks, steps and pillars: the plan's grey nightfall stone read as pale concrete under the lamp (brief p15)
+nature/underworld_rockwall001	material	large-wall	the rock at 0.5 on a larger room's walls
+nature/rockwall002_island	material	door-frame	a rough arch of the same veined rock round each doorway
+props_gameplay/door_grate003_floorplate	static	door-sill	covers the doorway's floor under the plugs (the kit's sill)
+props_viaduct_event/underworld_torch01	static	lamp	a torch on a stake (the plan's; 26 maps), two or three pools a room
+props_medieval/sconce	static	cover-lamp	an iron sconce on a wall where the torches leave the floor dark (a deck's, a pool's walkway: no floor lamp stands in a ledge's air); no collision, 11 maps
+props_medieval/brazier	static	pendant	an iron fire basket (level 9's brazier) hung on chains over a tall room, where no wall's sconce reaches the middle
+props_island/gantry_support_cable_128	static	pendant-cord	the chain the basket hangs from (the halls' cable)
+props_island/gantry_support_cable_64	static	pendant-cord	a half length of it
+props_island/gantry_support_cable_32	static	pendant-cord	a quarter length of it
+props_halloween/halloween_rock009	static	wall-prop	a black horn of rock against the wall, 520 high; 8 maps
+props_manor/gargoyle_01	static	wall-prop	a stone gargoyle (the plan's)
+props_coalmines/boulder_pile1	static	corner-pile	rock heaped in a corner (non-solid)
+props_coalmines/boulder3	static	corner-pile	a boulder in a corner
+props_halloween/halloween_rock006	static	floor-prop	a black spire of rock, 540 high (the plan's halloween rocks); 12 maps
+props_coalmines/boulder2	static	floor-prop	a boulder on the floor
+props_coalmines/boulder3	static	companion	a boulder by a pile
+props_halloween/halloween_rock001	static	centrepiece	a fang of black rock 736 high (the plan's) on a larger room's focus; 17 maps
+props_halloween/halloween_rock006	static	centrepiece	the spire where the fang does not fit
+nature/underworld_lava002	material	hazard-lava	lava (#6f280e; the plan's; 19 maps): self-lit, scrolling; laid as a non-solid skin in the chasms' gaps, the pools and the caves' floors
+# rejected props_viaduct_event/underworld_bridge04 (the plan's): a plank bridge 480 long; the chasms keep their bridge of brushes
+nature/underworld_rockwall001	material	hazard-lips	low lumps of the black rock round each lava pool the dresser lays (brief p15: the pools read as laid slabs)

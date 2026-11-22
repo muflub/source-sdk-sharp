@@ -52,6 +52,12 @@ public static class InventoryRefusals
     public const string NotStackable = "not_stackable";
     public const string NotEnoughAustralium = "not_enough_australium";
     public const string Refused = "refused";
+
+    /// <summary>A count to use up outside 1..the stack (the host's word for it).</summary>
+    public const string BadCount = "bad_count";
+
+    /// <summary>Only a potion or a consumable is used up.</summary>
+    public const string NotConsumable = "not_consumable";
 }
 
 /// <summary>
@@ -272,6 +278,18 @@ public sealed class InventoryRules
     /// <summary>Why the item cannot be equipped in <paramref name="slot"/> with <paramref name="others"/> equipped; null when it can.</summary>
     public string? EquipRefusal(HeroSheet sheet, string slot, ItemInstance item, IReadOnlyList<EquippedItem> others)
     {
+        if (SlotRefusal(sheet, slot, item) is { } why) return why;
+        var resolved = _items.Equipment.Resolve(sheet, [.. others, new EquippedItem(slot, item)]);
+        return resolved.State(slot).Reason == InactiveReason.Requirement ? InventoryRefusals.Requirement : null;
+    }
+
+    /// <summary>
+    /// What <see cref="EquipRefusal"/> asks of the item and the slot alone, with no other item
+    /// worn: the slot, its base, identified, usable, the class and the level. The attribute
+    /// requirements read what else is worn, so they are not asked here.
+    /// </summary>
+    private string? SlotRefusal(HeroSheet sheet, string slot, ItemInstance item)
+    {
         if (S.Slot(slot) is not { } equipment) return InventoryRefusals.NoSuchSlot;
         var b = _content.ItemBases[item.BaseId];
         if (!b.IsGear || b.Slot != equipment.Accepts) return InventoryRefusals.WrongSlot;
@@ -279,8 +297,59 @@ public sealed class InventoryRules
         if (_items.Equipment.IsUnusable(item)) return InventoryRefusals.Unusable;
         if (!b.AllowsClass(sheet.ClassId)) return InventoryRefusals.WrongClass;
         if (sheet.Level < b.Level) return InventoryRefusals.Level;
-        var resolved = _items.Equipment.Resolve(sheet, [.. others, new EquippedItem(slot, item)]);
-        return resolved.State(slot).Reason == InactiveReason.Requirement ? InventoryRefusals.Requirement : null;
+        return null;
+    }
+
+    //-------------------------------------------------------------------------
+    // The host's three containers (Host.Contracts 1.1)
+    //-------------------------------------------------------------------------
+
+    /// <summary>The equipment slots in inventory.json's order: an equipped item's slot number is its index here (the contract's <c>EquipSlots</c>).</summary>
+    public IReadOnlyList<string> EquipSlotIds => [.. S.Equipment.Select(e => e.Id)];
+
+    /// <summary>How many potions the belt holds.</summary>
+    public int BeltSlots => S.BeltSlots;
+
+    /// <summary>
+    /// Why the item may not sit in <paramref name="slot"/> of <paramref name="container"/> (the
+    /// contract's <c>PlaceRefusal</c>; the host has checked the slot is in range and free), or
+    /// null when it may. The backpack takes anything; the belt takes potions only
+    /// (<see cref="InventoryRefusals.NotAPotion"/>); an equipment slot, by its index in
+    /// <see cref="EquipSlotIds"/>, asks <see cref="EquipRefusal"/> of the item alone: the host
+    /// sees one item, so the attribute requirements, which read what else is worn, are the
+    /// game's to ask before it moves anything.
+    /// </summary>
+    public string? PlaceRefusal(HeroSheet sheet, ItemInstance item, ItemContainer container, int slot)
+    {
+        switch (container)
+        {
+            case ItemContainer.Backpack:
+                return null;
+            case ItemContainer.Belt:
+                return _content.ItemBases[item.BaseId].Slot == S.BeltAccepts ? null : InventoryRefusals.NotAPotion;
+            case ItemContainer.Equipped:
+                return slot >= 0 && slot < S.Equipment.Count ? SlotRefusal(sheet, S.Equipment[slot].Id, item) : InventoryRefusals.NoSuchSlot;
+            default:
+                return InventoryRefusals.NoSuchSlot;
+        }
+    }
+
+    /// <summary>Whether an item of this base may be used up: a potion or a consumable (a scroll, a tome, a kit).</summary>
+    public bool IsConsumable(ItemInstance item) =>
+        _content.ItemBases[item.BaseId].Kind is ItemKinds.Potion or ItemKinds.Consumable;
+
+    /// <summary>
+    /// The contract's <c>Consume</c>: <paramref name="count"/> of the stack used up, as
+    /// <see cref="Drink"/> and <see cref="Consume(HeroInventory, StashState, int)"/> use one: the
+    /// last of a stack ends the item (<c>Consumed = [0]</c>), else the stack comes back with its
+    /// count lowered, re-encoded (<c>Produced = [it]</c>). Refused for a count outside 1..the
+    /// stack (<c>bad_count</c>) and for anything that is no potion or consumable.
+    /// </summary>
+    public ItemChange UseUp(ItemInstance item, int count)
+    {
+        if (count < 1 || count > item.Count) return new([], [], 0, InventoryRefusals.BadCount);
+        if (!IsConsumable(item)) return new([], [], 0, InventoryRefusals.NotConsumable);
+        return count == item.Count ? new([0], [], 0) : new([], [_items.Codec.ToRolled(item with { Count = item.Count - count })], 0);
     }
 
     /// <summary>Equips the item in a backpack slot; the item it replaces takes its place (or the first free slot, if it came from a withdraw-only one).</summary>

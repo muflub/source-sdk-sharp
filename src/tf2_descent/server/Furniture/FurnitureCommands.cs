@@ -66,3 +66,53 @@ public sealed class FurnitureHurtCommand(FurnitureService furniture, IFurnitureH
             $"[TF2Descent/Furniture] tf2_descent_furniture_hurt: row {index} took {amount:0.##} from {(hero is null ? "no hero" : "player " + slot)}: {row.StateText()}, engine health {left}\n"));
     }
 }
+
+/// <summary><c>tf2_descent_breakables</c>: the level's crates and barrels on their one entity, each slot's row and state (dev).</summary>
+[ConCommand("tf2_descent_breakables", Flags = ConVarFlags.Cheat,
+            Help = "tf2_descent_breakables: print the crates and barrels the breakables' entity holds, each slot's place and state")]
+public sealed class BreakablesCommand(FurnitureBreakables breakables, ILog log)
+{
+    public void Execute() => log.Msg(breakables.Report());
+}
+
+/// <summary>
+/// <c>tf2_descent_break &lt;slot&gt; [player slot]</c>: the breakables' slot is struck through the
+/// path a hit on the entity takes (<see cref="FurnitureBreakables.Strike"/>), as the player's hit (0:
+/// no hero) (dev).
+/// </summary>
+[ConCommand("tf2_descent_break", Flags = ConVarFlags.Cheat,
+            Help = "tf2_descent_break <slot> [player slot, 0 for none]: strike the breakables' slot, as the player's hit")]
+public sealed class BreakCommand(FurnitureBreakables breakables, IFurnitureHeroes heroes, ILog log)
+{
+    public void Execute([ArgRange(0, 4096)] int slot, [ArgRange(0, 64)] int player = 1)
+    {
+        var hero = player > 0 ? heroes.Living().FirstOrDefault(h => h.Slot == player) : null;
+        bool struck = breakables.Strike(slot, hero?.Player ?? EntityHandle.None, 1f);
+        log.Msg($"[TF2Descent/Breakables] tf2_descent_break: slot {slot} by {(hero is null ? "no hero" : "player " + player)}: {(struck ? "struck" : "not struck (no such slot, or broken)")}\n");
+    }
+}
+
+/// <summary><c>tf2_descent_break_roll &lt;outcome|-&gt;</c>: the next crate or barrel broken rolls this outcome instead of its own (dev).</summary>
+[ConCommand("tf2_descent_break_roll", Flags = ConVarFlags.Cheat,
+            Help = "tf2_descent_break_roll <nothing|australium|potion|item|blast|cloud|ambush|->: the next break rolls this outcome (- for its own roll)")]
+public sealed class BreakRollCommand(FurnitureService furniture, ILog log)
+{
+    public void Execute(string outcome)
+    {
+        if (outcome == "-")
+        {
+            furniture.ForceNext(null);
+            log.Msg("[TF2Descent/Breakables] tf2_descent_break_roll: the next break rolls its own\n");
+            return;
+        }
+
+        if (!Enum.TryParse<Rules.Furniture.BreakOutcome>(outcome, ignoreCase: true, out var o))
+        {
+            log.Warning($"[TF2Descent/Breakables] tf2_descent_break_roll: '{outcome}' is no outcome ({string.Join(", ", Enum.GetNames<Rules.Furniture.BreakOutcome>()).ToLowerInvariant()})\n");
+            return;
+        }
+
+        furniture.ForceNext(o);
+        log.Msg($"[TF2Descent/Breakables] tf2_descent_break_roll: the next break rolls {o.ToString().ToLowerInvariant()}\n");
+    }
+}

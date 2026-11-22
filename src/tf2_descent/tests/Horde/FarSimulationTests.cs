@@ -1,3 +1,4 @@
+using SourceSharp.Ai;
 using TF2.Descent.Ai.Far;
 using TF2.Descent.Ai.Level;
 using TF2.Descent.Ai.Roster;
@@ -36,6 +37,17 @@ public sealed class FarSimulationTests
         {
             Now += Interval;
             Sim.Tick(Roster, Sight, sounds, Now);
+        }
+
+        /// <summary>
+        /// Alerts pack 0 to a hero's contact at <paramref name="at"/> in <paramref name="room"/> and ticks
+        /// once: the stimulus of the converging facts (a sound would have to be within the hearing's
+        /// rooms of the pack: horde.json's senses.hearing.rooms).
+        /// </summary>
+        public void Call(int room, AiVector at)
+        {
+            Roster.AlertPack(0, room, at, Now, 0);
+            Tick();
         }
 
         public void WakeAll()
@@ -91,19 +103,34 @@ public sealed class FarSimulationTests
     //-------------------------------------------------------------------------
 
     [Fact]
-    public void A_loud_sound_two_rooms_away_through_doors_is_heard()
+    public void A_loud_sound_in_the_next_room_through_its_door_is_heard()
     {
-        var far = new Far(HordeLevel.Create(1, 3, [RowRoom(0, 0), RowRoom(1, 0), RowRoom(2, 2)], [RowDoor(0), RowDoor(1)]));
+        var far = new Far(HordeLevel.Create(1, 3, [RowRoom(0, 0), RowRoom(1, 2)], [RowDoor(0)]));
         var sound = new SoundEvent(0, At(400, 256), 800, 2);
         int robot = 0;
-        far.Roster.SetPose(robot, 2, At(1136, 256), 0);
-        Assert.Equal(736, far.Level.PathDistance(0, sound.Position, 2, far.Roster.Position(robot)), 0.01f);
+        far.Roster.SetPose(robot, 1, At(1136 - 512, 256), 0);
+        Assert.Equal(224, far.Level.PathDistance(0, sound.Position, 1, far.Roster.Position(robot)), 0.01f);
 
         far.Tick(sound);
 
         Assert.Equal((AlertLevel.Alerted, 2, sound.Position), (far.Roster.Carried(robot).Alert, far.Roster.Carried(robot).TargetSeat, far.Roster.Carried(robot).LastKnownPosition));
         Assert.Equal((AlertLevel.Alerted, 0, 2), (far.Roster.PackAlert(0), far.Roster.ContactRoom(0), far.Roster.ContactSeat(0)));
         Assert.All(far.Pack(0), i => Assert.Equal(RobotState.Far, far.Roster.State(i)));
+    }
+
+    [Fact]
+    public void A_loud_sound_two_rooms_away_through_doors_is_not_heard()
+    {
+        var far = new Far(HordeLevel.Create(1, 3, [RowRoom(0, 0), RowRoom(1, 0), RowRoom(2, 2)], [RowDoor(0), RowDoor(1)]));
+        var sound = new SoundEvent(0, At(400, 256), 800, 2);
+        int robot = 0;
+        far.Roster.SetPose(robot, 2, At(1136, 256), 0);
+        Assert.Equal(736, far.Level.PathDistance(0, sound.Position, 2, far.Roster.Position(robot)), 0.01f);   // within its loudness
+
+        far.Tick(sound);
+
+        Assert.Equal(AlertLevel.Calm, far.Roster.Carried(robot).Alert);
+        Assert.Equal(AlertLevel.Calm, far.Roster.PackAlert(0));
     }
 
     [Fact]
@@ -141,7 +168,7 @@ public sealed class FarSimulationTests
         var far = new Far(PackAtTheEnd());
         var contact = Centre(1);
 
-        far.Tick(new SoundEvent(1, contact, 5000, 0));
+        far.Call(1, contact);
         for (int t = 0; t < 40; t++) far.Tick();
 
         Assert.True(far.Pack(0).Length >= 2);
@@ -169,7 +196,7 @@ public sealed class FarSimulationTests
         var far = new Far(PackAtTheEnd());
         far.Sight.SeeInto[2] = true;
 
-        far.Tick(new SoundEvent(1, Centre(1), 5000, 0));
+        far.Call(1, Centre(1));
         for (int t = 0; t < 40; t++)
         {
             far.Tick();
@@ -189,7 +216,7 @@ public sealed class FarSimulationTests
     {
         var far = new Far(PackAtTheEnd());
         far.Sight.SeeInto[2] = true;
-        far.Tick(new SoundEvent(1, Centre(1), 5000, 0));
+        far.Call(1, Centre(1));
         for (int t = 0; t < 20; t++) far.Tick();
         Assert.All(far.Pack(0), i => Assert.Equal(3, far.Roster.Room(i)));
 
@@ -207,7 +234,7 @@ public sealed class FarSimulationTests
         int i = far.Pack(0)[0];
         var before = far.Roster.Position(i);
 
-        far.Tick(new SoundEvent(1, Centre(1), 5000, 0));
+        far.Call(1, Centre(1));
         for (int t = 0; t < 10; t++) far.Tick();
 
         Assert.Equal((before, FarActivity.Hold), (far.Roster.Position(i), far.Roster.Activity(i)));
@@ -217,7 +244,7 @@ public sealed class FarSimulationTests
     public void A_pack_forgets_its_contact_and_walks_home()
     {
         var far = new Far(PackAtTheEnd());
-        far.Tick(new SoundEvent(1, Centre(1), 5000, 0));
+        far.Call(1, Centre(1));
         for (int t = 0; t < 30; t++) far.Tick();
         Assert.All(far.Pack(0), i => Assert.Equal(1, far.Roster.Room(i)));
 
@@ -277,7 +304,7 @@ public sealed class FarSimulationTests
         int i = plain.Pack(0)[0];
         foreach (var far in new[] { plain, slowed })
         {
-            far.Tick(new SoundEvent(1, Centre(1), 5000, 0));
+            far.Call(1, Centre(1));
         }
         var start = slowed.Roster.Position(i);
         slowed.Roster.ApplyStatus(i, "slow", slowed.Now);
@@ -294,7 +321,7 @@ public sealed class FarSimulationTests
     public void A_stunned_far_robot_holds()
     {
         var far = new Far(PackAtTheEnd());
-        far.Tick(new SoundEvent(1, Centre(1), 5000, 0));
+        far.Call(1, Centre(1));
         int i = far.Pack(0)[0];
         far.Roster.ApplyStatus(i, "stun", far.Now);
         var before = far.Roster.Position(i);

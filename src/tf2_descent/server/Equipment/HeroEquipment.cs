@@ -40,9 +40,8 @@ public sealed record HeroGear(
 ///
 /// <list type="bullet">
 /// <item><b>Who is a hero here:</b> a player who is no bot, while the Descent mode is on,
-/// whose items the ledger holds and can equip. Hosted, the host's SDK has no equip yet
-/// (<see cref="LedgerRefusals.HostUnsupported"/>), so a hosted hero is not claimed and keeps
-/// TF2's own kit until it has.</item>
+/// whose items the ledger holds, hosted or not (SDK 2.7 equips: the host keeps the equipment
+/// slots, and a new character starts with its kit worn).</item>
 /// <item><b>The sheet</b> is the hero's live one (<see cref="HeroSheets"/>), never the
 /// ledger's copy, which <see cref="Equip"/> brings up to date before it asks.</item>
 /// <item><b>Requirements</b> are the rules' (<see cref="TF2.Descent.Rules.Items.Equipment.Resolve"/>): the gear alone
@@ -97,7 +96,7 @@ public sealed class HeroEquipment(
     /// <summary>The ledger's key of the hero in <paramref name="playerIndex"/> when this package claims him (see the class summary); null otherwise.</summary>
     public string? HeroOf(int playerIndex)
     {
-        if (!mode.Active || ledger.Kind != LedgerKind.InMemory)
+        if (!mode.Active)
             return null;
         if (bots.IsBot(players.GetHandle(playerIndex)))
             return null;

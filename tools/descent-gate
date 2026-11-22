@@ -26,8 +26,10 @@ brightness  What a player sees, offline: each room view's tile in the
             100/70/57/37/31/27/25/17; the lightmap mean (the old gate) reads
             100/89/89/64/44/39/34/32 and cannot tell level 2 from 3. Level 8
             reads low: the preview draws its water as a dark sheet.
-            Each depth must land within TOLERANCE of its target (TARGET, the
-            in-game table of plan section 6, ruling M30) and fall strictly
+            Each depth's figure times its act's CALIBRATION (the game's own
+            reading of the act, brief p15: Act III draws a quarter darker in
+            game than here) must land within TOLERANCE of its target (TARGET,
+            the in-game table of plan section 6, ruling M30) and fall strictly
             from each depth to the next; every seed's lightmap
             `clipped_fraction` must stay under 0.02, and so must every room's
             view (each camera's rendered `luminance.clipped_fraction`): a
@@ -70,10 +72,13 @@ HERE = os.path.dirname(os.path.abspath(os.path.realpath(__file__)))
 ROOT = os.path.abspath(os.path.join(HERE, '..'))
 
 # plan_descent_mine_levels.md section 6, ruling M30 (2026-11-14): the level's own light as the
-# game shows it (lamp off), level 1 = 100. The boss levels (5, 10, 15) have no target until
-# their arenas are themed; a depth without one is held only to the falling order.
-TARGET = {1: 100, 2: 70, 3: 55, 4: 40, 6: 32, 7: 27, 8: 24, 9: 20,
-          11: 16, 12: 13, 13: 11, 14: 9}
+# game shows it (lamp off), level 1 = 100. The boss levels' targets (brief p13, plan section 7: the
+# Powder Magazine 52, the Bore 22, the Pit 7) are their set pieces' light, not a step of the descent.
+TARGET = {1: 100, 2: 70, 3: 55, 4: 40, 5: 52, 6: 32, 7: 27, 8: 24, 9: 20, 10: 22,
+          11: 16, 12: 13, 13: 11, 14: 9, 15: 7}
+# The boss levels: each is held to its own target, and the falling order runs over the levels between
+# them (level 5's magazine is lit for its fight, brighter than level 4; the Bore brighter than level 9).
+BOSS = {5, 10, 15}
 # The view figure of level 1 (seeds 1-3, brief p9's r0 build at c7b689ffe): the 100 of the scale.
 # A fixed number, so a run of some depths scales as a run of all, and level 1 moving shows.
 LEVEL1_VIEW = 0.3308
@@ -85,6 +90,22 @@ LEVEL1_VIEW = 0.3308
 # levels 1-4, 6, 7 and 9, 5 at 8, whose water the preview draws as a dark sheet) is a reason the
 # targets are the game's and the tolerance is not wider.
 TOLERANCE = 3.0
+# The game draws each act a little lighter or darker than this figure reads it (its materials, its fog, the
+# preview's darks): a level's figure times its act's factor is what the gate holds to the in-game target (brief
+# p15). Each factor is the act's in-game figures (lamp off, seed 1, the preview's cameras, mean Rec.709 luma
+# over the 4:3 centre, level 1 = 100 at 0.3477) over the gate's seed-1 figures of the same builds, summed
+# over every level of the act measured both ways:
+#   Act I   (p10: 1, 2, 3 of p9's builds; p11: 4; p13: 5): game 100 70.2 63.0 38.0 53.8, gate 98.3 70.7 59.6 40.5 49.9
+#   Act II  (p11: 6, 8; p10: 7, 9 of p9's builds; p13: 10): game 30.0 28.8 26.0 22.8 24.0, gate 35.9 28.5 24.0 22.5 24.9
+#   Act III (p14: 11-14, its final rounds; p13: 15):        game 12.8 12.4 9.0 8.5 4.5, gate 16.8 13.8 12.9 10.9 7.1
+# Act I 324.9 / 319.0, Act II 131.6 / 135.8, Act III 47.3 / 61.5. Act III's own spread is 0.64 (15) to
+# 0.90 (12); the tolerance is the targets' (a level's figure still moves about 0.9 a seed's mean).
+CALIBRATION = {1: 1.019, 2: 0.969, 3: 0.769}
+
+
+def act_of(depth):
+    """The act a depth is in: 1 to 5 the mine, 6 to 10 the breakthrough, 11 to 15 below (plan section 7)."""
+    return 1 if depth <= 5 else 2 if depth <= 10 else 3
 VIEW_LABEL_ROWS = 14  # a tile's top rows the preview's label is drawn over (BitmapFont 7 + 2, at 2)
 FIGURE_COLOUR = (255, 128, 0)  # the preview's scale figure (map tools Annotator.FigureColour), left out of a view
 CLIPPED_MAX = 0.02
@@ -243,11 +264,15 @@ def tile_luma(tile):
     return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
 
 
-def brightness_verdict(results, level1=None, tolerance=None, targets=None):
-    """results: {depth: [(seed, view figure, lightmap mean, clipped), ...]}. Returns (failures, table lines)."""
+def brightness_verdict(results, level1=None, tolerance=None, targets=None, calibration=None):
+    """results: {depth: [(seed, view figure, lightmap mean, clipped), ...]}. Returns (failures, table lines).
+
+    A depth's figure is its seeds' mean view figure over level 1's, times its act's calibration (CALIBRATION):
+    the in-game figure it predicts, which is held to the target and to the falling order."""
     level1 = LEVEL1_VIEW if level1 is None else level1
     tolerance = TOLERANCE if tolerance is None else tolerance
     targets = TARGET if targets is None else targets
+    calibration = CALIBRATION if calibration is None else calibration
     failures, lines = [], []
     depths = sorted(results)
     if not depths:
@@ -260,21 +285,24 @@ def brightness_verdict(results, level1=None, tolerance=None, targets=None):
         if not rows:
             failures.append('depth %d: no seed was measured' % d)
             continue
-        means[d] = sum(r[1] for r in rows) / len(rows)
+        means[d] = sum(r[1] for r in rows) / len(rows) * calibration.get(act_of(d), 1.0)
         for seed, _, _, clipped in rows:
             if clipped >= CLIPPED_MAX:
                 failures.append('depth %d seed %d: clipped_fraction %.4f is not under %.2f' % (d, seed, clipped, CLIPPED_MAX))
-    lines.append('%-6s %-8s %-22s %-7s %-10s %-9s %s' % ('depth', 'view', 'seeds', 'scaled', 'target', 'lightmap', 'clipped max'))
+    lines.append('%-6s %-8s %-22s %-7s %-7s %-10s %-9s %s' % ('depth', 'view', 'seeds', 'scaled', 'game', 'target', 'lightmap', 'clipped max'))
     for d in [d for d in depths if d in means]:
         rows = results[d]
+        factor = calibration.get(act_of(d), 1.0)
         scaled = 100 * means[d] / level1
         target = targets.get(d)
-        lines.append('%-6d %-8.4f %-22s %-7.1f %-10s %-9.4f %.4f' % (
-            d, means[d], ' '.join('%.1f' % (100 * r[1] / level1) for r in rows), scaled,
+        lines.append('%-6d %-8.4f %-22s %-7.1f %-7.1f %-10s %-9.4f %.4f' % (
+            d, means[d] / factor, ' '.join('%.1f' % (100 * r[1] / level1) for r in rows), scaled / factor, scaled,
             '' if target is None else '%d +-%g' % (target, tolerance), sum(r[2] for r in rows) / len(rows), max(r[3] for r in rows)))
         if target is not None and abs(scaled - target) > tolerance:
             failures.append('depth %d reads %.1f, not within %g of its target %d' % (d, scaled, tolerance, target))
-    measured = [d for d in depths if d in means]
+    measured = [d for d in depths if d in means and d not in BOSS]
+    for d in [d for d in depths if d in means and d in BOSS and d not in targets]:
+        failures.append('depth %d is a boss level with no target' % d)
     for a, b in zip(measured, measured[1:]):
         if not means[b] < means[a]:
             failures.append('depth %d (%.4f) is not darker than depth %d (%.4f)' % (b, means[b], a, means[a]))
@@ -531,7 +559,7 @@ def self_test():
     tg = {1: 100, 2: 70, 3: 55}
 
     def bv(results, tol=3):
-        return brightness_verdict(results, level1=0.30, tolerance=tol, targets=tg)[0]
+        return brightness_verdict(results, level1=0.30, tolerance=tol, targets=tg, calibration={})[0]
     falling = {1: [(1, 0.30, 0.2, 0.001)], 2: [(1, 0.21, 0.1, 0.001)], 3: [(1, 0.165, 0.1, 0.001)]}
     expect(not bv(falling), 'a falling series on its targets fails')
     expect(bv({1: [(1, 0.30, 0.2, 0.001)], 2: [(1, 0.31, 0.1, 0.001)]}, tol=50), 'a brighter depth passes')
@@ -541,6 +569,35 @@ def self_test():
     expect(not bv({2: [(1, 0.2172, 0.1, 0.001)]}), 'a depth 2.4 over its target, inside 3, fails')
     expect(bv({2: [(1, 0.2028, 0.1, 0.001)]}, tol=2), 'a depth 2.4 under its target passes at a tolerance of 2')
     expect(not bv({4: [(1, 0.12, 0.1, 0.001)]}), 'a depth with no target, alone, fails')
+    tb = {**tg, 4: 40, 5: 52, 6: 32}
+
+    def bvb(results, tol=3):
+        return brightness_verdict(results, level1=0.30, tolerance=tol, targets=tb, calibration={})[0]
+    boss_lit = {4: [(1, 0.12, 0.1, 0.001)], 5: [(1, 0.156, 0.1, 0.001)], 6: [(1, 0.096, 0.1, 0.001)]}
+    expect(not bvb(boss_lit), 'a boss level on its target, brighter than the level above it, fails the falling order')
+    expect(bvb({4: [(1, 0.12, 0.1, 0.001)], 5: [(1, 0.156, 0.1, 0.001)], 6: [(1, 0.13, 0.1, 0.001)]}, tol=50),
+           'a level brighter than the one before the boss level between them passes')
+    expect(bvb({4: [(1, 0.12, 0.1, 0.001)], 5: [(1, 0.12, 0.1, 0.001)], 6: [(1, 0.096, 0.1, 0.001)]}),
+           'a boss level off its target passes')
+    expect(brightness_verdict({5: [(1, 0.156, 0.1, 0.001)]}, level1=0.30, tolerance=3, targets=tg, calibration={})[0],
+           'a boss level with no target passes')
+    # The calibration: an Act III level whose figure is 20.8 predicts 16 in game at 0.769, and is held there.
+    t3 = {9: 20, 11: 16}
+    act3 = {11: [(1, 0.3 * 0.208, 0.1, 0.001)]}
+    expect(not brightness_verdict(act3, level1=0.30, tolerance=3, targets=t3, calibration={3: 0.769})[0],
+           'an Act III level on its target in game by its act\'s factor fails')
+    expect(brightness_verdict(act3, level1=0.30, tolerance=3, targets=t3, calibration={})[0],
+           'an Act III level 4.8 over its target uncalibrated passes')
+    expect(brightness_verdict(act3, level1=0.30, tolerance=3, targets=t3, calibration={3: 1.0})[0],
+           'an act\'s factor of 1 moves the figure')
+    across = {9: [(1, 0.3 * 0.20, 0.1, 0.001)], 11: [(1, 0.3 * 0.208, 0.1, 0.001)]}
+    expect(not brightness_verdict(across, level1=0.30, tolerance=3, targets=t3, calibration={2: 1.0, 3: 0.769})[0],
+           'the falling order is not read from the calibrated figures (9 at 20, 11 at 16 in game)')
+    expect(brightness_verdict(across, level1=0.30, tolerance=50, targets=t3, calibration={})[0],
+           'an uncalibrated level 11 at 20.8 under level 9 at 20 passes the falling order')
+    expect(set(CALIBRATION) == {1, 2, 3} and all(0.5 < f < 1.5 for f in CALIBRATION.values()),
+           'the calibration is not one factor per act')
+    expect([act_of(d) for d in (1, 5, 6, 10, 11, 15)] == [1, 1, 2, 2, 3, 3], 'the acts are not 1-5, 6-10 and 11-15')
     expect(bv({2: [(1, 0.15, 0.1, 0.001), (2, 0.27, 0.1, 0.001)]}) == [], 'the seeds\' mean is not what is held')
     expect(bv({}), 'no depth passes')
     expect(bv({1: [(1, 0.3, 0.2, 0)], 2: []}), 'a depth with no seed passes')

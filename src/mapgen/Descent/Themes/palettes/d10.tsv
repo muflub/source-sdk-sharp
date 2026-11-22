@@ -1,0 +1,28 @@
+# Palette of depth 10 (the Bore, Major Crits and the Tank), plan_descent_mine_levels.md E7, brief p13.
+# One row per asset the theme names: asset, kind (material, static, dynamic), role, why. Chosen by query of
+# /home/lodle/assetdb and looked at. DescentPaletteTests holds every row to the theme and to the database.
+asset	kind	role	why
+nature/gravelfloor002a	material	floor	fine grey-brown gravel (#484339): the bore's spoil
+nature/rockwall010b	material	wall	grey drilled rock, broken in flakes (#727174): the cavern the robots bored
+nature/rockwall010b	material	ceiling	the same rock overhead
+nature/cavewall005a	material	block	grey-green cracked rock (#6a706b) for the roof pillars and rock steps
+metal/ibeam001b	material	trim	the robots' steel (levels 2 and 4's) for their sets and catwalk edges
+nature/rockwall010b	material	large-wall	the rock at 0.5 on the arena's 3072 walls
+metal/ibeam001b	material	door-frame	a robot-cut steel frame round each doorway
+props_gameplay/door_grate003_floorplate	static	door-sill	covers the doorway's floor under the plugs (the kit's sill)
+props_mvm/construction_light02	static	lamp	the robots' mobile light tower (32 maps, MvM's): cold white floods on a mast
+props_hydro/construction_light	static	cover-lamp	a caged work light hung from the roof where the towers leave the floor dark (level 6's)
+props_mining/junctionbox02	static	wall-prop	a fuse box left by the miners
+props_coalmines/boulder_pile1	static	corner-pile	bored-out rock heaped in a corner (non-solid: no collision model)
+props_coalmines/boulder3	static	corner-pile	a boulder in a corner
+props_coalmines/boulder2	static	floor-prop	a boulder on the floor
+props_coalmines/boulder_pile2	static	floor-prop	spilled rubble (non-solid)
+props_coalmines/boulder_pile2	static	companion	spilled rubble beside a pile
+props_mvm/construction_light02	static	arena-lamp	the light towers round the arena, aimed across the track
+props_mvm/mine_elevator	static	set-piece	the robots' lift over the bore (3 maps, MvM's), a steel headframe the Tank drives out of; non-solid in the arena
+props_mvm/woodplanks_tank_entrance002	static	set-piece	planks nailed across a tank tunnel's mouth, the leg 2 and leg 3 robots' (7 maps)
+metal/metalfloor001b	material	arena-surface	the catwalks' steel deck
+nature/gravelcoal001	material	arena-surface	black coal gravel (level 4's floor): the Tank's worn track, two treads
+# rejected nature/gravelfloor002b: its texture is a railway, sleepers and rails (brief p13's first build drew track over every floor)
+# rejected props_medieval/tank_entrance_rottenburg (the plan's, as the robots' end): it exists and fits a mouth's portal (300 wide), but it is broken planks, not a gate, no static prop and has no collision: in game 'cannot simulate prop_dynamic ... has no collision data' (brief p13); the static planks stand in both mouths
+# rejected props_medieval/tank_entrance_rottenburg_intact: the whole barricade, not a static prop either

@@ -60,11 +60,14 @@ public static partial class RoomDresser
                 return false;
             if (markers.Any(m => box.Mins.Z < m.Z + RoomLint.HullHeight && box.Maxs.Z > m.Z - 1 && box.LevelDistanceTo(m.X, m.Y) < MarkerClear))
                 return false;
-            if (InLedgeAir(box) || InJumpAir(box))
+            if (InLedgeAir(box) || InJumpAir(box) || InKeepClear(box))
                 return false;
             if (solid && box.Mins.Z < sill + FloorPlan.GiantHeight && plan.Covered(box).Any(lane.Contains))
                 return false;
             if (placed.Any(p => p.Role != Role.Set && p.Box.Overlaps(box)))
+                return false;
+            // A brush is solid to the room compile's navigation: it keeps out of every breakable's agent box.
+            if (sweeps.Any(s => s.Overlaps(box)))
                 return false;
             return !solids.Blocked(box.Mins, box.Maxs);
         }
@@ -808,7 +811,7 @@ public static partial class RoomDresser
             {
                 if (want == 0)
                     break;
-                PropModel m = rng.Pick(companions);
+                PropModel m = Use(rng.Pick(companions));
                 var (mins, maxs) = m.Turned(yaw);
                 float x = sx > 0 ? box.Maxs.X + gap - mins.X : sx < 0 ? box.Mins.X - gap - maxs.X : (box.Mins.X + box.Maxs.X) / 2;
                 float y = sy > 0 ? box.Maxs.Y + gap - mins.Y : sy < 0 ? box.Mins.Y - gap - maxs.Y : (box.Mins.Y + box.Maxs.Y) / 2;

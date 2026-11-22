@@ -96,9 +96,10 @@ public sealed class AutomapClientTests
     }
 
     private static AutomapRoomWire Room(int id, short minX, short minY, short maxX, short maxY, string label = "",
-                                        short[]? doorX = null, short[]? doorY = null, byte[]? marks = null) =>
+                                        short[]? doorX = null, short[]? doorY = null, byte[]? marks = null, bool discovered = false) =>
         new()
         {
+            Discovered = (byte)(discovered ? 1 : 0),
             Room = (byte)id, Storey = 0, MinX = minX, MinY = minY, MaxX = maxX, MaxY = maxY, Label = label,
             DoorX = doorX ?? [], DoorY = doorY ?? [], DoorWidth = [.. (doorX ?? []).Select(_ => (short)208)],
             DoorAlongY = [.. (doorX ?? []).Select(_ => (byte)1)],
@@ -134,8 +135,36 @@ public sealed class AutomapClientTests
 
         client.Replay(server);
 
-        Assert.Equal(new[] { arrival, next }.Order(), client.Cache.Rooms.Select(r => r.Room));
-        Assert.True(Level.Rooms.Length > 2);            // the level has rooms the client must not hold
+        // Explored: the two entered. Discovered: only rooms through a door of one of them.
+        Assert.Equal(new[] { arrival, next }.Order(), client.Cache.Rooms.Where(r => !r.Discovered).Select(r => r.Room));
+        var beside = Level.Neighbours(arrival).Concat(Level.Neighbours(next)).ToHashSet();
+        Assert.All(client.Cache.Rooms.Where(r => r.Discovered), r => Assert.Contains(r.Room, beside));
+        var held = client.Cache.Rooms.Select(r => r.Room).ToHashSet();
+        Assert.Contains(Level.Rooms, r => !held.Contains(r.Id));    // the level has rooms the client must not hold
+    }
+
+    [Fact]
+    public void A_discovered_room_is_held_until_its_explored_one_replaces_it()
+    {
+        var w = new ClientWire();
+        w.Room(Room(4, 0, 0, 1024, 1024, discovered: true));
+        Assert.True(w.Cache.Rooms.Single().Discovered);
+
+        w.Room(Room(4, 0, 0, 1024, 1024, "Crossing"));
+
+        var room = w.Cache.Rooms.Single();
+        Assert.Equal((false, "Crossing"), (room.Discovered, room.Label));
+    }
+
+    [Fact]
+    public void A_discovered_outline_never_replaces_an_explored_room()
+    {
+        var w = new ClientWire();
+        w.Room(Room(4, 0, 0, 1024, 1024, "Crossing"));
+
+        w.Room(Room(4, 0, 0, 1024, 1024, discovered: true));
+
+        Assert.Equal((false, "Crossing"), (w.Cache.Rooms.Single().Discovered, w.Cache.Rooms.Single().Label));
     }
 
     [Fact]
@@ -239,6 +268,27 @@ public sealed class AutomapClientTests
         Assert.Equal(256f, k.Source.RoomH(0), 3);
         Assert.Equal(384f, k.Source.RoomX(0), 3);
         Assert.Equal(384f, k.Source.RoomY(0), 3);
+    }
+
+    [Fact]
+    public void A_discovered_room_is_drawn_as_discovered_and_an_explored_one_is_not()
+    {
+        var k = new Kit();
+        k.Wire.Room(Room(1, 0, 0, 1024, 1024, "Way in"));
+        k.Wire.Room(Room(2, 1024, 0, 2048, 1024, discovered: true));
+
+        Assert.Equal(2, k.Source.RoomCount);
+        Assert.Equal((false, true), (k.Source.RoomDiscovered(0), k.Source.RoomDiscovered(1)));
+    }
+
+    [Fact]
+    public void A_party_member_in_a_discovered_room_is_not_marked()
+    {
+        var k = new Kit();
+        k.Wire.Room(Room(1, 0, 0, 1024, 1024, discovered: true));
+        k.World.Party.Add(new CVector(512, 512, 0));
+
+        Assert.Equal(0, k.Source.MarkerCount);
     }
 
     [Fact]

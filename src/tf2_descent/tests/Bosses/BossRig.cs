@@ -39,6 +39,46 @@ internal sealed class FakeBossWorld : IBossWorld
     public bool Clear(Vector from, Vector to, EntityHandle self, EntityHandle target) => Line(from, to);
 }
 
+/// <summary>A map's named entities as the arena's seam sees them: how many of each name the map holds, and every input fired.</summary>
+internal sealed class FakeArenaEntities : IArenaEntities
+{
+    public Dictionary<string, int> Present { get; } = new(StringComparer.Ordinal);
+    public List<(string Name, string Input)> Inputs { get; } = [];
+
+    /// <summary>Every contract name of a full arena (phases 2 to 4, stations 1 to 5), one entity each.</summary>
+    public FakeArenaEntities Full()
+    {
+        Present[ArenaStage.ExitName] = 1;
+        for (int n = 1; n <= 5; n++)
+        {
+            Present[ArenaStage.PillarName(n)] = 1;
+            Present[ArenaStage.RubbleName(n)] = 1;
+        }
+
+        for (int p = 1; p <= 4; p++)
+        {
+            Present[ArenaStage.PlatformName(p)] = 2;
+            Present[ArenaStage.MouthName(p)] = 1;
+        }
+
+        return this;
+    }
+
+    public IReadOnlyList<ArenaEntity> Fire(string name, string input)
+    {
+        Inputs.Add((name, input));
+        return [.. Enumerable.Range(0, Present.GetValueOrDefault(name)).Select(i => new ArenaEntity(new EntityHandle((uint)(0x0002_0040 + i)), new Vector(100 + i, 200, 300)))];
+    }
+}
+
+/// <summary>What the horde's paths are told of the arena: every change, in order.</summary>
+internal sealed class FakeArenaObstacles : IArenaObstacles
+{
+    public List<(string Name, bool Enabled)> Changes { get; } = [];
+
+    public void Changed(string name, bool enabled) => Changes.Add((name, enabled));
+}
+
 /// <summary>The hands an ability is handed, as a fact sees them: every launch kept, a cap it sets.</summary>
 internal sealed class FakeHands : IRobotAbilityHands
 {
@@ -63,15 +103,16 @@ internal sealed class BossRig
 {
     public const int ArenaRoom = 2;
 
-    public BossRig(string boss = "sir_nukesalot")
+    public BossRig(string boss = "sir_nukesalot", HordeArenaLayout? layout = null)
     {
         var spot = new PackMarker(Centre(ArenaRoom), 180f);
         int depth = TheRules.Bosses.Of(boss)!.Depth;
-        Level = Row(4, markers: 3, depth: depth, boss: new HordeBoss(boss, ArenaRoom, spot));
+        Level = Row(4, markers: 3, depth: depth, boss: new HordeBoss(boss, ArenaRoom, spot, layout));
         Horde = new ServerHordeRig(Level);
+        Arena = new ArenaStage(ArenaEntities, ArenaObstacles, World, new RigRules(), Horde.Log);
         Adds = new BossAdds(new RigRules(), World, Horde.Log);
-        Encounter = new BossEncounter(new RigRules(), Horde.Heroes, World, Adds, Horde.Motion, Horde.Log);
-        Abilities = new BossAbilities(new RigRules(), World, Adds, Horde.Heroes, Encounter, Horde.Log);
+        Encounter = new BossEncounter(new RigRules(), Horde.Heroes, World, Adds, Horde.Motion, Arena, Horde.Log);
+        Abilities = new BossAbilities(new RigRules(), World, Adds, Horde.Heroes, Encounter, Arena, Horde.Log);
         Exit = new BossExit(new RigHordeCurrent(Horde), new RigRules(), World, Horde.Log);
         Row = Enumerable.Range(0, Horde.Roster.Count).Single(Horde.Roster.IsBoss);
     }
@@ -80,6 +121,14 @@ internal sealed class BossRig
     public ServerHordeRig Horde { get; }
     public FakeBossWorld World { get; } = new();
     public FakeHands Hands { get; } = new();
+
+    /// <summary>The named arena entities the map holds, and every input fired at them.</summary>
+    public FakeArenaEntities ArenaEntities { get; } = new();
+
+    /// <summary>What the horde's paths were told of the arena.</summary>
+    public FakeArenaObstacles ArenaObstacles { get; } = new();
+
+    public ArenaStage Arena { get; }
     public BossAdds Adds { get; }
     public BossEncounter Encounter { get; }
     public BossAbilities Abilities { get; }

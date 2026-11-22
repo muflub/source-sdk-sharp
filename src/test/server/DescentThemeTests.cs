@@ -8,14 +8,13 @@ namespace SourceSharp.Tests;
 /// <summary>
 /// The depths' themes (plan_descent_mine_levels.md task A9, §6, §7): Act
 /// I's four levels each look different from the one before, level 1 is the
-/// town's continuation, and the depths outside Acts I and II keep the grey through the same
-/// path.
+/// town's continuation; Acts II and III and the boss levels have their own classes.
 /// </summary>
 public sealed class DescentThemeTests(DescentLibraries libs) : IClassFixture<DescentLibraries>
 {
     public static TheoryData<int> ActOneSteps => [2, 3, 4];
 
-    public static TheoryData<int> GreyDepths => [5, 10, 11, 13, 14, 15];
+    public static TheoryData<int> BossDepths => [5, 10, 15];
 
     private static RoomTheme Level(int depth) => DescentRooms.ThemeFor(depth);
 
@@ -79,16 +78,11 @@ public sealed class DescentThemeTests(DescentLibraries libs) : IClassFixture<Des
     }
 
     [Theory]
-    [MemberData(nameof(GreyDepths))]
-    public void A_depth_outside_acts_one_and_two_is_still_grey(int depth)
+    [MemberData(nameof(BossDepths))]
+    public void A_boss_depth_is_drawn_in_its_own_theme(int depth)
     {
-        Assert.Same(RoomTheme.Grey, Level(depth));
-    }
-
-    [Fact]
-    public void Level_twelve_is_the_grey_with_slime_in_its_pools()
-    {
-        Assert.Equal(RoomTheme.Grey with { PoolHazard = "slime" }, Level(12));
+        Assert.Same(Bosses.All[depth / 5 - 1], Level(depth));
+        Assert.NotEmpty(Level(depth).ArenaLamps);
     }
 
     [Fact]

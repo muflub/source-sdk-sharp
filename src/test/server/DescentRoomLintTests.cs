@@ -331,4 +331,30 @@ public sealed class DescentRoomLintTests
 
         Assert.DoesNotContain(RoomLint.DoorPath, Rules(room));
     }
+
+    [Fact]
+    public void Hazard_path_refuses_a_hazard_across_the_way_between_two_doors()
+    {
+        // Wall to wall across the room between the west and east doors: no way round it.
+        Room room = New(512).WithHazard("lava", new Point(480, Kit.WallDepth, Floor), new Point(544, Kit.Cell - Kit.WallDepth, Floor + 18)).Build();
+
+        Assert.Contains(RoomLint.HazardPath, Rules(room));
+    }
+
+    [Fact]
+    public void Hazard_path_lets_a_hazard_lie_beside_the_way_between_two_doors()
+    {
+        // The same strip short of the north half: a giant walks round its end.
+        Room room = New(512).WithHazard("lava", new Point(480, Kit.WallDepth, Floor), new Point(544, 448, Floor + 18)).Build();
+
+        Assert.DoesNotContain(RoomLint.HazardPath, Rules(room));
+    }
+
+    [Fact]
+    public void Hazard_path_ignores_a_bosss_hazard_that_starts_off()
+    {
+        Room room = New(512).WithStagedHazard(2, "slime", new Point(480, Kit.WallDepth, Floor), new Point(544, Kit.Cell - Kit.WallDepth, Floor + 18)).Build();
+
+        Assert.DoesNotContain(RoomLint.HazardPath, Rules(room));
+    }
 }

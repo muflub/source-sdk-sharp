@@ -91,7 +91,7 @@ public static partial class RoomDresser
                 return false;
             if (markers.Any(m => box.Mins.Z < m.Z + RoomLint.HullHeight && box.Maxs.Z > m.Z - 1 && box.LevelDistanceTo(m.X, m.Y) < MarkerClear))
                 return false;
-            if (InJumpLedgeAir(box))
+            if (InJumpLedgeAir(box) || InKeepClear(box))
                 return false;
             if (box.Mins.Z < sill + FloorPlan.GiantHeight && plan.Covered(box).Any(lane.Contains))
                 return false;

@@ -31,8 +31,8 @@ public sealed class BossPrecache(IHordeRules rules, IEnginePrecache precache) : 
     {
         ArgumentNullException.ThrowIfNull(s);
         var o = s.Sounds;
-        var sounds = new SortedSet<string>(StringComparer.Ordinal) { o.Intro, o.Phase, o.Death, o.ExitOpens, o.TankStart, o.TankStop, o.TankDrill, o.TankDeath, o.Roof };
-        var particles = new SortedSet<string>(StringComparer.Ordinal) { o.TankDeathParticle };
+        var sounds = new SortedSet<string>(StringComparer.Ordinal) { o.Intro, o.Phase, o.Death, o.ExitOpens, o.TankStart, o.TankStop, o.TankDrill, o.TankDeath, o.Roof, o.PillarFalls };
+        var particles = new SortedSet<string>(StringComparer.Ordinal) { o.TankDeathParticle, o.PillarDust };
         foreach (var sp in s.Specials)
         {
             sounds.Add(sp.Sound);

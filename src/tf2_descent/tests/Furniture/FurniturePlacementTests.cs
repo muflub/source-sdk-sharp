@@ -88,7 +88,7 @@ public sealed class FurniturePlacementTests
     {
         var rig = new FurnitureRig();
 
-        int rows = rig.Service.Rows.Count;
+        int rows = rig.Pooled.Count;
         Assert.Equal(Math.Min(FurnitureService.PoolCeiling, rows), rig.Service.Made);
         Assert.Equal(rig.Service.Made, rig.Spawner.Made);
         Assert.Equal(rig.Service.Made, rig.Service.PoolEdicts.After - rig.Service.PoolEdicts.Before);
@@ -100,7 +100,7 @@ public sealed class FurniturePlacementTests
     {
         var rig = new FurnitureRig();
 
-        Assert.All(rig.Service.Rows, r =>
+        Assert.All(rig.Pooled, r =>
         {
             var e = Assert.IsType<FurnitureEntity>(r.Entity);
             Assert.False(e.Parked);
@@ -126,7 +126,7 @@ public sealed class FurniturePlacementTests
         }
 
         Assert.Equal(made, rig.Spawner.Made);
-        Assert.All(rig.Service.Rows, r => Assert.True(r.OnEntity));
+        Assert.All(rig.Pooled, r => Assert.True(r.OnEntity));
     }
 
     [Fact]
@@ -134,17 +134,17 @@ public sealed class FurniturePlacementTests
     {
         var rig = new FurnitureRig();
         int room = rig.Service.Rows[0].Room;
-        var entities = rig.Service.Rows.Where(r => r.Room == room).Select(r => r.Entity!).ToList();
+        var entities = rig.Pooled.Where(r => r.Room == room).Select(r => r.Entity!).ToList();
         var transmit = new FurnitureTransmit(rig.Parking);
 
         rig.Rooms.Asleep.Add(room);
         int folded = rig.Service.CheckRooms();
 
         Assert.Equal(entities.Count, folded);
-        Assert.All(rig.Service.Rows.Where(r => r.Room == room), r => Assert.Null(r.Entity));
+        Assert.All(rig.Pooled.Where(r => r.Room == room), r => Assert.Null(r.Entity));
         Assert.All(entities, e => Assert.True(e.Parked));
         Assert.All(entities, e => Assert.Equal(TransmitAnswer.Never, transmit.ShouldTransmit(e.Handle, 1)));
-        Assert.All(rig.Service.Rows.Where(r => r.Room != room), r => Assert.Equal(TransmitAnswer.Default, transmit.ShouldTransmit(r.Entity!.Handle, 1)));
+        Assert.All(rig.Pooled.Where(r => r.Room != room), r => Assert.Equal(TransmitAnswer.Default, transmit.ShouldTransmit(r.Entity!.Handle, 1)));
     }
 
     [Fact]
@@ -158,7 +158,7 @@ public sealed class FurniturePlacementTests
 
         var second = rig.Service.Rows.Select(r => (r.Placed.Marker, r.Variant)).ToList();
         Assert.NotEqual(first, second);
-        Assert.Equal(Math.Min(FurnitureService.PoolCeiling, second.Count), rig.Service.Made);
+        Assert.Equal(Math.Min(FurnitureService.PoolCeiling, rig.Pooled.Count), rig.Service.Made);
         Assert.Equal(madeFirst + rig.Service.Made, rig.Spawner.Made);
         Assert.Equal(madeFirst + rig.Service.Made, rig.Service.MadeEver);
         Assert.Equal(3UL, rig.Service.Seed);

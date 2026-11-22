@@ -1,4 +1,6 @@
+using System.Collections.Immutable;
 using TF2.Descent.Rules.Content;
+using TF2.Descent.Rules.Loot;
 
 namespace TF2.Descent.Rules.Furniture;
 
@@ -10,14 +12,21 @@ public enum FurnitureKind
     Dispenser,
     Explosive,
     Trap,
+
+    /// <summary>A crate or a barrel any hit breaks, for a roll (<see cref="BreakRules"/>).</summary>
+    Breakable,
 }
 
 /// <summary>
 /// A marker kind a room declares (its <c>poi_type</c>, src/mapgen/Descent/Markers.cs), what
 /// it holds, how many of that kind one room may furnish, and the chance each chosen marker
-/// is furnished at all.
+/// is furnished at all. A breakable marker names its <see cref="Variant"/> (a crate, a barrel).
+/// <see cref="Otherwise"/>, when set, is the breakable a marker of the kind holds when the
+/// furnishing passed it over (past the room's limit, or its fill roll failed). The shipped table
+/// sets none: the levels carry their own breakable markers, and a stand-in put crates where a
+/// theme has none.
 /// </summary>
-public sealed record MarkerRule(string Poi, FurnitureKind Kind, int PerRoom, double FillPct);
+public sealed record MarkerRule(string Poi, FurnitureKind Kind, int PerRoom, double FillPct, string? Variant = null, string? Otherwise = null);
 
 /// <summary>Whether a shrine helps, trades one stat for another, or hurts (2l).</summary>
 public enum ShrineNature
@@ -59,7 +68,8 @@ public sealed record ShrineEffect(
 public sealed record DispenserSettings(double Charge, double HealPerSecond, double AmmoPerSecond, double ChargePerHealth, double ChargePerAmmo,
     double Radius);
 
-public sealed record ContainerKind(string Id, double Weight);
+/// <summary>A container kind: its weight, and whether a hit breaks it open (a wooden supply crate) as well as +USE.</summary>
+public sealed record ContainerKind(string Id, double Weight, bool Breaks);
 
 /// <summary>Containers: the loot table they roll from (the loot package's id), the share locked and trapped, and their kinds.</summary>
 public sealed record ContainerSettings(string LootTable, double LockedPct, double TrappedPct, IReadOnlyList<ContainerKind> Kinds);
@@ -97,7 +107,8 @@ public sealed record FurnitureSettings(
     DispenserSettings Dispenser,
     ContainerSettings Containers,
     IReadOnlyList<ExplosiveRow> Explosives,
-    IReadOnlyList<TrapRow> Traps)
+    IReadOnlyList<TrapRow> Traps,
+    BreakableSettings Breakables)
 {
     public ShrineEffect Shrine(string id) =>
         Shrines.FirstOrDefault(s => s.Id == id) ?? throw new KeyNotFoundException($"no shrine effect '{id}'");
@@ -107,6 +118,9 @@ public sealed record FurnitureSettings(
 
     public TrapRow Trap(string id) =>
         Traps.FirstOrDefault(s => s.Id == id) ?? throw new KeyNotFoundException($"no trap '{id}'");
+
+    /// <summary>Whether a hit breaks a container of <paramref name="kind"/> open.</summary>
+    public bool Breaks(string kind) => Containers.Kinds.FirstOrDefault(k => k.Id == kind)?.Breaks ?? false;
 }
 
 public sealed class FurnitureTable : SingleTable<FurnitureSettings>
@@ -118,7 +132,8 @@ public sealed class FurnitureTable : SingleTable<FurnitureSettings>
         var markers = f.Array("markers").Select(e =>
         {
             var m = new JsonFields(e, f.Table, "markers", f.Errors);
-            var r = new MarkerRule(m.Str("poi"), ParseEnum<FurnitureKind>(m, "kind"), m.Int("perRoom"), m.Num("fillPct"));
+            var r = new MarkerRule(m.Str("poi"), ParseEnum<FurnitureKind>(m, "kind"), m.Int("perRoom"), m.Num("fillPct"),
+                m.StrOr("variant", null), m.StrOr("otherwise", null));
             m.End();
             return r;
         }).ToList();
@@ -146,7 +161,7 @@ public sealed class FurnitureTable : SingleTable<FurnitureSettings>
             [.. c.Array("kinds").Select(e =>
             {
                 var k = new JsonFields(e, f.Table, "containers", f.Errors);
-                var r = new ContainerKind(k.Str("id"), k.Num("weight"));
+                var r = new ContainerKind(k.Str("id"), k.Num("weight"), k.Bool("breaks"));
                 k.End();
                 return r;
             })]);
@@ -172,7 +187,26 @@ public sealed class FurnitureTable : SingleTable<FurnitureSettings>
             return r;
         }).ToList();
 
-        return new FurnitureSettings(markers, badCap, effects, dispenser, containers, explosives, traps);
+        return new FurnitureSettings(markers, badCap, effects, dispenser, containers, explosives, traps, ReadBreakables(f.Obj("breakables")));
+    }
+
+    private static BreakableSettings ReadBreakables(JsonFields b)
+    {
+        var o = b.Obj("outcomes");
+        var outcomes = ImmutableDictionary.CreateBuilder<BreakOutcome, double>();
+        foreach (var outcome in System.Enum.GetValues<BreakOutcome>())
+            outcomes[outcome] = o.Num(outcome.ToString().ToLowerInvariant());
+        o.End();
+        var c = b.Obj("cloud");
+        var cloud = new BreakCloud(c.Str("condition"), c.Num("seconds"), c.Num("radius"));
+        c.End();
+        var a = b.Obj("ambush");
+        var ambush = new BreakAmbush(a.Int("min"), a.Int("max"), a.Num("huntSeconds"));
+        a.End();
+        var settings = new BreakableSettings(b.Strings("kinds", required: true), outcomes.ToImmutable(), b.Num("badCapPct"), b.Str("lootTable"),
+            b.Num("australiumScale"), b.Str("blast"), cloud, ambush);
+        b.End();
+        return settings;
     }
 
     /// <summary>A field naming one of an enum's values, in lower snake case ("party_wide" style names are not used: one word each).</summary>
@@ -269,6 +303,65 @@ public sealed class FurnitureTable : SingleTable<FurnitureSettings>
                 errors.Add(t, x.Id, ContentRule.Malformed, "a trap has a tell");
         }
         Weighted(errors, "traps", s.Traps.Select(x => x.Weight));
+
+        ValidateMarkers(errors, s);
+        ValidateBreakables(content, errors, s);
+    }
+
+    /// <summary>A breakable marker names a breakable kind; another marker's otherwise names one too; a variant belongs only to a breakable marker.</summary>
+    private void ValidateMarkers(ContentErrors errors, FurnitureSettings s)
+    {
+        string t = Name;
+        var kinds = s.Breakables.Kinds.ToHashSet(StringComparer.Ordinal);
+        foreach (var m in s.Markers)
+        {
+            if (m.Kind == FurnitureKind.Breakable)
+            {
+                if (m.Variant is not { } v || !kinds.Contains(v))
+                    errors.Add(t, m.Poi, ContentRule.DanglingReference, $"a breakable marker names one of the breakables' kinds ({string.Join(", ", kinds)}), not '{m.Variant}'");
+                if (m.Otherwise is not null)
+                    errors.Add(t, m.Poi, ContentRule.OutOfRange, "a breakable marker has no otherwise: it is one");
+            }
+            else if (m.Variant is not null)
+            {
+                errors.Add(t, m.Poi, ContentRule.OutOfRange, $"only a breakable marker names a variant, not a {m.Kind.ToString().ToLowerInvariant()} marker");
+            }
+
+            if (m.Otherwise is { } o && !kinds.Contains(o))
+                errors.Add(t, m.Poi, ContentRule.DanglingReference, $"otherwise '{o}' is not one of the breakables' kinds ({string.Join(", ", kinds)})");
+        }
+    }
+
+    private void ValidateBreakables(DescentContent content, ContentErrors errors, FurnitureSettings s)
+    {
+        string t = Name;
+        var b = s.Breakables;
+        if (b.Kinds.Count == 0)
+            errors.Add(t, "breakables", ContentRule.OutOfRange, "the breakables name at least one kind");
+        Unique(errors, "breakables.kinds", b.Kinds);
+        foreach (var (outcome, weight) in b.Outcomes)
+            ContentChecks.Range(errors, t, "breakables", "outcomes." + outcome.ToString().ToLowerInvariant(), weight, 0, 1e6);
+        if (ContentChecks.Range(errors, t, "breakables", "badCapPct", b.BadCapPct, 0, 100))
+        {
+            double total = b.Outcomes.Values.Sum();
+            double bad = b.Outcomes.Where(p => BreakableSettings.Bad(p.Key)).Sum(p => p.Value);
+            if (!(total > 0))
+                errors.Add(t, "breakables", ContentRule.OutOfRange, "the breakables' outcomes have no weight");
+            else
+                ContentChecks.Range(errors, t, "breakables", "bad outcomes' share of the weight (percent)", 100 * bad / total, 0, b.BadCapPct);
+        }
+
+        if (content.TryGet<LootSettings>(LootTable.TableName, out var loot) && loot.Tables.All(x => x.Id != b.LootTable))
+            errors.Add(t, "breakables", ContentRule.DanglingReference, $"lootTable '{b.LootTable}' is not a loot table");
+        ContentChecks.Range(errors, t, "breakables", "australiumScale", b.AustraliumScale, 0, 100);
+        if (s.Explosives.All(x => x.Id != b.Blast))
+            errors.Add(t, "breakables", ContentRule.DanglingReference, $"blast '{b.Blast}' is not an explosive");
+        ContentChecks.Reference<Robots.RobotConditionRow>(content, errors, t, "breakables", "cloud.condition", b.Cloud.Condition, ContentTables.RobotConditions);
+        ContentChecks.Range(errors, t, "breakables", "cloud.seconds", b.Cloud.Seconds, 0, 60);
+        ContentChecks.Range(errors, t, "breakables", "cloud.radius", b.Cloud.Radius, 1, 1024);
+        ContentChecks.Range(errors, t, "breakables", "ambush.min", b.Ambush.Min, 1, 8);
+        ContentChecks.Range(errors, t, "breakables", "ambush.max", b.Ambush.Max, b.Ambush.Min, 8);
+        ContentChecks.Range(errors, t, "breakables", "ambush.huntSeconds", b.Ambush.HuntSeconds, 0, 600);
     }
 
     private void DamageType(DescentContent content, ContentErrors errors, string row, string type) =>

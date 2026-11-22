@@ -117,25 +117,29 @@ public sealed class SpawnDirector
     /// <paramref name="marker"/> of <paramref name="room"/> and can leave the room from there:
     /// the marker's clearance holds its scaled hull (an unmeasured marker holds anything), and a
     /// door of the room is wide enough for the hull with the director's margin on each side,
-    /// tall enough, and, for a floor-bound size, has its sill within a step of the marker's floor.
-    /// A room with no door is left by nothing, so holds nothing, unless it is the level's only room.
-    /// With <paramref name="reach"/>, the hull's floor at the marker must also join the arrival's
-    /// (<see cref="IHullReach.Joins"/>): a room's doors can fit a hull the floor beyond them does not.
+    /// tall enough, and, with no <paramref name="reach"/>, for a floor-bound size has its sill
+    /// within a step of the marker's floor. A room with no door is left by nothing, so holds
+    /// nothing, unless it is the level's only room. With <paramref name="reach"/> (the level's
+    /// navigation), the hull's floor at the marker must join the arrival's
+    /// (<see cref="IHullReach.Joins"/>): a room's doors can fit a hull the floor beyond them does
+    /// not. The reach measures what the sill rule guessed (giants climb stairs since 2026-11-15),
+    /// so with it the sill refuses nothing: at seed 1 the rule refused six markers depth 8's reach
+    /// joins and one of depth 9's, and every marker either reach refuses it refused too. The rule stays for a level whose
+    /// navigation is missing or failed.
     /// </summary>
     public bool Holds(HordeLevel level, HordeRoom room, int marker, RobotTemplate t, double scale, IHullReach? reach = null)
     {
         var m = room.Markers[marker];
         float half = HalfWidth(scale), height = Height(scale);
         if (m.Clearance is { } c && !c.Holds(half, height)) return false;
-        if (!Leaves(level, room, m.Position, t, half, height)) return false;
+        if (!Leaves(level, room, m.Position, reach is null && FloorBound(t), half, height)) return false;
         return reach is null || reach.Joins(room.Id, m.Position, scale);
     }
 
-    private bool Leaves(HordeLevel level, HordeRoom room, AiVector from, RobotTemplate t, float half, float height)
+    private bool Leaves(HordeLevel level, HordeRoom room, AiVector from, bool floorBound, float half, float height)
     {
         var doors = level.DoorsOf(room.Id);
         if (doors.IsEmpty) return level.RoomCount == 1;
-        bool floorBound = FloorBound(t);
         foreach (int d in doors)
         {
             var door = level.Doors[d];

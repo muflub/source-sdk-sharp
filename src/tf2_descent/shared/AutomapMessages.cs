@@ -15,7 +15,9 @@ namespace TF2.Descent.Shared;
 //                 hero's whole map (at each spawn, so after a level change)
 //   automap_room  one revealed room, in map units: its outline (the bounds of
 //                 the cells it covers), its storey, its map label, the doors
-//                 it has (each a stub across its wall), and its markers
+//                 it has (each a stub across its wall), and its markers; or a
+//                 discovered one (a room through a door of a revealed one, user
+//                 2026-11-15): its outline, storey and doors, no label, no marks
 //
 // Every payload fits one 255-byte user message at its fullest (a fact).
 //=============================================================================
@@ -40,10 +42,14 @@ public readonly record struct AutomapDoorStub(int X, int Y, int Width, bool Alon
 /// <summary>A marker in a revealed room, in map units.</summary>
 public readonly record struct AutomapMark(AutomapMarkKind Kind, int X, int Y);
 
-/// <summary>One revealed room as it reaches the hero's client: map units, x east, y north.</summary>
+/// <summary>
+/// One revealed room as it reaches the hero's client: map units, x east, y north. A
+/// <paramref name="Discovered"/> room is one the hero has not entered, seen through a door of one he
+/// has: its outline and doors only.
+/// </summary>
 public sealed record AutomapRoomView(
     int Room, int Storey, int MinX, int MinY, int MaxX, int MaxY, string Label,
-    IReadOnlyList<AutomapDoorStub> Doors, IReadOnlyList<AutomapMark> Marks);
+    IReadOnlyList<AutomapDoorStub> Doors, IReadOnlyList<AutomapMark> Marks, bool Discovered = false);
 
 public interface IAutomapHook
 {
@@ -114,6 +120,9 @@ public partial struct AutomapRoom
     [UserMessageArray(MaxCount = MaxMarks)]
     public partial short[] MarkY { get; set; }
 
+    /// <summary>1 for a discovered room (not entered, seen through a door): outline and doors only.</summary>
+    public partial byte Discovered { get; set; }
+
     public AutomapRoomView View()
     {
         short[] dx = DoorX ?? [], dy = DoorY ?? [], dw = DoorWidth ?? [];
@@ -130,7 +139,7 @@ public partial struct AutomapRoom
         for (int i = 0; i < marks; i++)
             list[i] = new AutomapMark((AutomapMarkKind)mk[i], mx[i], my[i]);
 
-        return new AutomapRoomView(Room, Storey, MinX, MinY, MaxX, MaxY, Label ?? "", stubs, list);
+        return new AutomapRoomView(Room, Storey, MinX, MinY, MaxX, MaxY, Label ?? "", stubs, list, Discovered != 0);
     }
 
     /// <summary>A map coordinate as a wire short: rounded, held inside the short's range.</summary>

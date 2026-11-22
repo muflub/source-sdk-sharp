@@ -16,8 +16,8 @@ namespace SourceSharp.Tests;
 /// </summary>
 public sealed class DescentGiantNavTests(DescentLibraries libs) : IClassFixture<DescentLibraries>
 {
-    /// <summary>The themed depths: Act I and Act II (the gates' order).</summary>
-    public static TheoryData<int> ThemedDepths => [1, 2, 3, 4, 6, 7, 8, 9];
+    /// <summary>The themed depths: every depth, Acts I to III and the boss levels.</summary>
+    public static TheoryData<int> ThemedDepths => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 
     /// <summary>
     /// The families whose way between doors climbs stairs: a pool's walkways stand 64 over its

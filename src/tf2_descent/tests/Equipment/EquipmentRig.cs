@@ -69,7 +69,7 @@ internal sealed class EquipmentRig
         Ledger = new InMemoryItemLedger(Rules, new HeroRig.ListHooks<IItemLedgerHook>(LedgerHooks), new StartingKit(Rules));
         var link = new UnhostedLink();
         var players = new PlayerService(link, Hero.Host, Hero.Players, new ClientMessages(new RecordingEngine()),
-                                        new NeverScheduler(), Log, Hero.Sheets);
+                                        new NeverScheduler(), Log, Hero.Sheets, new HeroRig.ListHooks<TF2.Descent.Server.IHeroJoinHook>([]));
         Keys = new HeroKeys(Hero.Host, players, Hero.Players);
         Equipment = new HeroEquipment(Ledger, Keys, Hero.Sheets, Rules, Schema, new Mode(this), BotList, Hero.Engine, Log);
         Source = new HeroKitSource(Equipment);

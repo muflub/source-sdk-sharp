@@ -5,7 +5,8 @@ namespace SourceSharp.MapGen.Descent.Shapes;
 /// "way down" rows, M6). Levels 1 to 4: a cage station, a different cage
 /// from the level's arrival. Levels 5 to 10: a raised floor broken through,
 /// gone down by a rubble ramp or a drop (level 5's is the hole the boss's
-/// blast leaves, level 10's the bore hole). Levels 11 to 14: a chute too
+/// blast leaves, level 10's the bore hole, each shut under a cover the server
+/// disables on the kill, <see cref="BossNames.Exit"/>). Levels 11 to 14: a chute too
 /// steep to stand on, or a fissure to drop down. One door, two opposite and
 /// two at a corner: a body with necks to its doors.
 /// </summary>
@@ -18,7 +19,11 @@ public static class ExitShape
         {
             yield return Cage("exit_cage" + id, kit, theme, doors, rng);
             yield return Hole("exit_ramp" + id, kit, theme, doors, Stations.Descent.Ramp, 6, 9, rng);
-            yield return Hole("exit_collapse" + id, kit, theme, doors, Stations.Descent.Drop, 5, 10, rng);
+            yield return Hole("exit_collapse" + id, kit, theme, doors, Stations.Descent.Drop, 6, 9, rng);
+            // The boss levels' ways down are shut until the boss falls: level 5's collapsed lift shaft floor, level 10's
+            // bore hole, each under a cover the server takes away on the kill (BossNames.Exit).
+            yield return Hole("exit_breach" + id, kit, theme, doors, Stations.Descent.Drop, 5, 5, rng, cover: true);
+            yield return Hole("exit_bore" + id, kit, theme, doors, Stations.Descent.Drop, 10, 10, rng, cover: true);
             yield return Hole("exit_chute" + id, kit, theme, doors, Stations.Descent.Slide, 11, 14, rng);
             yield return Hole("exit_fissure" + id, kit, theme, doors, Stations.Descent.Drop, 11, 14, rng);
         }
@@ -42,7 +47,7 @@ public static class ExitShape
     }
 
     /// <summary>A raised floor along the fitting wall, stairs up from the room, a hole in it gone down by <paramref name="how"/>.</summary>
-    private static Room Hole(string name, RoomKit kit, RoomTheme theme, CellFace[] doors, Stations.Descent how, int minDepth, int maxDepth, RoomSeed rng)
+    private static Room Hole(string name, RoomKit kit, RoomTheme theme, CellFace[] doors, Stations.Descent how, int minDepth, int maxDepth, RoomSeed rng, bool cover = false)
     {
         Rect body = ArrivalShape.Body(kit);
         CellFace wall = ArrivalShape.FittingWall(doors);
@@ -63,6 +68,11 @@ public static class ExitShape
         Compass stairs = wall switch { CellFace.North => Compass.South, CellFace.South => Compass.North, CellFace.East => Compass.West, _ => Compass.East };
         var (ax, ay) = Stations.Out(body, wall, a1 - 64, -400);
         b.Hole(platform, height, hole, how, down, stairs, new Point(ax, ay, b.Floor), Stations.Inward(wall));
+        // A boss level's: the hole filled to the platform's top by a solid brush in the platform's own surface, so
+        // the floor reads whole until the server disables it on the kill. It casts no shadow: casting, its own top was
+        // lit a shade under the platform round it and gave the hole away (brief p15, level 10).
+        if (cover)
+            b.WithNamedBrush(BossNames.Exit, [Brush.Box(new Point(hole.X0, hole.Y0, b.Floor), new Point(hole.X1, hole.Y1, b.Floor + height), theme.Wall)], castsShadow: false);
         ArrivalShape.Light(b, body);
         return b.Build();
     }

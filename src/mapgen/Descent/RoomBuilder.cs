@@ -88,6 +88,24 @@ public sealed record Room(
     /// </summary>
     public IReadOnlyList<(CellFace Face, int Offset)>? SocketEdges { get; init; }
 
+    /// <summary>A boss arena's boss spot, track and spawn mouths (<see cref="ArenaData"/>), or null.</summary>
+    public ArenaData? Arena { get; init; }
+
+    /// <summary>Boxes the dressing keeps out of entirely (the Tank's track: its hull swept along it), room-local.</summary>
+    public IReadOnlyList<(Point Mins, Point Maxs)> KeepClear { get; init; } = [];
+
+    /// <summary>
+    /// The room lights itself (a boss arena's set lighting): the dresser keeps its shape's lights, hangs
+    /// the lamps of <see cref="LampSites"/> and none of its theme's own, and adds no fill.
+    /// </summary>
+    public bool OwnLamps { get; init; }
+
+    /// <summary>Lamps the shape asks for, each a theme's lamp kind at an origin and yaw; the dresser hangs each that fits.</summary>
+    public IReadOnlyList<(LampKind Kind, Point Origin, int Yaw)> LampSites { get; init; } = [];
+
+    /// <summary>Set pieces the shape stands (a boss arena's machinery), each a theme's model at an origin and yaw; the dresser places them first.</summary>
+    public IReadOnlyList<(PropModel Model, Point Origin, int Yaw)> SetPieces { get; init; } = [];
+
     /// <summary>Every socket: a wall and the cell edge along it (0 for a room of one cell).</summary>
     public IEnumerable<(CellFace Face, int Offset)> Sockets =>
         SocketEdges ?? (Cells == 1 ? Doors.Select(f => (f, 0)) : Doors.SelectMany(f => Enumerable.Range(0, Cells).Select(k => (f, k))));
@@ -300,6 +318,42 @@ public sealed class RoomBuilder
 
     /// <summary>The name of a hazard volume of <paramref name="kind"/> in a level.</summary>
     public static string HazardName(string kind) => TF2.Descent.Rules.World.HazardRules.VolumePrefix + kind;
+
+    /// <summary>The always-on hazard volume <see cref="WithHazard"/> writes: a <c>trigger_multiple</c> nothing fires, named for its kind.</summary>
+    public static RoomEntity HazardVolume(string kind, Point mins, Point maxs, Surface trigger) =>
+        new("trigger_multiple", null, [new("targetname", HazardName(kind)), new("spawnflags", "0")], [], [Brush.Box(mins, maxs, trigger)]);
+
+    /// <summary>
+    /// A hazard floor's skin (<see cref="Descent.HazardFloor"/>, lava): one <c>func_brush</c> of the material over
+    /// <paramref name="areas"/>, two units thick on the floor at <paramref name="floor"/>, never solid, casting
+    /// no shadow, lit at least <see cref="Descent.HazardFloor.MinLight"/> (lava is self-lit in game; the lightmap
+    /// keeps its glow for the preview).
+    /// </summary>
+    public static RoomEntity HazardSkin(HazardFloor hazard, IEnumerable<Rect> areas, float floor)
+    {
+        var keys = new List<KeyValuePair<string, string>> { new("Solidity", "1"), new("vrad_brush_cast_shadows", "0"), new("disableshadows", "1") };
+        if (hazard.MinLight > 0)
+            keys.Add(new("_minlight", hazard.MinLight.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)));
+        return new RoomEntity("func_brush", null, keys, [],
+            [.. areas.Select(a => Brush.Box(new(a.X0, a.Y0, floor), new(a.X1, a.Y1, floor + Descent.HazardFloor.Skin), hazard.Surface))]);
+    }
+
+    /// <summary>
+    /// The theme's hazard floor (<see cref="RoomTheme.HazardFloor"/>) over <paramref name="area"/> on the floor at
+    /// <paramref name="floor"/> (the room's own by default): its liquid standing there or its skin laid there, and a
+    /// hazard volume over it to <see cref="Descent.HazardFloor.VolumeAbove"/> over its surface. Nothing when the theme has none.
+    /// </summary>
+    public RoomBuilder HazardFloor(Rect area, float? floor = null)
+    {
+        if (theme.HazardFloor is not { } h)
+            return this;
+        float z = floor ?? Floor;
+        if (h.Liquid)
+            WithWater(area, z, z + h.Depth, h.Surface);
+        else
+            entities.Add(HazardSkin(h, [area], z));
+        return WithHazard(h.Kind, new Point(area.X0, area.Y0, z), new Point(area.X1, area.Y1, z + h.SurfaceHeight + Descent.HazardFloor.VolumeAbove));
+    }
 
     /// <summary>A trigger (a box, room-local) a player walks into to fire the transition, for an up room or a down one; a down room's default is the 128 cube round its volume.</summary>
     public RoomBuilder WithHallTrigger(Point mins, Point maxs)
@@ -593,8 +647,7 @@ public sealed class RoomBuilder
         if (role != RoomRole.None)
             RolePieces(all);
         foreach (var (kind, mins, maxs) in hazards)
-            all.Add(new RoomEntity("trigger_multiple", null, [new("targetname", HazardName(kind)), new("spawnflags", "0")], [],
-                [Brush.Box(mins, maxs, theme.Trigger)]));
+            all.Add(HazardVolume(kind, mins, maxs, theme.Trigger));
         Rect main = Body;
         return new Room(name, kit, height, width, [.. doors], role, world, all)
         {
@@ -608,7 +661,133 @@ public sealed class RoomBuilder
             Body = main,
             Cells = cells,
             SocketEdges = socketEdges is null ? null : [.. socketEdges],
+            Arena = bossSpot is { } boss ? new ArenaData(boss.At, boss.Yaw, [.. track], [.. mouths]) : null,
+            KeepClear = [.. keepClear],
+            OwnLamps = ownLamps,
+            LampSites = [.. lampSites],
+            SetPieces = [.. setPieces],
         };
+    }
+
+    //-------------------------------------------------------------------------
+    // A boss arena's contract with the server (brief p13, ArenaData, BossNames).
+    //-------------------------------------------------------------------------
+
+    private (Point At, int Yaw)? bossSpot;
+    private readonly List<TrackPoint> track = [];
+    private readonly List<ArenaMouth> mouths = [];
+    private readonly List<(Point Mins, Point Maxs)> keepClear = [];
+    private readonly List<(LampKind, Point, int)> lampSites = [];
+    private readonly List<(PropModel, Point, int)> setPieces = [];
+    private bool ownLamps;
+
+    /// <summary>
+    /// Where the arena's boss stands and the yaw it faces at its intro (toward the way in): written into the
+    /// level's <c>ARNA</c>, and as the arena's first pack marker, which the server's fallback stands it on.
+    /// Call it before the arena's other packs.
+    /// </summary>
+    public RoomBuilder WithBossSpot(Point at, int yaw)
+    {
+        if (bossSpot is not null)
+            throw new InvalidOperationException($"room {name}: a second boss spot");
+        if (entities.Any(e => e.Key("poi_type") == Descent.Markers.PoiType(MarkerKind.PackSpawn)))
+            throw new InvalidOperationException($"room {name}: the boss spot must be its first pack marker (the server's fallback stands the boss there)");
+        bossSpot = (at, (yaw % 360 + 360) % 360);
+        return WithMarker(MarkerKind.PackSpawn, at, bossSpot.Value.Yaw, radius: 64);
+    }
+
+    /// <summary>The Tank's track, in order (the server closes it back to the first point); room-local floor points.</summary>
+    public RoomBuilder WithTrack(params TrackPoint[] points)
+    {
+        if (points.Count(p => p.Final) > 1 || points.Length > 0 && points.Any(p => p.Final) && !points[^1].Final)
+            throw new ArgumentException($"room {name}: a track has one final station, its last point");
+        track.AddRange(points);
+        return this;
+    }
+
+    /// <summary>A robot spawn mouth open from the boss's phase <paramref name="leg"/> (1-based).</summary>
+    public RoomBuilder WithMouth(Point at, int yaw, int leg)
+    {
+        if (leg < 1)
+            throw new ArgumentOutOfRangeException(nameof(leg), leg, "a mouth's leg is the boss's phase, 1 or more");
+        mouths.Add(new ArenaMouth(at, (yaw % 360 + 360) % 360, leg));
+        return this;
+    }
+
+    /// <summary>A box the dressing keeps out of (<see cref="Room.KeepClear"/>).</summary>
+    public RoomBuilder WithKeepClear(Point mins, Point maxs)
+    {
+        keepClear.Add((mins, maxs));
+        return this;
+    }
+
+    /// <summary>The room lights itself (<see cref="Room.OwnLamps"/>).</summary>
+    public RoomBuilder WithOwnLamps()
+    {
+        ownLamps = true;
+        return this;
+    }
+
+    /// <summary>A lamp of the theme's <paramref name="kind"/> the dresser hangs at <paramref name="origin"/> turned by <paramref name="yaw"/> (<see cref="Room.LampSites"/>).</summary>
+    public RoomBuilder WithLampSite(LampKind kind, Point origin, int yaw)
+    {
+        lampSites.Add((kind, origin, yaw));
+        return this;
+    }
+
+    /// <summary>A set piece of the theme's (<see cref="RoomTheme.SetPieces"/>) the dresser stands first (<see cref="Room.SetPieces"/>).</summary>
+    public RoomBuilder WithSetPiece(PropModel model, Point origin, int yaw)
+    {
+        setPieces.Add((model, origin, yaw));
+        return this;
+    }
+
+    /// <summary>
+    /// A light with no fixture (a glow off slime, the dark's faint fill), which the dress lint takes as a
+    /// theme's fill: a light the room keeps when it lights itself (<see cref="WithOwnLamps"/>).
+    /// </summary>
+    public RoomBuilder WithFill(Point at, Lamp lamp)
+    {
+        WithLamp(at, lamp);
+        var light = entities[^1];
+        entities[^1] = light with { Keys = [.. light.Keys, new(Dressing.RoomDresser.RoleKey, nameof(Dressing.RoomDresser.Role.Fill))] };
+        return this;
+    }
+
+    /// <summary>
+    /// A brush entity the server switches by name (<see cref="BossNames"/>): a <c>func_brush</c> solid while
+    /// enabled (<c>Solidity</c> 0, toggle), named <paramref name="targetName"/>, casting shadows when it is
+    /// in at the start and <paramref name="castsShadow"/> (not a pillar that falls: the floor under it must be lit
+    /// for the day it is gone), disabled at the start when <paramref name="startDisabled"/> (rubble that falls later).
+    /// </summary>
+    public RoomBuilder WithNamedBrush(string targetName, IEnumerable<Brush> brushes, bool startDisabled = false, bool castsShadow = true)
+    {
+        var list = brushes.ToList();
+        if (list.Count == 0)
+            throw new ArgumentException($"room {name}: the named brush {targetName} has no brush");
+        foreach (Brush brush in list)
+            if (!Inside(brush.Mins, brush.Maxs))
+                throw new ArgumentException($"room {name}: the named brush {targetName} ({brush.Mins})-({brush.Maxs}) leaves the room's cell");
+        entities.Add(new RoomEntity("func_brush", null,
+            [new("targetname", targetName), new("Solidity", "0"), new("StartDisabled", startDisabled ? "1" : "0"),
+             new("vrad_brush_cast_shadows", startDisabled || !castsShadow ? "0" : "1"), new("disableshadows", "1")], [], list));
+        return this;
+    }
+
+    /// <summary>
+    /// A hazard volume of <paramref name="kind"/> the encounter switches on when the boss's phase
+    /// <paramref name="phase"/> starts: the class <see cref="WithHazard"/> writes, named
+    /// <see cref="BossNames.Hazard"/>, disabled at the start.
+    /// </summary>
+    public RoomBuilder WithStagedHazard(int phase, string kind, Point mins, Point maxs)
+    {
+        if (string.IsNullOrEmpty(kind) || !kind.All(ch => ch is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '_'))
+            throw new ArgumentException($"room {name}: hazard kind '{kind}' is not a lower-case id");
+        if (!(mins.X < maxs.X && mins.Y < maxs.Y && mins.Z < maxs.Z))
+            throw new ArgumentException($"room {name}: hazard volume ({mins})-({maxs}) is empty");
+        entities.Add(new RoomEntity("trigger_multiple", null,
+            [new("targetname", BossNames.Hazard(phase, kind)), new("spawnflags", "0"), new("StartDisabled", "1")], [], [Brush.Box(mins, maxs, theme.Trigger)]));
+        return this;
     }
 
     /// <summary>

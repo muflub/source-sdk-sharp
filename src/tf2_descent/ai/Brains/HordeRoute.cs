@@ -36,6 +36,9 @@ public sealed class HordeRoutes(HordeLevel level, IHordePaths? paths)
 /// again at the brain's next turn; until then the old path is kept, its last corner following
 /// the goal (live, a robot sent by the room route between its turns walked into the alcove's
 /// wall).</item>
+/// <item><b>Obstacles.</b> The epoch names the graph and the obstacles it is searched with: when
+/// the arena changes (a pillar falls, rubble lands, the exit opens) the epoch changes, and a path
+/// planned under the old one is kept until the brain's turn and planned again then.</item>
 /// <item><b>Budget.</b> A brain searches only on its own tick of each <see cref="SearchEveryTicks"/>
 /// (five decides): the ticks where <c>(tick + slot) % SearchEveryTicks == 0</c>, one of its
 /// decide ticks, so the pool's brains take turns round the cycle; and each search expands at
@@ -132,8 +135,8 @@ public sealed class HordeRoute
             return RoomRoute.Follow(_level, from, to, speed);
         }
 
-        // The path in hand: on this graph and class, the body still on it, and not run out.
-        bool usable = _has && _epoch == epoch && _class == cls;
+        // The path in hand: for this class, the body still on it, and not run out.
+        bool usable = _has && _class == cls;
         if (usable)
         {
             Advance(from);
@@ -144,7 +147,9 @@ public sealed class HordeRoute
                 _held = true;
         }
 
-        bool moved = usable && _goal.DistanceTo(to) > ReuseUnits;
+        // Planned under another epoch (the level's graph is one; the arena's obstacles changed since): kept
+        // until the brain's turn, as a path to a goal that moved is, and planned again then.
+        bool moved = usable && (_goal.DistanceTo(to) > ReuseUnits || _epoch != epoch);
         if ((!usable || moved) && SearchTurn(tick, _slot))
         {
             Searches++;

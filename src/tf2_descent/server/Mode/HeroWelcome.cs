@@ -12,12 +12,12 @@ namespace TF2.Descent.Server.Mode;
 ///
 /// <para>
 /// "The session" is the engine's user id: a level change keeps it, and every
-/// new connection gets a new one. Not the slot and its disconnect: the engine
-/// takes every client out of the game at a level change too
-/// (<c>ClientDisconnect</c> through <c>RemoveClientFromGame</c>), so the core's
-/// <c>OnClientDisconnected</c> fires before each new level (seen live
-/// 2026-11-15: "player 1 left" ahead of the level shutdown), and a slot keyed
-/// greeting showed the message on every load.
+/// new connection gets a new one. Not the slot: a slot keyed greeting showed the
+/// message on every load while the core's <c>OnClientDisconnected</c> fired at
+/// each level change (seen live 2026-11-15: "player 1 left" ahead of the level
+/// shutdown). The core now calls it only for a real departure (the engine's
+/// <c>player_disconnect</c>, main 7ba83b22e), and the user id still names the
+/// connection without asking it.
 /// </para>
 ///
 /// <para>The core's <see cref="MotdPanel"/> asks once per activation.</para>

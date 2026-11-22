@@ -58,6 +58,21 @@ public interface IHostItems
 
     Task<HostResult<IReadOnlyList<HostItem>>> Salvage(string steamId, string itemId);
 
+    /// <summary>SDK 2.7 <c>Items.Move</c> into a slot of a container: an equip, an unequip, the belt (the slot of an equip is its index in the rules' <c>EquipSlots</c>).</summary>
+    Task<HostResult<HostItem>> Move(string steamId, string itemId, HostContainer container, int slot);
+
+    /// <summary>SDK 2.7 <c>Items.Consume</c>: the item as it is after (its count lowered, or its state <see cref="HostItemState.Consumed"/>).</summary>
+    Task<HostResult<HostItem>> Consume(string steamId, string itemId, int count);
+
+    /// <summary>SDK 2.7 <c>Items.Wear</c>: up to 64 items, each at most once, in one write; each item answered as it is after.</summary>
+    Task<HostResult<IReadOnlyList<HostItem>>> Wear(string steamId, IReadOnlyList<HostWear> entries);
+
+    /// <summary>SDK 2.7 <c>Items.Repair</c> of a kind: the town's (hub only, priced) or the field's with <paramref name="kitId"/> (the kit used up in the same write).</summary>
+    Task<HostResult<HostItem>> Repair(string steamId, string itemId, HostRepairKind kind, string? kitId);
+
+    /// <summary>SDK 2.7 <c>Items.OpenContainer</c>: the rules' container roll replayed by the host and minted to this floor for the opener; refused <c>already_opened</c> the second time.</summary>
+    Task<HostResult<IReadOnlyList<HostItem>>> OpenContainer(string steamId, uint containerSeq);
+
     /// <summary><c>Items.RecordDeath</c> under the player's lease (<see cref="IHostLink.RecordDeath"/>, the same method): true when the host took it.</summary>
     Task<bool> RecordDeath(string steamId, Vector position);
 

@@ -1,0 +1,14 @@
+<Project>
+  <!--
+    Stops MSBuild's walk up to the repo's Directory.Build.props: this tool
+    builds against the map tools' assemblies, not the game, and none of the
+    repo's analyzers, warning rules or output layout apply to it. Output and
+    intermediates go to bin/descent-breakables/ (per-tree build output,
+    git-ignored), not beside the sources.
+  -->
+  <PropertyGroup>
+    <DescentBreakablesBuildRoot>$(MSBuildThisFileDirectory)../../bin/descent-breakables/</DescentBreakablesBuildRoot>
+    <BaseIntermediateOutputPath>$(DescentBreakablesBuildRoot)obj/</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(DescentBreakablesBuildRoot)bin/</BaseOutputPath>
+  </PropertyGroup>
+</Project>

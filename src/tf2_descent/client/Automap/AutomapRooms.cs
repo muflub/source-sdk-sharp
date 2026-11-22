@@ -20,8 +20,9 @@ public interface IAutomapRooms
 
 /// <summary>
 /// The automap cache over <c>automap_sync</c> and <c>automap_room</c>: a room replaces the one
-/// held under its id (a shrine used re-sends its room); a sync forgets them all, as does the end
-/// of a level (the server resyncs at the next spawn, before the next level's init).
+/// held under its id (a shrine used re-sends its room, an entered one its discovered outline),
+/// except that a discovered outline never replaces an explored room; a sync forgets them all, as
+/// does the end of a level (the server resyncs at the next spawn, before the next level's init).
 /// </summary>
 [SideService(Side.Client, As = [typeof(IAutomapRooms)])]
 public sealed class AutomapRoomCache : IAutomapRooms, IAutomapHook, IClientLevelHook, IOrderedHook
@@ -44,6 +45,8 @@ public sealed class AutomapRoomCache : IAutomapRooms, IAutomapHook, IClientLevel
 
     public void OnAutomapRoom(AutomapRoomView room)
     {
+        if (room.Discovered && _rooms.TryGetValue(room.Room, out var held) && !held.Discovered)
+            return;
         _rooms[room.Room] = room;
         Changed();
     }

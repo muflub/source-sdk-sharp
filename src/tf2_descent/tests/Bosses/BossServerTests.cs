@@ -224,6 +224,26 @@ public sealed class BossServerTests
         Assert.Equal(1, rig.Encounter.BarsWithdrawn);
     }
 
+    [Fact]
+    public void The_bars_counts_start_over_when_the_level_shuts_down()
+    {
+        // The encounter outlives the map: a level without a horde (the town) never begins it again,
+        // and its report would carry the last level's counts.
+        var rig = new BossRig();
+        rig.Lend();
+        rig.Hero(InArena);
+        rig.Tick(BossRig.Seconds(1));
+        rig.Roster.Hurt(rig.Row, rig.Roster.Life(rig.Row));
+        rig.Tick(BossRig.Seconds(1));
+        long sent = rig.Encounter.BarsSent, withdrawn = rig.Encounter.BarsWithdrawn;
+
+        ((IGameLifecycle)rig.Encounter).OnLevelShutdown();
+
+        Assert.True(sent > 0 && withdrawn > 0, $"sent {sent}, withdrawn {withdrawn} before the shutdown");
+        Assert.Equal(0, rig.Encounter.BarsSent);
+        Assert.Equal(0, rig.Encounter.BarsWithdrawn);
+    }
+
     // ------------------------------------------------------------------ the specials
 
     [Fact]

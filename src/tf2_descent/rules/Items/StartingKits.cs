@@ -10,7 +10,11 @@ namespace TF2.Descent.Rules.Items;
 /// rolled from the base. Every class has a kit; every backpack base is gear the class may use,
 /// no two in one slot; every belt base is a potion, and no more than the belt holds.
 /// </summary>
-public sealed record StartingKitRow(string Id, IReadOnlyList<string> Backpack, IReadOnlyList<string> Belt) : IContentRow;
+public sealed record StartingKitRow(string Id, IReadOnlyList<string> Backpack, IReadOnlyList<string> Belt) : IContentRow
+{
+    /// <summary>The source a kit item is rolled under: a craft's (identified, never cursed or promoted).</summary>
+    public const string Source = "craft:starting_kit";
+}
 
 public sealed class StartingKitTable : RowTable<StartingKitRow>
 {

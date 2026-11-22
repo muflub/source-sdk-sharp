@@ -135,16 +135,17 @@ public sealed class HostedLedgerFacts : LedgerFacts
     }
 
     [Fact]
-    public async Task Equipping_an_item_the_rules_allow_is_refused_as_not_supported_by_the_host()
+    public async Task Equipping_an_item_the_rules_allow_moves_it_into_its_equip_slot_on_the_host()
     {
         await _ledger.Load(A);
         long id = await Put(A, Roll("rocket_launcher"));
-        var before = Snapshot(A);
 
         var equip = await _ledger.Equip(A, SlotOf(A, id), "primary");
 
-        Assert.Equal(LedgerRefusals.HostUnsupported, equip.Refusal);
-        Assert.Equal(before, Snapshot(A));
+        var held = _host.Items[_ledger.HostIdOf(id)!];
+        Assert.True(equip.Ok, equip.Refusal);
+        Assert.Equal((HostContainer.Equipped, R.EquipSlots.ToList().IndexOf("primary")), (held.Container, held.Slot));
+        Assert.Equal(id, _ledger.Find(A)!.Inventory.Equipped["primary"].Id);
     }
 
     [Fact]
@@ -184,7 +185,7 @@ public sealed class HostedLedgerFacts : LedgerFacts
     }
 
     [Fact]
-    public async Task A_container_drop_is_refused_as_not_supported_by_the_host()
+    public async Task A_drop_with_no_container_number_is_refused_as_not_supported_by_the_host()
     {
         await _ledger.Load(A);
         _host.Calls.Clear();

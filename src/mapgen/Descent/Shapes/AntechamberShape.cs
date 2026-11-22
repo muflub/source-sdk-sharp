@@ -33,6 +33,12 @@ public static class AntechamberShape
         var octagon = Rect.Around(m, m, 768, 768);
         var b = New("antechamber_b", kit, theme, octagon).Chamfers(octagon, 224)
             .Block(Rect.Around(m, m, 160, 160), 32);
+        // Posts of the trim floor to roof at each of the octagon's eight corners and up the middle of each cut wall: its
+        // walls were big flat panels (brief p15, level 5).
+        float x0 = octagon.X0, y0 = octagon.Y0, x1 = octagon.X1, y1 = octagon.Y1, post = 16, cut = 224;
+        foreach (var (px, py) in ((float, float)[])[(x0 + cut, y0), (x1 - cut, y0), (x0 + cut, y1), (x1 - cut, y1), (x0, y0 + cut), (x0, y1 - cut), (x1, y0 + cut), (x1, y1 - cut),
+                                                   (x0 + cut / 2, y0 + cut / 2), (x1 - cut / 2, y0 + cut / 2), (x0 + cut / 2, y1 - cut / 2), (x1 - cut / 2, y1 - cut / 2)])
+            b.WithBox(new Point(px - post, py - post, b.Floor), new Point(px + post, py + post, b.CeilingUnderside), b.Theme.TrimOrBlock);
         Light(b, octagon);
         b.Pack(m - 224, m + 224).Pack(m + 224, m - 224).Pack(m - 224, m - 224)
             .Mark(MarkerKind.Dispenser, m, m, above: 32).Mark(MarkerKind.Trap, m + 224, m + 224);

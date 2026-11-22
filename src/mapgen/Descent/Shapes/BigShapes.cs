@@ -190,7 +190,11 @@ public static class BigShapes
                 .WithEntry(new RoomEntry([], MinDepth: 8, MaxDepth: 14)).WithMapLabel("Flooded gallery");
             // Wading water over the floor between the walls' walks (a Heavy wades it), round a dry island.
             var basin = new Rect(c - 640, c - 640, c + 640, c + 640);
-            f.WithWater(basin, f.Floor, f.Floor + PoolShape.Water, theme.Water ?? PoolShape.WaterMaterial);
+            // Act III's holds its hazard (slime, lava), which the walks along the walls keep off the way between doors.
+            if (theme.HazardFloor is not null)
+                f.HazardFloor(basin);
+            else
+                f.WithWater(basin, f.Floor, f.Floor + PoolShape.Water, theme.Water ?? PoolShape.WaterMaterial);
             f.Block(new Rect(c - island, c - 136, c + 136, c + island), 48);
             f.SteppingPillars(c - 520, c + 420, Compass.East, JumpTier.S2, count: 3);
             Lamps(f, height == 512 ? 384 : 448, 512);

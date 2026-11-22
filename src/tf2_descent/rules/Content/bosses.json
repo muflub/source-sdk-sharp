@@ -44,6 +44,6 @@
   "sounds": {
     "intro": "MVM.GiantHeavyEntrance", "phase": "MVM.Siren", "death": "MVM.GiantCommonExplodes", "exitOpens": "MVM.BombExplodes",
     "tankStart": "MVM.TankStart", "tankStop": "MVM.TankPing", "tankDrill": "MVM.TankDeploy", "tankDeath": "MVM.TankExplodes",
-    "tankDeathParticle": "mvm_tank_destroy", "roof": "MVM.BombExplodes"
+    "tankDeathParticle": "mvm_tank_destroy", "roof": "MVM.BombExplodes", "pillarFalls": "MVM.TankSmash", "pillarDust": "mvm_loot_dustup"
   }
 }

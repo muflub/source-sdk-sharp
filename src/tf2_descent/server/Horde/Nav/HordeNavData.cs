@@ -45,8 +45,9 @@ public static class HordeNavNumbers
 /// A level's navigation as the horde holds it (plan_descent_logic 3.7): the graph derived from
 /// the level's <c>.nav3d</c> for the robots' numbers (<see cref="HordeNavNumbers"/>), the
 /// file's free space as voxel columns (what <see cref="VoxelMoveWorld"/> sweeps a worker's step
-/// against), the obstacle state every path is planned with (every dynamic obstacle open: a
-/// robot's doors are open doorways), and how long the derivation took. Immutable once made, so
+/// against), the obstacle state with every dynamic obstacle open (a robot's doors are open
+/// doorways; the arena's standing brushes block on top of it, <see cref="HordeArenaObstacles"/>),
+/// and how long the derivation took. Immutable once made, so
 /// any number of AI workers read it.
 /// </summary>
 public sealed class HordeNavData
@@ -118,7 +119,10 @@ public sealed class HordeNavData
 
     public VoxelMoveWorld World { get; }
 
-    /// <summary>The obstacles as every path is planned: all open.</summary>
+    /// <summary>
+    /// The obstacles all open, with the level's prop cells (<see cref="WithBlocks"/>): what the
+    /// arena's state starts from (<see cref="HordeArenaObstacles.State"/>; the paths plan with that).
+    /// </summary>
     public NavObstacleState Open { get; }
 
     /// <summary>The graph's identity, as a recording and a view name it: the graph's own hash, and the cells blocked on it (<see cref="WithBlocks"/>).</summary>
@@ -157,8 +161,19 @@ public sealed class HordeNavData
         }
 
         double cols = Stopwatch.GetElapsedTime(t1).TotalMilliseconds;
+        return Of(nav, columns, derive, cols, nav3d.Length);
+    }
+
+    /// <summary>
+    /// A level's navigation from a derived graph and its voxel columns, every obstacle open (what
+    /// <see cref="Derive"/> makes of a file, and a fact of a graph it builds by hand).
+    /// </summary>
+    public static HordeNavData Of(DerivedNav nav, VoxelColumns columns, double deriveMs = 0, double columnsMs = 0, int fileBytes = 0)
+    {
+        ArgumentNullException.ThrowIfNull(nav);
+        ArgumentNullException.ThrowIfNull(columns);
         var open = new NavObstacleState(nav.Graph.ObstacleCount) { OpenDoors = true };
-        return new HordeNavData(nav, columns, open, derive, cols, nav3d.Length, nav.Graph.Hash, 0);
+        return new HordeNavData(nav, columns, open, deriveMs, columnsMs, fileBytes, nav.Graph.Hash, 0);
     }
 
     /// <summary>

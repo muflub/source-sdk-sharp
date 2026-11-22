@@ -33,13 +33,16 @@ namespace TF2.Descent.Server.Horde.Boss;
 /// A new level starts it over (the controller is a new one).
 /// </summary>
 [SideService(Side.Server)]
-public sealed class BossEncounter(IHordeRules rules, IHordeHeroes heroes, IBossWorld world, IBossAdds adds, RobotMotion motion, ILog log)
-    : IHordeTicker, IOrderedHook
+public sealed class BossEncounter(IHordeRules rules, IHordeHeroes heroes, IBossWorld world, IBossAdds adds, RobotMotion motion, ArenaStage stage, ILog log)
+    : IHordeTicker, IOrderedHook, IGameLifecycle
 {
     /// <summary>In TF2 Descent's boss band (First + 1300 to 1399), after the champions' tickers.</summary>
     public const int Order = ModStages.First + 1310;
 
     public int HookOrder => Order;
+
+    /// <summary>In the boss band, beside the precache (+1330) and the arena stage (+1340).</summary>
+    public int LifecycleOrder => Order;
 
     private const int MaxHeroes = 33;
 
@@ -83,6 +86,19 @@ public sealed class BossEncounter(IHordeRules rules, IHordeHeroes heroes, IBossW
     public long BarsSent { get; private set; }
 
     public long BarsWithdrawn { get; private set; }
+
+    /// <summary>
+    /// The level ends: the bar starts over, its counts and what each hero was sent. The encounter
+    /// outlives the map, and only a level whose horde ticks begins it again (<see cref="Begin"/>).
+    /// </summary>
+    public void OnLevelShutdown()
+    {
+        BarsSent = 0;
+        BarsWithdrawn = 0;
+        Array.Clear(_shown);
+        Array.Clear(_sentLife);
+        Array.Clear(_sentPhase);
+    }
 
     /// <summary>The phase changes of this level: phase, the life it was entered at, the tick.</summary>
     public IReadOnlyList<(int Phase, double Life, long Tick)> Phases => _phases;
@@ -183,6 +199,7 @@ public sealed class BossEncounter(IHordeRules rules, IHordeHeroes heroes, IBossW
         Row = found;
         _script = script;
         Arena = roster.HomeRoom(found);
+        stage.BossFound();
         Phase = 0;
         Engaged = false;
         _phases.Clear();
@@ -205,7 +222,7 @@ public sealed class BossEncounter(IHordeRules rules, IHordeHeroes heroes, IBossW
         if (_script!.Companion.Length > 0 && (Companion < 0 || roster.State(Companion) is RobotState.Dead or RobotState.Empty))
         {
             int before = roster.Count;
-            int put = adds.Summon(horde, Row, _script.Companion, 1, roster.Seed(Row) ^ 0xC0FFEEUL ^ (ulong)Resets, now);
+            int put = adds.Summon(horde, Row, _script.Companion, 1, roster.Seed(Row) ^ 0xC0FFEEUL ^ (ulong)Resets, now, legs: Phase + 1);
             Companion = put > 0 ? before : -1;
         }
 
@@ -217,6 +234,7 @@ public sealed class BossEncounter(IHordeRules rules, IHordeHeroes heroes, IBossW
     {
         Phase = phase;
         _phases.Add((phase, life, now));
+        stage.PhaseEntered(phase + 1);
         var t = rules.Rules.Robots.Template(roster.Template(Row));
         string sound = rules.Rules.Bosses.Settings.Sounds.Phase;
         for (int p = 1; p <= MaxHeroes; p++)

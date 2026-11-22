@@ -1,4 +1,5 @@
 using SourceSharp.Ai;
+using TF2.Descent.Rules.Horde;
 
 namespace TF2.Descent.Ai.Senses;
 
@@ -30,6 +31,27 @@ public static class HordeSoundKinds
         if (Has(name, "Door"))
             return SoundKind.Door;
         return SoundKind.Unknown;
+    }
+
+    /// <summary>
+    /// How far a sound of <paramref name="kind"/> carries for the horde (horde.json's
+    /// <c>senses.hearing</c>), in units of walk before the hearer's hearing scale: a blast jump's
+    /// landing is <see cref="SoundKind.Physics"/>; a kind no robot listens for carries nowhere.
+    /// </summary>
+    public static float Reach(HearingSenses hearing, SoundKind kind)
+    {
+        ArgumentNullException.ThrowIfNull(hearing);
+        return (float)(kind switch
+        {
+            SoundKind.Gunfire => hearing.Gunfire,
+            SoundKind.Explosion => hearing.Explosion,
+            SoundKind.Footstep => hearing.Footstep,
+            SoundKind.Physics => hearing.Landing,
+            SoundKind.Pain => hearing.Pain,
+            SoundKind.Death => hearing.Death,
+            SoundKind.Door => hearing.Door,
+            _ => 0,
+        });
     }
 
     /// <summary>Whether a robot listens for <paramref name="kind"/>.</summary>

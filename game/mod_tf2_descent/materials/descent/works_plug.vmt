@@ -1,0 +1,6 @@
+"LightmappedGeneric"
+{
+	"$basetexture" "metal/wall026"
+	"$no_draw" "1"
+	"%compileTrigger" "1"
+}

@@ -15,6 +15,10 @@ public static class RepairRefusals
     public const string Unusable = "unusable";
     /// <summary>The field repair recipe takes one Repair Kit and one item.</summary>
     public const string NeedsKitAndItem = "needs_kit_and_item";
+    /// <summary>A field repair of what is worn needs a Repair Kit in the backpack.</summary>
+    public const string NoKit = "no_kit";
+    /// <summary>A field repair uses one kit: the host ends the kit it names, so a stack of them is not one.</summary>
+    public const string KitStack = "kit_stack";
 }
 
 /// <summary>One step of a field repair: durability gained, maximum lost, and both after it.</summary>
@@ -110,6 +114,35 @@ public sealed class Repairs
         } while (restored + durability < max);
         durability = Math.Min(durability + restored, max);
         return new(item with { Durability = durability, MaxDurability = max, WearUses = 0 }, steps, null);
+    }
+
+    /// <summary>The kit a field repair uses up (durability.json's <c>fieldRepair.kit</c>).</summary>
+    public string Kit => S.Kit;
+
+    /// <summary>
+    /// The hero level a field repair with <paramref name="kit"/> runs at: the hero's level when the
+    /// kit came to him (its roll context's), the only hero level the contract's
+    /// <c>Repair(item, Field, kit, seed)</c> carries; at least 1.
+    /// </summary>
+    public static int KitLevel(RolledItem kit) => Math.Max(1, kit.Context.CharacterLevel);
+
+    /// <summary>
+    /// <c>IGameRules.Repair(item, kind, kit, seed)</c> (Host.Contracts 1.1). A town repair is the
+    /// Engineer's (<see cref="Repair(RolledItem)"/>: priced, the maximum untouched). A field repair
+    /// takes one Repair Kit (<paramref name="kit"/>, a stack of one) and runs <see cref="Field"/> at
+    /// <see cref="KitLevel"/>: the item comes back in place (<c>Produced[0]</c>), the kit is used up
+    /// (<c>Consumed = [1]</c>), nothing is paid. Refused, nothing used, without a kit, on a stack of
+    /// kits, or where <see cref="Field"/> refuses (at the maximum, unusable, no gear).
+    /// </summary>
+    public ItemChange Repair(RolledItem item, RepairKind kind, RolledItem? kit, ulong seed)
+    {
+        if (kind == RepairKind.Town) return Repair(item);
+        if (kit is null || kit.BaseType != S.Kit || kit.SchemaVersion != ItemCodec.Schema || item.BaseType == S.Kit)
+            return new([], [], 0, RepairRefusals.NeedsKitAndItem);
+        if (kit.Count != 1) return new([], [], 0, RepairRefusals.KitStack);
+        if (item.SchemaVersion != ItemCodec.Schema) return new([], [], 0, RepairRefusals.NotRepairable);
+        var result = Field(_codec.Instance(item), KitLevel(kit), seed);
+        return result.Ok ? new([1], [_codec.ToRolled(result.Item!)], 0) : new([], [], 0, result.Refusal);
     }
 
     /// <summary>

@@ -65,12 +65,20 @@ public static partial class RoomDresser
     /// <summary>The key a dressing piece carries so the lint and the reports can tell it from a shape's (its role).</summary>
     public const string RoleKey = "descent_dress";
 
-    /// <summary>The room dressed in <paramref name="theme"/> for <paramref name="seed"/>; the room itself when the theme dresses nothing (the grey).</summary>
-    public static Room Dress(Room room, RoomTheme theme, ulong seed)
+    /// <summary>The key a lamp's fixture carries when it has failed (<see cref="LampKind.Dead"/>): it hangs with no light, by design.</summary>
+    public const string DeadKey = "descent_dead";
+
+    /// <summary>
+    /// The room dressed in <paramref name="theme"/> for <paramref name="seed"/>; the room itself when the
+    /// theme dresses nothing (the grey). At most <paramref name="breakables"/> of its crates and drums
+    /// become breakables (<see cref="Breakables"/>, never over <see cref="Breakables.RoomCap"/>); the
+    /// rest stay the theme's props.
+    /// </summary>
+    public static Room Dress(Room room, RoomTheme theme, ulong seed, int breakables = Breakables.RoomCap)
     {
         if (theme.Lamps is null && theme.Props == PropSet.None)
             return room;
-        return new Dresser(room, theme, new RoomSeed(seed, "dress:" + room.Name)).Run();
+        return new Dresser(room, theme, new RoomSeed(seed, "dress:" + room.Name), Math.Clamp(breakables, 0, Breakables.RoomCap)).Run();
     }
 
     /// <summary>A dressing role: what kind of piece a prop is.</summary>
@@ -98,6 +106,26 @@ public static partial class RoomDresser
         (-1, 0) => 180,
         _ => 270,
     };
+
+    /// <summary>
+    /// Where a lamp asked for by site (<see cref="Room.LampSites"/>) has its fixture's origin: a wall lamp's
+    /// <paramref name="at"/> is the point on the wall's face it hangs at, <paramref name="yaw"/> the way into the
+    /// room; a floor lamp's the floor it stands on; a ceiling lamp's the ceiling it hangs from; a pendant's
+    /// the floor under it (its cord is the dresser's). The fixture faces <paramref name="yaw"/>.
+    /// </summary>
+    public static Point SiteOrigin(LampKind kind, Point at, int yaw)
+    {
+        PropModel f = kind.Fixture;
+        double r = yaw * Math.PI / 180;
+        float dx = (float)Math.Round(Math.Cos(r), 6), dy = (float)Math.Round(Math.Sin(r), 6);
+        return kind.Mount switch
+        {
+            LampMount.Wall => new(at.X + dx * (f.Back + 0.5f), at.Y + dy * (f.Back + 0.5f), at.Z),
+            LampMount.Floor => at with { Z = at.Z - f.Mins.Z },
+            LampMount.Ceiling => at with { Z = at.Z - f.Maxs.Z },
+            _ => at,
+        };
+    }
 
     /// <summary>A vector in a piece's own frame (x along its front) turned to the world by <paramref name="yaw"/>.</summary>
     public static Point Turn(Point v, int yaw)
@@ -133,11 +161,30 @@ public static partial class RoomDresser
         private IReadOnlyList<IReadOnlyList<(int I, int J)>> routes = [];
         private int dynamics;
 
-        public Dresser(Room room, RoomTheme theme, RoomSeed rng)
+        /// <summary>The most breakables the room takes, and what it holds so far.</summary>
+        private readonly int breakableCap;
+
+        /// <summary>Each breakable's agent box (<see cref="Breakables.AgentSweep"/>): no brush or solid static prop may stand in one.</summary>
+        private readonly List<Box> sweeps = [];
+
+        /// <summary>The solid static props placed, by box: what the room compile's navigation stands its agents clear of.</summary>
+        private readonly List<Box> navProps = [];
+
+        /// <summary>The floor under a hazard volume, level (Act III's slime and lava): nothing stands on it.</summary>
+        private readonly List<Rect> hazardAreas = [];
+
+        /// <summary>The liquid the dresser stands on the floor as a hazard (<see cref="RoomTheme.HazardFloor"/>).</summary>
+        private readonly List<Brush> hazardWater = [];
+
+        /// <summary>Whether a lamp hung now is one of the theme's own along the path, which may have failed (<see cref="LampKind.Dead"/>), rather than the cover pass's.</summary>
+        private bool primaryLamps;
+
+        public Dresser(Room room, RoomTheme theme, RoomSeed rng, int breakableCap)
         {
             this.room = room;
             this.theme = theme;
             this.rng = rng;
+            this.breakableCap = breakableCap;
             kit = room.Kit;
             sill = kit.Sill;
             plan = new FloorPlan(room);
@@ -145,12 +192,35 @@ public static partial class RoomDresser
             doors = [.. room.Sockets.Select(s => Box.DoorOpening(kit, s.Face, s.Offset, room.Cells))];
             markers = [.. room.Entities.Where(e => e.ClassName == "info_poi" && e.Origin is not null).Select(e => e.Origin!.Value)];
             ledgeAir = [.. LedgeAir(plan)];
+            keepClear = [.. room.KeepClear.Select(k => new Box(k.Mins, k.Maxs))];
+            breakAway = [.. room.Entities.Where(e => e.Key("targetname")?.StartsWith(BossNames.PlatformPrefix, StringComparison.Ordinal) == true)
+                .SelectMany(e => e.Brushes).Select(b => new Box(b.Mins - new Point(BossNames.PlatformEdge, BossNames.PlatformEdge, 0), b.Maxs + new Point(BossNames.PlatformEdge, BossNames.PlatformEdge, room.Height)))];
         }
+
+        /// <summary>The boxes over every platform section that breaks away (level 15), a <see cref="BossNames.PlatformEdge"/> round them: no dressing stands there.</summary>
+        private readonly Box[] breakAway;
+
+        /// <summary>The boxes no dressing stands in (<see cref="Room.KeepClear"/>: the Tank's track).</summary>
+        private readonly Box[] keepClear;
+
+        private bool InKeepClear(Box box) => keepClear.Any(k => k.Overlaps(box));
 
         public Room Run()
         {
             routes = plan.GiantRoutes();
             lane = plan.Lane(routes, LaneReach);
+            SetPieces();
+            // Act III's hazard floors first, so nothing is stood in them, and their glow before the lamps, which count it.
+            if (theme.HazardFloor is { } floorHazard)
+            {
+                HazardFloors(floorHazard);
+                if (!room.OwnLamps)
+                    HazardGlows(floorHazard);
+            }
+
+            // A room that lights itself hangs its lamps before the structure, which then stands round them.
+            if (room.OwnLamps)
+                SiteLamps();
             PropSet props = theme.Props;
             if (props.Sets is { } sets)
                 Sets(sets);
@@ -164,14 +234,17 @@ public static partial class RoomDresser
                 HeadframeOverFocus();
             if (theme.RoofBeams > 0)
                 RoofBeams(theme.RoofBeams);
-            if (theme.Lamps is not null)
-                Lamps();
-            if (theme.RoutePools is { Pools: { } routePools } poolKind)
-                PoolLamps(poolKind, routePools);
-            if (theme.WorkLamps is { } work)
-                WorkLamps(work);
-            if (theme.CoolFill is { } fill)
-                CoolFill(fill.Light, fill.Pitch);
+            if (!room.OwnLamps)
+            {
+                if (theme.Lamps is not null)
+                    Lamps();
+                if (theme.RoutePools is { Pools: { } routePools } poolKind)
+                    PoolLamps(poolKind, routePools);
+                if (theme.WorkLamps is { } work)
+                    WorkLamps(work);
+                if (theme.CoolFill is { } fill)
+                    CoolFill(fill.Light, fill.Pitch);
+            }
             if (props.Rail is { } rail)
                 DoorRails(rail, props);
             if (props.CeilingRun is { } run)
@@ -197,9 +270,39 @@ public static partial class RoomDresser
             if (theme.Hazard is { } hazard)
                 HazardStripes(hazard);
 
-            var keep = theme.Lamps is null ? room.Entities : room.Entities.Where(e => e.ClassName is not ("light" or "light_spot")).ToList();
+            var keep = theme.Lamps is null || room.OwnLamps ? room.Entities : room.Entities.Where(e => e.ClassName is not ("light" or "light_spot")).ToList();
             var water = theme.Standing is { } standing ? StandingWater(standing) : [];
-            return Unblock(room with { World = [.. room.World, .. brushes], Entities = [.. keep, .. added], Water = [.. room.Water, .. water] });
+            return Unblock(room with { World = [.. room.World, .. brushes], Entities = [.. keep, .. added], Water = [.. room.Water, .. water, .. hazardWater] });
+        }
+
+        /// <summary>
+        /// A boss arena's set pieces (<see cref="Room.SetPieces"/>), stood first and as asked: what the dressing
+        /// then keeps clear of, and what the dress lint holds to every rule a placed piece keeps.
+        /// </summary>
+        private void SetPieces()
+        {
+            foreach (var (model, origin, yaw) in room.SetPieces)
+            {
+                var (mins, maxs) = model.Turned(yaw);
+                AddProp(model, origin, yaw, Role.Centre, shadows: true);
+                placed.Add((new Box(origin + mins, origin + maxs), Role.Centre));
+            }
+        }
+
+        /// <summary>A room that lights itself (<see cref="Room.OwnLamps"/>): each lamp it asks for that fits, and nothing more.</summary>
+        private void SiteLamps()
+        {
+            foreach (var (kind, at, yaw) in room.LampSites)
+            {
+                if (kind.Mount == LampMount.Pendant)
+                {
+                    if (PendantSite(kind, at.X, at.Y, at.Z) is { } hung)
+                        TryLamp(hung);
+                    continue;
+                }
+
+                TryLamp(Site(kind, SiteOrigin(kind, at, yaw), yaw - kind.Fixture.Front));
+            }
         }
 
         /// <summary>The most props the unblocking pass takes out of one room.</summary>
@@ -235,7 +338,14 @@ public static partial class RoomDresser
         // Rules every piece keeps.
         //---------------------------------------------------------------------
 
-        private bool Fits(Box box, bool solid, bool floorStanding, Role role, bool touching = false)
+        /// <summary>
+        /// The model the dresser stands for a theme's piece: the server's breakable in a crate's or a
+        /// drum's stead while the room is under its cap (M34), the piece itself otherwise.
+        /// </summary>
+        private PropModel Use(PropModel m) => m.Breakable is { } kind && sweeps.Count < breakableCap ? Breakables.Model(kind) : m;
+
+        /// <param name="breakable">The piece is a breakable: no agent box of another breakable refuses it (a point is not solid to the navigation).</param>
+        private bool Fits(Box box, bool solid, bool floorStanding, Role role, bool touching = false, bool breakable = false)
         {
             float c = room.Extent;
             if (box.Mins.X < 0 || box.Mins.Y < 0 || box.Mins.Z < 0 || box.Maxs.X > c || box.Maxs.Y > c || box.Maxs.Z > room.Height)
@@ -244,7 +354,7 @@ public static partial class RoomDresser
                 return false;
             if (markers.Any(m => box.Mins.Z < m.Z + RoomLint.HullHeight && box.Maxs.Z > m.Z - 1 && box.LevelDistanceTo(m.X, m.Y) < MarkerClear))
                 return false;
-            if ((role == Role.Centre ? InJumpLedgeAir(box) : InLedgeAir(box)) || InJumpAir(box))
+            if ((role == Role.Centre ? InJumpLedgeAir(box) : InLedgeAir(box)) || InJumpAir(box) || InKeepClear(box) || breakAway.Any(b => b.Overlaps(box)))
                 return false;
             if (solid && box.Mins.Z < sill + FloorPlan.GiantHeight && plan.Covered(box).Any(lane.Contains))
                 return false;
@@ -255,6 +365,11 @@ public static partial class RoomDresser
                                 : p.Role == Role.Set || (touching && p.Role == Role.Lamp) ? p.Box.Overlaps(box) : p.Box.DistanceTo(box) < 4))
                 return false;
             if (solids.Blocked(box.Mins, box.Maxs))
+                return false;
+            // A solid piece keeps out of a breakable's agent box, or the room compile refuses the breakable's point.
+            if (solid && !breakable && sweeps.Any(s => s.Overlaps(box)))
+                return false;
+            if (floorStanding && box.Mins.Z <= sill + RoomLint.Step && hazardAreas.Any(a => box.Mins.X < a.X1 && box.Maxs.X > a.X0 && box.Mins.Y < a.Y1 && box.Maxs.Y > a.Y0))
                 return false;
             if (floorStanding)
             {
@@ -426,6 +541,7 @@ public static partial class RoomDresser
             float typical = floorClear.Length == 0 ? 0 : floorClear[floorClear.Length / 2];
             bool tall = kind.Mount == LampMount.Ceiling && typical > kind.MaxHang;
             LampKind use = tall ? theme.TallLamps ?? kind : kind;
+            primaryLamps = true;
             if (use.Pools is { } pools)
                 PoolLamps(use, pools);
             else if (use.Mount == LampMount.Ceiling)
@@ -434,6 +550,10 @@ public static partial class RoomDresser
                 PerimeterLamps(use);
             if (theme.Pendants is { Grid: > 0 } pendants && room.Height >= PendantRoom && !IsHallway(room))
                 PendantGrid(pendants);
+            primaryLamps = false;
+            // Where the theme's lamps have failed (level 11), the floor they leave dark is its emergency lamps' first.
+            if (use.Dead > 0 && theme.CoverLamps is { } emergency)
+                CoverDark([emergency]);
             CoverDark(use);
         }
 
@@ -637,13 +757,17 @@ public static partial class RoomDresser
                 placed.Add((s.Box, Role.Lamp));
             }
 
-            AddProp(f, site.Origin, site.Yaw, Role.Lamp, shadows: false);
+            // A lamp of the theme's own along the path may have failed: its fixture hangs, giving no light.
+            bool dead = primaryLamps && site.Kind.Dead > 0 && rng.Chance(site.Kind.Dead);
+            AddProp(f, site.Origin, site.Yaw, Role.Lamp, shadows: false, dead: dead);
             placed.Add((site.Box, Role.Lamp));
             foreach (var (model, origin, box) in cordBoxes)
             {
                 AddProp(model, origin, 0, Role.Cord, shadows: false);
                 placed.Add((box, Role.Cord));
             }
+            if (dead)
+                return true;
             lamps.Add(light);
             added.Add(site.Light);
             return true;
@@ -742,6 +866,9 @@ public static partial class RoomDresser
                             yield return kind.Stand is { } stand
                                 ? OnStand(kind, stand, new Point(x + dx * r, y + dy * r, p.Z), dx, dy, p.Z)
                                 : Site(kind, Out(new Point(x + dx * r, y + dy * r, p.Z - f.Mins.Z), dx, dy, f.Back + FloorLampOut), Yaw(-dx, -dy) - f.Front);
+                    // A lamp that grows anywhere (level 14's fungi) also stands on the open floor itself, on a coarser grid.
+                    if (kind.FreeStanding && kind.Stand is null && ((int)x - 16) % 128 == 0 && ((int)y - 16) % 128 == 0)
+                        yield return Site(kind, new Point(x, y, p.Z - f.Mins.Z), 0);
                 }
 
                 yield break;
@@ -879,7 +1006,7 @@ public static partial class RoomDresser
                         if (!rng.Chance(props.CornerChance))
                             continue;
                         var corner = new Point(p.X + dx * rx, p.Y + dy * ry, sill);
-                        PropModel m = rng.Pick(props.Corner);
+                        PropModel m = Use(rng.Pick(props.Corner));
                         int yaw = 90 * rng.Int(0, 4);
                         if (!TryInCorner(m, corner, dx, dy, yaw))
                             continue;
@@ -890,7 +1017,7 @@ public static partial class RoomDresser
                             bool alongX = rng.Chance(0.5f);
                             float shift = (alongX ? maxs.X - mins.X : maxs.Y - mins.Y) + 6;
                             Point next = alongX ? corner with { X = corner.X - dx * shift } : corner with { Y = corner.Y - dy * shift };
-                            TryInCorner(rng.Pick(props.Corner), next, dx, dy, 90 * rng.Int(0, 4));
+                            TryInCorner(Use(rng.Pick(props.Corner)), next, dx, dy, 90 * rng.Int(0, 4));
                         }
                     }
                 }
@@ -926,7 +1053,7 @@ public static partial class RoomDresser
                 Point face = s0.Dx != 0 ? s0.Face with { Y = mid } : s0.Face with { X = mid };
                 if (chosen.Any(q => Level(q, face) < props.WallSpacing / 2f))
                     continue;
-                PropModel m = rng.Pick(props.Wall);
+                PropModel m = Use(rng.Pick(props.Wall));
                 int yaw = Yaw(-s0.Dx, -s0.Dy) - m.Front;
                 var (mins, maxs) = m.Turned(yaw);
                 if ((s0.Dx != 0 ? maxs.Y - mins.Y : maxs.X - mins.X) > width - 2 * 56)
@@ -945,7 +1072,7 @@ public static partial class RoomDresser
                     break;
                 if (chosen.Any(q => Level(q, s.Face) < props.WallSpacing))
                     continue;
-                PropModel m = rng.Pick(props.Wall);
+                PropModel m = Use(rng.Pick(props.Wall));
                 int yaw = Yaw(-s.Dx, -s.Dy) - m.Front;
                 Point origin = Out(s.Face with { Z = sill - m.Mins.Z }, s.Dx, s.Dy, m.Back + 1);
                 if (TryProp(m, origin, yaw, Role.Wall, floorStanding: true, wallDx: s.Dx, wallDy: s.Dy))
@@ -1017,7 +1144,7 @@ public static partial class RoomDresser
             for (int tries = 0; tries < want * 6 && want > 0 && open.Count > 0; tries++)
             {
                 var (i, j) = rng.Pick(open);
-                PropModel m = rng.Pick(fitting);
+                PropModel m = Use(rng.Pick(fitting));
                 int yaw = 90 * rng.Int(0, 4);
                 Point p = plan.At(i, j);
                 var origin = new Point((float)Math.Round(p.X), (float)Math.Round(p.Y), sill - m.Mins.Z);
@@ -1038,17 +1165,28 @@ public static partial class RoomDresser
 
         private bool TryProp(PropModel m, Point origin, int yaw, Role role, bool floorStanding, bool group = true, int wallDx = 0, int wallDy = 0)
         {
-            if (!m.Static && dynamics >= theme.DynamicBudget)
+            bool breakable = Breakables.IsServerModel(m);
+            if (!m.Static && !breakable && dynamics >= theme.DynamicBudget)
                 return false;
             var (mins, maxs) = m.Turned(yaw);
             var box = new Box(origin + mins, origin + maxs);
-            if (!Fits(box, solid: m.Solid, floorStanding, role))
+            if (!Fits(box, solid: m.Solid, floorStanding, role, breakable: breakable))
+                return false;
+            // The room compile stands its agent at a point of interest; a breakable's must fit there.
+            Box sweep = Breakables.AgentSweep(origin);
+            if (breakable && Breakables.AgentBlocked(sweep, new RoomSolids(room, brushes), navProps))
                 return false;
             // Clutter keeps off the edges of the room's decks, ledges and pits: a pile beside one walls
             // in the floor under it, which a player drops into and cannot leave (a trap).
             if (m.Solid && role is Role.Wall or Role.Corner or Role.Floor && (NearRaised(box, LedgeClear) || LeavesSliver(box)))
                 return false;
-            AddProp(m, origin, yaw, role, shadows: role is Role.Wall or Role.Corner or Role.Floor);
+            if (breakable)
+            {
+                added.Add(Breakables.Poi(m.Breakable!.Value, origin, yaw, role.ToString()));
+                sweeps.Add(sweep);
+            }
+            else
+                AddProp(m, origin, yaw, role, shadows: role is Role.Wall or Role.Corner or Role.Floor);
             placed.Add((box, role));
             if (group && role is Role.Wall or Role.Corner or Role.Floor)
                 Group(box, wallDx, wallDy, role);
@@ -1056,10 +1194,16 @@ public static partial class RoomDresser
         }
 
         /// <param name="needs">The link's <c>room_needs</c> condition the prop is kept under (a static prop, casting no shadow), or null.</param>
-        private void AddProp(PropModel m, Point origin, int yaw, Role role, bool shadows, string? needs = null, int roll = 0)
+        private void AddProp(PropModel m, Point origin, int yaw, Role role, bool shadows, string? needs = null, int roll = 0, bool dead = false)
         {
             int y = ((yaw % 360) + 360) % 360;
             string angles = string.Create(CultureInfo.InvariantCulture, $"0 {y} {roll}");
+            if (m.Static && m.Solid && roll == 0)
+            {
+                var (lo, hi) = m.Turned(y);
+                navProps.Add(new Box(origin + lo, origin + hi));
+            }
+
             if (m.Static)
             {
                 var keys = new List<KeyValuePair<string, string>>
@@ -1069,13 +1213,16 @@ public static partial class RoomDresser
                 };
                 if (needs is not null)
                     keys.Add(new("room_needs", needs));
+                if (dead)
+                    keys.Add(new(DeadKey, "1"));
                 added.Add(new RoomEntity("prop_static", origin, keys, [], []));
                 return;
             }
 
             dynamics++;
             added.Add(new RoomEntity("prop_dynamic", origin,
-                [new("model", m.Model), new("angles", angles), new("solid", "0"), new("DisableShadows", "1"), new(RoleKey, role.ToString())], [], []));
+                [new("model", m.Model), new("angles", angles), new("solid", "0"), new("DisableShadows", "1"), new(RoleKey, role.ToString()),
+                 .. dead ? [new KeyValuePair<string, string>(DeadKey, "1")] : Array.Empty<KeyValuePair<string, string>>()], [], []));
         }
 
         /// <summary>A floor column against a wall: its wall's face at <paramref name="z"/> above the floor and the way into it.</summary>

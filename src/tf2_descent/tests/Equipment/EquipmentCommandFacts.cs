@@ -51,6 +51,7 @@ public sealed class EquipmentCommandFacts
         rig.Plant("primary", h.Inventory.Equipped["primary"].Item with { Durability = 30 }, h.Inventory.Equipped["primary"].Id);
         rig.Plant("secondary", h.Inventory.Equipped["secondary"].Item with { Durability = 0 }, h.Inventory.Equipped["secondary"].Id);
         long price = rig.Rules.Repairs.Price(rig.Held.Inventory.Equipped["primary"].Item);
+        rig.Give(EquipmentRig.Item("repair_kit") with { Durability = 0, MaxDurability = 0 });   // a field repair spends a Repair Kit
 
         new RepairCommand(rig.Equipment, wear, rig.Log).Execute(EquipmentRig.Index, "primary", "town");
         new RepairCommand(rig.Equipment, wear, rig.Log).Execute(EquipmentRig.Index, "secondary", "field");

@@ -18,6 +18,28 @@
     "floorBoundSizes": ["giant", "boss"],
     "refitAttempts": 8
   },
+  "senses": {
+    "sight": {
+      "range": 900,
+      "halfConeDeg": 50,
+      "aroundRadius": 200,
+      "fullLight": 60,
+      "darkScale": 0.35,
+      "lampReachScale": 1
+    },
+    "hearing": {
+      "rooms": 1,
+      "unownedRooms": 0,
+      "gunfire": 1000,
+      "explosion": 1200,
+      "footstep": 200,
+      "landing": 500,
+      "pain": 600,
+      "death": 800,
+      "door": 400
+    },
+    "packCallReach": 1200
+  },
   "shove": {
     "halfDepth": 40,
     "reach": 160,

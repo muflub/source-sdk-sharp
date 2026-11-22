@@ -122,7 +122,7 @@ public sealed class DescentPaletteTests
 {
     public static TheoryData<int> ActOne => [1, 2, 3, 4];
 
-    public static TheoryData<int> Themed => [1, 2, 3, 4, 6, 7, 8, 9];
+    public static TheoryData<int> Themed => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 
     private static string PalettePath(int depth) =>
         RepoLayout.Repo("src", "mapgen", "Descent", "Themes", "palettes", ThemeAssets.PaletteFile(depth));
@@ -144,7 +144,7 @@ public sealed class DescentPaletteTests
     private static IReadOnlyDictionary<string, float> Scales(RoomTheme theme)
     {
         var scales = new Dictionary<string, float>(StringComparer.Ordinal);
-        foreach (var (t, prefix) in new[] { (theme, ""), (theme.Arrival, "arrival-") })
+        foreach (var (t, prefix) in new[] { (theme, ""), (theme.Arrival, "arrival-"), (theme.Caves, "caves-") })
         {
             if (t is null)
                 continue;

@@ -279,7 +279,7 @@ public sealed partial class ServiceFlowTests
         var clients = new FakeClients();
         var net = new RecordingEngine();
         sheets = new TF2.Descent.Server.Hero.HeroSheets(new TF2.Descent.Rules.TF2DescentRules(), w.Host, clients, w.Log);
-        var players = new PlayerService(w.Link, w.Host, clients, new ClientMessages(net), new NeverScheduler(), w.Log, sheets);
+        var players = new PlayerService(w.Link, w.Host, clients, new ClientMessages(net), new NeverScheduler(), w.Log, sheets, new TF2.Descent.Tests.Hero.HeroRig.ListHooks<IHeroJoinHook>([]));
         return (w, players, clients, net);
     }
 
@@ -1025,7 +1025,7 @@ public sealed partial class ServiceFlowTests
         var clients = new FakeClients();
         var players = new PlayerService(w.Link, w.Host, clients, new ClientMessages(new RecordingEngine()),
                                         new NowScheduler(), w.Log,
-                                        new TF2.Descent.Server.Hero.HeroSheets(new TF2.Descent.Rules.TF2DescentRules(), w.Host, clients, w.Log));
+                                        new TF2.Descent.Server.Hero.HeroSheets(new TF2.Descent.Rules.TF2DescentRules(), w.Host, clients, w.Log), new TF2.Descent.Tests.Hero.HeroRig.ListHooks<IHeroJoinHook>([]));
         clients.Slots[3] = (76561197960287930UL, "203.0.113.7:27005");
         players.OnClientActive(3);
 

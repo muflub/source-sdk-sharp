@@ -22,7 +22,7 @@ public static class ThemeAssets
         yield return new(theme.AssetOf(theme.Floor.Material), "material", prefix + "floor");
         yield return new(theme.Wall.Material, "material", prefix + "wall");
         yield return new(theme.Ceiling.Material, "material", prefix + "ceiling");
-        yield return new(theme.Block.Material, "material", prefix + "block");
+        yield return new(theme.AssetOf(theme.Block.Material), "material", prefix + "block");
         if (theme.Trim is { } trim)
             yield return new(trim.Material, "material", prefix + "trim");
         if (theme.WallLow is { } low)
@@ -99,13 +99,34 @@ public static class ThemeAssets
             yield return Model(m, prefix + "hanging");
         if (theme.Water is { } water)
             yield return new(theme.AssetOf(water), "water", prefix + "water");
+        if (theme.HazardFloor is { } floorHazard)
+            yield return new(theme.AssetOf(floorHazard.Surface), floorHazard.Liquid ? "water" : "material", prefix + "hazard-" + floorHazard.Kind);
+        if (theme.HazardFloor?.Lips is { } lips)
+            yield return new(lips.Material, "material", prefix + "hazard-lips");
         if (theme.Gantry?.Hook is { } hook)
             yield return Model(hook, prefix + "gantry-hook");
         if (theme.Gantry?.Cable is { } cable)
             yield return Model(cable, prefix + "gantry-cable");
+        foreach (Surface s in theme.ArenaSurfaces)
+            yield return new(theme.AssetOf(s.Material), "material", prefix + "arena-surface");
+        foreach (LampKind k in theme.ArenaLamps)
+            yield return Model(k.Fixture, prefix + "arena-lamp");
+        foreach (PropModel m in theme.SetPieces)
+            yield return Model(m, prefix + "set-piece");
         if (theme.Arrival is { } arrival && prefix.Length == 0)
             foreach (ThemeAsset a in Of(arrival, "arrival-"))
                 yield return a;
+        // The cave families' theme is the depth's with other walls and floor: only those differ.
+        if (theme.Caves is { } caves && prefix.Length == 0)
+        {
+            yield return new(caves.AssetOf(caves.Floor.Material), "material", "caves-floor");
+            yield return new(caves.Wall.Material, "material", "caves-wall");
+            yield return new(caves.Ceiling.Material, "material", "caves-ceiling");
+            if (caves.LargeWall is { } caveLarge)
+                yield return new(caveLarge.Material, "material", "caves-large-wall");
+            if (caves.WallLow is { } caveLow)
+                yield return new(caveLow.Material, "material", "caves-wall-low");
+        }
     }
 
     private static ThemeAsset Model(PropModel m, string role) => new(Strip(m.Model), m.Static ? "static" : "dynamic", role, m);

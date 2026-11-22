@@ -36,7 +36,12 @@ namespace TF2.Descent.Server.Furniture;
 [Precache(PrecacheKind.Model, FurnitureCatalog.PumpkinBombModel)]
 [Precache(PrecacheKind.Model, FurnitureCatalog.PlateModel)]
 [Precache(PrecacheKind.Model, FurnitureCatalog.ChargeModel)]
+[Precache(PrecacheKind.Model, FurnitureCatalog.WoodenBarrelModel)]
 [Precache(PrecacheKind.Model, EngineFurnitureWorld.ExplosionSprite)]
+[Precache(PrecacheKind.Sound, FurnitureSounds.CrateBreak)]
+[Precache(PrecacheKind.Sound, FurnitureSounds.BarrelBreak)]
+[Precache(PrecacheKind.Sound, EngineFurnitureBreakWorld.CloudSound)]
+[Precache(PrecacheKind.ParticleSystem, EngineFurnitureBreakWorld.CloudParticle)]
 [Precache(PrecacheKind.Sound, FurnitureSounds.BarrelExplode)]
 [Precache(PrecacheKind.Sound, FurnitureSounds.PumpkinExplode)]
 [Precache(PrecacheKind.Sound, FurnitureSounds.ShrineUse)]
@@ -64,7 +69,7 @@ public sealed class FurnitureEntity(IEngineEntityRender render, IServerSkins ski
     /// <summary>The row the entity is lent to; -1 while parked.</summary>
     public int Row { get; private set; } = -1;
 
-    /// <summary>Whether it takes damage now: a lent explosive that has not gone off.</summary>
+    /// <summary>Whether it takes damage now: a lent explosive that has not gone off, a standing crate or barrel, a shut supply crate.</summary>
     public bool Breakable { get; private set; }
 
     /// <summary>Whether +USE reaches it now: a lent shrine or container.</summary>
@@ -199,6 +204,15 @@ public static class FurnitureSounds
     public const string ChargeFire = "Weapon_Grenade_Det_Pack.Explode";
     public const string TeslaTell = "DoSpark";
     public const string TeslaFire = "Halloween.spell_lightning_impact";
+
+    /// <summary>A wooden crate's break (surfaceproperties' wood_crate break sound).</summary>
+    public const string CrateBreak = "Wood_Crate.Break";
+
+    /// <summary>A wooden barrel's break (the wood surface's break sound, the models' surfaceprop).</summary>
+    public const string BarrelBreak = "Wood.Break";
+
+    /// <summary>A breakable's break sound.</summary>
+    public static string BreakOf(string breakable) => breakable == "barrel" ? BarrelBreak : CrateBreak;
 
     /// <summary>A trap's tell, given when it is tripped.</summary>
     public static string TellOf(string trap) => trap switch

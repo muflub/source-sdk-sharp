@@ -66,6 +66,12 @@ public sealed class AutomapServiceTests
                 var reader = new UserMessageReader(s.Bytes);
                 return AutomapRoomWire.Read(ref reader).View();
             })];
+
+        /// <summary>The explored rooms sent (entered, or revealed): not the discovered ones beside them.</summary>
+        public IReadOnlyList<AutomapRoomView> Explored(int from = 0) => [.. Rooms(from).Where(r => !r.Discovered)];
+
+        /// <summary>The discovered rooms sent: outlines through a door of an explored room.</summary>
+        public IReadOnlyList<AutomapRoomView> Discovered(int from = 0) => [.. Rooms(from).Where(r => r.Discovered)];
     }
 
     private static string KeyOf<T>() where T : IUserMessagePayload<T> => T.Key;
@@ -93,7 +99,7 @@ public sealed class AutomapServiceTests
 
         k.StandIn(Arrival);
 
-        var room = Assert.Single(k.Rooms());
+        var room = Assert.Single(k.Explored());
         var r = Level.Rooms[Arrival];
         Assert.Equal((Arrival, (int)r.Min.X, (int)r.Min.Y, (int)r.Max.X, (int)r.Max.Y), (room.Room, room.MinX, room.MinY, room.MaxX, room.MaxY));
         Assert.Equal(r.Label, room.Label);
@@ -110,7 +116,7 @@ public sealed class AutomapServiceTests
         k.StandIn(Arrival);
         k.StandIn(Neighbour(Arrival));
 
-        Assert.DoesNotContain(Exit, k.Rooms().Select(r => r.Room));
+        Assert.DoesNotContain(Exit, k.Explored().Select(r => r.Room));
         var needle = System.Text.Encoding.UTF8.GetBytes(exitLabel);
         Assert.All(k.Sent, s => Assert.True(s.Bytes.AsSpan().IndexOf(needle) < 0, $"{s.Key} carries the exit room's label"));
     }
@@ -122,7 +128,7 @@ public sealed class AutomapServiceTests
 
         k.StandIn(Exit);
 
-        var room = Assert.Single(k.Rooms());
+        var room = Assert.Single(k.Explored());
         Assert.Equal((Exit, Level.Rooms[Exit].Label), (room.Room, room.Label));
     }
 
@@ -137,7 +143,7 @@ public sealed class AutomapServiceTests
         k.StandIn(Arrival);
         k.StandIn(next);
 
-        Assert.Equal([Arrival, next], k.Rooms().Select(r => r.Room));
+        Assert.Equal([Arrival, next], k.Explored().Select(r => r.Room));
     }
 
     [Fact]
@@ -147,7 +153,7 @@ public sealed class AutomapServiceTests
 
         k.StandIn(Arrival);
 
-        var room = Assert.Single(k.Rooms());
+        var room = Assert.Single(k.Explored());
         var doors = Level.Doors.Where(d => d.RoomA == Arrival || d.RoomB == Arrival).ToList();
         Assert.NotEmpty(doors);
         Assert.Equal(doors.Select(d => ((int)d.Position.X, (int)d.Position.Y)).Order(),
@@ -159,12 +165,12 @@ public sealed class AutomapServiceTests
     {
         var k = new Kit();
         k.StandIn(Arrival);
-        Assert.DoesNotContain(k.Rooms(), r => r.Room == Exit);
+        Assert.DoesNotContain(k.Explored(), r => r.Room == Exit);
         int from = k.Sent.Count;
 
         k.StandIn(Exit);
 
-        var room = Assert.Single(k.Rooms(from));
+        var room = Assert.Single(k.Explored(from));
         var exit = Level.Exit!.Position;
         Assert.Contains(new AutomapMark(AutomapMarkKind.Stairs, (int)MathF.Round(exit.X), (int)MathF.Round(exit.Y)), room.Marks);
     }
@@ -176,7 +182,7 @@ public sealed class AutomapServiceTests
 
         k.StandIn(Arrival);
 
-        var room = Assert.Single(k.Rooms());
+        var room = Assert.Single(k.Explored());
         var arrival = Level.Markers.Single(m => m.Kind == TF2.Descent.Server.Level.LevelMarkerKind.Arrival && m.Room == Arrival).Position;
         Assert.Contains(new AutomapMark(AutomapMarkKind.Stairs, (int)MathF.Round(arrival.X), (int)MathF.Round(arrival.Y)), room.Marks);
     }
@@ -215,7 +221,7 @@ public sealed class AutomapServiceTests
 
         var sent = k.Sent.Skip(from).ToList();
         Assert.Equal(KeyOf<AutomapSync>(), sent[0].Key);
-        Assert.Equal(new[] { Arrival, Neighbour(Arrival) }.Order(), k.Rooms(from).Select(r => r.Room).Order());
+        Assert.Equal(new[] { Arrival, Neighbour(Arrival) }.Order(), k.Explored(from).Select(r => r.Room).Order());
     }
 
     [Fact]
@@ -233,7 +239,7 @@ public sealed class AutomapServiceTests
         var sync = k.Sent.Skip(from).First();
         var reader = new UserMessageReader(sync.Bytes);
         Assert.Equal(0, AutomapSync.Read(ref reader).Rooms);
-        Assert.Equal([Arrival], k.Rooms(from).Select(r => r.Room));
+        Assert.Equal([Arrival], k.Explored(from).Select(r => r.Room));
     }
 
     [Fact]
@@ -257,7 +263,7 @@ public sealed class AutomapServiceTests
 
         k.Automap.RevealAll(HeroRig.Index);
 
-        Assert.Equal(Level.Rooms.Select(r => r.Id).Where(r => r != Arrival).Order(), k.Rooms(from).Select(r => r.Room).Order());
+        Assert.Equal(Level.Rooms.Select(r => r.Id).Where(r => r != Arrival).Order(), k.Explored(from).Select(r => r.Room).Order());
     }
 
     [Fact]
@@ -266,13 +272,93 @@ public sealed class AutomapServiceTests
         var k = new Kit();
         var shrine = Level.Markers.First(m => m.Kind == TF2.Descent.Server.Level.LevelMarkerKind.Shrine);
         k.StandIn(shrine.Room);
-        Assert.Contains(k.Rooms().Single().Marks, m => m.Kind == AutomapMarkKind.ShrineUnused);
+        Assert.Contains(k.Explored().Single().Marks, m => m.Kind == AutomapMarkKind.ShrineUnused);
         int from = k.Sent.Count;
 
         k.Automap.ShrineUsed(LevelAdapters.MarkerKey(shrine.Id));
 
         var room = Assert.Single(k.Rooms(from));
         Assert.Contains(room.Marks, m => m.Kind == AutomapMarkKind.ShrineUsed);
+    }
+
+    // ---- discovered rooms (user 2026-11-15) ----
+
+    /// <summary>The rooms through a door of <paramref name="room"/>, not it.</summary>
+    private static int[] Beyond(int room) => [.. Level.Neighbours(room).Distinct().Order()];
+
+    [Fact]
+    public void Entering_a_room_sends_its_neighbours_as_discovered_outlines()
+    {
+        var k = new Kit();
+
+        k.StandIn(Arrival);
+
+        var discovered = k.Discovered();
+        Assert.Equal(Beyond(Arrival), discovered.Select(r => r.Room).Order());
+        foreach (var room in discovered)
+        {
+            var r = Level.Rooms[room.Room];
+            Assert.Equal(((int)r.Min.X, (int)r.Min.Y, (int)r.Max.X, (int)r.Max.Y), (room.MinX, room.MinY, room.MaxX, room.MaxY));
+            Assert.Equal("", room.Label);
+            Assert.Empty(room.Marks);
+            Assert.NotEmpty(room.Doors);
+        }
+    }
+
+    [Fact]
+    public void A_discovered_room_is_sent_explored_once_entered()
+    {
+        var k = new Kit();
+        int next = Neighbour(Arrival);
+        k.StandIn(Arrival);
+        Assert.Contains(k.Discovered(), r => r.Room == next);
+        int from = k.Sent.Count;
+
+        k.StandIn(next);
+
+        var room = Assert.Single(k.Explored(from));
+        Assert.Equal((next, Level.Rooms[next].Label), (room.Room, room.Label));
+        Assert.DoesNotContain(k.Discovered(from), r => r.Room == next || r.Room == Arrival);
+    }
+
+    [Fact]
+    public void A_room_two_doors_from_every_room_entered_is_never_sent()
+    {
+        var k = new Kit();
+
+        k.StandIn(Arrival);
+
+        int[] known = [Arrival, .. Beyond(Arrival)];
+        var far = Level.Rooms.Select(r => r.Id).Where(r => !known.Contains(r)).ToList();
+        Assert.NotEmpty(far);                                       // the level has rooms two doors on
+        Assert.DoesNotContain(k.Rooms(), r => far.Contains(r.Room));
+    }
+
+    [Fact]
+    public void A_spawn_resends_the_discovered_rooms_behind_the_explored_ones()
+    {
+        var k = new Kit();
+        k.StandIn(Arrival);
+        int from = k.Sent.Count;
+
+        k.Automap.OnSpawned(k.Component.Player, 0f);
+
+        var reader = new UserMessageReader(k.Sent[from].Bytes);
+        Assert.Equal(1 + Beyond(Arrival).Length, AutomapSync.Read(ref reader).Rooms);
+        Assert.Equal(Beyond(Arrival), k.Discovered(from).Select(r => r.Room).Order());
+    }
+
+    [Fact]
+    public void The_discovered_wire_of_an_entered_room_or_a_far_one_is_refused()
+    {
+        var k = new Kit();
+        k.StandIn(Arrival);
+        var map = k.Automap.MapOf(HeroRig.Index);
+        int far = Level.Rooms.Select(r => r.Id).First(r => r != Arrival && !Beyond(Arrival).Contains(r));
+
+        Assert.NotNull(k.Automap.DiscoveredWire(map, LevelAdapters.RoomKey(Neighbour(Arrival))));   // the positive arm
+        Assert.Null(k.Automap.DiscoveredWire(map, LevelAdapters.RoomKey(Arrival)));
+        Assert.Null(k.Automap.DiscoveredWire(map, LevelAdapters.RoomKey(far)));
     }
 
     [Fact]
@@ -301,6 +387,7 @@ public sealed class AutomapServiceTests
             DoorX = new short[AutomapRoomWire.MaxDoors], DoorY = new short[AutomapRoomWire.MaxDoors],
             DoorWidth = new short[AutomapRoomWire.MaxDoors], DoorAlongY = new byte[AutomapRoomWire.MaxDoors],
             MarkKind = new byte[AutomapRoomWire.MaxMarks], MarkX = new short[AutomapRoomWire.MaxMarks], MarkY = new short[AutomapRoomWire.MaxMarks],
+            Discovered = 1,
         };
 
         Span<byte> buffer = stackalloc byte[UserMessageSender.MaxPayloadBytes];

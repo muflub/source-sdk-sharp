@@ -58,7 +58,8 @@ public static class ActOne
     public static PropModel FuseBox { get; } = M("props_mining/junctionbox02", 0f, -15.73f, 0f, 10.68f, 18.75f, 92.06f);
     public static PropModel ControlPanel { get; } = M("props_mining/computer_industrial04", 0f, -24f, 0f, 3.79f, 24f, 112f);
     public static PropModel DangerSign { get; } = M("props_mining/sign001", -7.22f, -24.39f, 0f, 7.22f, 24.39f, 66.99f);
-    public static PropModel PowderCrate { get; } = M("props_2fort/miningcrate002", -25.33f, -22.5f, 0f, 26.43f, 23.09f, 43f);
+    // The breakables' stand-ins (M34): where these stand as clutter the server's crate and barrel stand.
+    public static PropModel PowderCrate { get; } = M("props_2fort/miningcrate002", -25.33f, -22.5f, 0f, 26.43f, 23.09f, 43f) with { Breakable = BreakableKind.Crate };
     public static PropModel CementSacks { get; } = M("props_mvm/sack_stack", -33.21f, -38.52f, -1.21f, 33.36f, 34.4f, 69.99f);
     public static PropModel CableSpool { get; } = M("props_farm/spool_wire", -32f, -32f, -24f, 32f, 32f, 24f);
     public static PropModel Pallet { get; } = M("props_farm/pallet001", -40.64f, -46.98f, -4.91f, 41.84f, 46.98f, 8.18f);
@@ -66,7 +67,7 @@ public static class ActOne
     public static PropModel Sheeting { get; } = M("props_2fort/corrugated_metal001", -0.5f, -24.97f, 0f, 8.54f, 23f, 95.95f);
     public static PropModel HandTruck { get; } = M("props_well/hand_truck01", -18.2f, -14f, 0f, 18.2f, 18.2f, 84.48f);
     public static PropModel RopeSpool { get; } = M("props_farm/spool_rope", -32f, -32f, -24f, 32f, 32f, 24f);
-    public static PropModel OilDrum { get; } = M("props_2fort/oildrum", -16f, -16f, 0f, 16f, 16f, 55f);
+    public static PropModel OilDrum { get; } = M("props_2fort/oildrum", -16f, -16f, 0f, 16f, 16f, 55f) with { Breakable = BreakableKind.Barrel };
     public static PropModel BigCrate { get; } = M("props_lakeside/wood_crate_01", -50f, -50.45f, -2f, 50.25f, 50f, 98.91f);
     public static PropModel OreCart { get; } = M("props_vehicles/mining_car_metal", -23.66f, -41.54f, 0f, 23.66f, 41.54f, 68.33f);
     public static PropModel Track { get; } = M("props_mining/track_straight_256", -28.26f, -127.45f, -1.59f, 28.19f, 127.45f, 5.09f, solid: false);

@@ -34,7 +34,7 @@ public sealed partial class ServiceFlowTests
         var clients = new FakeClients();
         var sheets = new HeroSheets(rules, w.Host, clients, w.Log);
         var players = new PlayerService(w.Link, w.Host, clients, new ClientMessages(new RecordingEngine()),
-                                        scheduler ?? new NeverScheduler(), w.Log, sheets);
+                                        scheduler ?? new NeverScheduler(), w.Log, sheets, new TF2.Descent.Tests.Hero.HeroRig.ListHooks<TF2.Descent.Server.IHeroJoinHook>([]));
         w.Link.JoinAnswer = w.Link.JoinAnswer with { Sheet = leased(rules) };
         clients.Slots[3] = (ulong.Parse(Steam, System.Globalization.CultureInfo.InvariantCulture), "203.0.113.7:27005");
         players.OnClientActive(3);

@@ -24,18 +24,21 @@ public interface IHordeSightSink
 /// <summary>
 /// A lent body's eye as the vision pass needs it: where, which way (degrees),
 /// how far and how wide it sees, and how long a hero must stay clear to be
-/// recognised and stay hidden to be lost, in ticks. Not present: no brain.
+/// recognised and stay hidden to be lost, in ticks; within <see cref="Around"/>
+/// units it sees whichever way it faces (still never through a wall). Not present: no brain.
 /// </summary>
-public readonly record struct BodyEye(bool Present, AiVector Eye, float Yaw, float Range, float CosHalfCone, int RecognizeTicks, int LostTicks);
+public readonly record struct BodyEye(bool Present, AiVector Eye, float Yaw, float Range, float CosHalfCone, int RecognizeTicks, int LostTicks,
+                                      float Around = 0f);
 
 /// <summary>
 /// A hero as the vision pass looks at it: its eye and chest (the two sample points), feet (what
 /// is told) and velocity; <see cref="SightScale"/>, the multiplier on every robot's range for
-/// him (his lamp and the dark: 1 is a robot's own range); <see cref="Veil"/>, whether robots may
-/// recognise him at all this tick (his respawn's grace).
+/// him (the dark and his room's light: 1 is a robot's own range); <see cref="Veil"/>, whether robots may
+/// recognise him at all this tick (his respawn's grace); <see cref="LampReach"/>, how far his lit
+/// lamp shows him however dark it is (0: out), up to a robot's own range.
 /// </summary>
 public readonly record struct HeroTarget(bool Present, AiVector Eye, AiVector Chest, AiVector Feet, AiVector Velocity, float SightScale = 1f,
-                                         HeroVeil Veil = HeroVeil.None);
+                                         HeroVeil Veil = HeroVeil.None, float LampReach = 0f);
 
 /// <summary>
 /// Whether the robots may recognise a hero this tick (plan_descent_logic 3.6; this lane's rule
@@ -88,7 +91,9 @@ public readonly record struct SightProbe(float Distance, float Range, bool InRan
 /// <para>
 /// <b>Per hero</b>: a pair's range is the robot's <see cref="BodyEye.Range"/> times the
 /// hero's <see cref="HeroTarget.SightScale"/> (plan_tf2_rpg B.3: "cloak, disguise and darkness
-/// are multipliers on range"; the lamp and the depth's dark, folded in by the server). A hero
+/// are multipliers on range"; the depth's dark and his room's light, folded in by the brains), or
+/// his lit lamp's reach where that is farther, up to the robot's range (<see cref="RangeFor"/>).
+/// Within <see cref="BodyEye.Around"/> the cone is not asked (a hero very close behind is seen). A hero
 /// under a <see cref="HeroTarget.Veil"/> is looked at but not recognised (see
 /// <see cref="HeroVeil"/>). Allocates nothing after it is made.
 /// </para>
@@ -203,7 +208,7 @@ public sealed class HordeVision
     {
         ArgumentNullException.ThrowIfNull(lines);
         AiVector to = t.Eye - e.Eye;
-        float range = e.Range * t.SightScale;
+        float range = RangeFor(in e, in t);
         float flat = to.Length2D;
         float off = 0f;
         if (flat > 1f)
@@ -215,7 +220,7 @@ public sealed class HordeVision
 
         int p = Pair(body, hero);
         return new SightProbe(to.Length, range, to.Length <= range, off, MathF.Acos(Math.Clamp(e.CosHalfCone, -1f, 1f)) * (180f / MathF.PI),
-                              flat <= 1f || MathF.Cos(off * (MathF.PI / 180f)) >= e.CosHalfCone, PvsOf(in e, hero, lines),
+                              flat <= 1f || to.Length <= e.Around || MathF.Cos(off * (MathF.PI / 180f)) >= e.CosHalfCone, PvsOf(in e, hero, lines),
                               lines.LineClear(e.Eye, t.Eye), lines.LineClear(e.Eye, t.Chest), t.Veil, _held[p], _watching[p]);
     }
 
@@ -319,14 +324,25 @@ public sealed class HordeVision
         UnservedThisTick = unserved;
     }
 
+    /// <summary>
+    /// How far eye <paramref name="e"/> sees hero <paramref name="t"/>: its range times his
+    /// <see cref="HeroTarget.SightScale"/>, or his lit lamp's reach where that is farther, but never
+    /// beyond the robot's own range.
+    /// </summary>
+    public static float RangeFor(in BodyEye e, in HeroTarget t)
+    {
+        float range = e.Range * t.SightScale;
+        return t.LampReach > 0f ? MathF.Max(range, MathF.Min(e.Range, t.LampReach)) : range;
+    }
+
     private static bool Passes(in BodyEye e, in HeroTarget t, int hero, IHordeLines lines)
     {
         AiVector to = t.Eye - e.Eye;
-        if (to.Length > e.Range * t.SightScale)
+        if (to.Length > RangeFor(in e, in t))
             return false;
 
         float flat = to.Length2D;
-        if (flat > 1f)
+        if (flat > 1f && to.Length > e.Around)
         {
             float yaw = e.Yaw * (MathF.PI / 180f);
             float dot = (MathF.Cos(yaw) * to.X + MathF.Sin(yaw) * to.Y) / flat;

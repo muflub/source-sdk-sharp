@@ -12,9 +12,10 @@ namespace TF2.Descent.Server.Horde.Boss;
 /// <summary>
 /// A boss's adds (plan_descent_logic HO13; <see cref="IBossAdds"/>): each add a new row on the
 /// roster (<see cref="Ai.Roster.RobotRoster.Add"/>), rolled for the level's depth and the party
-/// the roster was rolled for, in a pack of its own per call, standing in the boss's arena on the
-/// arena's pack markers in turn (the marker the boss stands on last), each later round a ring of
-/// <c>addSpacing</c> further out; an arena with no markers rings the boss. Each is lent a body at
+/// the roster was rolled for, in a pack of its own per call, standing in the boss's arena on its
+/// open mouths in turn when the level ships them (<see cref="OpenMouths"/>; each add faces its
+/// mouth's way), else on the arena's pack markers in turn (the marker the boss stands on last),
+/// each later round a ring of <c>addSpacing</c> further out; an arena with neither rings the boss. Each is lent a body at
 /// once where the pool has one free (a summons is seen arriving, so the never-in-view rule of
 /// 3.4 does not hold it back), under TF2's teleporter sparkle; one with no body waits on the
 /// roster as any far robot does. The roster's 256 rows and a boss's
@@ -37,7 +38,7 @@ public sealed class BossAdds(IHordeRules rules, IBossWorld world, ILog log) : IB
     /// <summary>Adds the boss in <paramref name="bossRow"/> has called this level.</summary>
     public int GivenTo(int bossRow) => _given.GetValueOrDefault(bossRow);
 
-    public int Summon(HordeController horde, int bossRow, string template, int count, ulong seed, long now)
+    public int Summon(HordeController horde, int bossRow, string template, int count, ulong seed, long now, int legs = 1)
     {
         ArgumentNullException.ThrowIfNull(horde);
         Begin(horde);
@@ -48,7 +49,8 @@ public sealed class BossAdds(IHordeRules rules, IBossWorld world, ILog log) : IB
         int room = roster.HomeRoom(bossRow);
         AiVector post = roster.Post(bossRow);
         float spacing = (float)rules.Rules.Bosses.Settings.AddSpacing;
-        var spots = Spots(level, room, post, spacing);
+        var mouths = OpenMouths(level, room, legs);
+        var spots = mouths.Length > 0 ? Array.ConvertAll(mouths, m => m.Position) : Spots(level, room, post, spacing);
         int put = 0;
         for (int k = 0; k < count; k++)
         {
@@ -64,7 +66,7 @@ public sealed class BossAdds(IHordeRules rules, IBossWorld world, ILog log) : IB
             int ring = turn / spots.Length;
             float a = turn * 2.3999632f;   // the golden angle: a ring's adds spread round their marker
             AiVector at = spot + new AiVector(MathF.Cos(a) * spacing * ring, MathF.Sin(a) * spacing * ring, 0f);
-            float yaw = MathF.Atan2(post.Y - at.Y, post.X - at.X) * (180f / MathF.PI) + 180f;
+            float yaw = mouths.Length > 0 ? mouths[turn % mouths.Length].Yaw : MathF.Atan2(post.Y - at.Y, post.X - at.X) * (180f / MathF.PI) + 180f;
             ulong s = seed + (ulong)(k + 1) * 0x9E3779B97F4A7C15UL;
             var id = roster.Add(template, null, room, new PackMarker(at, yaw), s, Math.Max(1, horde.PartySize), joinLastPack: k > 0);
             if (!id.IsValid)
@@ -107,6 +109,24 @@ public sealed class BossAdds(IHordeRules rules, IBossWorld world, ILog log) : IB
         Put = 0;
         Lent = 0;
         Refused = 0;
+    }
+
+    /// <summary>
+    /// The mouths of the level's arena open at <paramref name="legs"/> (the ARNA contract: a mouth of
+    /// leg 1 is open from the start, the phase that is its leg opens it), in the file's order; none
+    /// when the level ships no mouths or <paramref name="room"/> is not its boss's arena (a dev boss
+    /// elsewhere).
+    /// </summary>
+    public static AddMouth[] OpenMouths(HordeLevel level, int room, int legs)
+    {
+        ArgumentNullException.ThrowIfNull(level);
+        if (level.Boss is not { Layout.Mouths: { Length: > 0 } mouths } boss || boss.ArenaRoom != room)
+            return [];
+        var open = new List<AddMouth>(mouths.Length);
+        foreach (var m in mouths)
+            if (m.Leg <= legs)
+                open.Add(m);
+        return [.. open];
     }
 
     /// <summary>The arena's pack markers, the boss's own last; the ring round the boss when it has none.</summary>

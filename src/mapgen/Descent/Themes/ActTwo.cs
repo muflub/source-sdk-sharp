@@ -47,7 +47,7 @@ public static class ActTwo
     public static PropModel LampPost { get; } = M("props_swamp/lamp_post001", -8.51f, -8.52f, -0.34f, 8.53f, 8.52f, 91.15f);
     public static PropModel HandPump { get; } = M("props_2fort/waterpump001", -45.82f, -10f, 0f, 18.09f, 10f, 96.25f);
     public static PropModel Grate { get; } = M("props_trainyard/drainage_grate01", -64.35f, -4f, -60.31f, 64.32f, 4f, 59.62f, solid: false, front: 90);
-    public static PropModel OpenDrum { get; } = M("props_swamp/oildrum_open", -16f, -16f, 0f, 16f, 16f, 55f);
+    public static PropModel OpenDrum { get; } = M("props_swamp/oildrum_open", -16f, -16f, 0f, 16f, 16f, 55f) with { Breakable = BreakableKind.Barrel };
     public static PropModel KarstLow { get; } = M("props_swamp/karst_rock_05", -89.13f, -87.77f, -0.82f, 91.95f, 162.28f, 50.23f);
     public static PropModel Karst { get; } = M("props_swamp/karst_rock_01", -128.42f, -45.91f, -1.48f, 118.34f, 94.05f, 112.95f);
     public static PropModel RowBoat { get; } = M("props_swamp/row_boat_ref", -104.88f, -42.06f, -15.02f, 112.57f, 42.06f, 17.42f);

@@ -1,0 +1,60 @@
+# Palette of depth 5 (the Powder Magazine, Sir Nukesalot's level), plan_descent_mine_levels.md E7, brief p13.
+# One row per asset the theme names: asset, kind (material, static, dynamic), role, why. Chosen by query of
+# /home/lodle/assetdb and looked at. Its way in is the lift's last station, drawn in level 4's Mill (arrival- rows, d04's).
+# DescentPaletteTests holds every row to the theme and to the database. '# rejected' lines are notes.
+asset	kind	role	why
+concrete/concretefloor003	material	floor	a worn brown-grey concrete floor (#837465; 197 maps), the magazine's swept floor
+nature/rockwall007	material	wall	tan blasted sandstone (#9b7657; 9 maps): the rock the store was blasted out of
+nature/rockwall007	material	ceiling	the same rock overhead
+concrete/concretewall009	material	block	grey stained concrete (#6e6962; 113 maps): the stone pillars, ledges and stairs
+wood/wood_wall008a	material	trim	pale timber (level 3's) for the magazine's sets, bands and posts
+brick/brickwall001	material	wall-low	red brick (#816458; 53 maps) lining the rock to 192: a powder store's lining
+nature/rockwall007	material	large-wall	the rock at 0.5 on the arena's 2048 walls
+wood/wood_wall008a	material	door-frame	a timber set round each doorway
+props_gameplay/door_grate003_floorplate	static	door-sill	covers the doorway's floor under the plugs (the kit's sill)
+props_spytech/siren	static	lamp	a red caged bulkhead lamp (83 maps): the magazine's warning lamps, red
+props_badlands/siloroom_light2	static	cover-lamp	a caged bulb under the roof where the red lamps leave the floor dark (level 4's pendant)
+props_mining/sign001	static	wall-prop	a danger sign on a stand against the wall: explosives
+props_mining/junctionbox02	static	wall-prop	a fuse box for the store's lamps
+props_2fort/miningcrate002	static	corner-pile	powder crates in the corners (the server's breakable crate where it can, M34)
+props_mvm/sack_stack	static	corner-pile	sacks piled in a corner
+props_farm/spool_wire	static	floor-prop	a drum of firing wire
+props_farm/pallet001	static	floor-prop	an empty pallet
+props_mining/sign001	static	hung	the danger sign also hung on the walls at 104
+props_2fort/miningcrate002	static	companion	a powder crate beside a pile
+props_2fort/oildrum	static	companion	a drum beside a pile (the server's breakable barrel where it can, M34)
+props_spytech/siren	static	arena-lamp	the arena's red warning lamps high on its walls
+props/hazardstrip001a	material	hazard	the Mill's hazard stripe along every ledge's edge and over each door: an explosives store's
+props_c17/light_industrialbell01_on	static	arena-lamp	the one white work light over the arena's middle, on a long cable (level 2's bell lamp)
+nature/gravelcoal001	material	arrival-floor	the lift station: coal gravel, L58, the darkest floor of the act; the plan's
+metal/wall021	material	arrival-wall	the lift station: dark grey steel plates, L93, neutral: under sodium light the yellow is the light's, not the wall's (review 2026-11-10: 'one mustard colour'); mine set 64 maps
+concrete/concretefloor007b	material	arrival-ceiling	the lift station: grey cracked concrete roof, L96; mine 12/99
+metal/imetal002	material	arrival-block	the lift station: dark blue-grey diamond plate for decks and pillars, L91; 53 maps
+metal/ibeam001b	material	arrival-trim	the lift station: dark steel sets, L99; mine 19/222
+metal/ibeam001b	material	arrival-door-frame	the lift station: the door frame of brushes (review 2026-11-10): a heavy steel frame, posts and head of the sets' steel with a wide flange round the opening
+props/hazardstrip001a	material	arrival-door-frame-stripe	the lift station: the hazard stripe on the frame's head flange, the Mill's one stripe at door heads
+props_gameplay/door_grate003_floorplate	static	arrival-door-sill	the lift station: covers the doorway's floor under the plugs; no prop_data so it stays static; mine 13/75
+props_gameplay/security_fence_light01	static	arrival-lamp	the lift station: a gooseneck yard lamp on the walls, sodium yellow, few; mine 17/120
+props_farm/welding_machine01	static	arrival-wall-prop	the lift station: a welding set; mine 14/88
+props_mining/junctionbox02	static	arrival-wall-prop	the lift station: switchgear; mine 17/133
+props_mining/computer_industrial04	static	arrival-wall-prop	the lift station: a machine panel; mine 14/75
+props_badlands/barrel01	static	arrival-corner-pile	the lift station: yellow hazard drums; mine 8/69
+props_badlands/barrel03	static	arrival-corner-pile	the lift station: yellow radioactive drums; mine 7/69
+props_mining/factory_pipe003	static	arrival-corner-pile	the lift station: a big duct bend in the corners of halls; mine 7/58
+props_mining/generator01	static	arrival-floor-prop	the lift station: the plan's generator, 232 across, only on a hall's open floor; mine 2/14
+props_hydro/3pipe_straight_256	static	arrival-ceiling-run	the lift station: three pipes along the walls under the roof; mine 8/85
+metal/metalpanel01	material	arrival-wall-low	the lift station: machine-green painted steel below 192: the painted colour of the machinery, which sodium light greys but does not turn yellow (review 2026-11-10); 39 maps
+props/hazardstrip001a	material	arrival-hazard	the lift station: yellow and black hazard stripes, one band over door heads and along deck and ledge edges only
+props_lights/flood_light_left001	static	arrival-work-lamp	the lift station: one cold white work flood in each large room, so not all the light is sodium (review 2026-11-10); mine 13/126
+props_2fort/oildrum	static	arrival-companion	the lift station: an oil drum beside a pile
+props_2fort/tire002	static	arrival-companion	the lift station: a spare tyre by a pile; no prop_data
+props_badlands/siloroom_light2	static	arrival-pendant	the lift station: a caged mill lamp hung on a cable over the halls' floors, in sodium (review 2026-11-10: overhead interest); 14 maps
+props_island/gantry_support_cable_128	static	arrival-pendant-cord	the lift station: the cable the lamp hangs from, stacked to the roof; no collision; 14 maps
+props_island/gantry_support_cable_64	static	arrival-pendant-cord	the lift station: a half length of the cable; 6 maps
+props_island/gantry_support_cable_32	static	arrival-pendant-cord	the lift station: a quarter length of the cable; 5 maps
+props_mining/generator01	static	arrival-centrepiece	the lift station: the mill's generator on the yard hall's plinth, its machine set piece
+props_mining/generator_machine01	static	arrival-centrepiece	the lift station: a smaller machine for a plinth the generator does not fit; collision, no prop_data; 19 maps
+props_mining/cranehook001	static	arrival-gantry-hook	the lift station: the overhead crane's hook over the hall's floor (review 2026-11-10: a gantry in the halls); 42 maps
+props_island/gantry_support_cable_64	static	arrival-gantry-cable	the lift station: the short cable the hook hangs from
+# rejected props_spytech/siren001: a blue loudspeaker horn, not a lamp
+# rejected props_gameplay/mvm_gemergency_light: not a static prop (no collision, 294 long)

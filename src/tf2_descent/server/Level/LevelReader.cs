@@ -61,6 +61,8 @@ public static class LevelReader
         LevelMarkerKind.Dispenser => "descent_mark_dispenser",
         LevelMarkerKind.Barrel => "descent_mark_barrel",
         LevelMarkerKind.Trap => "descent_mark_trap",
+        LevelMarkerKind.BreakableCrate => "descent_mark_breakable_crate",
+        LevelMarkerKind.BreakableBarrel => "descent_mark_breakable_barrel",
         LevelMarkerKind.MapMarker => "descent_map_marker",
         LevelMarkerKind.Spawn => "spawn",
         LevelMarkerKind.Arrival => "arrival",
@@ -113,6 +115,9 @@ public static class LevelReader
             sources[LevelPiece.Rooms] = PieceSource.Absent;
         }
 
+        if (map is not null && files.Map2d is { } map2d)
+            rooms = WithLight(map2d, rooms, files.Map, notes);
+
         ImmutableArray<LevelDoor> doors;
         if (map is not null)
         {
@@ -152,8 +157,45 @@ public static class LevelReader
         if (boss || arena is not null)
             sources[LevelPiece.BossArena] = arena is null ? PieceSource.Absent : PieceSource.Shipped;
 
+        ArenaLayout? layout = map is not null && files.Map2d is { } bytes ? LayoutOf(bytes, files.Map, notes) : null;
+
         return new LevelData(files.Map, files.Depth, files.Seed, files.SeedFrom, rooms, doors, markers, arrivals, exit, arena,
-            sources.ToImmutable(), notes.ToImmutable());
+            sources.ToImmutable(), notes.ToImmutable(), layout);
+    }
+
+    /// <summary>
+    /// The boss arena's layout from the <c>.map2d</c>'s <c>ARNA</c> section (<see cref="ArenaLayout"/>);
+    /// null when it has none (a level built before the section, or no boss level: no fault), and null
+    /// with a note when it has one this cannot read.
+    /// </summary>
+    private static ArenaLayout? LayoutOf(byte[] map2d, string map, ImmutableArray<string>.Builder notes)
+    {
+        if (ArenaLayout.TryRead(map2d, out ArenaLayout? layout, out string? why))
+            return layout;
+        if (why is not null)
+            notes.Add($"maps/{map}.map2d's arena layout is not read: {why}");
+        return null;
+    }
+
+    /// <summary>
+    /// Each room's light and dark-by-design flag from the <c>.map2d</c>'s <c>LITE</c> section
+    /// (<see cref="RoomLight"/>); the rooms as they are when it has none, and with a note when it has
+    /// one this cannot read. A room the section did not measure keeps no light.
+    /// </summary>
+    private static ImmutableArray<LevelRoom> WithLight(byte[] map2d, ImmutableArray<LevelRoom> rooms, string map, ImmutableArray<string>.Builder notes)
+    {
+        if (!RoomLight.TryRead(map2d, rooms.Length, out var lights, out string? why))
+        {
+            // A level built before the section (no LITE) is no fault: its rooms carry no light.
+            if (why is not null)
+                notes.Add($"maps/{map}.map2d's room light is not read: {why}");
+            return rooms;
+        }
+
+        var lit = ImmutableArray.CreateBuilder<LevelRoom>(rooms.Length);
+        for (int i = 0; i < rooms.Length; i++)
+            lit.Add(rooms[i] with { Light = lights[i].Measured ? lights[i].Light : null, DarkByDesign = lights[i].DarkByDesign });
+        return lit.MoveToImmutable();
     }
 
     private static T? Open<T>(byte[]? bytes, string path, Func<byte[], T> read, ImmutableArray<string>.Builder notes) where T : class

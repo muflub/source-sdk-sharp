@@ -23,6 +23,9 @@ public interface IHeroVisibility
 
     /// <summary>The multiplier and where it came from, as one phrase (the dev print's).</summary>
     string Describe(EntityHandle hero);
+
+    /// <summary>How far <paramref name="hero"/>'s lit lamp shows him however dark it is: its radius, in units; 0 when it is out or he carries none.</summary>
+    double LampReach(EntityHandle hero);
 }
 
 /// <summary>
@@ -66,6 +69,8 @@ public sealed class HeroVisibility(HeroLamps lamps, Heroes heroes, ILampWorld wo
     public bool Lit(EntityHandle hero) => heroes.Of(hero.EntryIndex) is { } h && lamps.Lit(h);
 
     public double SightScale(EntityHandle hero) => LampRules.SightScale(Lamp, Darkness, Lit(hero));
+
+    public double LampReach(EntityHandle hero) => heroes.Of(hero.EntryIndex) is { } h && lamps.Lit(h) ? lamps.RadiusOf(h) : 0;
 
     public string Describe(EntityHandle hero) =>
         string.Create(CultureInfo.InvariantCulture,

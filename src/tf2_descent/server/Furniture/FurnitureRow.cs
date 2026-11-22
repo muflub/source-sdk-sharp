@@ -57,8 +57,26 @@ public sealed class FurnitureRow
 
     public TrapState? Trap { get; internal set; }
 
-    /// <summary>An explosive that has gone off: its entity parked for good, never to stand again.</summary>
+    /// <summary>An explosive that has gone off, a crate or barrel broken: its entity parked for good, never to stand again.</summary>
     public bool Went { get; internal set; }
+
+    /// <summary>When a struck crate or barrel breaks (seconds, the server's clock: the next think); null when none is pending.</summary>
+    public double? BreakAt { get; internal set; }
+
+    /// <summary>The hero who broke the crate or barrel (his player), or none.</summary>
+    public EntityHandle BrokenBy { get; internal set; }
+
+    /// <summary>The entity that stood for it when it was struck (the breakables' one entity), the blast's or cloud's source; none in a fact.</summary>
+    public EntityHandle BreakSource { get; internal set; }
+
+    /// <summary>The push of the hit that broke it (a damage force: kg in/s), which its pieces leave with over its mass.</summary>
+    public Vector BreakForce { get; internal set; }
+
+    /// <summary>Whether it is broken or breaking: it stops a hit and a step no more.</summary>
+    public bool Gone => Went || BreakAt is not null;
+
+    /// <summary>What breaking it rolled; null while it stands.</summary>
+    public BreakOutcome? Broke { get; internal set; }
 
     /// <summary>When a set-off explosive goes off (seconds, the server's clock); null when none is pending.</summary>
     public double? ExplodeAt { get; internal set; }
@@ -91,6 +109,8 @@ public sealed class FurnitureRow
             TrapPhase.Rearming => string.Create(CultureInfo.InvariantCulture, $"re-arming at {Trap.Until:0.00}"),
             _ => "spent",
         },
+        FurnitureKind.Breakable => Broke is { } b ? "broken, " + b.ToString().ToLowerInvariant()
+            : BreakAt is not null ? "breaking" : "standing",
         _ => "",
     };
 }
@@ -114,9 +134,18 @@ public static class FurnitureModels
         FurnitureCatalog.SarcophagusModel => (new(-26, -30, 0), new(26, 0, 117), 0f),
         FurnitureCatalog.SarcophagusOpenedModel => (new(-26, -25, 0), new(26, 0, 117), 0f),
         FurnitureCatalog.BarrelModel => (new(-28, -28, 0), new(28, 28, 80), 0f),
+        FurnitureCatalog.WoodenBarrelModel => (new(-23, -23, -30), new(23, 23, 30), 30f),
         FurnitureCatalog.PumpkinBombModel => (new(-22, -18, 0), new(18, 18, 46), 0f),
         FurnitureCatalog.PlateModel => (new(-14, -18, 0), new(14, 18, 5), 0f),
         FurnitureCatalog.ChargeModel => (new(-6, -6, -6), new(6, 6, 6), 6f),
         _ => (new(-16, -16, 0), new(16, 16, 32), 0f),
+    };
+
+    /// <summary>A crate's or barrel's mass (kg), its .phy's: what a hit's force is divided by for the pieces' speed.</summary>
+    public static float Mass(string model) => model switch
+    {
+        FurnitureCatalog.CrateModel => 1129.842f,
+        FurnitureCatalog.WoodenBarrelModel => 60f,
+        _ => 100f,
     };
 }

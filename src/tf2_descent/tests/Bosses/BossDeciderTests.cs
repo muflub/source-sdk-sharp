@@ -238,7 +238,7 @@ public sealed class BossDeciderTests
         sim.Step(Ticks(first.DistanceTo(tank.At) / sim.Speed + 2));
 
         var stations = Abilities(sim, tank, HordeAbilities.TankStation);
-        Assert.Equal([0], stations.Select(a => a.Action.OneShotSeq));
+        Assert.Equal([1], stations.Select(a => a.Action.OneShotSeq));   // stations are numbered from 1 along the track
         Assert.True(decider.Drilling);
         Assert.True(tank.At.DistanceTo(first) <= TheRules.Content.Bosses.Tank.ArriveUnits + 1f);
     }
@@ -273,7 +273,8 @@ public sealed class BossDeciderTests
 
         sim.Step(Ticks(loop / sim.Speed + (track.Count - 1) * s.StopSeconds + s.FinalSeconds + 20));
 
-        Assert.Equal(Enumerable.Range(0, track.Count), Abilities(sim, tank, HordeAbilities.TankStation).Select(a => a.Action.OneShotSeq));
+        Assert.Equal(Enumerable.Range(1, track.Count), Abilities(sim, tank, HordeAbilities.TankStation).Select(a => a.Action.OneShotSeq));
+        Assert.Equal(Enumerable.Range(1, track.Count - 1), Abilities(sim, tank, HordeAbilities.TankDrilled).Select(a => a.Action.OneShotSeq));
         Assert.Single(Abilities(sim, tank, HordeAbilities.TankRoof));
         Assert.True(Assert.IsType<TankDecider>(tank.Fights(sim)).Roofed);
     }

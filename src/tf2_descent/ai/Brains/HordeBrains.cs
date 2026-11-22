@@ -5,6 +5,7 @@ using TF2.Descent.Ai.Level;
 using TF2.Descent.Ai.Roster;
 using TF2.Descent.Ai.Senses;
 using TF2.Descent.Rules;
+using TF2.Descent.Rules.Horde;
 
 namespace TF2.Descent.Ai.Brains;
 
@@ -54,14 +55,8 @@ public sealed class HordeBrains : IHordeSightSink
     /// <summary>The robots' team and the heroes' as the views give them (TF2's BLU and RED).</summary>
     public const int RobotTeam = 3, HeroTeam = 2;
 
-    /// <summary>How far a robot of scale 1 sees at a sight range scale of 1 (Alertness 5), and how wide either side of its facing, degrees.</summary>
-    public const float BaseSightRange = 3000f, BaseHalfConeDeg = 45f;
-
     /// <summary>A robot's eye above its feet at scale 1 (the hull is 82 high).</summary>
     public const float EyeHeight = 72f;
-
-    /// <summary>How far a robot's pain cry and its death carry, in units of walk, before the hearer's Alertness scales them.</summary>
-    public const float PainReach = 1200f, DeathReach = 1800f;
 
     /// <summary>A body that has moved less than this along its order for <see cref="StuckSeconds"/> is stuck.</summary>
     public const float StuckUnits = 16f, StuckSeconds = 1f;
@@ -81,6 +76,9 @@ public sealed class HordeBrains : IHordeSightSink
     private readonly IHordeBodyPoses _poses;
     private readonly IHordeBodyAim? _aim;
     private readonly IHordePaths? _paths;
+    private readonly HordeAlerts? _alerts;
+    private readonly HordeSenses _senses;
+    private readonly float[] _roomSight;
     private readonly float _tickSeconds;
     private readonly Body[] _body;
     private readonly Hero[] _hero = new Hero[HordeSlots.Heroes];
@@ -95,8 +93,11 @@ public sealed class HordeBrains : IHordeSightSink
 
     public HordeBrains(AiSession session, RobotRoster roster, BodyPool pool, HordeLevel level, TF2DescentRules rules, HordeSkillMap map,
                        SkillCurves curves, HeroSlots heroes, HordeVision vision, IHordeBodyPoses poses, float tickSeconds, Body[] bodies, BodyEye[] eyes,
-                       IHordeBodyAim? aim = null, IHordePaths? paths = null)
+                       IHordeBodyAim? aim = null, IHordePaths? paths = null, HordeAlerts? alerts = null)
     {
+        _alerts = alerts;
+        _senses = rules.Content.Horde.Senses;
+        _roomSight = RoomSight(level, _senses.Sight);
         _session = session;
         _roster = roster;
         _pool = pool;
@@ -126,7 +127,8 @@ public sealed class HordeBrains : IHordeSightSink
     /// </summary>
     public static HordeBrains For(RobotRoster roster, BodyPool pool, HordeLevel level, TF2DescentRules rules, IHordeBodyPoses poses,
                                   IAiTransport transport, IAiRecordSink sink, HordeDeciders deciders, double ticksPerSecond,
-                                  int sightBudget = HordeVision.DefaultBudget, IHordeBodyAim? aim = null, IHordePaths? paths = null)
+                                  int sightBudget = HordeVision.DefaultBudget, IHordeBodyAim? aim = null, IHordePaths? paths = null,
+                                  HordeAlerts? alerts = null)
     {
         ArgumentNullException.ThrowIfNull(pool);
         if (pool.LastBody > HordeSlots.LastBody)
@@ -143,7 +145,7 @@ public sealed class HordeBrains : IHordeSightSink
         var bodies = new Body[pool.LastBody + 1];
         return new HordeBrains(session, roster, pool, level, rules, HordeSkillMap.For(rules.Temperaments.Skills), curves,
                                new HeroSlots((long)Math.Ceiling(HeroAwaySeconds * ticksPerSecond)), HordeVision.For(pool.LastBody, sightBudget),
-                               poses, tick, bodies, new BodyEye[pool.LastBody + 1], aim, paths);
+                               poses, tick, bodies, new BodyEye[pool.LastBody + 1], aim, paths, alerts);
     }
 
     /// <summary>What the brains remember over: no map knowledge, no nav graph for the core (a decider asks <see cref="IHordePaths"/>, or the room route), the tick.</summary>
@@ -167,6 +169,9 @@ public sealed class HordeBrains : IHordeSightSink
     public AiSession Session => _session;
 
     public HordeVision Vision => _vision;
+
+    /// <summary>The level's alert log (dev), or none.</summary>
+    public HordeAlerts? Alerts => _alerts;
 
     public HeroSlots HeroSlots => _heroes;
 
@@ -251,6 +256,7 @@ public sealed class HordeBrains : IHordeSightSink
             hero.Yaw = pose.Yaw;
             hero.Room = pose.Room;
             hero.SightScale = pose.SightScale;
+            hero.LampReach = pose.LampReach;
             hero.Veil = pose.Veil;
             hero.SeenAt = now;
         }
@@ -404,8 +410,9 @@ public sealed class HordeBrains : IHordeSightSink
             Class = TemplateNumber(template.Id),
             LastPos = _poses.Position(b),
             EyeHeight = EyeHeight * scale,
-            Range = BaseSightRange * scale * HordeSkillMap.Extra(_curves, profile, "sightRangeScale"),
-            CosHalfCone = MathF.Cos(MathF.Min(85f, BaseHalfConeDeg * HordeSkillMap.Extra(_curves, profile, "sightConeScale")) * (MathF.PI / 180f)),
+            Range = (float)_senses.Sight.Range * HordeSkillMap.Extra(_curves, profile, "sightRangeScale"),
+            CosHalfCone = MathF.Cos(MathF.Min(85f, (float)_senses.Sight.HalfConeDeg * HordeSkillMap.Extra(_curves, profile, "sightConeScale")) * (MathF.PI / 180f)),
+            Around = (float)_senses.Sight.AroundRadius,
             RecognizeTicks = VisionParams.Ticks(VisionCurves.RecognizeAt(Level(profile, "alertness")), _tickSeconds),
             LostTicks = VisionParams.Ticks(VisionCurves.LostSightSeconds, _tickSeconds),
             Hearing = HordeSkillMap.Extra(_curves, profile, "hearingScale"),
@@ -423,6 +430,7 @@ public sealed class HordeBrains : IHordeSightSink
             ActorId target = carried.TargetSeat > 0 ? _heroes.ActorOf(carried.TargetSeat) : ActorId.None;
             float loudness = carried.Alert == AlertLevel.Alerted ? 1f : 0.5f;
             Push(b, AiEvent.SoundHeard(actor, tick, SoundKind.Unknown, carried.LastKnownPosition, loudness, target, -1));
+            Alert(row, AlertCause.Carried, SoundKind.Unknown, s.LastPos, carried.LastKnownPosition, carried.TargetSeat, true);
         }
     }
 
@@ -457,7 +465,8 @@ public sealed class HordeBrains : IHordeSightSink
             }
 
             AiVector at = _poses.Position(b);
-            _eyes[b] = new BodyEye(true, at + new AiVector(0f, 0f, s.EyeHeight), _poses.Yaw(b), s.Range, s.CosHalfCone, s.RecognizeTicks, s.LostTicks);
+            _eyes[b] = new BodyEye(true, at + new AiVector(0f, 0f, s.EyeHeight), _poses.Yaw(b), s.Range, s.CosHalfCone, s.RecognizeTicks, s.LostTicks,
+                                   s.Around);
         }
 
         for (int h = 0; h < _hero.Length; h++)
@@ -472,7 +481,7 @@ public sealed class HordeBrains : IHordeSightSink
             ref readonly Hero hero = ref _hero[h];
             _targets[h] = hero.Present
                 ? new HeroTarget(true, hero.Eye, hero.Feet + new AiVector(0f, 0f, 0.6f * (hero.Eye.Z - hero.Feet.Z)), hero.Feet, hero.Velocity,
-                                 hero.SightScale, hero.Veil)
+                                 hero.SightScale * RoomSight(hero.Room), hero.Veil, hero.LampReach * (float)_senses.Sight.LampReachScale)
                 : default;
         }
 
@@ -545,7 +554,65 @@ public sealed class HordeBrains : IHordeSightSink
         int seat = _heroes.SeatOf(target);
         Carry(s.Row, seat, at, AlertLevel.Alerted);
         int room = _level.RoomAt(at);
-        _roster.AlertPack(_roster.Pack(s.Row), room >= 0 ? room : _roster.Room(s.Row), at, _now, seat);
+        Alert(s.Row, AlertCause.Sight, SoundKind.Unknown, _poses.Position(body), at, seat, true);
+        AlertPackLogged(s.Row, room >= 0 ? room : _roster.Room(s.Row), at, seat);
+        CallPack(body, s.Row, target, at, seat);
+    }
+
+    /// <summary>Pack-mates with brains told by a pack call (<see cref="CallPack"/>).</summary>
+    public long PackCalls { get; private set; }
+
+    /// <summary>
+    /// The robot in <paramref name="row"/>'s pack alerted to a contact (<see cref="RobotRoster.AlertPack"/>):
+    /// its far and sleeping robots go to it (the far simulation); each logged as called.
+    /// </summary>
+    private void AlertPackLogged(int row, int room, AiVector at, int seat)
+    {
+        int pack = _roster.Pack(row);
+        _roster.AlertPack(pack, room, at, _now, seat);
+        if (_alerts is null)
+            return;
+        for (int i = _roster.PackFirst(pack), end = i + _roster.PackSize(pack); i < end; i++)
+            if (i != row && _roster.State(i) is not (RobotState.Dead or RobotState.Embodied))
+                Alert(i, AlertCause.PackCall, SoundKind.Unknown, _roster.Position(i), at, seat, false);
+    }
+
+    /// <summary>
+    /// A robot that recognised a hero calls its own pack (horde.json's <c>senses.packCallReach</c>):
+    /// each pack-mate with a brain the call reaches (the walk from the caller within the reach times
+    /// its hearing, from a room within the hearing's rooms) hears where the hero was, from him, and
+    /// goes to look. No robot of another pack is told: a pack beside it joins only by its own senses.
+    /// </summary>
+    private void CallPack(int caller, int row, ActorId hero, AiVector at, int seat)
+    {
+        int pack = _roster.Pack(row);
+        AiVector from = _poses.Position(caller);
+        int room = _level.RoomAt(from);
+        if (room < 0)
+            room = _roster.Room(row);
+        if (room < 0)
+            return;
+        var tick = new Tick((int)_now);
+        for (int b = 1; b < _body.Length; b++)
+        {
+            ref readonly Body m = ref _body[b];
+            if (b == caller || !m.Brain.IsValid || _roster.Pack(m.Row) != pack || !Reaches(b, room, from, (float)_senses.PackCallReach, out _))
+                continue;
+            Push(b, AiEvent.SoundHeard(m.Brain, tick, SoundKind.Unknown, at, 1f, hero, -1));
+            Carry(m.Row, seat, at, AlertLevel.Suspicious);
+            PackCalls++;
+            Alert(m.Row, AlertCause.PackCall, SoundKind.Unknown, _poses.Position(b), at, seat, true);
+        }
+    }
+
+    /// <summary>One alert for the dev log (<see cref="HordeAlerts"/>); nothing without one.</summary>
+    private void Alert(int row, AlertCause cause, SoundKind kind, AiVector robotAt, AiVector from, int seat, bool bodied)
+    {
+        if (_alerts is null)
+            return;
+        int mine = _level.RoomAt(robotAt);
+        _alerts.Add(new AlertRecord(_now, row, _roster.Pack(row), cause, kind, robotAt, mine >= 0 ? mine : _roster.Room(row), from, _level.RoomAt(from),
+                                    seat, bodied));
     }
 
     void IHordeSightSink.Lost(int body, int hero, AiVector at, AiVector velocity)
@@ -559,7 +626,9 @@ public sealed class HordeBrains : IHordeSightSink
     /// <summary>
     /// The tick's sounds, heard by each brain whose robot the walk from the sound
     /// reaches (the room graph's path distance: never through a wall) within the
-    /// sound's reach times its hearing scale (Alertness); louder nearer.
+    /// sound's reach times its hearing scale (Alertness), from a room no more than
+    /// horde.json's <c>senses.hearing.rooms</c> doors from its own (<c>unownedRooms</c> for a
+    /// sound no hero made); louder nearer.
     /// </summary>
     public void Hear(long now, ReadOnlySpan<HordeSound> sounds) => Hear(now, sounds, 0);
 
@@ -592,10 +661,11 @@ public sealed class HordeBrains : IHordeSightSink
                 ref readonly Body s = ref _body[b];
                 if (!s.Brain.IsValid)
                     continue;
-                if (!Reaches(b, sound.Room, sound.Position, sound.Reach, out float loudness))
+                if (!Reaches(b, sound.Room, sound.Position, sound.Reach, out float loudness, _senses.Hearing.RoomsFor(sound.Seat)))
                     continue;
                 Push(b, AiEvent.SoundHeard(s.Brain, tick, sound.Kind, sound.Position, loudness, source, -1));
                 SoundsHeard++;
+                Alert(s.Row, AlertCause.Sound, sound.Kind, _poses.Position(b), sound.Position, sound.Seat, true);
                 if (sound.Seat > 0)
                     Carry(s.Row, sound.Seat, sound.Position, AlertLevel.Suspicious);
             }
@@ -635,21 +705,24 @@ public sealed class HordeBrains : IHordeSightSink
                 if (attacker.IsValid && _hero[attacker.Slot - HordeSlots.FirstHero] is { Present: true } hero)
                     dir = (hero.Feet - at).Normalised();
                 Push(b, AiEvent.Damaged(s.Brain, tick, attacker, taken, dir, 0));
+                Alert(s.Row, AlertCause.Damage, SoundKind.Unknown, _poses.Position(b), at, attackerSeat, true);
                 if (attackerSeat > 0)
                     Carry(s.Row, attackerSeat, dir.LengthSquared > 0f ? _hero[attacker.Slot - HordeSlots.FirstHero].Feet : at, AlertLevel.Alerted, taken);
                 continue;
             }
 
-            if (room < 0 || !Reaches(b, room, at, killed ? DeathReach : PainReach, out float loudness))
+            if (room < 0 || !Reaches(b, room, at, (float)(killed ? _senses.Hearing.Death : _senses.Hearing.Pain), out float loudness))
                 continue;
             if (_roster.Pack(s.Row) == pack)
             {
                 Push(b, killed ? AiEvent.AllyDied(s.Brain, tick, ally, at, attacker) : AiEvent.AllyDamaged(s.Brain, tick, ally, at, taken, attacker));
                 AlliesTold++;
+                Alert(s.Row, AlertCause.Ally, SoundKind.Unknown, _poses.Position(b), at, attackerSeat, true);
             }
             else
             {
                 Push(b, AiEvent.SoundHeard(s.Brain, tick, killed ? SoundKind.Death : SoundKind.Pain, at, loudness, attacker, -1));
+                Alert(s.Row, AlertCause.Sound, killed ? SoundKind.Death : SoundKind.Pain, _poses.Position(b), at, attackerSeat, true);
             }
         }
     }
@@ -855,16 +928,29 @@ public sealed class HordeBrains : IHordeSightSink
         _body[b].Pending++;
     }
 
-    private bool Reaches(int b, int room, AiVector at, float reach, out float loudness)
+    private bool Reaches(int b, int room, AiVector at, float reach, out float loudness, int rooms = -1)
     {
+        if (rooms < 0)
+            rooms = _senses.Hearing.Rooms;
         AiVector me = _poses.Position(b);
         int mine = _level.RoomAt(me);
         if (mine < 0)
             mine = _roster.Room(_body[b].Row);
         float heard = reach * _body[b].Hearing;
-        float d = mine >= 0 ? _level.PathDistance(room, at, mine, me) : float.PositiveInfinity;
+        float d = mine >= 0 && _level.Distance(room, mine) <= rooms ? _level.PathDistance(room, at, mine, me) : float.PositiveInfinity;
         loudness = heard > 0f ? 1f - d / heard : 0f;
         return d <= heard;
+    }
+
+    /// <summary>The multiplier on every robot's sight of a hero standing in <paramref name="room"/> (its light: <see cref="SightSenses.LightScale"/>); 1 outside every room.</summary>
+    public float RoomSight(int room) => (uint)room < (uint)_roomSight.Length ? _roomSight[room] : 1f;
+
+    private static float[] RoomSight(HordeLevel level, SightSenses sight)
+    {
+        var scale = new float[level.RoomCount];
+        for (int r = 0; r < scale.Length; r++)
+            scale[r] = (float)sight.LightScale(level.Rooms[r].Light, level.Rooms[r].DarkByDesign);
+        return scale;
     }
 
     /// <summary>
@@ -933,6 +1019,7 @@ public sealed class HordeBrains : IHordeSightSink
         public float CosHalfCone;
         public int RecognizeTicks;
         public int LostTicks;
+        public float Around;
         public float Hearing;
 
         /// <summary>The clearance class the robot plans by (<see cref="HordeHulls.ClassOf"/> of its scale).</summary>
@@ -959,6 +1046,7 @@ public sealed class HordeBrains : IHordeSightSink
         public float Yaw;
         public int Room;
         public float SightScale;
+        public float LampReach;
         public HeroVeil Veil;
         public long SeenAt;
     }

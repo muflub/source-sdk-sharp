@@ -4,6 +4,7 @@ using TF2.Descent.Rules.Furniture;
 using TF2.Descent.Rules.Hero;
 using TF2.Descent.Rules.Loot;
 using TF2.Descent.Server.Furniture;
+using TF2.Descent.Server.Items;
 using TF2.Descent.Shared;
 
 using Xunit;
@@ -225,7 +226,7 @@ public sealed class FurnitureUseTests
     // Containers
     //-------------------------------------------------------------------------
 
-    private static (FurnitureRig Rig, FurnitureRow Row) Container(Func<Placed, bool>? which = null)
+    private static (FurnitureRig Rig, FurnitureRow Row) Container(Func<Placed, bool>? which = null, Func<IItemLedger, IItemLedger>? ledger = null)
     {
         which ??= p => p.KeyId is null && p.Trap is null;
         var rooms = Server.Level.LevelAdapters.ToFurniture(FurnitureRig.D1S1);
@@ -234,12 +235,53 @@ public sealed class FurnitureUseTests
             var placed = FurnitureRig.Rules.Furniture.Placement.Furnish(seed, rooms).Placed;
             if (placed.FirstOrDefault(p => p.Kind == FurnitureKind.Container && which(p)) is { } p)
             {
-                var rig = new FurnitureRig(seed);
+                var rig = new FurnitureRig(seed, ledger: ledger);
                 return (rig, rig.Service.Rows.Single(r => r.Placed == p));
             }
         }
 
         throw new InvalidOperationException("no seed places such a container");
+    }
+
+    /// <summary>The ledger the service is handed, every <see cref="IItemLedger.ContainerDrop"/> it is asked kept.</summary>
+    public class ContainerAsks : System.Reflection.DispatchProxy
+    {
+        public IItemLedger Inner { get; set; } = null!;
+        public List<ContainerDrop> Asked { get; } = [];
+
+        public static (IItemLedger Ledger, ContainerAsks Asks) Over(IItemLedger inner)
+        {
+            var proxy = Create<IItemLedger, ContainerAsks>();
+            var asks = (ContainerAsks)(object)proxy;
+            asks.Inner = inner;
+            return (proxy, asks);
+        }
+
+        protected override object? Invoke(System.Reflection.MethodInfo? method, object?[]? args)
+        {
+            if (method!.Name == nameof(IItemLedger.ContainerDrop))
+                Asked.Add((ContainerDrop)args![0]!);
+            return method.Invoke(Inner, args);
+        }
+    }
+
+    [Fact]
+    public async Task A_container_asks_the_ledger_for_each_heroes_share_under_its_number()
+    {
+        ContainerAsks? asks = null;
+        var (rig, row) = Container(ledger: inner =>
+        {
+            var (proxy, a) = ContainerAsks.Over(inner);
+            asks = a;
+            return proxy;
+        });
+        var a = rig.Stand(FurnitureRig.SlotA, row, new Vector(0, 0, 0));
+        rig.Stand(FurnitureRig.SlotB, row, new Vector(10, 10, 0));
+
+        await rig.Service.UseAs(row, a);
+
+        Assert.Equal([(FurnitureRig.A, (uint?)row.Index), (FurnitureRig.B, (uint?)row.Index)],
+            asks!.Asked.Select(d => (d.Hero, d.Seq)).Order());
     }
 
     [Fact]

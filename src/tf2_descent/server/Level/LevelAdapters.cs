@@ -33,7 +33,7 @@ public static class LevelAdapters
     /// <summary>
     /// The level as the horde sees it, rolled from <paramref name="seed"/>. Room ids are the level's
     /// (their indices); each room's markers are its <c>descent_spawn_pack</c> markers in marker order;
-    /// a door's normal points from its lower room into its higher. A pair of rooms joined by more
+    /// a door's normal points from its lower room into its higher; each room carries its light. A pair of rooms joined by more
     /// than one doorway (two larger rooms side by side) keeps the doorway of lowest id, because the
     /// horde holds one door a pair. With <paramref name="bossTemplate"/> and an arena, the boss
     /// stands on the arena's first pack marker, or the arena's floor centre when it has none.
@@ -41,21 +41,37 @@ public static class LevelAdapters
     public static HordeLevel ToHorde(LevelData level, ulong seed, string? bossTemplate = null)
     {
         var rooms = level.Rooms.Select(r => new HordeRoom(r.Id, Ai(r.Min), Ai(r.Max),
-            [.. level.In(r.Id).Where(m => m.Kind == LevelMarkerKind.PackSpawn).Select(m => new PackMarker(Ai(m.Position), m.Yaw))]));
+            [.. level.In(r.Id).Where(m => m.Kind == LevelMarkerKind.PackSpawn).Select(m => new PackMarker(Ai(m.Position), m.Yaw))], r.Light, r.DarkByDesign));
         var doors = level.Doors.GroupBy(d => (d.RoomA, d.RoomB)).Select(g => g.MinBy(d => d.Id)!).OrderBy(d => d.Id)
             .Select(d => new HordeDoor(d.RoomA, d.RoomB, Ai(d.Position), Ai(d.Normal), d.Width, d.Height));
         HordeBoss? boss = null;
         if (bossTemplate is not null && level.BossArena is int arena && BossSpot(level) is { } spot)
-            boss = new HordeBoss(bossTemplate, arena, spot);
+            boss = new HordeBoss(bossTemplate, arena, spot, LayoutOf(level));
         return HordeLevel.Create(seed, level.Depth, rooms, doors, boss);
     }
 
-    /// <summary>Where a level's boss stands: its arena's first pack marker, or the arena's floor centre when it has none; null with no arena (HO13 marks it on the automap).</summary>
+    /// <summary>The arena's layout as the horde takes it (track and mouths, in the file's order); null when the level ships none.</summary>
+    public static HordeArenaLayout? LayoutOf(LevelData level)
+    {
+        ArgumentNullException.ThrowIfNull(level);
+        if (level.Arena is not { } a)
+            return null;
+        return new HordeArenaLayout([.. a.Track.Select(p => new TankTrackPoint(Ai(p.Position), p.Station, p.Final))],
+                                    [.. a.Mouths.Select(m => new AddMouth(Ai(m.Position), m.Yaw, m.Leg))]);
+    }
+
+    /// <summary>
+    /// Where a level's boss stands: the arena layout's spot and yaw when the level ships one (the ARNA
+    /// contract: the boss faces that way at the intro); else its arena's first pack marker, or the
+    /// arena's floor centre when it has none; null with no arena (HO13 marks it on the automap).
+    /// </summary>
     public static PackMarker? BossSpot(LevelData level)
     {
         ArgumentNullException.ThrowIfNull(level);
         if (level.BossArena is not int arena)
             return null;
+        if (level.Arena is { } layout)
+            return new PackMarker(Ai(layout.Spot), layout.SpotYaw);
         LevelRoom room = level.Rooms[arena];
         return level.In(arena).FirstOrDefault(m => m.Kind == LevelMarkerKind.PackSpawn) is { } first
             ? new PackMarker(Ai(first.Position), first.Yaw)
@@ -69,7 +85,8 @@ public static class LevelAdapters
 
     /// <summary>The marker kinds that furniture stands on (the furniture table's <c>poi</c> rows).</summary>
     public static bool IsFurniture(LevelMarkerKind kind) =>
-        kind is LevelMarkerKind.Shrine or LevelMarkerKind.Container or LevelMarkerKind.Dispenser or LevelMarkerKind.Barrel or LevelMarkerKind.Trap;
+        kind is LevelMarkerKind.Shrine or LevelMarkerKind.Container or LevelMarkerKind.Dispenser or LevelMarkerKind.Barrel or LevelMarkerKind.Trap
+            or LevelMarkerKind.BreakableCrate or LevelMarkerKind.BreakableBarrel;
 
     /// <summary>
     /// The rooms and their furniture markers for <see cref="FurnishingRules.Furnish"/>: every room, in

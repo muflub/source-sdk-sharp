@@ -364,6 +364,66 @@ public static class DescentLevel
     }
 
     /// <summary>
+    /// The level's boss arena data (<see cref="ArenaData"/>) in the linked map's frame, as JSON for
+    /// <c>tools/descent-arena</c>, which writes it into the level's <c>.map2d</c> as the section <c>ARNA</c>:
+    /// <c>{"boss": [x, y, z, yaw], "track": [[x, y, z, flags], ...], "mouths": [[x, y, z, yaw, leg], ...]}</c>,
+    /// each placed room's <c>arena</c> entry in <c>library.json</c> turned with the room as
+    /// <see cref="RoomCameras"/> turns a camera (z as it is; a yaw turned by the placement). <c>{}</c> for a
+    /// level with no arena; a level with two is refused.
+    /// </summary>
+    public static string ArenaFile(LevelPlan plan, string manifestJson)
+    {
+        using var doc = JsonDocument.Parse(manifestJson);
+        var rooms = doc.RootElement.GetProperty("rooms");
+        var found = plan.Placements.Where(p => rooms.TryGetProperty(p.Room, out JsonElement r) && r.TryGetProperty("arena", out _)).ToList();
+        if (found.Count == 0)
+            return "{}\n";
+        if (found.Count > 1)
+            throw new InvalidOperationException($"the level places {found.Count} boss arenas ({string.Join(", ", found.Select(p => p.Room))})");
+        Placement placed = found[0];
+        JsonElement room = rooms.GetProperty(placed.Room), arena = room.GetProperty("arena");
+        if (!RoomName.TryParse(placed.Room, out var shape, out _))
+            throw new InvalidOperationException($"{placed.Room} is not a room name");
+        float cell = room.GetProperty("cell").GetSingle(), m = shape!.CellsX * cell / 2;
+        double a = placed.Rotation * Math.PI / 180;
+        string Turned(float x, float y, float z)
+        {
+            float dx = x - m, dy = y - m;
+            float tx = placed.Column * cell + m + (float)(dx * Math.Cos(a) - dy * Math.Sin(a)), ty = placed.Row * cell + m + (float)(dx * Math.Sin(a) + dy * Math.Cos(a));
+            return string.Create(CultureInfo.InvariantCulture, $"{MathF.Round(tx, 2)}, {MathF.Round(ty, 2)}, {z}");
+        }
+
+        string Yaw(float yaw) => ((int)MathF.Round(((yaw + placed.Rotation) % 360 + 360) % 360)).ToString(CultureInfo.InvariantCulture);
+        float[] Of(JsonElement e) => [.. e.EnumerateArray().Select(v => v.GetSingle())];
+        float[] boss = Of(arena.GetProperty("boss"));
+        var sb = new StringBuilder();
+        sb.Append(CultureInfo.InvariantCulture, $"{{\"room\": \"{placed.Room}\", \"boss\": [{Turned(boss[0], boss[1], boss[2])}, {Yaw(boss[3])}],\n \"track\": [");
+        sb.Append(string.Join(",\n  ", arena.GetProperty("track").EnumerateArray().Select(Of).Select(t => $"[{Turned(t[0], t[1], t[2])}, {(uint)t[3]}]")));
+        sb.Append("],\n \"mouths\": [");
+        sb.Append(string.Join(",\n  ", arena.GetProperty("mouths").EnumerateArray().Select(Of).Select(t => $"[{Turned(t[0], t[1], t[2])}, {Yaw(t[3])}, {(int)t[4]}]")));
+        sb.Append("]}\n");
+        return sb.ToString();
+    }
+
+    /// <summary>The breakables a level holds: each placed room's <c>breakables</c> in <c>library.json</c> (0 for a room without one).</summary>
+    public static int BreakablesIn(LevelPlan plan, string manifestJson)
+    {
+        using var doc = JsonDocument.Parse(manifestJson);
+        var rooms = doc.RootElement.GetProperty("rooms");
+        return plan.Placements.Sum(p => rooms.TryGetProperty(p.Room, out JsonElement room) && room.TryGetProperty("breakables", out JsonElement n) ? n.GetInt32() : 0);
+    }
+
+    /// <summary>
+    /// Why a level holds too many breakables for the server's manager (more than
+    /// <see cref="Breakables.LevelCap"/>), or null. The library's rooms are capped so no level
+    /// of their depth can (<see cref="Breakables.CapAt"/>); this refuses a level that does anyway.
+    /// </summary>
+    public static string? OverLevelCap(LevelPlan plan, string manifestJson) =>
+        BreakablesIn(plan, manifestJson) is var n && n > Breakables.LevelCap
+            ? string.Create(CultureInfo.InvariantCulture, $"the level holds {n} breakables, over the level cap of {Breakables.LevelCap}")
+            : null;
+
+    /// <summary>
     /// Lays out a level of <paramref name="depth"/> from the library in
     /// <paramref name="libraryDir"/> and writes its level file to
     /// <paramref name="output"/>, and beside it the preview's per-room
@@ -377,12 +437,15 @@ public static class DescentLevel
         LayoutResult result = new LevelLayout().Generate(depth, seed, rooms);
         if (!result.Ok)
             return (result.Error, null);
+        if (OverLevelCap(result.Plan!, File.ReadAllText(Path.Combine(libraryDir, "library.json"))) is { } over)
+            return (over, null);
         File.WriteAllText(output, Write(result.Plan!, library, LevelKeys.ForDepth(depth), Comments(depth, seed, result.Report!)));
         var cameras = Cameras(result.Plan!, File.ReadAllText(Path.Combine(libraryDir, "library.json"))).ToList();
         if (DoorwayCamera(result.Plan!, DescentRooms.ThemeFor(depth).Props.RailFamilies) is { } doorway)
             cameras.Add(doorway);
         File.WriteAllLines(Path.ChangeExtension(output, ".cameras"), cameras);
         File.WriteAllLines(Path.ChangeExtension(output, ".roomcams"), RoomCameras(result.Plan!, File.ReadAllText(Path.Combine(libraryDir, "library.json"))));
+        File.WriteAllText(Path.ChangeExtension(output, ".arena"), ArenaFile(result.Plan!, File.ReadAllText(Path.Combine(libraryDir, "library.json"))));
         return (null, result.Report);
     }
 }

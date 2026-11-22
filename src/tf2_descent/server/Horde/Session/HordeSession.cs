@@ -62,9 +62,6 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
     /// </summary>
     public long StalledFollowers { get; private set; }
 
-    /// <summary>How far a hero's landing from a blast jump carries, in units of walk.</summary>
-    public const float LandingReach = 1500f;
-
     private const int MaxPlayers = 33;
 
     private readonly HeroPlace[] _places = new HeroPlace[MaxPlayers];
@@ -165,7 +162,8 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
 
         _adapters = new Adapters(horde.Bodies!, motion, actions, sightWorld, _heroPlayer, fireLines);
         _brains = HordeBrains.For(horde.Roster!, horde.Pool!, horde.Level!, rules.Rules, _adapters, transport, sink,
-                                  HordeFamilies.Deciders(horde.Level!, rules.Rules, nav.Paths), clock.TicksPerSecond, aim: _adapters, paths: nav.Paths);
+                                  HordeFamilies.Deciders(horde.Level!, rules.Rules, nav.Paths), clock.TicksPerSecond, aim: _adapters, paths: nav.Paths,
+                                  alerts: horde.Alerts);
         _arrivedSeen = new long[horde.Pool!.LastBody + 1];
         _stallTold = new long[horde.Pool!.LastBody + 1];
         Array.Fill(_stallTold, -1);
@@ -198,7 +196,7 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
         _gathered = n;
         for (int k = 0; k < n; k++)
             _poses[k] = new HeroPose(_places[k].Seat, _places[k].Position, HordeVectors.ToAi(_eyes[k].Eye), _places[k].Room, _eyes[k].Yaw,
-                                     (float)visibility.SightScale(_eyes[k].Player), VeilOf(_places[k].Seat, now));
+                                     (float)visibility.SightScale(_eyes[k].Player), VeilOf(_places[k].Seat, now), (float)visibility.LampReach(_eyes[k].Player));
         brains.Heroes(now, _poses.AsSpan(0, n));
         for (int k = 0; k < n; k++)
         {
@@ -207,8 +205,10 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
                 _heroPlayer[actor.Slot - HordeSlots.FirstHero] = _eyes[k].Player;
             if (landings.Landed(_eyes[k].Player))
             {
+                // A blast jump's landing: a thud the horde hears as far as horde.json's senses.hearing.landing.
                 Landings++;
-                Queue(SoundKind.Footstep, _places[k].Position, LandingReach, _places[k].Seat);
+                Queue(SoundKind.Physics, _places[k].Position, HordeSoundKinds.Reach(rules.Rules.Content.Horde.Senses.Hearing, SoundKind.Physics),
+                      _places[k].Seat);
             }
         }
 
@@ -258,7 +258,7 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
             _recentNext = (_recentNext + 1) % _recent.Length;
             if (_farCount < _far.Length)
             {
-                _far[_farCount++] = new SoundEvent(room, q.At, q.Reach, seat);
+                _far[_farCount++] = new SoundEvent(room, q.At, q.Reach, seat, q.Kind);
                 FarSounds++;
             }
             else
@@ -325,12 +325,16 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
         Array.Clear(_dead);
     }
 
-    /// <summary>A sound the taps heard: queued for the next tick; refused and counted when the queue is full.</summary>
+    /// <summary>
+    /// A sound the taps heard: queued for the next tick, carrying as far as the engine carries it or
+    /// horde.json's reach for its kind, the nearer (<see cref="HordeSoundKinds.Reach"/>); refused and
+    /// counted when the queue is full.
+    /// </summary>
     public void Heard(SoundKind kind, Vector at, float reach, int owner)
     {
         if (_brains is null || !HordeSoundKinds.Heard(kind))
             return;
-        Queue(kind, HordeVectors.ToAi(at), reach, owner);
+        Queue(kind, HordeVectors.ToAi(at), MathF.Min(reach, HordeSoundKinds.Reach(rules.Rules.Content.Horde.Senses.Hearing, kind)), owner);
     }
 
     /// <summary>A hit on a robot (the hit chain): damage for its brain, pain for its pack in earshot.</summary>

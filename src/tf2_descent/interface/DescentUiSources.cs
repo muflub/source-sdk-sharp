@@ -151,6 +151,7 @@ public interface IDescentAutomap
     float RoomH(int room);
     int RoomStorey(int room);
     bool RoomCurrentStorey(int room);             // the hero's storey, drawn brighter
+    bool RoomDiscovered(int room);                // seen through a door, not entered: its outline only, fainter
     int DoorStubCount { get; }
     float DoorStubX(int i);
     float DoorStubY(int i);

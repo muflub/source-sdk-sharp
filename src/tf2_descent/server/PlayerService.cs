@@ -20,7 +20,8 @@ public sealed class PlayerService(
     ClientMessages messages,
     IFrameScheduler scheduler,
     ILog log,
-    HeroSheets sheets) : IClientLifecycle, IHostBootHook, ILeaseHook, IHostConnectionHook, IOrderedHook
+    HeroSheets sheets,
+    IHooks<IHeroJoinHook> joins) : IClientLifecycle, IHostBootHook, ILeaseHook, IHostConnectionHook, IOrderedHook
 {
     /// <summary>A joined player: who they are to the engine and to the service.
     /// <paramref name="Name"/> is the character's name as the join answered it —
@@ -136,6 +137,7 @@ public sealed class PlayerService(
         link.Players(_byEntity.Count);
         messages.Instance(entIndex, boot.InstanceKind, boot.Depth);
         log.Msg($"[TF2Descent] {steamId} ({outcome.ClientAddr ?? "address unknown"}) joined as {outcome.Name} ({outcome.ClassName}), reached depth {outcome.ReachedDepth}\n");
+        joins.Each(nameof(IHeroJoinHook.OnHeroJoined), h => h.OnHeroJoined(entIndex, steamId));
     }
 
     /// <summary>

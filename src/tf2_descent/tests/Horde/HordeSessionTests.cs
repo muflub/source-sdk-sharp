@@ -66,6 +66,11 @@ internal sealed class RigVisibility : TF2.Descent.Server.Lamp.IHeroVisibility
     public double SightScale(EntityHandle hero) => Scale;
 
     public string Describe(EntityHandle hero) => $"scale {Scale}: the rig's";
+
+    /// <summary>The lit lamp's reach the rig gives every hero (0, out, unless a fact sets it).</summary>
+    public double Reach { get; set; }
+
+    public double LampReach(EntityHandle hero) => Reach;
 }
 
 internal sealed class NoLandings : IHeroLandings
@@ -229,7 +234,8 @@ public sealed class HordeSessionTests
     {
         var (rig, session, _, _) = Make(inline: true);
         rig.Tick(2);
-        session.Heard(SoundKind.Gunfire, new Vector(Centre(1).X, Centre(1).Y, 0f), 1500f, 0);
+        // A shot no hero made carries only in its own room (horde.json's senses.hearing.unownedRooms): the robot's room.
+        session.Heard(SoundKind.Gunfire, new Vector(Centre(0).X + 150f, Centre(0).Y, 0f), 1500f, 0);
         rig.Tick();     // heard by no brain: none yet; the far simulation's next tick is to come
         Assert.Equal(0, session.Brains!.SoundsHeard);
 
@@ -277,7 +283,7 @@ public sealed class HordeSessionTests
     /// <summary>
     /// The detector for a robot that sits still while its brain says Follow (a live sighting on
     /// depth 1 seed 1 that no trial reproduced): the rig's motion never moves a body, so a soldier
-    /// walking to a gunshot two rooms off follows a path and stands still; after the stall's seconds it is named
+    /// walking to a gunshot across its room follows a path and stands still; after the stall's seconds it is named
     /// once, by row, and counted, and not again in the same spell.
     /// </summary>
     [Fact]
@@ -286,7 +292,7 @@ public sealed class HordeSessionTests
         var (rig, session, _, motion) = Make(inline: true);
         var (id, body) = rig.Lent("soldier");
         rig.Tick(2);
-        session.Heard(SoundKind.Gunfire, new Vector(Centre(2).X, Centre(2).Y, 0f), 3000f, 0);
+        session.Heard(SoundKind.Gunfire, new Vector(Centre(0).X + 200f, Centre(0).Y + 180f, 0f), 3000f, 0);
         int stall = (int)Math.Ceiling(HordeSession.StallSeconds * ServerHordeRig.Tps);
 
         rig.Tick(stall + 90);
