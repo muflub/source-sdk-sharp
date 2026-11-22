@@ -1,5 +1,6 @@
 using SourceSharp.Abi;
 using Debug.Api.Server.Interfaces;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Server;
 
@@ -183,6 +184,13 @@ public sealed class DebugCounterGroups(
             new("entitySolversActive", router.Solver.Active),
             new("postedByManaged", router.Posted),
         ]);
+
+        // Who holds each friction slot, by entity index (-1 for a free one).
+        for (int slot = 0; slot < FrictionSounds.MaxScrapes; slot++)
+        {
+            EntityHandle scraping = router.Friction.ScrapingAt(slot);
+            counters.Add(new($"scrapeEntity{slot}", scraping == EntityHandle.None ? -1 : scraping.EntryIndex));
+        }
 
         return counters;
     }

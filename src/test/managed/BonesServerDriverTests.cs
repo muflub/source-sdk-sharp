@@ -72,11 +72,12 @@ public class BonesServerDriverTests
     }
 
     [Fact]
-    public void RefreshCopiesThePoseDefaultsWithNoGeneration()
+    public void RefreshCopiesThePoseDefaultsAndMovesTheGeneration()
     {
+        // A new model's defaults replace the old poses, so no skeleton built on them still stands (CR11).
         (_, ServerBoneDriver d, BoneEntityState s) = Rig(PosedChain());
         d.RefreshModelPoseState(s, Model);
-        Assert.Equal((0.25f, 0.5f, 0), (s.PoseParameter[0], s.PoseParameter[23], s.PoseGeneration));
+        Assert.Equal((0.25f, 0.5f, 1), (s.PoseParameter[0], s.PoseParameter[23], s.PoseGeneration));
     }
 
     [Fact]
@@ -167,13 +168,15 @@ public class BonesServerDriverTests
     }
 
     [Fact]
-    public void ThePoseGenerationIsNotInTheServersKey()
+    public void ANewPoseGenerationRebuilds()
     {
+        // The server's skeleton poses from its pose parameters now (CR11): their generation is in the key.
         (_, ServerBoneDriver d, BoneEntityState s) = Rig(Chain());
         BuildAndMark(d, s);
         s.PoseGeneration = 9;
         d.EnsureBones(s, Pose(), UsedByAnything, 1f, Cv);
-        Assert.Equal((0, Sentinel), (s.CacheKey.PoseGeneration, s.CachedBones[0]));
+        Assert.Equal(9, s.CacheKey.PoseGeneration);
+        Assert.NotEqual(Sentinel, s.CachedBones[0]);
     }
 
     [Fact]

@@ -48,5 +48,8 @@
   { "id": "exposed", "name": "Exposed", "pool": "cursed", "kind": "descent", "stat": "resist_bullet_pct", "from": -10, "to": -30, "step": 1, "minLevel": 1, "weight": 5, "budget": 0.1, "slots": ["primary", "secondary", "melee", "hat", "body", "feet", "trinket", "amulet"] },
   { "id": "conductive", "name": "Conductive", "pool": "cursed", "kind": "descent", "stat": "resist_shock_pct", "from": -10, "to": -30, "step": 1, "minLevel": 1, "weight": 5, "budget": 0.1, "slots": ["primary", "secondary", "melee", "hat", "body", "feet", "trinket", "amulet"] },
   { "id": "fragile", "name": "Fragile", "pool": "cursed", "kind": "descent", "stat": "wear_rate_pct", "from": 100, "to": 100, "step": 1, "minLevel": 1, "weight": 6, "budget": 0.1, "slots": ["primary", "secondary", "melee", "hat", "body", "feet", "trinket", "amulet"] },
-  { "id": "loud", "name": "Loud", "pool": "cursed", "kind": "descent", "stat": "loudness_pct", "from": 100, "to": 100, "step": 1, "minLevel": 1, "weight": 6, "budget": 0.1, "slots": ["primary", "secondary", "melee", "hat", "body", "feet", "trinket", "amulet"] }
+  { "id": "loud", "name": "Loud", "pool": "cursed", "kind": "descent", "stat": "loudness_pct", "from": 100, "to": 100, "step": 1, "minLevel": 1, "weight": 6, "budget": 0.1, "slots": ["primary", "secondary", "melee", "hat", "body", "feet", "trinket", "amulet"] },
+
+  { "id": "radiant", "name": "Radiant", "pool": "prefix", "kind": "descent", "stat": "lamp_brightness_pct", "from": 10, "to": 30, "step": 1, "minLevel": 1, "weight": 6, "power": 1, "slots": ["hat", "trinket"] },
+  { "id": "of_light", "name": "of Light", "pool": "suffix", "kind": "descent", "stat": "lamp_radius_pct", "from": 5, "to": 20, "step": 1, "minLevel": 1, "weight": 6, "power": 1, "slots": ["hat", "trinket"] }
 ]

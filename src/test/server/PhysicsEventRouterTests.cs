@@ -561,6 +561,27 @@ public class PhysicsEventRouterTests
     }
 
     [Fact]
+    public void A_level_shutdown_ends_the_scrapes_still_playing()
+    {
+        // CCollisionEvent::LevelShutdown shuts down every friction entry.
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        var services = Services(out var engine);
+        registry.Services = services;
+        engine.Returns("Sound.SurfaceScrapeSound", "Crate.ScrapeRough")
+              .Returns("Sound.SoundScriptParameters", (SoundScriptParams?)new SoundScriptParams(1f, 100, 90, 110, 75))
+              .Returns("Sound.SoundPatchCreate", 7);
+        var router = new PhysicsEventRouter(registry, services.Require<PhysicsDamageQueue>(),
+                                            services.Require<FluidTouches>(), services.Require<FrictionSounds>(),
+                                            services.Require<PlayerShadowRecovery>(), services.Require<IGameClock>(), services.Require<PhysicsEntitySolver>());
+        router.Friction.Friction(new EntityHandle(81), 7750f, 1, 2, now: 300f);
+        Assert.Equal(1, router.Friction.Active);
+
+        router.LevelShutdown();
+
+        Assert.Equal(0, router.Friction.Active);
+    }
+
+    [Fact]
     public void A_class_with_only_the_old_hook_still_hears_the_impact()
     {
         // PhysMagnet's attach-on-impact overrides OnPhysicsCollision(other,

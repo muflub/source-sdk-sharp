@@ -103,6 +103,13 @@ public sealed class FrictionSounds
     /// <summary>Scrapes playing now.</summary>
     public int Active => _scrapes.Count;
 
+    /// <summary>
+    /// The entity scraping in <paramref name="slot"/> of the table, or
+    /// <see cref="EntityHandle.None"/> past the ones playing. For the gate: a
+    /// table held full by contacts that never stop rubbing starts no new scrape.
+    /// </summary>
+    public EntityHandle ScrapingAt(int slot) => slot >= 0 && slot < _scrapes.Count ? _scrapes[slot].Entity : EntityHandle.None;
+
     /// <summary>Scrapes started since the module started. For cs_sv_physics_events and the gate.</summary>
     public long Started { get; private set; }
 
@@ -203,6 +210,24 @@ public sealed class FrictionSounds
         _controller.ChangeVolume(scrape.Patch, script.Volume * volume, RampTime);
         _controller.ChangePitch(scrape.Patch, pitch, RampTime);
         _scrapes[index] = scrape with { LastUpdate = now, LastEffect = now };
+    }
+
+    /// <summary>
+    /// CCollisionEvent::LevelShutdown: every scrape still playing is shut down
+    /// with its level. This table outlives the level and the clock it is
+    /// stamped with restarts at the next load, so a scrape left in it reads as
+    /// kept alive (LastUpdate ahead of now) until the new level's clock passes
+    /// the old one, and four such held every slot after a reload: the live
+    /// gate's knock-loose crate slid and started no scrape (2026-11-13).
+    /// </summary>
+    public void LevelShutdown()
+    {
+        foreach (Scrape scrape in _scrapes)
+        {
+            _controller.Destroy(scrape.Patch);
+            _sound.SoundPatchFree(scrape.Patch);
+        }
+        _scrapes.Clear();
     }
 
     /// <summary>UpdateFrictionSounds: a scrape not kept alive for 0.1 s has finished.</summary>

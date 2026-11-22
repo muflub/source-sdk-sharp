@@ -30,7 +30,22 @@ public sealed record LampSight(IReadOnlyList<double> Darkness, double LampOn, do
 /// (<see cref="PitchStep"/> degrees: every client points another hero's lamp by it), and what the
 /// dark and the lamp do to a robot's sight of him (<see cref="Sight"/>).
 /// </summary>
-public sealed record LampSettings(LampLight Light, int OnFromDepth, double PitchStep, LampSight Sight);
+public sealed record LampSettings(LampLight Light, int OnFromDepth, double PitchStep, LampSight Sight)
+{
+    /// <summary>
+    /// The lamp's range as a hero stat (the user, 2026-11-13: "brightness increase and range
+    /// increase from skills and items"): its stat's total is a percent added to
+    /// <see cref="LampLight.Radius"/>, held between the floor (<see cref="ClampedStat.Min"/>) and
+    /// the ceiling (<see cref="ClampedStat.Max"/>). A hero with none of it has lamp.json's radius.
+    /// </summary>
+    public ClampedStat Range { get; init; } = new("", 0, 0, 0);
+
+    /// <summary>
+    /// The lamp's brightness as a hero stat: its stat's total is a percent added to the light's
+    /// intensity (its colour times two to its exponent), held between the floor and the ceiling.
+    /// </summary>
+    public ClampedStat Brightness { get; init; } = new("", 0, 0, 0);
+}
 
 /// <summary>
 /// The lamp table. Load errors: a radius, cone, colour, exponent, offset, depth or pitch step out
@@ -62,8 +77,26 @@ public sealed class LampTable : SingleTable<LampSettings>
 
         var lampSight = new LampSight(darkness, sight.Num("lampOn"), sight.Num("lampOff"));
         sight.End();
-        return new LampSettings(light, f.Int("onFromDepth"), f.Num("pitchStep"), lampSight);
+        return new LampSettings(light, f.Int("onFromDepth"), f.Num("pitchStep"), lampSight)
+        {
+            Range = Bonus(f.Obj("range")),
+            Brightness = Bonus(f.Obj("brightness")),
+        };
     }
+
+    /// <summary>A lamp stat: the stat whose total is the bonus in percent, its floor and its ceiling.</summary>
+    private static ClampedStat Bonus(JsonFields f)
+    {
+        var c = new ClampedStat(f.Str("stat"), 0, f.Num("min"), f.Num("max"));
+        f.End();
+        return c;
+    }
+
+    /// <summary>The most a lamp's brightness may be raised, in percent: 100 + this fits the wire's nine bits.</summary>
+    public const double BrightnessCeilingMost = 300;
+
+    /// <summary>The most a lamp's brightness or range may be lowered, in percent: never to nothing.</summary>
+    public const double FloorLeast = -90;
 
     protected override void Validate(DescentContent content, LampSettings s, ContentErrors errors)
     {
@@ -88,6 +121,19 @@ public sealed class LampTable : SingleTable<LampSettings>
             ContentChecks.Range(errors, t, null, $"sight.darkness[{d}]", s.Sight.Darkness[d], 0, 1);
         ContentChecks.Range(errors, t, null, "sight.lampOn", s.Sight.LampOn, 0.05, 4);
         ContentChecks.Range(errors, t, null, "sight.lampOff", s.Sight.LampOff, 0.05, 4);
+
+        // The lamp's stats: a bare hero has lamp.json's lamp (0 lies between the floor and the
+        // ceiling), and no total can make a lamp that lights the whole level or none: the radius
+        // they allow stays within the light's own range, the brightness above a tenth and within
+        // what the wire carries.
+        // A radius out of its own range has its own error: the ceiling then is not judged by it.
+        double radiusCeiling = l.Radius is >= 16 and <= 4096 ? Math.Floor((4096 / l.Radius - 1) * 100) : double.MaxValue;
+        foreach (var (field, c, ceiling) in new[] { ("range", s.Range, radiusCeiling), ("brightness", s.Brightness, BrightnessCeilingMost) })
+        {
+            ContentChecks.Stat(content, errors, t, null, c.Stat);
+            ContentChecks.Range(errors, t, null, field + ".min", c.Min, FloorLeast, 0);
+            ContentChecks.Range(errors, t, null, field + ".max", c.Max, 0, ceiling);
+        }
     }
 }
 

@@ -306,5 +306,12 @@
     "effect": [ { "primitive": "passive", "stats": [
       { "stat": "potion_restore_pct", "amount": { "perRank": 8 } },
       { "stat": "potion_cooldown_pct", "amount": { "perRank": -6 } } ] } ]
+  },
+  {
+    "id": "lamplighter", "name": "Lamplighter", "class": "mercenary", "tab": "mercenary",
+    "kind": "upgrade", "maxRank": 5, "scope": "all", "levelFloor": { "perRank": 3 },
+    "effect": [ { "primitive": "passive", "stats": [
+      { "stat": "lamp_radius_pct", "amount": { "perRank": 8 } },
+      { "stat": "lamp_brightness_pct", "amount": { "perRank": 15 } } ] } ]
   }
 ]

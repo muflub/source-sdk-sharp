@@ -1,4 +1,5 @@
 using TF2.Descent.Rules.Content;
+using TF2.Descent.Rules.World;
 
 namespace TF2.Descent.Rules.Hero;
 
@@ -16,18 +17,25 @@ public readonly record struct Vitals(double Life, double Mana);
 public sealed class HeroStats
 {
     private readonly HeroSettings _s;
+    private readonly LampSettings _lamp;
     private readonly IReadOnlyDictionary<string, double> _totals;
     private readonly IReadOnlyDictionary<string, int> _base;
     private readonly IReadOnlyDictionary<string, double> _now;
+    private readonly IReadOnlyList<Contribution> _counting;
 
-    internal HeroStats(HeroSettings settings, IReadOnlyDictionary<string, int> baseValues,
-        IReadOnlyDictionary<string, double> now, IReadOnlyDictionary<string, double> totals)
+    internal HeroStats(HeroSettings settings, LampSettings lamp, IReadOnlyDictionary<string, int> baseValues,
+        IReadOnlyDictionary<string, double> now, IReadOnlyDictionary<string, double> totals, IReadOnlyList<Contribution> counting)
     {
         _s = settings;
+        _lamp = lamp;
         _base = baseValues;
         _now = now;
         _totals = totals;
+        _counting = counting;
     }
+
+    /// <summary>The counting contributions to <paramref name="stat"/>, in the order given: what a total comes from.</summary>
+    public IEnumerable<Contribution> From(string stat) => _counting.Where(c => c.Stat == stat);
 
     public int Base(string attribute) => _base.TryGetValue(attribute, out var v) ? v : 0;
 
@@ -50,6 +58,24 @@ public sealed class HeroStats
     public double CritChance => Clamped(_s.Crit) / 100;
     public double KnockbackResist => Clamped(_s.KnockbackResist) / 100;
     public double SpreadMultiplier => 1 + Clamped(_s.Spread) / 100;
+
+    /// <summary>The lamp's range bonus in percent: its stat's total, between lamp.json's floor and ceiling.</summary>
+    public double LampRangeBonus => Clamped(_lamp.Range);
+
+    /// <summary>The lamp's brightness bonus in percent: its stat's total, between lamp.json's floor and ceiling.</summary>
+    public double LampBrightnessBonus => Clamped(_lamp.Brightness);
+
+    /// <summary>
+    /// How far the hero's miner's lamp reaches, in units: lamp.json's radius raised by
+    /// <see cref="LampRangeBonus"/>. A hero with no source of it has lamp.json's radius.
+    /// </summary>
+    public double LampRadius => _lamp.Light.Radius * (1 + LampRangeBonus / 100);
+
+    /// <summary>
+    /// How bright the hero's miner's lamp is, as a multiplier on lamp.json's light (1 is the
+    /// light as lamp.json gives it): one plus <see cref="LampBrightnessBonus"/>.
+    /// </summary>
+    public double LampBrightness => 1 + LampBrightnessBonus / 100;
 
     /// <summary>
     /// The damage multiplier of a hit of the given kinds (a rocket is blast and

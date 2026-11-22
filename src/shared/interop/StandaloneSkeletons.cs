@@ -84,14 +84,36 @@ public interface IStandaloneSkeletons
 
     /// <summary>How big the skeleton is built.</summary>
     SkeletonScaleChange SetModelScale(EntityHandle entity, float scale);
+
+    /// <summary>How many pose parameters the model declares (0 for none).</summary>
+    int PoseParameterCount(EntityHandle entity);
+
+    /// <summary>A pose parameter by name (case-insensitive), or -1.</summary>
+    int LookupPoseParameter(EntityHandle entity, string name);
+
+    /// <summary>A pose parameter's name, or empty.</summary>
+    string PoseParameterName(EntityHandle entity, int parameter);
+
+    /// <summary>A pose parameter's declared range.</summary>
+    bool PoseParameterRange(EntityHandle entity, int parameter, out float start, out float end);
+
+    /// <summary>
+    /// Set in model units, clamped (or wrapped, for a looping parameter) to
+    /// its range; answers the value stored, in model units, and 0 for a
+    /// parameter the model does not declare. The skeleton poses from it.
+    /// </summary>
+    float SetPoseParameter(EntityHandle entity, int parameter, float value);
+
+    /// <summary>The value held, in model units.</summary>
+    float GetPoseParameter(EntityHandle entity, int parameter);
 }
 
 /// <summary>
 /// The client's skeleton asks beyond the shared ones (plan
-/// physics_bones_native_zero 1.2, client half): the layers, the pose
-/// parameters, the merge source and the sequence clock, which only the client
-/// poses from. Each answers as the native slot it replaces answered for a
-/// handle that names no standalone entity (0, -1, false, empty).
+/// physics_bones_native_zero 1.2, client half): the layers, the merge source
+/// and the sequence clock, which only the client poses from. Each answers as
+/// the native slot it replaces answered for a handle that names no standalone
+/// entity (0, -1, false, empty).
 /// </summary>
 public interface IClientStandaloneSkeletons : IStandaloneSkeletons
 {
@@ -107,24 +129,6 @@ public interface IClientStandaloneSkeletons : IStandaloneSkeletons
 
     /// <summary>How fast the sequence's root moves, at this entity's pose (0 for none).</summary>
     float SequenceGroundSpeed(EntityHandle entity, int sequence);
-
-    /// <summary>How many pose parameters the model declares.</summary>
-    int PoseParameterCount(EntityHandle entity);
-
-    /// <summary>A pose parameter by name (case-insensitive), or -1.</summary>
-    int LookupPoseParameter(EntityHandle entity, string name);
-
-    /// <summary>A pose parameter's name, or empty.</summary>
-    string PoseParameterName(EntityHandle entity, int parameter);
-
-    /// <summary>A pose parameter's declared range.</summary>
-    bool PoseParameterRange(EntityHandle entity, int parameter, out float start, out float end);
-
-    /// <summary>Set in model units; answers the value stored, in model units.</summary>
-    float SetPoseParameter(EntityHandle entity, int parameter, float value);
-
-    /// <summary>The value held, in model units.</summary>
-    float GetPoseParameter(EntityHandle entity, int parameter);
 
     /// <summary>EF_BONEMERGE's follower half: the source by client entity index, -1 to stop.</summary>
     void SetBoneMergeSource(EntityHandle entity, int sourceEntityIndex);

@@ -20,7 +20,7 @@ namespace SourceSharp.Tests;
 /// answered at the 1.0b base (shell_standalone_hierarchy.cpp 173-586,
 /// shell_scripted.cpp 1199-1376).
 /// </summary>
-public class ServerSkeletonsTests
+public partial class ServerSkeletonsTests
 {
     private const int Model = 3;
     private const int UsedByAnything = 0x0007FF00;

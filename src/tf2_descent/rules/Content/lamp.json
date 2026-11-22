@@ -13,5 +13,7 @@
     "darkness": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.2, 0.4, 0.6, 0.8, 1],
     "lampOn": 1,
     "lampOff": 0.25
-  }
+  },
+  "range": { "stat": "lamp_radius_pct", "min": -50, "max": 50 },
+  "brightness": { "stat": "lamp_brightness_pct", "min": -50, "max": 100 }
 }

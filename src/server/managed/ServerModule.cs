@@ -2135,7 +2135,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                 _services.Require<SvMaxUnlagConVar>(),
                 _services.Require<SvLagFlushBoneCacheConVar>(),
                 _services.Require<SvLagCompensationTeleportDistConVar>()),
-            _currentCommands, Log, _services.Require<IHooks<ILagCompensationTargets>>());
+            _currentCommands, Log, _services.Require<IHooks<ILagCompensationTargets>>(),
+            // The entities that are not players and opted in (ScriptedEntity.LagCompensated).
+            new ScriptedLagCompensatedEntities(_entities.Directory));
         _services.AddInstance(lagCompensation);
         _services.AddInstance<ILagCompensation>(lagCompensation);
         _arsenal.LagCompensation = lagCompensation;

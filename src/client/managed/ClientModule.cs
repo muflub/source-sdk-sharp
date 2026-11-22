@@ -2946,6 +2946,11 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _particleEffects.Reset();
         _flecks.Reset();
 
+        // The scrapes go with the entities making them (stock frees each one as
+        // its entity is destroyed); kept, they would read as kept alive by the
+        // next level's restarted clock and hold the table.
+        _frictionSounds?.LevelShutdown();
+
         // And every looping sound patch stops (stock's LevelShutdownPreEntity).
         _sounds.SystemReset();
 

@@ -11,7 +11,9 @@ namespace SourceSharp.Server;
 /// command sent that many ticks ago is compensated for that shooter, and each
 /// other player's place is read before, during and after, with a shot-mask
 /// line down through where the rewind put them traced during the rewind and
-/// again after the restore. A cheat: the probe moves players.
+/// again after the restore. The entities that opted in
+/// (<see cref="ScriptedEntity.LagCompensated"/>) are reported and probed after
+/// the players, by handle. A cheat: the probe moves players and entities.
 /// </summary>
 [ConCommand("cs_sv_lagcomp", Flags = ConVarFlags.Cheat,
     Help = "Lag compensation: each slot's history and client words; with <shooter slot> <ticks back>, "
@@ -48,6 +50,18 @@ public sealed class LagCompensationCommand(LagCompensation lag, ILagCompensation
                       + $"wants {world.WantsLagCompensation(player)} lerp {world.LerpTime(player):F3} "
                       + $"latency {(world.Latency(player) is float l ? l.ToString("F3") : "none")}\n");
         }
+
+        var tracked = new List<EntityHandle>();
+        lag.CopyTrackedEntities(tracked);
+        text.Append($"[SourceSharp/LagComp] entities opted in: {tracked.Count}\n");
+        foreach (EntityHandle entity in tracked)
+        {
+            IReadOnlyList<LagRecord> track = lag.EntityHistory(entity);
+            string span = track.Count > 0
+                ? $"{track[0].SimulationTime:F3}..{track[^1].SimulationTime:F3}"
+                : "-";
+            text.Append($"[SourceSharp/LagComp]   entity {entity}: records {track.Count} ({span})\n");
+        }
     }
 
     private void Probe(StringBuilder text, int slot, int back)
@@ -67,10 +81,21 @@ public sealed class LagCompensationCommand(LagCompensation lag, ILagCompensation
                 before[i] = place.Origin;
         }
 
-        // The command looks at the first other player: the target rules refuse
-        // a far player outside the cone the command looks along.
+        var tracked = new List<EntityHandle>();
+        lag.CopyTrackedEntities(tracked);
+        var entitiesBefore = new Dictionary<EntityHandle, Vector>();
+        foreach (EntityHandle entity in tracked)
+        {
+            if (world.TryGetPlacement(entity, out EntityPlacement place))
+                entitiesBefore[entity] = place.Origin;
+        }
+
+        // The command looks at the first other player, else the first entity:
+        // the target rules refuse a far one outside the cone the command looks along.
         world.TryGetPlacement(shooter, out EntityPlacement from);
-        Vector aim = before.Count > 0 ? before.First().Value - from.Origin : Vector.Zero;
+        Vector aim = before.Count > 0 ? before.First().Value - from.Origin
+                   : entitiesBefore.Count > 0 ? entitiesBefore.First().Value - from.Origin
+                   : Vector.Zero;
 
         var cmd = new UserCmd
         {
@@ -91,6 +116,13 @@ public sealed class LagCompensationCommand(LagCompensation lag, ILagCompensation
             during[i] = (place.Origin, Down(place.Origin, shooter));
         }
 
+        var entitiesDuring = new Dictionary<EntityHandle, (Vector Origin, TraceResult Hit)>();
+        foreach (EntityHandle entity in entitiesBefore.Keys)
+        {
+            world.TryGetPlacement(entity, out EntityPlacement place);
+            entitiesDuring[entity] = (place.Origin, Down(place.Origin, shooter));
+        }
+
         bool active = lag.IsCurrentlyDoingLagCompensation;
         lag.Finish(shooter);
 
@@ -108,14 +140,25 @@ public sealed class LagCompensationCommand(LagCompensation lag, ILagCompensation
             text.Append($"[SourceSharp/LagComp]   slot {i}: trace at the rewound place during hits "
                       + $"{Named(during[i].Hit, p)}; after the restore hits {Named(afterHit, p)}\n");
         }
+
+        foreach ((EntityHandle entity, Vector was) in entitiesBefore)
+        {
+            world.TryGetPlacement(entity, out EntityPlacement after);
+            TraceResult afterHit = Down(entitiesDuring[entity].Origin, shooter);
+            text.Append($"[SourceSharp/LagComp]   entity {entity}: before {was} during {entitiesDuring[entity].Origin} "
+                      + $"after {after.Origin}\n");
+            text.Append($"[SourceSharp/LagComp]   entity {entity}: trace at the rewound place during hits "
+                      + $"{Named(entitiesDuring[entity].Hit, entity, "the entity")}; after the restore hits "
+                      + $"{Named(afterHit, entity, "the entity")}\n");
+        }
     }
 
     /// <summary>A shot-mask line from above the head down to the knees, at <paramref name="at"/>.</summary>
     private TraceResult Down(Vector at, EntityHandle shooter)
         => trace.TraceLine(at + new Vector(0f, 0f, 120f), at + new Vector(0f, 0f, 20f), TraceMask.Shot, shooter);
 
-    private static string Named(TraceResult hit, EntityHandle player)
-        => !hit.Hit ? "nothing" : hit.Entity == player ? "the player" : $"something else ({hit.Entity})";
+    private static string Named(TraceResult hit, EntityHandle player, string what = "the player")
+        => !hit.Hit ? "nothing" : hit.Entity == player ? what : $"something else ({hit.Entity})";
 
     private LagRecord? RecordAt(int slot, float time)
     {

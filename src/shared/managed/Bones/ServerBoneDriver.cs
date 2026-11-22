@@ -16,10 +16,10 @@
 //
 //   * The studio header is opened FIRST: a model with none refuses before the
 //     mask widens.
-//   * No pose generation (nothing on this side moves a pose parameter) and
-//     no layers, IK, springs, ragdolls or merges: the whole build is
-//     BoneLibrary.BuildBones, the server's autoplay shape (an autoplay IK
-//     context only with one of its own: never, here).
+//   * No layers, IK, springs, ragdolls or merges: the whole build is
+//     BoneLibrary.BuildBones over the entity's pose parameters (keyed by
+//     their generation, as the client's are), the server's autoplay shape
+//     (an autoplay IK context only with one of its own: never, here).
 //   * A refused build CLEARS the cache, so the attachment reads see "no
 //     skeleton" rather than a half-written buffer.
 //   * Attachments are placed at scale 1: the bones carry the scale, and the
@@ -52,7 +52,10 @@ public sealed class ServerBoneDriver
     /// <summary>
     /// <c>StandaloneServer_RefreshModelPoseState</c>: whether the model
     /// animates itself and its pose defaults, once per model. Recorded first
-    /// and unconditionally; a model with no studio data keeps the pose it had.
+    /// and unconditionally; a model with no studio data keeps the pose it had,
+    /// and any other's defaults replace every pose the old one held (SetModel's
+    /// InitBoneControllers), the pose generation moving so no skeleton built on
+    /// the old poses still stands.
     /// </summary>
     public void RefreshModelPoseState(BoneEntityState s, int modelIndex)
     {
@@ -72,6 +75,7 @@ public sealed class ServerBoneDriver
         }
 
         BoneLibrary.ModelFacts(hdr, out s.ModelHasAutoplay, s.PoseParameter);
+        s.PoseGeneration++;
     }
 
     /// <summary>
@@ -103,7 +107,7 @@ public sealed class ServerBoneDriver
         wanted.Cycle = cycle;
         wanted.Origin = pose.AbsOrigin;
         wanted.Angles = new Vector(pose.AbsAngles.Pitch, pose.AbsAngles.Yaw, pose.AbsAngles.Roll);
-        wanted.PoseGeneration = 0;
+        wanted.PoseGeneration = s.PoseGeneration;
         wanted.AutoplayTime = BoneCacheKey.AutoplayClock(s.ModelHasAutoplay, currentTime);
         wanted.ModelScale = s.ModelScale;
 

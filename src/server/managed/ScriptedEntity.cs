@@ -1550,6 +1550,48 @@ public abstract class ScriptedEntity
     public virtual bool RunsDamageRules => false;
 
     /// <summary>
+    /// Whether the lag compensation (<see cref="SourceSharp.Server.LagCompensation"/>)
+    /// keeps a history of this entity's place and moves it back for a
+    /// shooter's command as it moves another player: a character that is not
+    /// a player, shot at by a client who drew it where it was a moment ago.
+    /// False for everything unless the class says so. Stock compensates
+    /// players only; this is the opt-in for everything else.
+    ///
+    /// <para>
+    /// Asked each frame: an entity answering no keeps no history, and one
+    /// that answers yes again starts a fresh one. A class that stays opted in
+    /// while it becomes something else (a pooled body handed to another
+    /// character) says so with <see cref="RestartLagHistory"/>.
+    /// </para>
+    /// </summary>
+    public virtual bool LagCompensated => false;
+
+    /// <summary>
+    /// The top speed the lag compensation's reach rule reads for this entity,
+    /// as it reads a player's <c>MaxSpeed()</c>
+    /// (<see cref="SourceSharp.Server.LagCompensationRules.InReach"/>): a target
+    /// close enough to have run past the shooter within <c>sv_maxunlag</c> is
+    /// moved back whichever way the shooter looks. Zero leaves only the cone.
+    /// </summary>
+    public virtual float LagCompensationMaxSpeed => 0f;
+
+    /// <summary>
+    /// The serial of this entity's lag history: <see cref="RestartLagHistory"/>
+    /// moves it on, and the lag compensation drops every record it holds for
+    /// the entity under an older serial.
+    /// </summary>
+    public int LagHistorySerial { get; private set; }
+
+    /// <summary>
+    /// "The history starts here": the lag compensation forgets where this
+    /// entity was before now, so no shot is rewound into a past that belongs
+    /// to something else (a pooled body lent to another character, or put
+    /// down somewhere new by a hop too short for the teleport distance to
+    /// see). Takes effect at once, before the next record.
+    /// </summary>
+    protected void RestartLagHistory() => LagHistorySerial++;
+
+    /// <summary>
     /// Something damaged this entity. Return how much damage it actually takes —
     /// zero to ignore it entirely. Whether a breakable yields to a crowbar and
     /// shrugs off bullets is a rule, which is why the answer is here.
