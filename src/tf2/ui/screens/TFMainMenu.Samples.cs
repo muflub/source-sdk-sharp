@@ -10,11 +10,14 @@ namespace TF2.Client.Ui;
 
 public static class TFMainMenuSamples
 {
-    private static TFMainMenu Build(UiSampleServices s, bool inLevel, FakeTFMainMenuArt? art = null)
+    private static TFMainMenu Build(UiSampleServices s, bool inLevel, FakeTFMainMenuArt? art = null,
+                                    FakeTFMainMenuBrand? brand = null)
     {
         s.Add<IMainMenuSource>(new FakeTFMainMenuSource { InLevel = inLevel });
         s.Add<ITFMainMenuArt>(art ?? new FakeTFMainMenuArt());
         s.Add<ITFMainMenuActions>(new FakeTFMainMenuActions());
+        if (brand is not null)
+            s.Add<ITFMainMenuBrand>(brand);
         return s.Create<TFMainMenu>();
     }
 
@@ -29,6 +32,24 @@ public static class TFMainMenuSamples
     {
         Background = "console/title_team_halloween2015_widescreen",
         Character = "console/characters/heavy",
+    });
+
+    // A game built on TF2 (ITFMainMenuBrand): its mark under TF2's logo,
+    // its own backdrop, FIND A GAME left off. The preview finds no art, so
+    // the mark and backdrop draw only in game; the bar shows the hidden button.
+    [UiSample("launch menu, a game built on tf2")]
+    private static UiScreen Branded(UiSampleServices s) => Build(s, inLevel: false, brand: new FakeTFMainMenuBrand
+    {
+        Mark = "brand/mark",
+        Background = "brand/menu_background",
+        Hidden = TFMainMenuButtons.FindAGame,
+    });
+
+    [UiSample("in a level, a game built on tf2")]
+    private static UiScreen BrandedInLevel(UiSampleServices s) => Build(s, inLevel: true, brand: new FakeTFMainMenuBrand
+    {
+        Mark = "brand/mark",
+        Hidden = TFMainMenuButtons.FindAGame,
     });
 
     // In a level: Disconnect for Quit, Resume, the four in-game buttons; no
@@ -72,6 +93,14 @@ public sealed class FakeTFMainMenuArt : ITFMainMenuArt
 {
     public string? Background { get; init; }
     public string? Character { get; init; } = "console/characters/heavy";
+}
+
+/// <summary>A game built on TF2, as its client names itself on the menu.</summary>
+public sealed class FakeTFMainMenuBrand : ITFMainMenuBrand
+{
+    public string? Mark { get; init; }
+    public string? Background { get; init; }
+    public TFMainMenuButtons Hidden { get; init; }
 }
 
 /// <summary>What the clicks did, by name, in order.</summary>

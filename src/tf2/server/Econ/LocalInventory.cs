@@ -30,6 +30,13 @@ public sealed class LocalInventory(InventoryStore store, ItemSchema schema, ICon
     public void OnClientActive(int entIndex)
     {
         ulong steamId = clients.SteamId64(entIndex);
+
+        // A level change re-activates every connected client without a departure
+        // (departures come from player_disconnect alone): a session-only inventory
+        // is the session's, so it stays across the map. Only a departure ends it.
+        if (steamId == 0 && _byEntity.TryGetValue(entIndex, out var session) && session.SteamId == 0)
+            return;
+
         var inventory = steamId == 0 ? new PlayerInventory(0) : store.Load(steamId);
         _byEntity[entIndex] = inventory;
 

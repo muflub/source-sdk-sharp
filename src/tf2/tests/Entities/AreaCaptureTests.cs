@@ -266,6 +266,20 @@ public sealed class AreaCaptureTests
     }
 
     [Fact]
+    public void Setup_without_an_active_round_timer_does_not_stop_a_capture()
+    {
+        // CTFGameRules::PointsMayBeCaptured asks GetActiveRoundTimer() && InSetup():
+        // a setup flag with no round timer in the HUD keeps no one off the point.
+        var (rig, _, area) = Neutral(capTime: 6f, capStyle: 1);
+        rig.Round.InSetup = true;
+        rig.Setup.RoundTimerActive = false;
+
+        rig.Registry.Touch(area.Handle, rig.Players.Add(1, TFTeam.Red));
+
+        Assert.True(area.IsCapturing);
+    }
+
+    [Fact]
     public void The_owner_does_not_capture_its_own_point()
     {
         var (rig, _, area) = Neutral(capTime: 6f, capStyle: 1, owner: TFTeam.Red);

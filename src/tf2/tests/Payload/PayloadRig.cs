@@ -193,7 +193,7 @@ internal sealed class PayloadRig
         var koth = new KothRoundState(Registry, timerHost);
         services.AddInstance<IRoundTimerHost>(timerHost);
         services.AddInstance<IKothRoundState>(koth);
-        services.AddInstance<IControlPointRules>(new ControlPointRules(Round, objectives, Settings, Entities, koth));
+        services.AddInstance<IControlPointRules>(new ControlPointRules(Round, objectives, Settings, Entities, koth, new RigRoundSetup(Round)));
         services.AddInstance<ICapturePlayerRules>(new BaseCapturePlayerRules());
         services.AddInstance<IObjectiveEvents>(new FakeEvents());
         services.AddInstance<IHudMaterialIndex>(new FakeMaterials());

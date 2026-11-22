@@ -50,6 +50,10 @@ public sealed class TeamRoundCompositionTests
         services.AddInstance<ILog>(new SourceSharp.Abi.RecordingLog());
         services.AddInstance<ITFTeamScores>(new TFTeamScores(new TeamResource()));
         services.AddInstance<IRandomSeeds>(new RandomSeeds(1));   // the server registers one too (ServerModule)
+        // The freeze cam's two convars, which the respawn wait reads at every ask
+        // (teamplayroundbased_gamerules.cpp:621); the server declares them.
+        services.AddInstance(convars.Declare<SpecFreezeTimeConVar>());
+        services.AddInstance(convars.Declare<SpecFreezeTravelTimeConVar>());
 
         // Every seam the machine now takes required, as the server's
         // registrations hold it: the two hook chains by their registrar's
@@ -89,6 +93,7 @@ public sealed class TeamRoundCompositionTests
         services.AddFactory<IKothRoundState>(l => l.Require<KothRoundState>());
         services.Add(typeof(CoreRoundWorld), typeof(CoreRoundWorld));
         services.AddFactory<IRoundWorld>(l => l.Require<CoreRoundWorld>());
+        services.AddFactory<ITFRoundSetup>(l => new TFServerRoundSetup(l.Require<ITeamRoundState>(), l.Require<IRoundTimers>()));
         services.Add(typeof(ControlPointRules), typeof(ControlPointRules));
         services.AddFactory<IControlPointRules>(l => l.Require<ControlPointRules>());
         return services;

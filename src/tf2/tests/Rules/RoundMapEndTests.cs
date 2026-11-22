@@ -92,4 +92,48 @@ public sealed class RoundMapEndTests
         Assert.Equal(1, rig.Announcer.Count("game_over NextLevel CVAR"));
         Assert.Equal(1, rig.End.Intermissions);
     }
+
+    /// <summary>
+    /// The stage chain of a mini-round map under a set nextlevel: a stage win
+    /// that leaves rounds to play carries no forced reset, so the nextlevel
+    /// arm (CheckNextLevelCvar, whose stock gate is
+    /// <c>m_bForceMapReset &amp;&amp; nextlevel.GetString()</c>,
+    /// teamplayroundbased_gamerules.cpp:1246-1268) stays quiet and the machine
+    /// yields through RESTART into the next stage; the last stage's
+    /// forced-reset win is what answers the nextlevel, counts the full round
+    /// and takes the intermission.
+    /// </summary>
+    [Fact]
+    public void Nextlevel_holds_while_mini_round_wins_still_have_stages_to_play()
+    {
+        var rig = new RoundRig();
+        rig.Settings.NextLevel = "ctf_2fort";
+        rig.Running();
+
+        // Stage one: no reset, so the next stage is picked and nothing ends.
+        rig.Flow.SetWinningTeam(TFTeam.Blue, WinReason.AllPointsCaptured, forceMapReset: false);
+        rig.Clock.Now += 15.05f;
+        rig.Flow.Think(rig.Clock.Now);
+        Assert.Equal(RoundState.Preround, rig.Flow.State);
+        Assert.Equal(0, rig.End.Intermissions);
+        Assert.Equal(0, rig.Announcer.Count("game_over"));
+        Assert.Equal(0, rig.Flow.RoundsPlayed);                     // mini-rounds are not full rounds
+
+        // Stage two: the same quiet yield.
+        rig.Flow.SetWinningTeam(TFTeam.Blue, WinReason.AllPointsCaptured, forceMapReset: false);
+        rig.Clock.Now += 15.05f;
+        rig.Flow.Think(rig.Clock.Now);
+        Assert.Equal(RoundState.Preround, rig.Flow.State);
+        Assert.Equal(0, rig.End.Intermissions);
+        Assert.Equal(0, rig.Announcer.Count("game_over"));
+
+        // Stage three: the forced-reset win answers the nextlevel and ends the game.
+        rig.Flow.SetWinningTeam(TFTeam.Blue, WinReason.AllPointsCaptured);
+        rig.Clock.Now += 15.05f;
+        rig.Flow.Think(rig.Clock.Now);
+        Assert.Equal(RoundState.GameOver, rig.Flow.State);
+        Assert.Equal(1, rig.Announcer.Count("game_over NextLevel CVAR"));
+        Assert.Equal(1, rig.End.Intermissions);
+        Assert.Equal(1, rig.Flow.RoundsPlayed);                     // only the forced-reset win counts
+    }
 }

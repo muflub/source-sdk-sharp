@@ -313,7 +313,11 @@ internal sealed class TFWeaponWorld
     /// <summary>The scripted engine the attribute hook asks for the owner's
     /// health (<c>Returns("Entities.GetHealth", …)</c> sets it for the panic
     /// arm's facts).</summary>
-    public RecordingEngine Engine { get; } = new();
+    public RecordingEngine Engine { get; } = new RecordingEngine()
+        // The owner's REAL handle, serial and all: an entity read that crosses
+        // the engine's handle table (the panic cone's health) must take this,
+        // not a bare index. A fact that cares keys its own on the serial.
+        .Returns("Players.GetHandle", new EntityHandle(0x0001_0000u | (uint)Owner));
 
     /// <summary>What the Wrangler's triggers asked, for its facts.</summary>
     public RecordingSentryWrangle Wrangle { get; } = new();
@@ -375,7 +379,7 @@ internal sealed class TFWeaponWorld
         var attributes = new AttributeHooks();
         var predicted = data ?? new FakePredictedData();
         var chain = TFWeaponHookChain.Of([new TFSwordHook(attributes),
-                                          new TFAttributeWeaponHook(attributes, Engine, classes, predicted),
+                                          new TFAttributeWeaponHook(attributes, Engine, classes, predicted, Engine),
                                           new TFCritBoostHook(), new TFKingReloadHook(), .. hooks]);
 
         Parts = new TFWeaponParts(scripts, chain, new TFCritBuckets(), Settings, Owners, effects ?? Effects, Builder,

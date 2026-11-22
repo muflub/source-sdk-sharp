@@ -281,6 +281,15 @@ public interface IRoundWorld
     int RoundActivate();
 
     /// <summary>
+    /// Stock's <c>CTFGameRules::PreviousRoundEnd</c> (<c>tf_gamerules.cpp:5478-5487</c>, asked by
+    /// <c>State_Think_TEAM_WIN</c> before the next round starts, <c>teamplayroundbased_gamerules.cpp:1901</c>):
+    /// the first control-point master fires the previous mini-round's end output, so the next round is
+    /// picked fresh when the restart's RoundActivate walk comes. Stock also keeps the winning team in
+    /// <c>m_iPreviousRoundWinners</c> (<c>tf_gamerules.h:920</c>), which has no reader here.
+    /// </summary>
+    void PreviousRoundEnd();
+
+    /// <summary>
     /// Stock's no-reset win arm (<c>CTeamplayRoundBasedRules::SetWinnerAndForceCaps</c>,
     /// teamplayroundbased_gamerules.cpp:2235-2248): the <c>SetWinnerAndForceCaps</c>
     /// input to every control-point master. True when a master took it.

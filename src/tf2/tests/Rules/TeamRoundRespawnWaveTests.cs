@@ -1,4 +1,5 @@
 using SourceSharp.Abi;
+using SourceSharp.Server;
 
 using TF2.Server.Rules;
 using TF2.Shared;
@@ -121,6 +122,47 @@ public sealed class TeamRoundRespawnWaveTests
     public void mp_disable_respawn_times_lets_the_dead_out_after_the_death_animation_alone()
     {
         var rig = new RoundRig();
+        rig.Settings.DisableRespawnTimes = true;
+        var (red, _) = rig.Running();
+        float died = rig.Clock.Now;
+        rig.Roster.Kill(red);
+
+        Assert.True(rig.RunUntil(() => rig.Roster.IsAlive(red), limit: 10f));
+
+        float back = RespawnedAt(rig, red, died) - died;
+        Assert.InRange(back, TeamRoundFlow.DeathAnimLength, TeamRoundFlow.DeathAnimLength + 0.2f);
+    }
+
+    /// <summary>
+    /// Stock recomputes the death anim length from the two freeze-cam convars at
+    /// every ask (<c>teamplayroundbased_gamerules.cpp:621</c>): a shorter freeze
+    /// panel shortens the minimum respawn time, not just the camera's hold.
+    /// </summary>
+    [Fact]
+    public void spec_freeze_time_shortens_the_minimum_respawn_time()
+    {
+        // spec_freeze_time 1, spec_freeze_traveltime at its declared default.
+        var rig = new RoundRig(freezeTime: DeclaredConVars.Holding<SpecFreezeTimeConVar>("1"),
+                               travelTime: DeclaredConVars.Holding<SpecFreezeTravelTimeConVar>("0.4"));
+        rig.Settings.DisableRespawnTimes = true;   // no wave in the wait: the window is the death anim length alone
+        var (red, _) = rig.Running();
+        float died = rig.Clock.Now;
+        rig.Roster.Kill(red);
+
+        Assert.True(rig.RunUntil(() => rig.Roster.IsAlive(red), limit: 10f));
+
+        // Stock's flDeathAnimLength: 2 + traveltime + freeze time = 2 + 0.4 + 1,
+        // not the defaults' 6.4 (TeamRoundFlow.DeathAnimLength).
+        float back = RespawnedAt(rig, red, died) - died;
+        Assert.InRange(back, 3.4f, 3.6f);
+    }
+
+    /// <summary>At the declared defaults the same read keeps the number the constant holds.</summary>
+    [Fact]
+    public void The_declared_defaults_keep_today_s_minimum_respawn_time()
+    {
+        var rig = new RoundRig(freezeTime: DeclaredConVars.Holding<SpecFreezeTimeConVar>("4.0"),
+                               travelTime: DeclaredConVars.Holding<SpecFreezeTravelTimeConVar>("0.4"));
         rig.Settings.DisableRespawnTimes = true;
         var (red, _) = rig.Running();
         float died = rig.Clock.Now;

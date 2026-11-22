@@ -14,7 +14,7 @@ public sealed partial class LanguageTokensTests
     {
         var tokens = Tokens();
 
-        Assert.Equal("TF2 Descent", tokens.GetValueOrDefault(new DescentMainMenuBrand().TitleToken));
+        Assert.Equal("TF2 Descent", tokens.GetValueOrDefault(DescentMainMenuBrand.Title));
     }
 
     /// <summary>

@@ -483,4 +483,53 @@ public sealed class ControlPointTests
         Assert.True(feed.LastProgressTick(TFTeam.Red) > 0);
         Assert.Equal(0, feed.LastProgressTick(TFTeam.Blue));
     }
+
+    /// <summary>
+    /// After round_1 is won and its end output fires (the master's current round
+    /// goes back to -1), the next RoundActivate picks round_2 fresh: its points
+    /// read their own defaults, no win stands until they are captured.
+    /// </summary>
+    [Fact]
+    public void The_next_mini_round_starts_from_its_points_defaults_after_the_win()
+    {
+        var rig = new ObjectiveRig();
+        var a = rig.Point("cp_a", 0);
+        var b = rig.Point("cp_b", 1);
+        var c = rig.Point("cp_c", 2);
+        var d = rig.Point("cp_d", 3);
+        var first = rig.Spawn<TeamControlPointRound>(TeamControlPointRound.MapClass, ("targetname", "round_1"),
+                                                     ("cpr_cp_names", "cp_a cp_b"), ("cpr_priority", "1"));
+        var second = rig.Spawn<TeamControlPointRound>(TeamControlPointRound.MapClass, ("targetname", "round_2"),
+                                                      ("cpr_cp_names", "cp_c cp_d"), ("cpr_priority", "0"));
+        var master = rig.Master();
+        rig.StartRound();
+
+        Assert.Same(first, master.CurrentRound);
+
+        // blue takes round_1's two points: the win rides the control once.
+        a.SetOwner(Blue, makeSound: true, [1]);
+        b.SetOwner(Blue, makeSound: true, [1]);
+        Assert.Single(rig.Control.Wins);
+
+        // the win's ending (stock PreviousRoundEnd) fires round_1's end output
+        // and clears the current round; the restart's RoundActivate picks round_2.
+        master.FireRoundEndOutput();
+        rig.Registry.Input(master.Handle, "RoundActivate", string.Empty, 0f, EntityHandle.None);
+
+        Assert.Same(second, master.CurrentRound);
+        Assert.True(rig.Objectives.IsInMiniRound(2));
+        Assert.False(rig.Objectives.IsInMiniRound(0));
+
+        // round_2's points read their defaults and no win stands on them.
+        Assert.Equal((int)TFTeam.Unassigned, c.Owner);
+        Assert.Equal((int)TFTeam.Unassigned, d.Owner);
+        Assert.Equal(-1, second.CheckWinConditions());
+        master.CheckWinConditions();
+        Assert.Single(rig.Control.Wins);
+
+        // only capturing both points wins round_2.
+        c.SetOwner(Blue, makeSound: true, [1]);
+        d.SetOwner(Blue, makeSound: true, [1]);
+        Assert.Equal(2, rig.Control.Wins.Count);
+    }
 }

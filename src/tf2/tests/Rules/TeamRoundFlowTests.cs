@@ -1106,4 +1106,30 @@ public sealed class TeamRoundFlowTests
         Assert.Empty(rig.Listener.Heard);
         Assert.Equal(RoundState.Pregame, rig.Flow.State);
     }
+
+    /// <summary>
+    /// Stock's PreviousRoundEnd (tf_gamerules.cpp:5478-5487, asked at
+    /// teamplayroundbased_gamerules.cpp:1901): when the bonus time is over and
+    /// no end-of-match check bites, the win ends the played round before the
+    /// restart yields into the next one.
+    /// </summary>
+    [Fact]
+    public void The_win_asks_the_previous_round_to_end_before_the_restart()
+    {
+        var rig = new RoundRig();
+        rig.Running();
+
+        rig.Flow.SetWinningTeam(TFTeam.Blue, WinReason.AllPointsCaptured);
+        float won = rig.Clock.Now;
+
+        rig.Clock.Now = won + 15f;
+        rig.Flow.Think(rig.Clock.Now);
+        Assert.Equal(RoundState.TeamWin, rig.Flow.State);
+        Assert.Equal(0, rig.World.Count("previous_round_end"));
+
+        rig.Clock.Now = won + 15.05f;
+        rig.Flow.Think(rig.Clock.Now);
+        Assert.Equal(RoundState.Preround, rig.Flow.State);
+        Assert.Equal(1, rig.World.Count("previous_round_end"));
+    }
 }

@@ -179,6 +179,14 @@ public sealed class TFBlastApplier
                 if (selfRadius > 0f && victim == attacker)
                     continue;
 
+                // An entity that stands for many things across the map (a mod's one owner of a
+                // level's props) takes the blast itself: its box's centre is nothing to trace to.
+                if (Directory.Get(victim) is ITFBlastReceiver receiver)
+                {
+                    receiver.TakeBlast(source, active, attacker, inflictor);
+                    continue;
+                }
+
                 Vector center = Entities.GetWorldSpaceCenter(victim);
                 Vector victimOrigin = Entities.GetOrigin(victim);
 

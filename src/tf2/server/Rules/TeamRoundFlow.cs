@@ -56,14 +56,16 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
     /// <summary><c>TEAMPLAY_ROUND_WIN_SCORE</c> (shareddefs.h).</summary>
     public const int RoundWinScore = 1;
 
+    /// <summary>Stock's hard-coded <c>2.0</c> before the two freeze-cam reads (<c>teamplayroundbased_gamerules.cpp:621</c>).</summary>
+    public const float DeathAnimBaseSeconds = 2.0f;
+
     /// <summary>
-    /// The "death anim + freeze panel" part of the minimum respawn time
-    /// (<c>GetMinTimeWhenPlayerMaySpawn</c>): 2 s plus <c>spec_freeze_traveltime</c>
-    /// and <c>spec_freeze_time</c>, whose non-CSTRIKE defaults (player.cpp:92-93)
-    /// are 0.4 and 4.0. Those two convars are the core player's and are not
-    /// declared in this build, so their defaults stand as the constant.
+    /// The death anim length at the declared convar defaults: <see cref="DeathAnimBaseSeconds"/>
+    /// plus <c>spec_freeze_traveltime</c>'s and <c>spec_freeze_time</c>'s declared defaults,
+    /// 0.4 and 4.0 (<c>ObserverConVars.cs</c>). <see cref="MinTimeWhenPlayerMaySpawn"/> reads
+    /// the live values at every ask, as stock does; this is what they answer when nothing changed them.
     /// </summary>
-    public const float DeathAnimLength = 2.0f + 0.4f + 4.0f;
+    public const float DeathAnimLength = DeathAnimBaseSeconds + 0.4f + 4.0f;
 
     /// <summary>The longest <c>mp_restartround</c>/<c>mp_restartgame</c> delay outside MvM/competitive.</summary>
     public const int MaxRestartDelay = 60;
@@ -107,6 +109,11 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
     // skipped), and the auto-assign coin's stream (the same arm TFTeams
     // takes, seeded once).
     private readonly TF2.Server.Player.ITFPlayerStats _stats;
+    // Stock recomputes flDeathAnimLength from the two freeze-cam convars at every
+    // ask (teamplayroundbased_gamerules.cpp:621), so the machine holds them injected
+    // rather than baking them into a constant.
+    private readonly SpecFreezeTimeConVar _freezeTime;
+    private readonly SpecFreezeTravelTimeConVar _travelTime;
     private readonly Random _random;
 
     private const int Teams = (int)TFTeam.Count;
@@ -177,7 +184,8 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
                          IEngineHost host, IHooks<ITeamRoundListener> listeners, IHooks<ITimerExpiryVeto> vetoes,
                          TF2.Server.Player.TFPlayerCarriers carriers, ITFWinPanel winPanel, ILevelInfo level,
                          TF2.Server.Entities.IObjectiveEntities objectives, TF2.Server.Player.ITFPlayerStats stats,
-                         IHooks<IMatchResetHook> matchResets)
+                         IHooks<IMatchResetHook> matchResets, SpecFreezeTimeConVar freezeTime,
+                         SpecFreezeTravelTimeConVar travelTime)
     {
         _settings = settings;
         _roster = roster;
@@ -199,6 +207,8 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
         _objectives = objectives;
         _stats = stats;
         _matchResets = matchResets;
+        _freezeTime = freezeTime;
+        _travelTime = travelTime;
         _random = new Random(seeds.Next());
 
         // The constructor tells no listener: the listeners are resolved from
@@ -624,7 +634,11 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
             // Stock's State_Transition_TEAM_WIN ends in GR_STATE_RESTART, not
             // straight into the pre-round: the win yields through RESTART,
             // which announces the round's end and then enters the pre-round.
+            // Before that yield: PreviousRoundEnd, so the next round is picked
+            // fresh when the restart's RoundActivate walk comes; on the done
+            // arm the game ends and the played round stays as it was.
             _restartAfterWin = true;
+            _world.PreviousRoundEnd();
             Transition(RoundState.Restart);
         }
     }
@@ -1880,8 +1894,11 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
 
     private float MinTimeWhenPlayerMaySpawn(EntityHandle player)
     {
-        // a) one full UNSCALED wave for their team, b) death anim + freeze panel.
-        float delay = DeathAnimLength + RespawnWaveMaxLength(_roster.TeamOf(player), scaleWithNumPlayers: false);
+        // a) one full UNSCALED wave for their team, b) death anim + freeze panel,
+        // the freeze part read from the injected convars at every ask, as stock
+        // recomputes flDeathAnimLength (:621).
+        float deathAnimLength = DeathAnimBaseSeconds + _travelTime.Value + _freezeTime.Value;
+        float delay = deathAnimLength + RespawnWaveMaxLength(_roster.TeamOf(player), scaleWithNumPlayers: false);
         return _roster.DeathTime(player) + delay;
     }
 

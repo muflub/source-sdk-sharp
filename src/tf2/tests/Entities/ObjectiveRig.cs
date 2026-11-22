@@ -31,6 +31,16 @@ internal sealed class FakeClock : IGameClock
 }
 
 /// <summary>The contract's state half, as a fact sets it.</summary>
+/// <summary>
+/// The rigs' <see cref="ITFRoundSetup"/>: the fake round's setup flag, with a round
+/// timer active unless a fact says otherwise (stock's GetActiveRoundTimer() half).
+/// </summary>
+internal sealed class RigRoundSetup(FakeRoundState round) : ITFRoundSetup
+{
+    public bool RoundTimerActive { get; set; } = true;
+    public bool InSetupWithRoundTimer => round.InSetup && RoundTimerActive;
+}
+
 internal sealed class FakeRoundState : ITeamRoundState
 {
     public RoundState State { get; set; } = RoundState.RoundRunning;
@@ -207,6 +217,7 @@ internal sealed class ObjectiveRig
     public readonly FakeSettings Settings = new();
     public readonly FakeClock Clock = new();
     public readonly FakeRoundState Round = new();
+    public readonly RigRoundSetup Setup;
     public readonly FakeRoundControl Control = new();
     public readonly FakePlayers Players = new();
     public readonly FakeEvents Events = new();
@@ -242,7 +253,8 @@ internal sealed class ObjectiveRig
         Registry.RegisterAll(typeof(TriggerAreaCapture).Assembly);
         Entities = new ObjectiveEntities(Registry);
         Koth = new KothRoundState(Registry, TimerHost);
-        Rules = new ControlPointRules(Round, Objectives, Settings, Entities, Koth);
+        Setup = new RigRoundSetup(Round);
+        Rules = new ControlPointRules(Round, Objectives, Settings, Entities, Koth, Setup);
         Scores = new TFTeamScores(TeamTable);
         Ctf = new CtfRules(Round, Control, Scores, new FakeCtfSettings(), new FakeCtfPlayers(), Registry, new ModeSlot());
 

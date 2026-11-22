@@ -19,7 +19,10 @@ public sealed class DescentMainMenuBrand : ITFMainMenuBrand
     /// <summary>The backdrop's material, under the mod's materials/.</summary>
     public const string BackgroundMaterial = "descent/ui/menu_background";
 
-    public string TitleToken => Title;
+    // TF2's menu draws no title text now (the seam names a mark): the mark lands in the next commit.
+    public string? Mark => null;
+
+    public TFMainMenuButtons Hidden => TFMainMenuButtons.None;
 
     public string? Background => BackgroundMaterial;
 }

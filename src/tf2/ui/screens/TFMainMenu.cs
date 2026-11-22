@@ -42,7 +42,7 @@ namespace TF2.Client.Ui;
 /// </para>
 /// </summary>
 public sealed class TFMainMenu(IMainMenuSource menu, ITFMainMenuArt art, ITFMainMenuActions actions,
-                               IUiTextureLibrary textures) : UiScreen
+                               IUiTextureLibrary textures, ITFMainMenuBrand? brand = null) : UiScreen
 {
     public override string Name => "tf2mainmenu";
 
@@ -94,11 +94,18 @@ public sealed class TFMainMenu(IMainMenuSource menu, ITFMainMenuArt art, ITFMain
 
         if (!inLevel)
         {
-            Backdrop(ref ui, screen);
-            Character(ref ui, screen);
+            if (brand?.Background is { } own)
+                Cover(ref ui, screen, own);
+            else
+            {
+                Backdrop(ref ui, screen);
+                Character(ref ui, screen);
+            }
         }
 
         Logo(ref ui, screen);
+        if (brand?.Mark is { } mark)
+            Mark(ref ui, screen, mark);
         TopBar(ref ui, screen, inLevel);
 
         if (_confirm != Confirm.None)
@@ -140,6 +147,42 @@ public sealed class TFMainMenu(IMainMenuSource menu, ITFMainMenuArt art, ITFMain
             .AtRes(UiAnchor.BottomLeft, at.Left, at.Bottom).Layered().Key("logo");
     }
 
+    // ---- a game built on TF2 (ITFMainMenuBrand) ----
+
+    /// <summary>The brand's backdrop, scaled to cover the screen and centred;
+    /// the screen crops what overhangs.</summary>
+    private void Cover(ref UiFrame ui, Canvas screen, string name)
+    {
+        if (textures.Find(name) is not (> 0 and var handle))
+            return;
+        // The picture's own aspect (its VTF's size); 2:1 when the library cannot say.
+        float aspect = textures.About(name) is { Tall: > 0 } info ? info.Wide / (float)info.Tall : 2f;
+        float w = MathF.Max(screen.Wide, screen.Tall * aspect);
+        float h = w / aspect;
+        Cropped(ref ui, screen, "brand background", handle, (screen.Wide - w) / 2f, (screen.Tall - h) / 2f, w, h);
+    }
+
+    /// <summary>The brand's mark under TFLogoImage (c-290 32 256x64): centred
+    /// on the logo, <see cref="MarkWide"/> stock units wide, as tall as the
+    /// picture's own aspect makes it, from the logo's foot.</summary>
+    private void Mark(ref UiFrame ui, Canvas screen, string name)
+    {
+        if (textures.Find(name) is not (> 0 and var handle))
+            return;
+        // 4:1 when the library cannot say.
+        float aspect = textures.About(name) is { Tall: > 0 } info ? info.Wide / (float)info.Tall : 4f;
+        float tall = MarkWide / aspect;
+        var at = At(screen, Centre(screen, -290f) + screen.LeftShift + (256f - MarkWide) / 2f, 32f + 64f, MarkWide, tall);
+        ui.Texture(handle, Size.Du(at.Wide), Size.Du(at.Tall))
+            .AtRes(UiAnchor.BottomLeft, at.Left, at.Bottom).Layered().Key("mark");
+    }
+
+    /// <summary>The brand mark's width in stock units: a little under the logo's 256.</summary>
+    public const float MarkWide = 224f;
+
+    /// <summary>Whether the brand leaves <paramref name="button"/> off.</summary>
+    private bool Hides(TFMainMenuButtons button) => brand is not null && (brand.Hidden & button) != 0;
+
     // ---- the top bar (MatchMakingDashboard.res) ----
 
     private void TopBar(ref UiFrame ui, Canvas screen, bool inLevel)
@@ -151,10 +194,14 @@ public sealed class TFMainMenu(IMainMenuSource menu, ITFMainMenuArt art, ITFMain
             .AtRes(UiAnchor.BottomLeft, bar.Left, bar.Bottom).Layered().Key("top bar");
 
         const float tall = 24f;
+        bool findShown = !Hides(TFMainMenuButtons.FindAGame);
         // HostGameButton keeps its .res place (rs1-145), FIND A GAME draws over
-        // its last units (the dashboard places FIND A GAME after).
-        if (Button(ref ui, screen, "host", screen.Wide - 145f - 115f, 0f, 115f, tall, "#TF2_MainMenu_HostAGame",
-                   null, 0f, 15f, DarkBrown, LighterDarkBrown).Clicked)
+        // its last units (the dashboard places FIND A GAME after). In a level
+        // FIND A GAME and Resume cover it whole; with FIND A GAME left off,
+        // Resume closes up and would uncover its left end, so it is not drawn.
+        if ((findShown || !inLevel)
+            && Button(ref ui, screen, "host", screen.Wide - 145f - 115f, 0f, 115f, tall, "#TF2_MainMenu_HostAGame",
+                      null, 0f, 15f, DarkBrown, LighterDarkBrown).Clicked)
             actions.HostAGame();
 
         float edge;
@@ -173,9 +220,10 @@ public sealed class TFMainMenu(IMainMenuSource menu, ITFMainMenuArt art, ITFMain
                 PromptQuit();
         }
 
-        float find = edge - 120f - 1f;
-        if (Button(ref ui, screen, "find", find, 0f, 120f, tall, "#TF2_MainMenu_FindAGame", "vgui/glyph_multiplayer",
-                   6f, 26f, GreenSolid, CreditsGreen).Clicked)
+        // A brand that leaves FIND A GAME off puts Resume against the edge's button.
+        float find = findShown ? edge - 120f - 1f : edge;
+        if (findShown && Button(ref ui, screen, "find", find, 0f, 120f, tall, "#TF2_MainMenu_FindAGame", "vgui/glyph_multiplayer",
+                                6f, 26f, GreenSolid, CreditsGreen).Clicked)
             actions.FindAGame();
 
         if (inLevel && Button(ref ui, screen, "resume", find - 95f - 1f, 0f, 95f, tall, "#TF2_MainMenu_Resume",

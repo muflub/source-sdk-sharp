@@ -408,6 +408,12 @@ public sealed class CoreRoundWorld(IMapCleanup cleanup, EntityDirectory live, IE
 
     public int RoundActivate() => Each("RoundActivate");
 
+    public void PreviousRoundEnd()
+    {
+        if (services.Resolve<IObjectiveEntities>() is { Master: { } master })
+            master.FireRoundEndOutput();
+    }
+
     public void SetupControlPointSpawns()
     {
         if (services.Resolve<IControlPointRules>() is { } controlPoints)

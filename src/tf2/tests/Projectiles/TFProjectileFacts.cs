@@ -600,6 +600,37 @@ public class TFBlastApplierFacts
         Assert.Equal(71.5f, hit.ArgAs<float>(2), 1f);
     }
 
+    /// <summary>An entity that takes a blast whole: it records each blast it was handed.</summary>
+    private sealed class BlastTaker : ScriptedEntity, ITFBlastReceiver
+    {
+        public List<(Vector Source, TFBlast Blast, EntityHandle Attacker, EntityHandle Inflictor)> Taken { get; } = [];
+
+        public void TakeBlast(Vector source, in TFBlast blast, EntityHandle attacker, EntityHandle inflictor) =>
+            Taken.Add((source, blast, attacker, inflictor));
+    }
+
+    [Fact]
+    public void AnEntityThatTakesABlastWholeIsHandedItAndDealtNoHit()
+    {
+        var rig = new ProjectileRig();
+        var taker = new BlastTaker();
+        rig.Directory.Holds(ProjectileRig.Victim, taker);
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        rig.Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(60f, 0f, 0f));
+        rig.Engine.Returns("Entities.GetOrigin", new Vector(60f, 0f, 0f));
+        rig.Engine.Returns("WorldQuery.TraceLine",
+                           new TraceResult(true, 1f, new Vector(60f, 0f, 0f), default, EntityHandle.None));
+
+        rig.Blast.Apply(new Vector(0f, 0f, 0f), RocketBlast(), ProjectileRig.Player,
+                        ProjectileRig.ProjectileHandle, ignored: ProjectileRig.ProjectileHandle,
+                        TFWeaponId.Rocketlauncher, "tf_weapon_rocketlauncher", critical: false);
+
+        var taken = Assert.Single(taker.Taken);
+        Assert.Equal((new Vector(0f, 0f, 1f), ProjectileRig.Player, ProjectileRig.ProjectileHandle), (taken.Source, taken.Attacker, taken.Inflictor));
+        Assert.Equal(RocketBlast().Radius, taken.Blast.Radius);
+        Assert.Empty(rig.Engine.AllOf("Damage.TakeDamageAnswered"));
+    }
+
     [Fact]
     public void AnOwnerThatIsNoPlayerTakesItsOwnSweepAsDealt()
     {

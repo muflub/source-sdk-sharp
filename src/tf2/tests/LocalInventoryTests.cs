@@ -124,6 +124,23 @@ public sealed class LocalInventoryTests : IDisposable
     }
 
     [Fact]
+    public void A_session_inventory_survives_a_level_change_and_ends_with_the_departure()
+    {
+        // No SteamID (a -hushsteam LAN client): the inventory is the session's. A
+        // level change re-activates the client without a departure, so the
+        // granted item stays; a departure and a new arrival in the seat start empty.
+        var inventory = Connected(steamId: 0);
+        var mangler = inventory.Grant(Seat, 441)!;
+
+        inventory.OnClientActive(Seat);
+        Assert.Contains(inventory.Of(Seat)!.Items, i => i.Id == mangler.Id);
+
+        inventory.OnClientDisconnected(Seat);
+        inventory.OnClientActive(Seat);
+        Assert.DoesNotContain(inventory.Of(Seat)!.Items, i => i.Id == mangler.Id);
+    }
+
+    [Fact]
     public void AGrantedItemIsOwned()
     {
         var inventory = Connected();

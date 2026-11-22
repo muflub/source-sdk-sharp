@@ -161,7 +161,6 @@ public sealed class DescentUiCompositionTests
     {
         var brand = Assert.IsAssignableFrom<TF2.Client.Ui.ITFMainMenuBrand>(Services().Resolve(typeof(TF2.Client.Ui.ITFMainMenuBrand)));
 
-        Assert.Equal("#Descent_MainMenu_Title", brand.TitleToken);
         Assert.Equal("descent/ui/menu_background", brand.Background);
     }
 
