@@ -108,6 +108,35 @@ public static class CreateServerSamples
     [UiSample("server page")]
     private static UiScreen Server(UiSampleServices s) => Build(s);
 
+    /// <summary>A long map list, TF2's size: the list scrolls and filters.</summary>
+    public static FixedMapList ManyMaps() => new("Team Fortress 2",
+        "arena_badlands", "arena_granary", "arena_lumberyard", "arena_nucleus", "arena_ravine", "arena_sawmill",
+        "arena_watchtower", "arena_well", "cp_5gorge", "cp_badlands", "cp_coldfront", "cp_dustbowl", "cp_egypt_final",
+        "cp_fastlane", "cp_freight_final1", "cp_gorge", "cp_granary", "cp_gravelpit", "cp_junction_final",
+        "cp_mountainlab", "cp_steel", "cp_well", "cp_yukon_final", "ctf_2fort", "ctf_doublecross", "ctf_sawmill",
+        "ctf_turbine", "ctf_well", "koth_harvest_final", "koth_lakeside_final", "koth_nucleus", "koth_sawmill",
+        "koth_viaduct", "pl_badwater", "pl_frontier_final", "pl_goldrush", "pl_hoodoo_final", "pl_thundermountain",
+        "pl_upward", "plr_hightower", "plr_pipeline", "sd_doomsday", "tc_hydro");
+
+    [UiSample("map list open")]
+    private static UiScreen MapListOpen(UiSampleServices s)
+    {
+        s.Add<IMapListSource>(ManyMaps());
+        var screen = Build(s);
+        screen.Map = 24;                    // ctf_2fort, mid-list: the list opens with it in view
+        screen.OpenMapList();
+        return screen;
+    }
+
+    [UiSample("map list filtered")]
+    private static UiScreen MapListFiltered(UiSampleServices s)
+    {
+        s.Add<IMapListSource>(ManyMaps());
+        var screen = Build(s);
+        screen.OpenMapList("koth");
+        return screen;
+    }
+
     [UiSample("game page from the mod's script")]
     private static UiScreen Game(UiSampleServices s) => Build(s, 1);
 

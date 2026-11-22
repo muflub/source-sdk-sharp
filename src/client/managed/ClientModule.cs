@@ -444,9 +444,15 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // does, from the published mp_teammates_pass.
         _services.AddFactory<IHooks<IEntityCollideRule>>(locator => new Hooks<IEntityCollideRule>(locator, Log));
         _services.AddInstance(new ClientTeammatesPassRule(_services.Require<MpTeammatesPassConVar>(), _standalones));
+        // And the props and brush entities, which the same client trace misses:
+        // the prediction clips the solid partition native lists, deciding as the
+        // server's trace filter does (PredictionEntityClip).
+        Func<int> predictionMaxClients =
+            () => _services.Require<IEngineEnvironment>() is { Globals.IsAvailable: true } env ? env.Globals.MaxClients : 1;
+        var entityClip = new PredictionEntityClip(_services.Require<IEngineWorldQuery>(),
+            _services.Require<IHooks<IEntityCollideRule>>(), predictionMaxClients);
         var playerClip = new PredictionPlayerClip(_standalones, _services.Require<IEngineEntityRender>(),
-            _services.Require<IHooks<IEntityCollideRule>>(),
-            () => _services.Require<IEngineEnvironment>() is { Globals.IsAvailable: true } env ? env.Globals.MaxClients : 1);
+            _services.Require<IHooks<IEntityCollideRule>>(), predictionMaxClients, entityClip);
         _services.AddInstance(playerClip);
         _movement = MovementRunner.For(_engine, _services.Require<IFwdEngineTrace>(), _services.Require<IFwdPhysicsSurfaceProps>(),
             world => new ClientPredictionMoveWorld(world,
@@ -924,7 +930,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             locator.Require<Render.Shadows.IShadowProxySource>(),
             () => _services.ResolveAll<MaterialProxies.IMaterialProxyProvider>(),
             new MaterialProxies.PlayerProxyEyes(_standalones, locator.Require<IEngineHud>(),
-                                                 locator.Require<ViewReadout>())));
+                                                 locator.Require<ViewReadout>(),
+                                                 locator.Require<IEngineWorldQuery>())));
         // The render plan (C7): View_Render's per-frame path and its recorder.
         // (The engine's uniform random stream, for a service or a mod that draws
         // from it as stock's free RandomFloat does, is AddTo's: IUniformRandom.)

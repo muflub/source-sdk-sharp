@@ -268,6 +268,14 @@ public interface IEnginePrecache
     /// </summary>
     int ParticleSystemIndex(string name);
 
+    /// <summary>
+    /// How many more names the ParticleEffectNames string table can take: its
+    /// capacity, stock's <c>MAX_PARTICLESYSTEMS_STRINGS</c> (8192,
+    /// networkstringtable_gamedll.h:31-32), less the names it holds. 0 when it
+    /// is full or there is no table. A name it already holds takes no room.
+    /// </summary>
+    int ParticleSystemRoom();
+
     /// <inheritdoc cref="EngineSide.PrecacheSound"/>
     void PrecacheSound(string soundName);
 

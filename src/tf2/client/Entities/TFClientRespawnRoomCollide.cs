@@ -29,12 +29,13 @@ namespace TF2.Client.Entities;
 public sealed class TFClientRespawnRoomCollide(IClientStandalones standalones, ITFRoundStateView rounds)
     : IEntityCollideRule, IOrderedHook
 {
-    /// <summary>The server's arm's place (<c>TFRespawnRoomCollide.Order</c>). Registered
+    /// <summary>Beside the server's arm (<c>TFRespawnRoomCollide.Order</c>, +945): TF2's
+    /// orders are unique across both sides, and +946 is free. Registered
     /// under its own type, as that arm is, so the <see cref="IHooks{T}"/> chain of
     /// <see cref="IEntityCollideRule"/> collects it by assignability: a second
     /// registration AS the interface beside TFClientTeamCollide's is refused at
     /// composition ("registered twice"), and the client side does not load.</summary>
-    public const int Order = 1_000_000 - 1_000 + 945;
+    public const int Order = 1_000_000 - 1_000 + 946;
 
     public int HookOrder => Order;
 

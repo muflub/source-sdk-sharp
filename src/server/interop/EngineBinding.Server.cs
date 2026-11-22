@@ -2329,6 +2329,18 @@ internal sealed unsafe partial class EnginePrecache
         return index >= 0 ? index : 0;
     }
 
+    /// <summary>The capacity shell_stringtables.cpp creates ParticleEffectNames with: stock's
+    /// MAX_PARTICLESYSTEMS_STRINGS (networkstringtable_gamedll.h:31-32), and live TF2's
+    /// server.so passes the same 0x2000.</summary>
+    public const int MaxParticleSystemStrings = 1 << 13;
+
+    public int ParticleSystemRoom()
+    {
+        int table = Tables.Find("ParticleEffectNames");
+        int stored = table >= 0 ? Tables.GetNumStrings(table) : -1;
+        return stored >= 0 ? Math.Max(0, MaxParticleSystemStrings - stored) : 0;
+    }
+
     public int PrecacheModel(string model) => E.PrecacheModel(model);
 
     /// <summary>A decal's index, precached through the engine; -1 for none.</summary>

@@ -285,13 +285,14 @@ public static class ClientUi
         // one window, over the engine's convars, console and lists.
         var convarStore = new EngineConVarStore(services.Require<IEngineConsole>());
         var commandLine = new EngineCommandLine(engine);
+        var consoleNames = new EngineConsoleNames(services.Require<IEngineConsole>());
         var optionsFiles = new EngineOptionsFiles(services.Require<IFwdBaseFileSystem>());
         string gameInfoPath = Path.Combine(mod.GameDir, "gameinfo.txt");
         // THE CREATE-SERVER WINDOW (plan_gameui_managed.md G3): the maps, the
         // mod's server script, and stock's start sequence.
         var createServer = new CreateServer(windows,
             new EngineMapList(services.Require<IFwdFileFinder>(), File.Exists(gameInfoPath) ? File.ReadAllText(gameInfoPath) : null),
-            new ServerSettingsSource(optionsFiles, convarStore, commandLine), new CreateServerActions(commandLine),
+            new ServerSettingsSource(optionsFiles, convarStore, commandLine, consoleNames), new CreateServerActions(commandLine),
             UiModScreens.Pages(services, modAssemblies, windows), services.Require<ICatalogSource>());
         // THE SERVER BROWSER (plan_gameui_managed.md G3): A2S over the client's
         // datagram transport for LAN, favourites, history and players; Steam's
@@ -311,7 +312,7 @@ public static class ClientUi
                              convarStore, commandLine),
             new VoiceOptions(windows, convarStore, new EngineMicrophone(services.Require<IVoiceTweakControls>())),
             new MultiplayerOptions(convarStore, commandLine, new EngineFileList(services.Require<IFwdFileFinder>()),
-                                   new OptionsScriptSource(optionsFiles, convarStore, commandLine)),
+                                   new OptionsScriptSource(optionsFiles, convarStore, commandLine, consoleNames)),
             new AdvancedOptions(windows, convarStore, services.Require<IAdminKeySource>()),
         ]);
         UiScreen[] menuScreens =

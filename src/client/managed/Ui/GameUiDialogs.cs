@@ -34,6 +34,10 @@ public sealed class GameUiLoading(IUiLocalisation localise, IFwdEngineClient eng
 
     public bool Showing { get; private set; }
 
+    /// <summary>Whether a level is loading, from OnLevelLoadingStarted to OnLevelLoadingFinished, with
+    /// the progress dialog or without (stock CBasePanel's m_bLevelLoading).</summary>
+    public bool Loading => _loading;
+
     /// <summary>Whether a load, or what it failed with, has the screen: the console stays open, unseen.</summary>
     public bool CoversConsole => _loading || _message is not null;
 

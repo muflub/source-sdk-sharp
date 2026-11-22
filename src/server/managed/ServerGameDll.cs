@@ -977,15 +977,15 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
             IEnginePrecache precache = ParticlePrecache
                 ?? throw new InvalidOperationException("ServerGameDll.ParticlePrecache was never set; "
                                                        + always.Count + " particle system(s) to precache");
-            foreach (string name in always)
-            {
-                precache.PrecacheParticleSystem(name);
-                // The marker PrecacheStandardParticleSystems logged, same text,
-                // so tools/novalve-snapshot --diff holds this list to the one
-                // the native manager produced.
-                if (snapshot)
-                    _log.Msg($"[novalve-snapshot:particle-precache] {name}\n");
-            }
+            // The marker PrecacheStandardParticleSystems logged, same text, so
+            // tools/novalve-snapshot --diff holds this list to the one the
+            // native manager produced: every name asked for, fitted or not.
+            Action<string>? marker = snapshot ? name => _log.Msg($"[novalve-snapshot:particle-precache] {name}\n") : null;
+            var fit = ParticleManifest.PrecacheWithinRoom(precache, always, marker);
+            if (fit.LeftOut > 0)
+                _log.Msg($"[SourceSharp/Server] particle precache: {fit.Added} of {always.Count} always-precache system(s) added; "
+                         + $"{fit.LeftOut} left out, ParticleEffectNames being full ({ParticleManifest.MaxParticleSystemStrings - precache.ParticleSystemRoom()} "
+                         + $"of {ParticleManifest.MaxParticleSystemStrings}, stock's size: live TF2 leaves the same ones out)\n");
         }
 
         if (snapshot)

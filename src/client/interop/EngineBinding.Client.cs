@@ -1676,6 +1676,7 @@ internal sealed unsafe partial class EnginePrecache
     public void PrecacheMaterial(string material) { }
     public void PrecacheParticleSystem(string name) { }
     public int ParticleSystemIndex(string name) => 0;
+    public int ParticleSystemRoom() => 0;
     public int PrecacheModel(string model) => -1;
     public void PrecacheSound(string soundName) { }
     public void PrecacheScriptSound(string soundName) { }

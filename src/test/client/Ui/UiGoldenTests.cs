@@ -145,6 +145,11 @@ public class UiGoldenTests
         // of the core's create-server window at its defaults, and with custom
         // bots (a saved one, one the server names, Expert's full spend)
         // beside two Easy preset bots.
+        // The toolkit's dropdown open (2026-11-15, the user's map picker): the
+        // map list as a bounded, scrolling box under its field with the chosen
+        // map in view, and filtered by what was typed into the field.
+        { "createserver", "map-list-open" },
+        { "createserver", "map-list-filtered" },
         { "createserver-botspage", "default" },
         { "createserver-botspage", "with-custom-bots" },
         // The bot editor: mid-edit with points left, the whole pool spent

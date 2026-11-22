@@ -95,6 +95,25 @@ public sealed partial class UiContext
         n.ScrollOffsetX = st.ShownX;
     }
 
+    /// <summary>
+    /// Scrolls <paramref name="region"/> (before it is described this frame) so
+    /// its content from <paramref name="topDu"/> to <paramref name="bottomDu"/>
+    /// is inside a view <paramref name="viewDu"/> tall, by the least move;
+    /// <paramref name="instant"/> lands there without easing (a list that opens
+    /// on its chosen row).
+    /// </summary>
+    internal void RevealInScroll(uint region, float topDu, float bottomDu, float viewDu, bool instant)
+    {
+        ref var st = ref State<ScrollState>(region);
+        if (bottomDu > st.Target + viewDu)
+            st.Target = bottomDu - viewDu;
+        if (topDu < st.Target)
+            st.Target = topDu;
+        st.Target = MathF.Max(0f, st.Target);
+        if (instant)
+            st.Shown = st.Target;
+    }
+
     // ---- emit: the bar, focus, reveal ----
 
     private int[] _scrollStack = new int[8];

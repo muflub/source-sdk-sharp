@@ -29,12 +29,14 @@ public class PlayerProxyEyesTests
     }
 
     private static (PlayerProxyEyes Eyes, Directory St, ViewReadout View) Eyes(int local = 1)
+        => Eyes(Fake(), local);
+
+    private static (PlayerProxyEyes Eyes, Directory St, ViewReadout View) Eyes(RecordingEngine engine, int local = 1)
     {
-        var engine = Fake();
         engine.Returns("Hud.LocalPlayerIndex", local);
         var st = new Directory();
         var view = new ViewReadout();
-        return (new PlayerProxyEyes(st, engine, view), st, view);
+        return (new PlayerProxyEyes(st, engine, view, engine), st, view);
     }
 
     private static ClientSsPlayer Player(int index, Vector velocity = default)
@@ -125,5 +127,40 @@ public class PlayerProxyEyesTests
 
         Assert.Equal(50f, eyes.EntitySpeed(2));
         Assert.Null(eyes.EntitySpeed(9));
+    }
+
+    /// <summary>
+    /// WorldSpaceCenter's offset is the model box's centre turned with the
+    /// entity: a box centred 50 forward and 10 up, yawed 90, sits 50 along +Y.
+    /// </summary>
+    [Fact]
+    public void TheCentreOffsetIsTheModelBoxCentreTurnedWithTheEntity()
+    {
+        var engine = Fake();
+        engine.Returns("WorldQuery.ClientEntityModelBounds", true);
+        engine.Returns("WorldQuery.ClientEntityModelBounds.Mins", new Vector(0f, -10f, 0f));
+        engine.Returns("WorldQuery.ClientEntityModelBounds.Maxs", new Vector(100f, 10f, 20f));
+        engine.Returns("WorldQuery.ClientEntityModelBounds.Angles", new Vector(0f, 90f, 0f));
+        var (eyes, _, _) = Eyes(engine);
+
+        Vector offset = eyes.CentreOffset(7)!.Value;
+
+        Assert.Equal(0f, offset.X, 3);
+        Assert.Equal(50f, offset.Y, 3);
+        Assert.Equal(10f, offset.Z, 3);
+    }
+
+    /// <summary>No model answers: no offset, and the proximity measures from the origin.</summary>
+    [Fact]
+    public void TheCentreOffsetIsNullWhenNoModelAnswers()
+    {
+        var engine = Fake();
+        engine.Returns("WorldQuery.ClientEntityModelBounds", false);
+        engine.Returns("WorldQuery.ClientEntityModelBounds.Mins", Vector.Zero);
+        engine.Returns("WorldQuery.ClientEntityModelBounds.Maxs", Vector.Zero);
+        engine.Returns("WorldQuery.ClientEntityModelBounds.Angles", Vector.Zero);
+        var (eyes, _, _) = Eyes(engine);
+
+        Assert.Null(eyes.CentreOffset(7));
     }
 }

@@ -320,6 +320,29 @@ public sealed class EngineOptionsFiles(IFwdBaseFileSystem files) : IOptionsFiles
 }
 
 /// <summary>
+/// The names this client's console holds, convars and commands alike: a
+/// console line whose first word is none of them is forwarded to the server
+/// as a string command (Cmd_ExecuteCommand).
+/// </summary>
+public interface IConsoleNames
+{
+    /// <summary>The names held now, case-insensitive as the console's lookup is.</summary>
+    IReadOnlySet<string> Held();
+}
+
+/// <summary><see cref="IConsoleNames"/> over one walk of the engine's registry: its own names and both DLLs'.</summary>
+public sealed class EngineConsoleNames(IEngineConsole console) : IConsoleNames
+{
+    public IReadOnlySet<string> Held()
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in NativeConsole.Snapshot(console))
+            names.Add(entry.Name);
+        return names;
+    }
+}
+
+/// <summary>
 /// An options script over the game's files and convars: its defaults file,
 /// then the user's over it, then (when <paramref name="takeCurrentValues"/>)
 /// each convar's value. Saved, every entry's line runs and the script is
@@ -328,6 +351,7 @@ public sealed class EngineOptionsFiles(IFwdBaseFileSystem files) : IOptionsFiles
 /// convars into.
 /// </summary>
 public class OptionsScriptSource(IOptionsFiles files, IUiConVarStore convars, IUiCommandLine commands,
+                                 IConsoleNames consoleNames,
                                  string defaultFile = OptionsScriptSource.DefaultFile,
                                  string userFile = OptionsScriptSource.UserFile,
                                  string description = OptionsScriptSource.Description,
@@ -348,10 +372,23 @@ public class OptionsScriptSource(IOptionsFiles files, IUiConVarStore convars, IU
         return script.Entries();
     }
 
+    /// <summary>
+    /// Runs each entry's line and writes the user's script. An entry naming
+    /// no convar or command of this client's console runs no line: the engine
+    /// forwards an unknown console line to the server as a string command
+    /// (Cmd_ExecuteCommand), and a server drops a client past 40 of those a
+    /// second (engine.so's sv_quota_stringcmdspersecond). Stock's client
+    /// declared every entry of its script, so its lines stayed local; TF2's
+    /// script names some seventy settings this client has not ported. A
+    /// SetInfo entry still runs: setinfo is the client's own command. Every
+    /// value is written to the user's script either way.
+    /// </summary>
     public void Save(IReadOnlyList<UiScriptEntry> entries, IReadOnlyList<string> values)
     {
+        var held = consoleNames.Held();
         for (int i = 0; i < entries.Count; i++)
-            if (OptionsScript.ConfigLine(entries[i], values[i]) is { } line)
+            if ((entries[i].SetInfo || held.Contains(entries[i].Name))
+                && OptionsScript.ConfigLine(entries[i], values[i]) is { } line)
                 commands.Submit(line);
         files.WriteAll(userFile, Encoding.UTF8.GetBytes(OptionsScript.Write(description, entries, values)));
     }
@@ -369,8 +406,9 @@ public class OptionsScriptSource(IOptionsFiles files, IUiConVarStore convars, IU
 /// two files, never the convars' values: the page starts from what was last
 /// saved, not from the server last run.
 /// </summary>
-public sealed class ServerSettingsSource(IOptionsFiles files, IUiConVarStore convars, IUiCommandLine commands)
-    : OptionsScriptSource(files, convars, commands, ServerDefaultFile, ServerUserFile, ServerDescription, takeCurrentValues: false),
+public sealed class ServerSettingsSource(IOptionsFiles files, IUiConVarStore convars, IUiCommandLine commands,
+                                         IConsoleNames consoleNames)
+    : OptionsScriptSource(files, convars, commands, consoleNames, ServerDefaultFile, ServerUserFile, ServerDescription, takeCurrentValues: false),
       IServerSettingsSource
 {
     public const string ServerDefaultFile = "cfg/settings_default.scr", ServerUserFile = "cfg/settings.scr",

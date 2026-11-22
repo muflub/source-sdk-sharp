@@ -214,6 +214,9 @@ public class SideAuditTests
         "ClientClipRayToEntities",
         // The predicted swing's hull, for the same reason as the clip above.
         "ClientTraceHullEntities",
+        // The predicted movement's solid entities and their clip: only the
+        // client predicts a move, and only its shells are outside a partition.
+        "ClientSolidEntities", "ClientClipHullToEntities",
 
         // The defect-skybox lane. What 3D skybox the viewer is shown, and the
         // OTHER END of SetSkyboxParams -- which is server-only for the mirror

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 using SourceSharp.Abi;
@@ -292,5 +293,70 @@ public class ParticleManifestTests
         m.Clear();
         Assert.Empty(m.Definitions);
         Assert.Empty(m.AlwaysPrecache());
+    }
+    // ---- the precache within the table's room ------------------------------
+
+    /// <summary>A precache seam whose room answers <paramref name="rooms"/> in turn and whose table holds nothing yet.</summary>
+    private static RecordingEngine Room(params int[] rooms)
+    {
+        var queue = new Queue<int>(rooms);
+        return new RecordingEngine()
+            .ReturnsEachCall("Precache.ParticleSystemRoom", () => queue.Count > 1 ? queue.Dequeue() : queue.Peek())
+            .Returns("Precache.ParticleSystemIndex", 0);
+    }
+
+    private static string[] Precached(RecordingEngine engine)
+        => engine.Calls.Where(c => c.Member == "Precache.PrecacheParticleSystem").Select(c => c.ArgAs<string>(0)).ToArray();
+
+    /// <summary>
+    /// TF2's manifest asks for 9,199 always-precache names of a table of 8192 (stock's,
+    /// and live TF2's): the ones past its room went to the engine, which refused each
+    /// with a "full" line, two per name a load. They are counted instead.
+    /// </summary>
+    [Fact]
+    public void NamesPastTheTablesRoomAreCountedNotHandedToTheEngine()
+    {
+        var engine = Room(2, 0);
+        var heard = new List<string>();
+
+        var fit = ParticleManifest.PrecacheWithinRoom(engine, new[] { "a", "b", "c", "d" }, heard.Add);
+
+        Assert.Equal(new[] { "a", "b" }, Precached(engine));
+        Assert.Equal((2, 2), fit);
+        Assert.Equal(new[] { "a", "b", "c", "d" }, heard);
+    }
+
+    [Fact]
+    public void ANameTheTableAlreadyHeldLeavesItsRoomForTheNext()
+    {
+        // Room for two; "a" was already there, so after two adds the table still has one.
+        var engine = Room(2, 1, 0);
+
+        var fit = ParticleManifest.PrecacheWithinRoom(engine, new[] { "a", "b", "c", "d" });
+
+        Assert.Equal(new[] { "a", "b", "c" }, Precached(engine));
+        Assert.Equal((3, 1), fit);
+    }
+
+    [Fact]
+    public void ANamePastTheRoomThatTheTableHoldsIsNotLeftOut()
+    {
+        var engine = Room(1, 0).Returns("Precache.ParticleSystemIndex", 7);
+
+        var fit = ParticleManifest.PrecacheWithinRoom(engine, new[] { "a", "b" });
+
+        Assert.Equal(new[] { "a" }, Precached(engine));
+        Assert.Equal((1, 0), fit);
+    }
+
+    [Fact]
+    public void WithRoomForAllEveryNameIsPrecachedInOrder()
+    {
+        var engine = Room(8191);
+
+        var fit = ParticleManifest.PrecacheWithinRoom(engine, new[] { "a", "b", "c" });
+
+        Assert.Equal(new[] { "a", "b", "c" }, Precached(engine));
+        Assert.Equal((3, 0), fit);
     }
 }

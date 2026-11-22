@@ -452,7 +452,10 @@ public partial class EngineApiCensusTests
     // The statue's material (gold, ice): EntitySetMaterialOverride, the named
     // material a client ragdoll is drawn in, beside its model override
     // (264 + 1 = 265).
-    private const int ClientOnly = 265;
+    // The prediction's entity clip: ClientSolidEntities, the solid partition the
+    // shells are not in, and ClientClipHullToEntities, a movement hull clipped
+    // against the entities managed chose (265 + 2 = 267).
+    private const int ClientOnly = 267;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).

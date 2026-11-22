@@ -597,6 +597,22 @@ public sealed partial class UiContext
     /// </summary>
     public float ChromeBandDu { get; set; }
 
+    /// <summary>
+    /// The band (du) along the screen's bottom a popup keeps clear of: the
+    /// chrome's (the taskbar's) while it is up, for a window's popups too, which
+    /// the window's own band (<see cref="ChromeBandDu"/>, zero) does not cover.
+    /// </summary>
+    public float PopupBandDu { get; set; }
+
+    /// <summary>Where a popup (a dropdown's list) may go, px: the safe area above the chrome's band.</summary>
+    internal UiRect PopupArea()
+    {
+        var s = Screen;
+        float band = MathF.Max(ChromeBandDu, PopupBandDu);
+        return new UiRect(s.Safe.Left, s.Safe.Top, s.W - s.Safe.Left - s.Safe.Right,
+                          MathF.Max(0f, s.H - s.Safe.Top - s.Safe.Bottom - band * s.Scale));
+    }
+
     private UiRect FullScreen() => new(0, 0, Screen.W, Screen.H);
 
     private uint[] _keyedIds = new uint[64];

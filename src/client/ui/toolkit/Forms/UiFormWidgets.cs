@@ -7,7 +7,7 @@ namespace SourceSharp.Client.Ui.Toolkit;
 /// value it shows and answers the value after this frame's input. They hold no
 /// value of their own; what is open (a choice's list) is keyed state.
 /// </summary>
-public static class UiFormWidgets
+public static partial class UiFormWidgets
 {
     /// <summary>
     /// A slider: a track, a fill and a thumb. Pressed, it follows the mouse
@@ -123,64 +123,6 @@ public static class UiFormWidgets
         if (step > 0)
             value = min + MathF.Round((value - min) / step) * step;
         return Math.Clamp(value, min, max);
-    }
-
-    /// <summary>
-    /// A choice: the chosen name in a field with a chevron; clicked, a list of
-    /// every choice opens under it, and clicking one chooses it and closes.
-    /// The names are data (shown as they are); with <paramref name="tokens"/>
-    /// a name starting with # is a token (localised, as copy), so one list can
-    /// hold both (a "random map" token above the maps' names).
-    /// </summary>
-    public static int Choice<TNames>(this ref UiFrame ui, string key, int chosen, int count, TNames names, bool tokens = false)
-        where TNames : IUiChoiceNames
-    {
-        ref bool open = ref ui.State<bool>(key);
-        var field = ui.Row(Space.S).Key(key).Size(Size.Fill, Size.Du(40)).Fill(Tone.Surface).Round(Radius.M)
-                      .Border(open ? Tone.Accent : Tone.Line, open ? 2 : 1).Pad(Space.M, Space.None);
-        if (ui.Interact(field).Clicked)
-            open = !open;
-        using (field)
-        {
-            if (count == 0)
-                ui.Text("#SS_UI_Choice_None", Text.Body, Tone.TextMuted);
-            else if (tokens && names.Name(chosen).StartsWith('#'))
-                ui.Text(names.Name(chosen), Text.Body, Tone.Text);
-            else
-                ui.Data(names.Name(chosen), Text.Body);
-            ui.Flex();
-            ui.Shape(open ? UiShape.ChevronUp : UiShape.ChevronDown, Tone.TextMuted, 12);
-        }
-
-        if (!open)
-            return chosen;
-
-        using (ui.Overlay("choice-list").AnchorTo(field, UiAnchor.BottomLeft, UiAnchor.TopLeft).Inset(Space.None, Space.XS))
-        using (ui.Column(Space.None).Width(Size.Du(240)).Fill(Tone.Surface).Round(Radius.M)
-                 .Border(Tone.Line, 1).Raise(Elevation.Overlay).Pad(Space.XS))
-        {
-            for (int i = 0; i < count; i++)
-            {
-                var row = ui.Row(Space.M).Key(i).Size(Size.Fill, Size.Du(32)).Pad(Space.S, Space.None).Round(Radius.S)
-                            .Fill(i == chosen ? Tone.SurfaceRaised : Tone.None);
-                var hit = ui.Interact(row);
-                using (row)
-                {
-                    if (tokens && names.Name(i).StartsWith('#'))
-                        ui.Text(names.Name(i), Text.Body, i == chosen ? Tone.Accent : Tone.Text);
-                    else
-                        ui.Data(names.Name(i), Text.Body, i == chosen ? Tone.Accent : Tone.Text);
-                }
-                if (hit.Clicked)
-                {
-                    chosen = i;
-                    open = false;
-                }
-            }
-        }
-        if (ui.ConsumeKey((int)UiKey.Escape))
-            open = false;
-        return chosen;
     }
 
     /// <summary>

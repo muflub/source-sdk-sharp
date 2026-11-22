@@ -10,11 +10,12 @@ namespace SourceSharp.Tests;
 /// ABI's own fact. 31 since the screen-overlay pair: the condition arms set the
 /// full-screen material by name and read the standing one's name back
 /// (ScreenOverlaySet, ScreenOverlayGet), after the hull trace against named
-/// entities.
+/// entities. 33 since the prediction's entity clip (ClientSolidEntities,
+/// ClientClipHullToEntities).
 /// </summary>
 public class ViewClientAreaSlotsTests
 {
     [Fact]
-    public void TheViewClientTableCarriesTheOverlaySlots()
-        => Assert.Equal(31, Forwarders.SlotCount<ShimViewClientFwd>());
+    public void TheViewClientTableCarriesTheEntityClipSlots()
+        => Assert.Equal(33, Forwarders.SlotCount<ShimViewClientFwd>());
 }

@@ -497,6 +497,7 @@ public sealed class RecordingEngine :
     void IEnginePrecache.PrecacheMaterial(string material) => RecordVoid("Precache.PrecacheMaterial", material);
     void IEnginePrecache.PrecacheParticleSystem(string name) => RecordVoid("Precache.PrecacheParticleSystem", name);
     int IEnginePrecache.ParticleSystemIndex(string name) => Record<int>("Precache.ParticleSystemIndex", name);
+    int IEnginePrecache.ParticleSystemRoom() => Record<int>("Precache.ParticleSystemRoom");
     int IEnginePrecache.PrecacheModel(string model) => Record<int>("Precache.PrecacheModel", model);
     int IEnginePrecache.ModelFrameCount(int modelIndex) => Record<int>("Precache.ModelFrameCount", modelIndex);
 

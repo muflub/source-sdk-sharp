@@ -433,6 +433,61 @@ public class UiMenuHostTests
         }
     }
 
+    /// <summary>A window holding a dropdown whose list it opens on its first frame.</summary>
+    private sealed class ChoiceWin(UiWindows windows) : UiScreen, IUiWindowed
+    {
+        private static readonly string[] Names = ["a", "b", "c"];
+        private bool _opened;
+
+        public override string Name => "choicewin";
+
+        public string WindowId => "choicewin";
+
+        public int Chosen { get; private set; } = 1;
+
+        public override void Describe(ref UiFrame ui)
+        {
+            using (ui.Window(windows, WindowId, "#SS_UI_Console_Title", new UiWindowSpec(600, 400, 300, 200, 1000, 800, 500)))
+            {
+                if (!_opened)
+                    ui.OpenChoice("pick", Chosen);
+                _opened = true;
+                Chosen = ui.Choice("pick", Chosen, Names.Length, new UiChoiceList(Names));
+            }
+        }
+    }
+
+    /// <summary>
+    /// An open dropdown list holds the keyboard: Escape closes the list and leaves
+    /// its window up; the next Escape closes the window. Before, the host spent
+    /// the first press on the window and the list went with it.
+    /// </summary>
+    [Fact]
+    public void Escape_over_an_open_dropdown_closes_the_list_and_not_its_window()
+    {
+        var surface = new UiFidelityTests.RecordingSurface();
+        var m = UiHostKit.Build(surface, []).Menus;
+        var windows = new UiWindows(new MemoryWindowStore());
+        var win = new ChoiceWin(windows);
+        float seconds = 3;
+        var engine = TestServices.Fake().ReturnsEachCall("Clock.Now", () => seconds += 1);
+        var host = UiHostKit.Build(surface, [], [win], m, engine, windows: windows);
+        host.Open("choicewin");
+        host.Paint(1, 1920, 1080);
+        host.Paint(1, 1920, 1080);
+        Assert.True(host.Menu.Context.PopupHoldsKeys);
+
+        host.Input((int)UiInputKind.Key, 0, 0, (int)UiKey.Escape, 0, 0f);
+        host.Paint(1, 1920, 1080);
+        Assert.True(host.Menu.IsOpen("choicewin"));
+        Assert.False(host.Menu.Context.PopupHoldsKeys);         // the list closed
+        Assert.Equal(1, win.Chosen);
+
+        host.Input((int)UiInputKind.Key, 0, 0, (int)UiKey.Escape, 0, 0f);
+        host.Paint(1, 1920, 1080);
+        Assert.False(host.Menu.IsOpen("choicewin"));
+    }
+
     /// <summary>
     /// Two windows up: each Escape closes one, the top first, and only once none
     /// is open does the next open the pause menu (plan_descent_logic L8). The
