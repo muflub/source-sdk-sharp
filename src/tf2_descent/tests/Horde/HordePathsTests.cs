@@ -133,6 +133,33 @@ public sealed class HordePathsTests(ITestOutputHelper output)
         Assert.Equal(1, paths.Nearest);
     }
 
+    /// <summary>
+    /// The same answer where a floor really is cut (<see cref="CutFloorLevel"/>: a corridor 80 wide
+    /// that a giant of 1.9, 92 wide, does not go through): asked for the far room's end, the giant
+    /// is led to the place of its own floor nearest the goal, on that floor and nearer the goal than
+    /// it stands, to hold there.
+    /// </summary>
+    [Fact]
+    public void A_giant_asked_for_a_room_beyond_a_corridor_narrower_than_its_hull_is_led_to_the_nearest_place_of_its_floor()
+    {
+        using var paths = new HordePaths();
+        paths.Ready(CutFloorLevel.Nav, CutFloorLevel.Level);
+        var nav = CutFloorLevel.Nav;
+        AiVector from = CutFloorLevel.Near, goal = CutFloorLevel.Far;
+        Assert.True(CutFloorLevel.Stands(goal, ClearanceClass.Hull5), "the giant's class holds no cell at the goal");
+        Assert.Equal(PathAnswer.Found, Find(paths, from, goal, ClearanceClass.Stand).Answer);
+
+        var (answer, corners, _, _) = Find(paths, from, goal, ClearanceClass.Hull5);
+
+        Assert.Equal(PathAnswer.Nearest, answer);
+        Assert.NotEmpty(corners);
+        var end = corners[^1];
+        var held = nav.CellAt(end, ClearanceClass.Hull5);
+        Assert.True(held.IsValid && nav.Joined(nav.CellAt(from, ClearanceClass.Hull5), held, ClearanceClass.Hull5), $"the hold at {end} is off the giant's floor");
+        Assert.True((end - goal).Length2D < (from - goal).Length2D - 500f, $"the hold at {end} is no nearer the goal {goal} than {from}");
+        Assert.Equal(1, paths.Nearest);
+    }
+
     [Fact]
     public void A_search_that_needs_more_cells_than_its_budget_is_answered_out_of_budget()
     {

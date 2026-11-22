@@ -31,8 +31,11 @@ public sealed partial class ServiceFlowTests
         if (depth == 0)
             level.Current = null;
         messages = new ClientMessages(net);
+        var reached = new ReachedDepths(level, new TF2.Descent.Server.Hero.Heroes(),
+                                        new TF2.Descent.Server.Hero.HeroSheets(new TF2.Descent.Rules.TF2DescentRules(), w.Host, new FakeClients(), w.Log),
+                                        players, w.Host, w.Log);
         var travel = new TravelService(w.Link, w.Host, players, messages, new Kills(), new AnyoneTravels(),
-                                       level, hop, w.Console, w.Log);
+                                       level, hop, reached, w.Console, w.Log);
         return (travel, w.Console, net, game);
     }
 
@@ -76,9 +79,31 @@ public sealed partial class ServiceFlowTests
     }
 
     [Fact]
-    public void Unhosted_a_levels_way_up_changes_level_to_the_town()
+    public void Unhosted_a_levels_way_up_changes_level_to_the_level_above()
     {
-        var (travel, console, net, game) = UnhostedTravel(out var messages, 5, "tf2_descent-4-s1");
+        var (travel, console, net, game) = UnhostedTravel(out var messages, 2, "tf2_descent-1-s4", "tf2_descent-1-s1", "tf2_descent-3-s1");
+        try
+        {
+            travel.Request(3, TravelDirection.Up);
+            var before = NoticesSent(net);
+            messages.LevelBegan();
+            messages.SendArrivalNotices(3);
+
+            Assert.Equal(["exec changelevel tf2_descent-1-s1"], console.Calls.Where(c => c.StartsWith("exec changelevel", StringComparison.Ordinal)));
+            // Its line goes on the level above (F28).
+            Assert.Empty(before);
+            Assert.Equal([(TravelService.UpLevelToken, "")], NoticesSent(net));
+        }
+        finally
+        {
+            Directory.Delete(game, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Unhosted_level_1s_way_up_changes_level_to_the_town()
+    {
+        var (travel, console, net, game) = UnhostedTravel(out var messages, 1, "tf2_descent-1-s1", "tf2_descent-2-s1");
         try
         {
             travel.Request(3, TravelDirection.Up);
@@ -90,6 +115,23 @@ public sealed partial class ServiceFlowTests
                          console.Calls.Where(c => c.StartsWith("exec changelevel", StringComparison.Ordinal)));
             Assert.Empty(before);
             Assert.Equal([(TravelService.UpToken, "")], NoticesSent(net));
+        }
+        finally
+        {
+            Directory.Delete(game, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Unhosted_a_levels_way_up_with_no_level_above_tells_the_hero_and_stays()
+    {
+        var (travel, console, net, game) = UnhostedTravel(5, "tf2_descent-5-s1", "tf2_descent-3-s1");
+        try
+        {
+            travel.Request(3, TravelDirection.Up);
+
+            Assert.DoesNotContain(console.Calls, c => c.StartsWith("exec changelevel", StringComparison.Ordinal));
+            Assert.Equal([(TravelService.NoLevelUpToken, "4")], NoticesSent(net));
         }
         finally
         {

@@ -4,10 +4,12 @@ namespace TF2.Descent.Server;
 
 /// <summary>
 /// Which way a transition moves the player (map-tools' TransitionDirection).
-/// <see cref="Corpse"/> is D-H16's way back to where the character died
-/// (plan_descent_death §4 M1: <c>Travel.ReturnToCorpse</c>).
+/// <see cref="Up"/> is a level's way up: to the depth above, and from level 1 to the town
+/// (<see cref="TravelService.UpFrom"/>). <see cref="Corpse"/> is D-H16's way back to where the
+/// character died (plan_descent_death §4 M1: <c>Travel.ReturnToCorpse</c>). <see cref="Portal"/>
+/// is the town portal (WO4): to the town from any depth.
 /// </summary>
-public enum TravelDirection { Down, Up, Corpse }
+public enum TravelDirection { Down, Up, Corpse, Portal }
 
 /// <summary>What a travel request came to, for the game thread.</summary>
 public sealed record TravelAnswer(TravelState State, TimeSpan Eta, string Reason);
@@ -21,8 +23,12 @@ public sealed partial class HostLink
     /// Which call a request makes, and to what depth: from the hub, down is
     /// RequestDescent to <paramref name="depth"/> (the picked one, which the
     /// caller has checked); on a level, down is StairsDown to the next depth
-    /// whatever <paramref name="depth"/> says, and up is the town portal (the
-    /// SDK has no stairs up).
+    /// whatever <paramref name="depth"/> says. A level's way up goes to the
+    /// depth above (<see cref="TravelService.UpFrom"/>): the SDK has no stairs
+    /// up, so it is StairsDown to that depth (the host allows any depth up to
+    /// one below the leader's reached, and its level claim brings the party
+    /// back to the same level copy); from level 1 it is the town portal, as
+    /// the portal itself is.
     /// </summary>
     internal static (TravelCall Call, int Depth) Route(TravelDirection direction, BootInfo boot, int depth)
     {
@@ -30,6 +36,8 @@ public sealed partial class HostLink
         return direction switch
         {
             TravelDirection.Corpse => (TravelCall.ReturnToCorpse, 0),
+            TravelDirection.Portal => (TravelCall.TownPortal, 0),
+            TravelDirection.Up when !hub && TravelService.UpFrom(boot.Depth) > 0 => (TravelCall.StairsDown, TravelService.UpFrom(boot.Depth)),
             TravelDirection.Up => (TravelCall.TownPortal, 0),
             _ => hub ? (TravelCall.RequestDescent, depth) : (TravelCall.StairsDown, boot.Depth + 1),
         };

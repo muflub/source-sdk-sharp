@@ -29,6 +29,7 @@ public sealed class TravelService(
     Party.IPartyTravel party,
     Level.ILevelData level,
     LevelHop hop,
+    ReachedDepths reached,
     IServerConsole console,
     ILog log)
 {
@@ -44,8 +45,11 @@ public sealed class TravelService(
     /// <summary>The host refused the travel; the argument is its reason.</summary>
     public const string RefusedToken = "#Descent_Travel_Refused";
 
-    /// <summary>On the way up, through the town portal.</summary>
+    /// <summary>On the way up to the town: through the town portal, or level 1's way up.</summary>
     public const string UpToken = "#Descent_Travel_Up";
+
+    /// <summary>On a level's way up to the level above it (the depth before, arriving at its way down).</summary>
+    public const string UpLevelToken = "#Descent_Travel_UpLevel";
 
     /// <summary>On the way back to where the character died.</summary>
     public const string CorpseToken = "#Descent_Travel_Corpse";
@@ -53,11 +57,13 @@ public sealed class TravelService(
     /// <summary>
     /// The notice for travel that started: going down, the way down it takes
     /// (<see cref="WaysDown"/>: from the town to the picked depth, from a
-    /// level out of it); up and back to a corpse, their own.
+    /// level out of it); a level's way up, to the level above or from level 1 to the town; the
+    /// portal and back to a corpse, their own.
     /// </summary>
     public static string StartedToken(TravelDirection direction, BootInfo boot, int depth) => direction switch
     {
-        TravelDirection.Up => UpToken,
+        TravelDirection.Up => !IsHub(boot) && UpFrom(boot.Depth) > 0 ? UpLevelToken : UpToken,
+        TravelDirection.Portal => UpToken,
         TravelDirection.Corpse => CorpseToken,
         _ => WaysDown.Token(IsHub(boot) ? WaysDown.FromTown(depth) : WaysDown.FromLevel(boot.Depth)),
     };
@@ -110,38 +116,51 @@ public sealed class TravelService(
     /// <summary>The notice for a way down with no level installed below (unhosted); the argument is the depth.</summary>
     public const string NoLevelToken = "#Descent_Travel_NoLevel";
 
+    /// <summary>The notice for a way up with no level installed above (unhosted); the argument is the depth.</summary>
+    public const string NoLevelUpToken = "#Descent_Travel_NoLevelUp";
+
+    /// <summary>
+    /// Where a level's way up leads (the user's ruling of 2026-11-15): from depth
+    /// <paramref name="depth"/> to the depth above it, arriving at that level's way down
+    /// (<c>Level.ArrivalSpawns</c>), and from level 1 to the town (0). The town portal is the
+    /// quick way home (<see cref="TravelDirection.Portal"/>).
+    /// </summary>
+    public static int UpFrom(int depth) => Math.Max(depth - 1, 0);
+
     /// <summary>
     /// Unhosted, a level's way down or up (the town's cage and the portal already have theirs):
     /// this process changes level, down to the next depth's installed level
-    /// (<see cref="LevelHop.InstalledLevel"/>), up to the town, and every player in it comes
-    /// along; with no level installed below the hero is told so. Nothing is asked of a host, so
-    /// the answer is always null.
+    /// (<see cref="LevelHop.InstalledLevel"/>), up to the depth above's (<see cref="UpFrom"/>; from
+    /// level 1 the town), and every player in it comes along; with no level installed there the
+    /// hero is told so. Nothing is asked of a host, so the answer is always null.
     /// </summary>
     private TravelAnswer? Unhosted(int entIndex, int depth, TravelDirection direction)
     {
         bool up = direction == TravelDirection.Up;
-        int next = depth + 1;
-        string? map = up ? Portal.PortalRoute.TownMap : hop.InstalledLevel(next);
+        int next = up ? UpFrom(depth) : depth + 1;
+        bool town = up && next == 0;
+        string? map = town ? Portal.PortalRoute.TownMap : hop.InstalledLevel(next);
+        string text = next.ToString(System.Globalization.CultureInfo.InvariantCulture);
         if (map is null)
         {
-            string text = next.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            messages.Notice(entIndex, NoLevelToken, text);
-            log.Msg($"[TF2Descent] unhosted: player {entIndex} took the way down from depth {depth}, and no level of depth {text} is installed in {hop.PoolMaps}\n");
+            messages.Notice(entIndex, up ? NoLevelUpToken : NoLevelToken, text);
+            log.Msg($"[TF2Descent] unhosted: player {entIndex} took the way {(up ? "up" : "down")} from depth {depth}, and no level of depth {text} is installed in {hop.PoolMaps}\n");
             return null;
         }
 
         // Sent on the next level: a notice sent just before this process's changelevel never reaches the HUD (F28).
-        messages.NoticeAfterArrival(entIndex, up ? UpToken : WaysDown.Token(WaysDown.FromLevel(depth)));
-        log.Msg($"[TF2Descent] unhosted: player {entIndex} goes {(up ? "up" : "down")} from depth {depth}: this process changes level to {map}, and every player in it comes along\n");
+        messages.NoticeAfterArrival(entIndex, town ? UpToken : up ? UpLevelToken : WaysDown.Token(WaysDown.FromLevel(depth)));
+        string to = town ? "the town" : "depth " + text;
+        log.Msg($"[TF2Descent] unhosted: player {entIndex} goes {(up ? "up" : "down")} from depth {depth} to {to}: this process changes level to {map}, and every player in it comes along\n");
         console.Execute($"changelevel {map}");
         return null;
     }
 
     private static bool IsHub(BootInfo boot) => string.Equals(boot.InstanceKind, "hub", StringComparison.Ordinal);
 
-    /// <summary>Whether the town may send <paramref name="player"/> to <paramref name="depth"/>: the cage's levels they have reached, and the camps whose bosses their character has killed.</summary>
+    /// <summary>Whether the town may send <paramref name="player"/> to <paramref name="depth"/>: the cage's levels they have reached (<see cref="ReachedDepths"/>), and the camps whose bosses their character has killed.</summary>
     private bool MayPick(PlayerService.Entry player, int depth)
-        => TownDescents.Destinations(Math.Max(player.ReachedDepth, 0), bossKills.Depths(player.CharacterId)).Contains(depth);
+        => TownDescents.Destinations(reached.Of(player.EntIndex), bossKills.Depths(player.CharacterId)).Contains(depth);
 
     private async Task<TravelAnswer?> Ask(int entIndex, string steamId, TravelDirection direction, BootInfo boot, int depth)
     {

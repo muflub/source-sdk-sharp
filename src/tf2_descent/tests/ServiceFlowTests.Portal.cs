@@ -11,7 +11,7 @@ namespace TF2.Descent.Tests;
 /// <summary>
 /// The town portal's route (plan_descent_logic WO4, <see cref="PortalRoute"/>) over the flows'
 /// recording host link: hosted, up is the travel service's <c>IHostLink.Travel</c> with
-/// <see cref="TravelDirection.Up"/> and back is the host's teleporter anchor; unhosted, both
+/// <see cref="TravelDirection.Portal"/> and back is the host's teleporter anchor; unhosted, both
 /// are this process's level change.
 /// </summary>
 public sealed partial class ServiceFlowTests
@@ -53,7 +53,7 @@ public sealed partial class ServiceFlowTests
 
         Assert.True(trip.Started);
         // The depth is the travel service's default, which the host's town portal never reads.
-        Assert.Contains("travel 76561197960287930 Up level 1", w.Link.Calls);
+        Assert.Contains("travel 76561197960287930 Portal level 1", w.Link.Calls);
     }
 
     [Fact]

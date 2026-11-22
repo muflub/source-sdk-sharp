@@ -106,6 +106,48 @@ public sealed class ArrivalSpawnsTests
     }
 
     [Fact]
+    public void The_levels_way_down_room_has_points_of_its_own_away_from_its_arrival_points()
+    {
+        LevelData level = LevelFixture.Committed().Read();
+        int exit = level.Exit!.Room;
+
+        var below = ArrivalSpawns.WayDownPoints(level);
+
+        Assert.NotEmpty(below);
+        Assert.Equal(LevelRoomRole.Exit, level.Rooms[exit].Role);
+        Assert.All(below, p => Assert.Equal(exit, level.RoomAt(p.Position)));
+        Assert.All(below, p => Assert.DoesNotContain(p.Position, level.Arrivals.Select(a => a.Position)));
+    }
+
+    [Fact]
+    public void Coming_up_from_the_level_below_the_party_arrives_at_the_way_down()
+    {
+        _level.OnLevelInit("tf2_descent-2-s1");
+        _level.OnLevelInit("tf2_descent-1-s1");
+        ArrivalSpawns spawns = Spawns();
+
+        var spots = Enumerable.Range(1, 2).Select(i => spawns.SelectSpawn(Hero((uint)i))).ToList();
+
+        var below = ArrivalSpawns.WayDownPoints(_level.Current!);
+        Assert.Equal(2, spots.Distinct().Count());
+        Assert.Equal(below.Select(p => p.Position), Calls("Entities.SetOrigin").Select(c => c.ArgAs<Vector>(1)));
+        Assert.Equal(below.Select(p => new Vector(0, p.Yaw, 0)), Calls("Entities.SetAngles").Select(c => c.ArgAs<Vector>(1)));
+    }
+
+    [Theory]
+    [InlineData("tf2_descent_town")]
+    [InlineData("tf2_descent-1-s1")]
+    public void Going_down_or_loading_a_level_again_the_party_arrives_at_its_arrival_points(string from)
+    {
+        _level.OnLevelInit(from);
+        _level.OnLevelInit("tf2_descent-1-s1");
+
+        Spawns().SelectSpawn(Hero(1));
+
+        Assert.Equal(_level.Current!.Arrivals.Select(a => a.Position), Calls("Entities.SetOrigin").Select(c => c.ArgAs<Vector>(1)));
+    }
+
+    [Fact]
     public void The_next_level_makes_its_own_spots_and_forgets_who_stood_where()
     {
         _level.OnLevelInit("tf2_descent-1-s1");

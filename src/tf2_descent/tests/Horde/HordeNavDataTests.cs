@@ -83,10 +83,11 @@ public sealed class HordeNavDataTests(ITestOutputHelper output)
     /// over the floor up a flight from each door: the derivation stands a hull on the highest step
     /// under its box. While it raised them one step only, every extra hull reached 20 of depth 8
     /// seed 1's 37 rooms and 21 of depth 9's (measured 2026-11-15 over 16a29fcd6's derivation).
+    /// Depth 9 is asked at seed 2: its seed 1 layout at 6b09663d7 draws no pool room.
     /// </summary>
-    private void EveryClassReachesEveryRoomOf(int depth)
+    private void EveryClassReachesEveryRoomOf(int depth, ulong seed)
     {
-        var files = LevelFixture.Built(depth, 1);
+        var files = LevelFixture.Built(depth, seed);
         LevelData data = files.Read();
         HordeLevel level = LevelAdapters.ToHorde(data);
         HordeNavData nav = HordeNavData.Derive(files.Nav3d);
@@ -101,10 +102,10 @@ public sealed class HordeNavDataTests(ITestOutputHelper output)
     }
 
     [BuiltLevelFact(8, 1)]
-    public void Every_class_reaches_every_room_of_depth_8_seed_1_pools_included() => EveryClassReachesEveryRoomOf(8);
+    public void Every_class_reaches_every_room_of_depth_8_seed_1_pools_included() => EveryClassReachesEveryRoomOf(8, 1);
 
-    [BuiltLevelFact(9, 1)]
-    public void Every_class_reaches_every_room_of_depth_9_seed_1_pools_included() => EveryClassReachesEveryRoomOf(9);
+    [BuiltLevelFact(9, 2)]
+    public void Every_class_reaches_every_room_of_depth_9_seed_2_pools_included() => EveryClassReachesEveryRoomOf(9, 2);
 
     /// <summary>
     /// The room table of depth 1 seed 1 (the output): for each room, the cells each class stands on

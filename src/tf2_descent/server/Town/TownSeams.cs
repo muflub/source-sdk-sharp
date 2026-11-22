@@ -52,7 +52,7 @@ public interface ITownWorld
     /// <summary>
     /// The depths the town may send the hero in <paramref name="player"/> to now: the rules'
     /// <c>TownDescents.Destinations</c> over the depth his character has reached and the bosses it
-    /// has killed (unhosted: none reached, so depth 1).
+    /// has killed (<see cref="ReachedDepths.Of"/>: recorded as he arrives on each level, hosted and unhosted).
     /// </summary>
     IReadOnlyList<int> Destinations(int player);
 
@@ -69,7 +69,7 @@ public interface ITownWorld
 public sealed class EngineTownWorld(HostService host, HeroKeys keys, Heroes heroes, IEngineEntities entities, IEngineWorldQuery world,
                                     IEntityDirectory directory, IUserMessageSender messages, IGameClock clock, IServerConsole console,
                                     LevelHop hop, PlayerService players, IBossKills bossKills, TravelService travel, ClientMessages notices,
-                                    ILog log) : ITownWorld
+                                    ReachedDepths reached, ILog log) : ITownWorld
 {
     private readonly Dictionary<int, (EntityHandle Handle, int Stall)> _stalls = [];
 
@@ -129,7 +129,7 @@ public sealed class EngineTownWorld(HostService host, HeroKeys keys, Heroes hero
     public IReadOnlyList<int> Destinations(int player)
     {
         var entry = host.Mode == HostingMode.Hosted ? players.ByEntity(player) : null;
-        return TownDescents.Destinations(Math.Max(entry?.ReachedDepth ?? 0, 0), entry is null ? bossKills.DepthsOf(player) : bossKills.Depths(entry.CharacterId));
+        return TownDescents.Destinations(reached.Of(player), entry is null ? bossKills.DepthsOf(player) : bossKills.Depths(entry.CharacterId));
     }
 
     public string? Descend(int player, int depth)

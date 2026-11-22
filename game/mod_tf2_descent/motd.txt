@@ -1,0 +1,30 @@
+Welcome to TF2 Descent
+
+A co-op dungeon crawl in the spirit of Diablo, built on Team Fortress 2.
+Your party fights its way down through the depths of a mine overrun by
+robot hordes.
+
+THE TOWN
+You start in town. Its stalls sell weapons, identify, heal and gamble;
+the Engineer repairs and his bench crafts; the stash keeps your spare
+gear. Take the cage down to the depth you choose.
+
+THE MINE
+Robots drop loot and Australium, the town's currency. Experience brings
+levels, attribute points and skill ranks.
+
+DEATH
+A fallen hero can be revived: hold E beside him. Alone, you die and come
+back at the level's arrival point without your gear, which waits on your
+gravestone where you fell. Use the gravestone to take it back.
+
+KEYS
+E - Use: a stall, the cage, loot, a gravestone, a friend
+C - Character sheet
+I - Inventory
+K - Skills
+M - Automap
+P - Party
+L - Miner's lamp
+4 to 9 - Skills on the skill bar
+Keypad 1 to 4 - Belt

@@ -86,7 +86,7 @@ public readonly record struct PortalTrip(bool Started, string Why, bool Gone = f
 
 /// <summary>
 /// How a hero travels through a portal (<see cref="PortalRoute"/>): hosted through the host's
-/// travel (up: <c>IHostLink.Travel</c> with <see cref="TravelDirection.Up"/>; back: the teleporter
+/// travel (up: <c>IHostLink.Travel</c> with <see cref="TravelDirection.Portal"/>; back: the teleporter
 /// anchor), unhosted by changing this process's level.
 /// </summary>
 public interface IPortalRoute

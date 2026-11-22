@@ -265,6 +265,11 @@ public sealed partial class ServiceFlowTests
     //-------------------------------------------------------------------------
 
     private static (World W, PlayerService Players, FakeClients Clients, RecordingEngine Net) Players(string kind = "hub", bool booted = true, int levelDepth = 3)
+        => Players(out _, kind, booted, levelDepth);
+
+    /// <param name="sheets">The hero sheets the player service hands each join's sheet to.</param>
+    private static (World W, PlayerService Players, FakeClients Clients, RecordingEngine Net) Players(out TF2.Descent.Server.Hero.HeroSheets sheets, string kind = "hub",
+                                                                                                    bool booted = true, int levelDepth = 3)
     {
         var w = Host(HostingMode.Hosted);
         w.Link.BootAnswers.Enqueue(booted ? HostResult<BootInfo>.Success(Boot(kind, kind == "hub" ? 0 : levelDepth)) : Refused<BootInfo>(HostError.Unreachable));
@@ -273,8 +278,8 @@ public sealed partial class ServiceFlowTests
             w.Host.OnLevelInit("tf2_descent_town");
         var clients = new FakeClients();
         var net = new RecordingEngine();
-        var players = new PlayerService(w.Link, w.Host, clients, new ClientMessages(net), new NeverScheduler(), w.Log,
-                                        new TF2.Descent.Server.Hero.HeroSheets(new TF2.Descent.Rules.TF2DescentRules(), w.Host, clients, w.Log));
+        sheets = new TF2.Descent.Server.Hero.HeroSheets(new TF2.Descent.Rules.TF2DescentRules(), w.Host, clients, w.Log);
+        var players = new PlayerService(w.Link, w.Host, clients, new ClientMessages(net), new NeverScheduler(), w.Log, sheets);
         return (w, players, clients, net);
     }
 
@@ -615,8 +620,14 @@ public sealed partial class ServiceFlowTests
     private static (World W, TravelService Travel, RecordingEngine Net) Travel(
         HostingMode mode = HostingMode.Hosted, int reached = 0, Kills? kills = null, string kind = "hub", int levelDepth = 3,
         TF2.Descent.Server.Party.IPartyTravel? party = null)
+        => Travel(out _, mode, reached, kills, kind, levelDepth, party);
+
+    /// <param name="sheets">The hero sheets the join handed the player's sheet to (the reached record's other half).</param>
+    private static (World W, TravelService Travel, RecordingEngine Net) Travel(out TF2.Descent.Server.Hero.HeroSheets sheets,
+        HostingMode mode = HostingMode.Hosted, int reached = 0, Kills? kills = null, string kind = "hub", int levelDepth = 3,
+        TF2.Descent.Server.Party.IPartyTravel? party = null)
     {
-        var (w, players, clients, net) = Players(kind, levelDepth: levelDepth);
+        var (w, players, clients, net) = Players(out sheets, kind, levelDepth: levelDepth);
         w.Link.JoinAnswer = w.Link.JoinAnswer with { ReachedDepth = reached };
         clients.Slots[3] = (76561197960287930UL, "203.0.113.7:27005");
         players.OnClientActive(3);
@@ -624,8 +635,10 @@ public sealed partial class ServiceFlowTests
         if (mode != HostingMode.Hosted)
             w.Link.ModeIs = mode;
         var host = w.Host;
+        var level = new Floor.RigLevel(levelDepth, 1) { Current = null };
+        var reachedDepths = new ReachedDepths(level, new TF2.Descent.Server.Hero.Heroes(), sheets, players, host, w.Log);
         return (w, new TravelService(w.Link, host, players, new ClientMessages(net), kills ?? new Kills(), party ?? new AnyoneTravels(),
-                                     new Floor.RigLevel(levelDepth, 1) { Current = null }, NoPool(), w.Console, w.Log), net);
+                                     level, NoPool(), reachedDepths, w.Console, w.Log), net);
     }
 
     /// <summary>A pool with nothing installed: the hosted flows never look in it.</summary>
@@ -664,8 +677,26 @@ public sealed partial class ServiceFlowTests
         => Assert.Equal((TravelCall.StairsDown, 4), HostLink.Route(TravelDirection.Down, Boot("level", 3), 9));
 
     [Fact]
-    public void Up_asks_the_town_portal()
-        => Assert.Equal(TravelCall.TownPortal, HostLink.Route(TravelDirection.Up, Boot("level", 3), 0).Call);
+    public void A_levels_way_up_asks_for_the_level_above()
+        => Assert.Equal((TravelCall.StairsDown, 2), HostLink.Route(TravelDirection.Up, Boot("level", 3), 0));
+
+    [Fact]
+    public void Level_1s_way_up_asks_the_town_portal()
+        => Assert.Equal(TravelCall.TownPortal, HostLink.Route(TravelDirection.Up, Boot("level", 1), 0).Call);
+
+    [Fact]
+    public void The_portal_asks_the_town_portal_from_any_depth()
+        => Assert.Equal(TravelCall.TownPortal, HostLink.Route(TravelDirection.Portal, Boot("level", 3), 0).Call);
+
+    [Fact]
+    public void Hosted_a_levels_way_up_reaches_the_host()
+    {
+        var (w, travel, _) = Travel(kind: "level", levelDepth: 3);
+
+        travel.Request(3, TravelDirection.Up);
+
+        Assert.Contains("travel 76561197960287930 Up level 1", w.Link.Calls);
+    }
 
     [Fact]
     public void A_picked_depth_the_player_has_reached_reaches_the_host_call()
@@ -712,6 +743,17 @@ public sealed partial class ServiceFlowTests
 
         Assert.Equal(offered, AskedTheHost(w));
         Assert.Equal(["c-1"], kills.Asked);   // the requesting player's own character
+    }
+
+    [Fact]
+    public void Hosted_a_depth_on_the_heros_sheet_is_offered_as_the_joins_record_is()
+    {
+        var (w, travel, _) = Travel(out var sheets, reached: 1);
+        Assert.True(sheets.Apply(3, s => s with { ReachedDepth = 3 }).Ok);
+
+        travel.Request(3, TravelDirection.Down, 3);
+
+        Assert.Contains("travel 76561197960287930 Down hub 3", w.Link.Calls);
     }
 
     [Fact]
@@ -783,11 +825,31 @@ public sealed partial class ServiceFlowTests
     }
 
     [Fact]
-    public void Going_up_tells_of_the_way_back_to_town()
+    public void Going_up_from_a_level_tells_of_the_way_to_the_level_above()
     {
-        var (_, travel, net) = Travel(kind: "level");
+        var (_, travel, net) = Travel(kind: "level", levelDepth: 3);
 
         travel.Request(3, TravelDirection.Up);
+
+        Assert.Equal([(TravelService.UpLevelToken, "")], NoticesSent(net));
+    }
+
+    [Fact]
+    public void Going_up_from_level_1_tells_of_the_way_back_to_town()
+    {
+        var (_, travel, net) = Travel(kind: "level", levelDepth: 1);
+
+        travel.Request(3, TravelDirection.Up);
+
+        Assert.Equal([(TravelService.UpToken, "")], NoticesSent(net));
+    }
+
+    [Fact]
+    public void Going_up_through_the_portal_tells_of_the_way_back_to_town()
+    {
+        var (_, travel, net) = Travel(kind: "level", levelDepth: 3);
+
+        travel.Request(3, TravelDirection.Portal);
 
         Assert.Equal([(TravelService.UpToken, "")], NoticesSent(net));
     }

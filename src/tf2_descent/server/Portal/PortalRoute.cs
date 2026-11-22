@@ -7,7 +7,7 @@ namespace TF2.Descent.Server.Portal;
 /// The town portal's trips (plan_descent_logic WO4), the two ways a server can make them.
 /// <list type="bullet">
 /// <item><b>Hosted</b>: up is the travel service's (<see cref="TravelService.Request"/>, so
-/// <c>IHostLink.Travel</c> with <see cref="TravelDirection.Up"/>: the SDK's <c>TownPortal</c>);
+/// <c>IHostLink.Travel</c> with <see cref="TravelDirection.Portal"/>: the SDK's <c>TownPortal</c>);
 /// back is the host's teleporter anchor (<see cref="IHostAnchors.Return"/>), which sends the
 /// hero alone to the anchor's level copy, the running instance while it runs. A refusal naming
 /// <c>no_anchor</c> is a teleporter the host no longer has.</item>
@@ -33,7 +33,7 @@ public sealed class PortalRoute(HostService host, TravelService travel, IHostAnc
     {
         if (Hosted)
         {
-            TravelAnswer? answer = await travel.Request(player, TravelDirection.Up);
+            TravelAnswer? answer = await travel.Request(player, TravelDirection.Portal);
             return answer is { State: TravelState.Started }
                 ? PortalTrip.Go
                 : new PortalTrip(false, answer?.Reason is { Length: > 0 } why ? why : "the host was not asked");

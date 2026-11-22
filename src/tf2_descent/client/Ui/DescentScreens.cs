@@ -132,6 +132,7 @@ public sealed class SkillTreeKey;
 
 // The automap (UI5) on M, an ARPG's map key, which it takes from TF2's
 // open_charinfo_direct: TF2's loadout, which Descent keeps closed (HE1). TAB
-// stays TF2's scoreboard. A toggle: the key that opens the map closes it.
+// shows the map over the view instead (MapOverlay.cs). A toggle: the key that
+// opens the map closes it.
 [KeyAction("tf2_descent_ui_toggle automap", "Automap", Section = "Descent", Order = 1140, Keys = ["m"])]
 public sealed class AutomapKey;

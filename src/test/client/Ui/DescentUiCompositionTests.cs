@@ -92,7 +92,7 @@ public sealed class DescentUiCompositionTests
         // Every screen the assembly ships, by the game's own discovery.
         Assert.Equal(UiScreens.Discover(Screens).Count, screens.Count);
         Assert.Equal(["automap", "charsheet", "craftbench", "crate", "depthpicker", "descenthud", "downed",
-                      "inventory", "party", "robotbars", "skilltree", "spellbook", "stash", "vendor"],
+                      "inventory", "mapoverlay", "party", "robotbars", "skilltree", "spellbook", "stash", "vendor"],
                      screens.Select(s => s.Name).Order(StringComparer.Ordinal));
     }
 
@@ -153,6 +153,16 @@ public sealed class DescentUiCompositionTests
             }
         }
         Assert.True(problems.Count == 0, string.Join("\n", problems));
+    }
+
+    /// <summary>TF2's main menu names TF2 Descent: the client answers the menu's brand.</summary>
+    [Fact]
+    public void The_client_names_tf2_descent_on_tf2s_main_menu()
+    {
+        var brand = Assert.IsAssignableFrom<TF2.Client.Ui.ITFMainMenuBrand>(Services().Resolve(typeof(TF2.Client.Ui.ITFMainMenuBrand)));
+
+        Assert.Equal("#Descent_MainMenu_Title", brand.TitleToken);
+        Assert.Equal("descent/ui/menu_background", brand.Background);
     }
 
     [Fact]

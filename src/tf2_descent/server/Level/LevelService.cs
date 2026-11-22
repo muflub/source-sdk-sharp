@@ -61,6 +61,13 @@ public sealed class LevelService(IEngineFiles files, ILog log) : ILevelData, IGa
     /// </summary>
     public bool ReturnedFromLevel => _previousMap is { } previous && LevelNames.IsLevel(previous) && _map is { } map && !LevelNames.IsLevel(map);
 
+    /// <summary>
+    /// Whether this level was reached by going up from a deeper level in this process (a level's way
+    /// up leads to the level above, the user's ruling of 2026-11-15): its heroes arrive at its way
+    /// down. A server cannot tell for a player who joined it fresh, nor for a hop between processes.
+    /// </summary>
+    public bool CameUp => _previousMap is { } previous && _map is { } map && LevelNames.IsLevel(map) && LevelNames.Depth(previous) > LevelNames.Depth(map);
+
     public void OnLevelInit(string mapName)
     {
         _previousMap = _map;

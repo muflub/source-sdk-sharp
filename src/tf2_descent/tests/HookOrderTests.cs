@@ -113,6 +113,8 @@ public sealed partial class HookOrderTests
             (typeof(IEntityCollideRule), true),
             // WO6: the robot that killed a hero names him in TF2's death notice; TF2 registers no namer of its own.
             (typeof(TF2.Server.Combat.ITFKillerNames), false),
+            // The welcome on a hero's first level only: the core and TF2 register no motd gate of their own.
+            (typeof(IMotdGate), false),
         ];
         var descent = typeof(TF2.Descent.Server.Mode.DescentMode).Assembly;
         Assembly[] others =

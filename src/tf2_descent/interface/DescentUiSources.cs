@@ -166,6 +166,12 @@ public interface IDescentAutomap
     int FocusStorey { get; }                       // the storey the view shows; the map screen's tabs set it
 }
 
+/// <summary>Whether the map overlay is up: Diablo's Tab map, drawn over the view with the HUD still live.</summary>
+public interface IDescentMapOverlay
+{
+    bool Shown { get; }
+}
+
 /// <summary>The whole sheet: C.1's fields, left to right, in read order.</summary>
 public interface IDescentSheet
 {

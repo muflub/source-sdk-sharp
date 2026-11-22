@@ -24,7 +24,7 @@ public sealed class GameInfoTests
     /// The SearchPaths block's entries, in order, as whole (key, path) pairs:
     /// comments dropped, every line inside the block that is not a brace.
     /// </summary>
-    private static List<(string Key, string Path)> SearchPaths(string mod)
+    internal static List<(string Key, string Path)> SearchPaths(string mod)
     {
         var entries = new List<(string, string)>();
         bool inside = false;

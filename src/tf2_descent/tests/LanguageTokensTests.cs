@@ -51,7 +51,7 @@ public sealed partial class LanguageTokensTests
     private static IEnumerable<string> TravelTokens() =>
         Enum.GetValues<WayDown>().Select(WaysDown.Token)
             .Concat([TravelService.DepthClosedToken, TravelService.WaitingToken, TravelService.RefusedToken,
-                     TravelService.UpToken, TravelService.CorpseToken]);
+                     TravelService.UpToken, TravelService.UpLevelToken, TravelService.NoLevelUpToken, TravelService.CorpseToken]);
 
     [Fact]
     public void Every_travel_notice_token_is_in_the_language_file()
