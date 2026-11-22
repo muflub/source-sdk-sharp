@@ -37,14 +37,43 @@ public sealed class RoomNameTests
     }
 
     [Fact]
+    public void A_quiet_room_carries_q_after_its_jump_flags()
+    {
+        var shape = RoomName.Parse("drift_aq-ew-l-q");
+        var jumper = RoomName.Parse("tee_aq-new-c-j.s2.q");
+
+        Assert.True(shape.Quiet);
+        Assert.Equal(JumpFlags.None, shape.Jumps);
+        Assert.True(jumper.Quiet);
+        Assert.Equal(JumpFlags.Jump | JumpFlags.S2, jumper.Jumps);
+        Assert.Equal("tee_aq-new-c-j.s2.q", RoomName.Format(jumper));
+    }
+
+    [Fact]
+    public void A_room_without_q_is_not_quiet()
+    {
+        Assert.False(RoomName.Parse("drift_a-ew-l").Quiet);
+        Assert.False(RoomName.Parse("gallery_b-nesw-h-j").Quiet);
+    }
+
+    [Theory]
+    [InlineData("drift_a-ew-l-q.j")]
+    [InlineData("drift_a-ew-l-q.q")]
+    public void A_q_before_a_jump_flag_or_twice_is_refused(string name)
+    {
+        Assert.False(RoomName.TryParse(name, out _, out var error));
+        Assert.Contains("without repeats", error);
+    }
+
+    [Fact]
     public void Every_set_of_facts_formats_to_a_name_that_parses_back_to_it()
     {
         var checkedCount = 0;
         for (var doors = 1; doors <= 15; doors++)
             for (var height = 0; height < 4; height++)
-                for (var flags = 0; flags < 64; flags++)
+                for (var flags = 0; flags < 128; flags++)
                 {
-                    var shape = new RoomShape("cavern", "x7", (Doors)doors, (HeightClass)height, (JumpFlags)flags);
+                    var shape = new RoomShape("cavern", "x7", (Doors)doors, (HeightClass)height, (JumpFlags)(flags & 63)) { Quiet = flags >= 64 };
                     var name = RoomName.Format(shape);
 
                     Assert.Equal(shape, RoomName.Parse(name));
@@ -52,7 +81,7 @@ public sealed class RoomNameTests
                     checkedCount++;
                 }
 
-        Assert.Equal(15 * 4 * 64, checkedCount);
+        Assert.Equal(15 * 4 * 128, checkedCount);
     }
 
     [Theory]

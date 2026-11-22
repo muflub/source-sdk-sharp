@@ -3,7 +3,8 @@
 # Chosen by query of /home/lodle/assetdb (average_colour, maps_used) and looked at (.scratch/p4-m*.png, p4-mod*.png).
 # DescentPaletteTests holds every row to the theme and to the database. '# rejected' lines are notes.
 asset	kind	role	why
-swamp/nature/blendswampmudtodirt001	material	floor	dark swamp mud (#3c3228) under the standing water; 4 maps
+nature/rockfloor003a	material	floor	wet grey rock with pale patches under the standing water (#525146), drawn as descent/sunken_bed (its texture and bump, no $envmap: the map tools' cubemap fix-up throws on one in a room with no cubemap): the bottom the water and the lamp show (brief p9: over the mud the water read in game as a mud floor)
+# rejected swamp/nature/blendswampmudtodirt001 (brief p4's floor): under the water it read in game as a mud floor, the water unseen (brief p9)
 nature/rockwall006a	material	wall	mossy dark olive rock (#55513f; the plan's), wet and green
 nature/rockwall006a	material	ceiling	the same rock overhead
 nature/rockwall006a	material	large-wall	the rock at 0.5 on a flooded gallery's 2048 walls

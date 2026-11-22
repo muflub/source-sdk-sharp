@@ -41,6 +41,16 @@ lift cage in an alcove, a raised floor broken by a hole). `DriftShape` and
   front of a door (`RoomBuilder.ApproachBox`); `Build` refuses it.
 - **The critical path is T0 and T1** (M8): a Heavy must walk from every door
   to every other. Jump spots are extras.
+- **A giant's box crosses the floor flat** (M8, brief p7): the level's
+  navigation keeps no solid's top, so anything solid above the floor, a rail
+  two units high included, is a wall to a box wider than the gap beside it.
+  A 96 by 160 box on the floor must walk from every door to every other
+  (`Dressing.FlatHullWalk`, `DescentGiantNavTests`). Draw low rails,
+  sleepers and planks with `WithStrips` (one non-solid `func_brush`, which
+  still casts shadows and which dressing keeps out of), and keep posts and
+  pillars a box's width apart from each other and from stairs. Rooms whose
+  way between doors climbs stairs (the pools) wait on the navigation
+  raising a hull up a flight (docs/todo.md).
 - **Every jump spot pays** (§4.2): a ledge only a jump above T1 reaches
   carries a reward marker (container, shrine, dispenser), or has a second way
   up (stairs, a ramp, crate steps). The features below do this for you.

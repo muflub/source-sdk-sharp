@@ -211,20 +211,24 @@ public static class ActOne
         {
             Flange = 12,
             Crossing = new("wood/wood_floor002", 0.25f),
+            // Level 2's walls under its dimmer floods (brief p9) are lit to about 0.115: the arch at 1.5 times.
+            MinLight = 0.3f,
         },
         SquarePillars = true,
         RoofBeams = 256,
-        Lamps = new LampKind(Flood, LampMount.Ceiling, new Lamp("226 236 255", 128, 400, 1024), Spacing: 288, LightAt: new(0, 0, -36))
+        // About 15 % under the first pass's (brief p9: the gate's view figure read level 2 at 75 against
+        // the game's 70).
+        Lamps = new LampKind(Flood, LampMount.Ceiling, new Lamp("226 236 255", 109, 400, 1024), Spacing: 288, LightAt: new(0, 0, -36))
         {
             Spot = new SpotCone(Inner: 75, Outer: 89, Pitch: 90),
         },
-        TallLamps = new LampKind(Flood, LampMount.Wall, new Lamp("226 236 255", 165, 400, 1152), Spacing: 448, LightAt: new(32, 0, -36))
+        TallLamps = new LampKind(Flood, LampMount.Wall, new Lamp("226 236 255", 140, 400, 1152), Spacing: 448, LightAt: new(32, 0, -36))
         {
             Spot = new SpotCone(Inner: 35, Outer: 60, Pitch: 45),
             WallHeight = 256,
             RowPitch = 512,
         },
-        Pendants = Pendant(BellLamp, new Lamp("226 236 255", 75, 384, 1280), new(0, 0, -28), hang: 448, grid: 512),
+        Pendants = Pendant(BellLamp, new Lamp("226 236 255", 64, 384, 1280), new(0, 0, -28), hang: 448, grid: 512),
         // The yard hall's overhead crane (the review of 2026-11-10: a gantry in level 2's and 4's halls).
         Gantry = new Gantry(Height: 704, Girder: 32, Hook: CraneHook, Cable: Cable64),
         Props = new PropSet
@@ -355,11 +359,14 @@ public static class ActOne
             Flange = 20,
             FlangeDepth = 6,
             HeadFace = new("props/hazardstrip001a", 0.5f),
+            // The Mill's walls are lit to about 0.10 (brief p9): the arch at 0.15, not 0.18.
+            MinLight = 0.3f,
         },
         // Sodium, less saturated (the review of 2026-11-10: the olive cast).
         Lamps = new LampKind(Gooseneck, LampMount.Wall, new Lamp("255 214 150", 72, 256, 900), Spacing: 512, LightAt: new(76, 0, -24))
         {
-            WallHeight = 176,
+            // Its arm's underside clears a giant's 160 (brief p7: at 176 it hung 158 over the floor).
+            WallHeight = 180,
             RowPitch = 448,
         },
         Props = new PropSet

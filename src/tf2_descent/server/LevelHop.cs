@@ -24,6 +24,23 @@ public sealed class LevelHop(IModInfo mod, IServerConsole console, ILog log) : I
     /// <summary>Where the target's level files are linked: the mod's pool/maps (gameinfo searches |gameinfo_path|pool).</summary>
     public string PoolMaps => Path.Combine(mod.GameDir, "pool", "maps");
 
+    /// <summary>
+    /// Unhosted, the installed level of <paramref name="depth"/>: <c>tf2_descent-&lt;depth&gt;-s&lt;seed&gt;</c>
+    /// in <see cref="PoolMaps"/>, the lowest seed; null for none. What the town's cage and a level's
+    /// way down change level to when no host picks the instance.
+    /// </summary>
+    public string? InstalledLevel(int depth)
+    {
+        string dir = PoolMaps;
+        if (!Directory.Exists(dir))
+            return null;
+        return Directory.EnumerateFiles(dir, $"tf2_descent-{depth}-s*.bsp")
+            .Select(f => Path.GetFileNameWithoutExtension(f))
+            .Where(IsMapName)
+            .Order(StringComparer.Ordinal)
+            .FirstOrDefault();
+    }
+
     public void OnHopped(HopNotice hop)
     {
         if (!hop.SameProcess || !hop.Ready || hop.Map == _changingTo)

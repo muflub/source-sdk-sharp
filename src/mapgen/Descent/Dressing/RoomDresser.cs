@@ -166,6 +166,8 @@ public static partial class RoomDresser
                 RoofBeams(theme.RoofBeams);
             if (theme.Lamps is not null)
                 Lamps();
+            if (theme.RoutePools is { Pools: { } routePools } poolKind)
+                PoolLamps(poolKind, routePools);
             if (theme.WorkLamps is { } work)
                 WorkLamps(work);
             if (theme.CoolFill is { } fill)

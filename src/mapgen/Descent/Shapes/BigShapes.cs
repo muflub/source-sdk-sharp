@@ -143,6 +143,12 @@ public static class BigShapes
             foreach (CellFace wall in (CellFace[])[CellFace.North, CellFace.South, CellFace.East, CellFace.West])
                 foreach (var (lo, hi) in RockSpans(kit, n, wall == CellFace.West ? [(c - 332, c + 332)] : []))
                     CavernShape.RockRun(g, inner, wall, lo, hi, phase + (int)wall);
+            // Over each socket's door too, from above its frame to the roof (brief p9: a grotto's walls stood
+            // flat round every door, floor to roof).
+            foreach (CellFace wall in (CellFace[])[CellFace.North, CellFace.South, CellFace.East, CellFace.West])
+                for (int k = 0; k < n; k++)
+                    if (wall != CellFace.West || Math.Abs(k * c + c / 2 - c) > 332 + c / 2)
+                        CavernShape.RockOverDoor(g, kit, inner, wall, k, phase + 4 * (int)wall + k);
             float roof = Math.Min(e - 2 * t - 256, 1792);
             CavernShape.Roof(g, Rect.Around(e / 2, e / 2, roof, roof), rng, 192);
             CavernShape.Stalactites(g, Rect.Around(e / 2, e / 2, roof, roof), rng, 4 + 2 * n);

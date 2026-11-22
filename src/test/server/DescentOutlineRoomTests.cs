@@ -122,7 +122,7 @@ public sealed class DescentOutlineRoomTests(DescentLibraries libs) : IClassFixtu
             .WithRole(RoomRole.Down, new Point(300, M, Kit.Sill), 0).Build();
 
         Assert.DoesNotContain(room.Entities, e => e.ClassName == "func_button");
-        Assert.Equal(new Point(100, 450, Kit.Sill), Assert.Single(room.Entities, e => e.ClassName == "trigger_once").Brushes[0].Mins);
+        Assert.Equal(new Point(100, 450, Kit.Sill), Assert.Single(room.Entities, e => e.ClassName == "trigger_multiple").Brushes[0].Mins);
     }
 
     [Fact]

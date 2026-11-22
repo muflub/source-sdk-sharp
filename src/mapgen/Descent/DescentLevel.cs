@@ -240,7 +240,10 @@ public static class DescentLevel
         // A larger room (a great hall, a grotto) first, so the cap never cuts the level's set piece
         // (brief p4: level 3 seed 3 lost its hall's camera to the cap).
         static bool Larger(Placement p) => RoomName.TryParse(p.Room, out var s, out _) && s!.IsMultiCell;
-        foreach (Placement p in plan.Placements.OrderByDescending(Larger).ThenBy(p => p.Row).ThenBy(p => p.Column))
+        // A quiet room last (brief p9): it stands beside the way in, the level's best-lit corner, and a
+        // family's camera there read the level brighter than its other rooms are.
+        static bool Quiet(Placement p) => RoomName.TryParse(p.Room, out var s, out _) && s!.Quiet;
+        foreach (Placement p in plan.Placements.OrderByDescending(Larger).ThenBy(Quiet).ThenBy(p => p.Row).ThenBy(p => p.Column))
         {
             if (!rooms.TryGetProperty(p.Room, out JsonElement room) || !RoomName.TryParse(p.Room, out var shape, out _) || !seen.Add(shape!.Family))
                 continue;

@@ -81,15 +81,19 @@ public sealed class DescentDoorFrameTests
     }
 
     [Fact]
-    public void A_door_adds_no_entity_the_link_keeps_where_it_is_joined()
+    public void A_door_adds_one_entity_the_link_keeps_where_it_is_joined_the_slab_over_its_dip()
     {
         Room bare = new RoomBuilder("c", Kit, RoomTheme.Grey).WithHeight(512).Build();
         Room doored = Chamber(CellFace.East, CellFace.West, CellFace.North, CellFace.South);
         var added = doored.Entities.Except(bare.Entities).ToArray();
 
         Assert.Contains(added, e => e.ClassName == "prop_static");
-        // Static props cost no entity; the only brush entity a door brings is its cap, kept where it is not joined.
-        Assert.All(added.Where(e => e.ClassName != "prop_static"), e => Assert.StartsWith("!joined_", e.Key("room_needs"), StringComparison.Ordinal));
+        // Static props cost no entity. The brush entities a door brings are its cap, kept where it is not joined,
+        // and (brief p9) a lit slab over the doorway's dip, kept where it is: one entity a joined door.
+        var brushes = added.Where(e => e.ClassName != "prop_static").ToArray();
+        Assert.Equal(4, brushes.Count(e => e.Key("room_needs")!.StartsWith("!joined_", StringComparison.Ordinal)));
+        Assert.Equal(4, brushes.Count(e => e.Key("room_needs")!.StartsWith("joined_", StringComparison.Ordinal) && e.Brushes.All(b => b.Maxs.Z <= Kit.Sill + 1)));
+        Assert.Equal(8, brushes.Length);
     }
 
     [Fact]

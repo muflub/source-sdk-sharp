@@ -29,7 +29,7 @@ public sealed class DescentPlugMaterialTests
     public void A_plug_material_draws_the_walls_texture_as_a_solid_trigger(string theme)
     {
         RoomTheme t = Theme(theme);
-        var (path, text) = Assert.Single(t.OwnMaterials);
+        var (path, text) = Assert.Single(t.OwnMaterials, m => m.Path.EndsWith("_plug.vmt", StringComparison.Ordinal));
 
         Assert.Equal(t.Plug.Material + ".vmt", path);
         Assert.Contains($"\"$basetexture\" \"{t.Wall.Material}\"", text, StringComparison.Ordinal);
@@ -41,24 +41,28 @@ public sealed class DescentPlugMaterialTests
     [MemberData(nameof(Themes))]
     public void A_plug_material_is_drawn_by_nothing_so_a_joined_doorway_is_open_in_game(string theme)
     {
-        var (_, text) = Assert.Single(Theme(theme).OwnMaterials);
+        RoomTheme t = Theme(theme);
+        var (_, text) = Assert.Single(t.OwnMaterials, m => m.Path == t.Plug.Material + ".vmt");
 
         Assert.Contains("\"$no_draw\" \"1\"", text, StringComparison.Ordinal);
     }
 
     [Theory]
     [MemberData(nameof(Themes))]
-    public void The_mods_copy_of_a_plug_material_is_what_the_generator_writes(string theme)
+    public void The_mods_copy_of_a_themes_own_materials_is_what_the_generator_writes(string theme)
     {
-        var (path, text) = Assert.Single(Theme(theme).OwnMaterials);
-        string committed = RepoLayout.Repo([.. DescentRooms.ModContent.Split('/'), "materials", .. path.Split('/')]);
+        Assert.NotEmpty(Theme(theme).OwnMaterials);
+        foreach (var (path, text) in Theme(theme).OwnMaterials)
+        {
+            string committed = RepoLayout.Repo([.. DescentRooms.ModContent.Split('/'), "materials", .. path.Split('/')]);
 
-        Assert.True(File.Exists(committed), $"{committed} is missing: run MapGen descent-materials {DescentRooms.ModContent}");
-        Assert.Equal(text, File.ReadAllText(committed));
+            Assert.True(File.Exists(committed), $"{committed} is missing: run MapGen descent-materials {DescentRooms.ModContent}");
+            Assert.Equal(text, File.ReadAllText(committed));
+        }
     }
 
     [Fact]
-    public void The_material_writer_writes_every_themes_plug()
+    public void The_material_writer_writes_every_themes_plug_and_own_materials()
     {
         string dir = Path.Combine(Path.GetTempPath(), "descent-materials-" + Guid.NewGuid().ToString("N"));
         try
@@ -67,9 +71,10 @@ public sealed class DescentPlugMaterialTests
 
             Assert.Equal(
                 ["materials/descent/breakthrough_plug.vmt", "materials/descent/chapel_plug.vmt", "materials/descent/collar_plug.vmt",
-                 "materials/descent/dripstone_plug.vmt", "materials/descent/grey_plug.vmt", "materials/descent/haulage_plug.vmt",
-                 "materials/descent/mill_plug.vmt", "materials/descent/mine_plug.vmt", "materials/descent/stopes_plug.vmt",
-                 "materials/descent/sunken_plug.vmt"],
+                 "materials/descent/dripstone_plug.vmt", "materials/descent/dripstone_water.vmt", "materials/descent/grey_plug.vmt",
+                 "materials/descent/haulage_plug.vmt", "materials/descent/mill_plug.vmt", "materials/descent/mine_plug.vmt",
+                 "materials/descent/stopes_plug.vmt", "materials/descent/sunken_bed.vmt", "materials/descent/sunken_plug.vmt",
+                 "materials/descent/sunken_water.vmt"],
                 written);
         }
         finally

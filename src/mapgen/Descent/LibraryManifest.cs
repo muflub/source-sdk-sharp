@@ -17,6 +17,12 @@ namespace SourceSharp.MapGen.Descent;
 public sealed record RoomEntry(IReadOnlyList<string> Tags, int Weight = 1, int MinDepth = 1, int MaxDepth = LibraryManifestWriter.Depths,
                                bool Jump = false, bool Low = false)
 {
+    /// <summary>
+    /// A quiet room (brief p9): no pack spawn, its name's flag <c>q</c>, placed by the layout only
+    /// beside the way in (<see cref="RoomCatalogue.QuietTwins"/>).
+    /// </summary>
+    public bool Quiet { get; init; }
+
     /// <summary>No tags, weight 1, every depth.</summary>
     public static RoomEntry Default { get; } = new([]);
 }

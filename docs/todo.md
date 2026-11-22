@@ -1406,6 +1406,8 @@ Found by the Descent CR3 lane (`docs/plans/tf2_descent/plan_descent_logic.md`). 
 
 The fix, as the AI coordinator ruled it on 2026-11-11: stand the hull on the highest step under its footprint, with each rise within `StepHeight`. It is a Descent lane's, for when Descent needs giants on stairs, based on main after the coordinator's lane p6e (which is in `NavGraphFromNav3d` for the 2fort traps) has landed. Existing numbers stay byte-identical: the checks CR3 ran (`NumbersKey`, cache names, the dm_lockdown and ctf_2fort graph hashes, the HL2MP replays).
 
+Descent needs it at depths 8 and 9 (brief p7, 2026-11-14): every `pool` room's walkways stand 64 over its floor up a flight from each door, so the x1.75 and x1.90 classes cannot cross a pool. `DescentGiantNavTests` exempts the family by name and fails when the exemption goes stale.
+
 ## TF2 bots on ctf_2fort: what P6 left (2026-11-11)
 
 From lane p6e (main after `694f4f618`). Its runs and notes were in that lane's `.scratch`, and the numbers are in `docs/plans/plan_bots_teams_tf2.md` §8.1.

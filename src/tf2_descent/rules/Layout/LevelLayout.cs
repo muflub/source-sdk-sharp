@@ -67,6 +67,9 @@ public sealed record LayoutReport(
 
     /// <summary>The unjoined sockets of the rooms larger than one cell, capped by the link as walls.</summary>
     public int MultiCellCaps { get; init; }
+
+    /// <summary>Why a room beside the way in is not a quiet one (no quiet room fitted its doors), or null when every one is.</summary>
+    public string? QuietFallbackReason { get; init; }
 }
 
 /// <summary>A generated level, or why there is none.</summary>
@@ -183,6 +186,9 @@ public sealed class LevelLayout
         if (pool.Of(RoomKind.Arena).Any(r => r.Shape.IsMultiCell))
             return LargerArenaRow(profile, pool, rng);
         var kinds = new List<RoomKind> { RoomKind.Arrival };
+        // A quiet room between the way in and the antechamber when the pool holds one (brief p9): no pack
+        // in the arrival's room or one door from it, at a boss level too.
+        if (pool.HasQuiet) kinds.Add(RoomKind.Fill);
         var antechamber = pool.Of(RoomKind.Antechamber).Count > 0;
         if (antechamber) kinds.Add(RoomKind.Antechamber);
         kinds.Add(RoomKind.Arena);
@@ -222,7 +228,7 @@ public sealed class LevelLayout
         if (profile.HasDownExit && east < 0)
             return Fail($"depth {profile.Depth}: the arena {arena.Name} has no east socket for the way down");
         var antechamber = pool.Of(RoomKind.Antechamber).Count > 0;
-        int columns = (antechamber ? 2 : 1) + n + (profile.HasDownExit ? 1 : 0);
+        int columns = (pool.HasQuiet ? 1 : 0) + (antechamber ? 2 : 1) + n + (profile.HasDownExit ? 1 : 0);
         var a = new Attempt(n, columns, Math.Max(n, columns), profile, pool);
         if (a.LargerArenaRow(arena, west, profile.HasDownExit ? east : -1, antechamber, rng) is { } why)
             return Fail($"depth {profile.Depth}: {why}");
@@ -320,11 +326,16 @@ public sealed class LevelLayout
             HasOneDoorEnd = _byKind[(int)RoomKind.Fill].Any(r => r.IsDestination && !r.IsShrine && DoorSets.Count(r.Shape.Doors) == 1);
             HasShrineEnd = _byKind[(int)RoomKind.Fill].Any(r => r.IsShrine && DoorSets.Count(r.Shape.Doors) == 1);
 
+            HasQuiet = _byKind[(int)RoomKind.Fill].Any(r => r.IsQuiet);
+
             FillOffersS = _byKind[(int)RoomKind.Fill].Any(r => r.Shape.STierSpots > 0);
             FillOffersB = _byKind[(int)RoomKind.Fill].Any(r => r.Shape.BTierSpots > 0);
         }
 
         public bool FillOffersS { get; }
+
+        /// <summary>The pool holds quiet rooms (flag <c>q</c>), so the cells beside the way in take only them.</summary>
+        public bool HasQuiet { get; }
 
         /// <summary>The fill rooms larger than one cell: square, with a socket on every cell edge.</summary>
         public List<LayoutRoom> Big { get; } = [];
@@ -384,6 +395,7 @@ public sealed class LevelLayout
         private int _bSpots;
         private bool _treasure;
         private string? _deadEndFallback;
+        private string? _quietFallback;
         private int[] _fromArrival = [];
         private int[] _toExit = [];
 
@@ -515,7 +527,9 @@ public sealed class LevelLayout
         /// </summary>
         public string? LargerArenaRow(LayoutRoom arena, int west, int east, bool antechamber, LayoutRandom rng)
         {
-            int n = arena.Shape.CellsX, at = antechamber ? 2 : 1;
+            // A quiet lobby between the way in and the antechamber when the pool holds one (brief p9).
+            int lobby = _pool.HasQuiet ? 1 : 0;
+            int n = arena.Shape.CellsX, at = lobby + (antechamber ? 2 : 1);
             int Cell(int row, int column) => row * _columns + column;
             var anchor = Cell(0, at);
             for (var r = 0; r < n; r++)
@@ -533,10 +547,15 @@ public sealed class LevelLayout
 
             var path = new List<int> { Cell(west, 0) };
             Occupy(Cell(west, 0), RoomKind.Arrival);
+            if (lobby > 0)
+            {
+                Occupy(Cell(west, 1), RoomKind.Fill);
+                path.Add(Cell(west, 1));
+            }
             if (antechamber)
             {
-                Occupy(Cell(west, 1), RoomKind.Antechamber);
-                path.Add(Cell(west, 1));
+                Occupy(Cell(west, 1 + lobby), RoomKind.Antechamber);
+                path.Add(Cell(west, 1 + lobby));
             }
             // Across the arena: along the way-in's row to its east side, then to the way-down's row.
             var exitRow = east >= 0 ? east : west;
@@ -555,8 +574,8 @@ public sealed class LevelLayout
                 Path.Add(path[i]);
             }
 
-            Join(Cell(west, 0), Doors.East);
-            if (antechamber) Join(Cell(west, 1), Doors.East);
+            for (var c = 0; c < at; c++)
+                Join(Cell(west, c), Doors.East);
             if (east >= 0) Join(Cell(east, at + n - 1), Doors.East);
             foreach (var cell in path.Where(c => !InBlock(c)))
                 if (Place(cell, rng) is { } why)
@@ -1138,6 +1157,19 @@ public sealed class LevelLayout
             var deadEnd = kind == RoomKind.Fill && Degree(cell) == 1;
 
             var candidates = Candidates(cell, kind, need, lowRun, allowWasted, joinable, destinationsOnly: deadEnd && _pool.HasDestination);
+            // Beside the way in only a quiet room (brief p9); should none fit, any room, and the report says so.
+            if (candidates.Count == 0 && QuietOnly(cell))
+            {
+                candidates = Candidates(cell, kind, need, lowRun, allowWasted, joinable, destinationsOnly: deadEnd && _pool.HasDestination, withinMost: false);
+                if (candidates.Count == 0)
+                    candidates = Candidates(cell, kind, need, lowRun, allowWasted, joinable, destinationsOnly: false, withinMost: false);
+                if (candidates.Count == 0)
+                {
+                    candidates = Candidates(cell, kind, need, lowRun, allowWasted, joinable, destinationsOnly: false, withinMost: false, quietRule: false);
+                    if (candidates.Count > 0)
+                        _quietFallback ??= $"no quiet room fits beside the way in at row {cell / _columns}, column {cell % _columns} (doors {need}) at depth {_profile.Depth}";
+                }
+            }
             if (candidates.Count == 0 && deadEnd && _pool.HasDestination)
             {
                 candidates = Candidates(cell, kind, need, lowRun, allowWasted, joinable, destinationsOnly: false);
@@ -1166,15 +1198,19 @@ public sealed class LevelLayout
         }
 
         /// <summary>The rooms and turns of the best tier for a cell.</summary>
-        private List<(LayoutRoom Room, int Turn, int Tier)> Candidates(int cell, RoomKind kind, Doors need, bool lowRun, bool allowWasted, int joinable, bool destinationsOnly, bool withinMost = true)
+        private List<(LayoutRoom Room, int Turn, int Tier)> Candidates(int cell, RoomKind kind, Doors need, bool lowRun, bool allowWasted, int joinable, bool destinationsOnly, bool withinMost = true, bool quietRule = true)
         {
             var bestTier = int.MaxValue;
             var candidates = new List<(LayoutRoom Room, int Turn, int Tier)>();
+            var quiet = QuietOnly(cell);
             foreach (var room in _pool.Of(kind))
             {
+                if (quietRule && kind == RoomKind.Fill && room.IsQuiet != quiet) continue;
+                if (!quietRule && room.IsQuiet && !quiet) continue;
                 if (lowRun && room.IsLowCombat) continue;
                 if (destinationsOnly && !room.IsDestination) continue;
-                if (withinMost && !WithinMost(room)) continue;
+                // A quiet room beside the way in is drawn whatever the mix holds (it stands nowhere else).
+                if (withinMost && !WithinMost(room) && !(quiet && room.IsQuiet)) continue;
                 for (var turn = 0; turn < 4; turn++)
                 {
                     var doors = DoorSets.Rotate(room.Shape.Doors, turn * 90);
@@ -1190,6 +1226,19 @@ public sealed class LevelLayout
                 }
             }
             return candidates;
+        }
+
+        /// <summary>
+        /// Whether a fill cell takes only a quiet room (brief p9): it is joined to the way in and the pool
+        /// holds quiet rooms. Depth 3 seed 1's arrival was a pack's reach from the next room's packs.
+        /// </summary>
+        private bool QuietOnly(int cell)
+        {
+            if (!_pool.HasQuiet || _kind[cell] != RoomKind.Fill) return false;
+            for (var s = 0; s < 4; s++)
+                if ((_joints[cell] & Side(s)) != 0 && Neighbour(cell, Side(s)) is >= 0 and var next && _kind[next] == RoomKind.Arrival)
+                    return true;
+            return false;
         }
 
         /// <summary>0 when there are no extra doors (or each opens onto a branch), 1 when each faces the edge or an empty cell, 2 when one faces a blank wall, -1 when one would join a neighbour's door.</summary>
@@ -1424,6 +1473,7 @@ public sealed class LevelLayout
                     var footprint = DoorsOf(cell, current);
                     foreach (var room in variants)
                     {
+                        if (room.IsQuiet != current.IsQuiet) continue;
                         if (Degree(cell) == 1 && !room.IsDestination) continue;
                         if (room.IsLowCombat && !LowRunAllows(cell)) continue;
                         if (!WithinMost(room, current)) continue;
@@ -1455,7 +1505,7 @@ public sealed class LevelLayout
                 var options = new List<(LayoutRoom Room, int Turn)>();
                 foreach (var room in _pool.Of(RoomKind.Fill))
                 {
-                    if (room == current) continue;
+                    if (room == current || room.IsQuiet != current.IsQuiet) continue;
                     var gainS = needS && room.Shape.STierSpots > current.Shape.STierSpots;
                     var gainB = needB && room.Shape.BTierSpots > current.Shape.BTierSpots;
                     if (!gainS && !gainB) continue;
@@ -1582,6 +1632,7 @@ public sealed class LevelLayout
             {
                 MultiCellRooms = _bigRooms,
                 MultiCellCaps = bigCaps,
+                QuietFallbackReason = _quietFallback,
             };
         }
     }

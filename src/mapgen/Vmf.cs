@@ -145,16 +145,29 @@ public sealed class VmfMap
     /// <summary>The tool texture that makes a face invisible and uncompiled.</summary>
     public const string NoDraw = "TOOLS/TOOLSNODRAW";
 
-    public static VmfSolid Box(Point mins, Point maxs, string material, string? topMaterial = null)
+    /// <summary>The texture scale a box's faces get unless told otherwise: Hammer's default.</summary>
+    public const float DefaultTextureScale = 0.25f;
+
+    /// <param name="mins">The low corner.</param>
+    /// <param name="maxs">The high corner.</param>
+    /// <param name="material">Every face's material, the top's too unless <paramref name="topMaterial"/> names one.</param>
+    /// <param name="topMaterial">The top face's material, when it differs.</param>
+    /// <param name="textureScale">
+    /// World units per texel on every face. A large surface such as a cliff
+    /// face wants more than the default, or its texture repeats every few
+    /// hundred units and reads as a pattern.
+    /// </param>
+    public static VmfSolid Box(Point mins, Point maxs, string material, string? topMaterial = null, float textureScale = DefaultTextureScale)
     {
         var solid = new VmfSolid();
 
         // Texture axes must not be parallel to the face normal, so each pair of
         // opposite faces gets the pair that lies in its plane.
-        const string alongX = "[1 0 0 0] 0.25";
-        const string alongY = "[0 -1 0 0] 0.25";
-        const string downZ  = "[0 0 -1 0] 0.25";
-        const string plusY  = "[0 1 0 0] 0.25";
+        string scale = textureScale.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+        string alongX = $"[1 0 0 0] {scale}";
+        string alongY = $"[0 -1 0 0] {scale}";
+        string downZ  = $"[0 0 -1 0] {scale}";
+        string plusY  = $"[0 1 0 0] {scale}";
 
         void Side(Point p0, Point p1, Point p2, string u, string v, string mat)
             => solid.Sides.Add(new VmfSide

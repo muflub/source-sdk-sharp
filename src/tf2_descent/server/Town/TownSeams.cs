@@ -131,23 +131,10 @@ public sealed class EngineTownWorld(HostService host, HeroKeys keys, Heroes hero
             _ = travel.Request(player, TravelDirection.Down, depth);
             return null;
         }
-        if (LevelFor(depth) is not { } map)
+        if (hop.InstalledLevel(depth) is not { } map)
             return TownRefusals.NoLevel;
         log.Msg($"[TF2Descent/Town] unhosted: player {player} goes down to depth {depth}: this process changes level to {map}, and every player in it comes along\n");
         console.Execute($"changelevel {map}");
         return null;
-    }
-
-    /// <summary>The installed level of <paramref name="depth"/> (<c>tf2_descent-&lt;depth&gt;-s&lt;seed&gt;</c> in the mod's pool, the lowest seed); null for none.</summary>
-    private string? LevelFor(int depth)
-    {
-        string dir = hop.PoolMaps;
-        if (!Directory.Exists(dir))
-            return null;
-        return Directory.EnumerateFiles(dir, $"tf2_descent-{depth}-s*.bsp")
-            .Select(f => Path.GetFileNameWithoutExtension(f))
-            .Where(n => n.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-'))
-            .Order(StringComparer.Ordinal)
-            .FirstOrDefault();
     }
 }

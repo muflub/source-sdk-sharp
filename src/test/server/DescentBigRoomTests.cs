@@ -182,7 +182,9 @@ public sealed class DescentBigRoomTests(DescentLibraries libs) : IClassFixture<D
         Room arena = new RoomBuilder("arena_x", Kit, RoomTheme.Grey).WithFootprint(3).WithHeight(1024)
             .WithSockets((CellFace.West, 1), (CellFace.East, 1)).Build();
 
-        Assert.Equal(["!joined_east1", "!joined_west1"], arena.Entities.Where(e => e.ClassName == "func_brush").Select(e => e.Key("room_needs")!).Order());
+        // A cap where each is capped, and (a model frame's doorway, brief p9) a lit slab over its dip where it is joined.
+        Assert.Equal(["!joined_east1", "!joined_west1", "joined_east1", "joined_west1"],
+            arena.Entities.Where(e => e.ClassName == "func_brush").Select(e => e.Key("room_needs")!).Order(StringComparer.Ordinal));
     }
 
     [Fact]

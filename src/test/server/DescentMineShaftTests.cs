@@ -43,13 +43,27 @@ public sealed class DescentMineShaftTests
     }
 
     [Fact]
-    public void The_towns_sun_is_the_shared_sun()
+    public void The_towns_sun_has_the_shared_colours_and_its_own_height_and_brightness()
     {
+        // The colours are the shared sun's. The town, open to the sky with
+        // its street in the buildings' shade and a 924-tall headframe, has
+        // its own: a higher sun (TF2DescentTown.SunAngles) and a brighter one
+        // (SunBrightness, AmbientBrightness). Level 1 keeps the shared sun.
         var sun = Assert.Single(Town().Entities, e => e.ClassName == "light_environment");
+        static string Colour(string light) => light[..light.LastIndexOf(' ')];
 
         Assert.Equal(
-            (MineShaft.Sun.Angles, MineShaft.Sun.Pitch, MineShaft.Sun.Light, MineShaft.Sun.Ambient),
-            (Key(sun, "angles"), Key(sun, "pitch"), Key(sun, "_light"), Key(sun, "_ambient")));
+            (Colour(MineShaft.Sun.Light), Colour(MineShaft.Sun.Ambient)),
+            (Colour(Key(sun, "_light")), Colour(Key(sun, "_ambient"))));
+        Assert.Equal(TF2DescentTown.WithBrightness(MineShaft.Sun.Light, TF2DescentTown.SunBrightness), Key(sun, "_light"));
+        Assert.Equal(TF2DescentTown.WithBrightness(MineShaft.Sun.Ambient, TF2DescentTown.AmbientBrightness), Key(sun, "_ambient"));
+        Assert.Equal((TF2DescentTown.SunAngles, TF2DescentTown.SunPitch), (Key(sun, "angles"), Key(sun, "pitch")));
+    }
+
+    [Fact]
+    public void With_brightness_replaces_only_the_last_number()
+    {
+        Assert.Equal("255 232 196 400", TF2DescentTown.WithBrightness("255 232 196 450", 400));
     }
 
     [Fact]

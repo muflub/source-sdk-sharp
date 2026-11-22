@@ -13,6 +13,13 @@ namespace TF2.Descent.Tests.Horde;
 /// The level's navigation as the horde derives it (plan_descent_logic 3.7): the committed depth 1
 /// seed 1 <c>.nav3d</c> becomes a graph for the robots' numbers with a class per robot scale band,
 /// and its voxel columns; which rooms each class reaches from the arrival.
+///
+/// <para>
+/// The committed level is depth 1 as generated before 50cefc6c3 (2026-11-14), kept on purpose
+/// (Level/Fixtures/README.md): its wide drift rooms have solid floor rails that cut the two largest
+/// hull classes off from three rooms. A level built today has none; these facts are about what the
+/// derivation does with a cut floor, not about the level the game ships.
+/// </para>
 /// </summary>
 public sealed class HordeNavDataTests(ITestOutputHelper output)
 {
@@ -52,9 +59,11 @@ public sealed class HordeNavDataTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// The stairs limit (docs/todo.md, "a hull wider than the game's cannot climb stairs"): a hull
-    /// is raised one step only, so the two largest giants' classes stop at a stair two steps
-    /// tall for them. On depth 1 seed 1 they reach 15 of the 18 rooms (HO0 measured the same).
+    /// In the committed level the two largest giants' classes reach 15 of the 18 rooms (HO0
+    /// measured the same). What stops them is the wide drift rooms' solid 8 x 8 floor rails and the
+    /// posts between the tracks (found 2026-11-13 by probing the .nav3d: a box 84 wide overlaps a
+    /// rail, and the clearance records hold no solid's top, so the nav cannot say "feet on the
+    /// rail"). It was first read as the stairs limit of docs/todo.md, which it is not.
     /// </summary>
     [Fact]
     public void The_two_largest_giant_classes_reach_15_of_the_18_rooms()

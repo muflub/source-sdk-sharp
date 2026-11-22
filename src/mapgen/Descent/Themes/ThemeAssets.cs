@@ -19,7 +19,7 @@ public static class ThemeAssets
     /// <summary>Every asset <paramref name="theme"/> names, each once per role.</summary>
     public static IEnumerable<ThemeAsset> Of(RoomTheme theme, string prefix = "")
     {
-        yield return new(theme.Floor.Material, "material", prefix + "floor");
+        yield return new(theme.AssetOf(theme.Floor.Material), "material", prefix + "floor");
         yield return new(theme.Wall.Material, "material", prefix + "wall");
         yield return new(theme.Ceiling.Material, "material", prefix + "ceiling");
         yield return new(theme.Block.Material, "material", prefix + "block");
@@ -58,6 +58,8 @@ public static class ThemeAssets
             yield return Model(cover.Fixture, prefix + "cover-lamp");
         if (theme.WorkLamps is { } work)
             yield return Model(work.Kind.Fixture, prefix + "work-lamp");
+        if (theme.RoutePools is { } pools)
+            yield return Model(pools.Fixture, prefix + "route-lamp");
         if (theme.Pendants is { } pendants)
         {
             yield return Model(pendants.Fixture, prefix + "pendant");
@@ -96,7 +98,7 @@ public static class ThemeAssets
         foreach (PropModel m in p.Hanging)
             yield return Model(m, prefix + "hanging");
         if (theme.Water is { } water)
-            yield return new(water, "water", prefix + "water");
+            yield return new(theme.AssetOf(water), "water", prefix + "water");
         if (theme.Gantry?.Hook is { } hook)
             yield return Model(hook, prefix + "gantry-hook");
         if (theme.Gantry?.Cable is { } cable)

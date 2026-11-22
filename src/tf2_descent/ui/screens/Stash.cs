@@ -195,7 +195,8 @@ public sealed class Stash : UiScreen, IUiWindowed
                         source.CellCount > source.Capacity ? Tone.Warning : Tone.TextMuted);
             }
             if (source.CellCount == 0 && !source.Overflow)
-                ui.EmptyState(UiShape.Lock, "#Descent_Stash_Empty", "#Descent_Stash_EmptyBody")
+                ui.EmptyState(UiShape.Lock, which == 0 ? "#Descent_Stash_BackpackEmpty" : "#Descent_Stash_Empty",
+                              which == 0 ? "#Descent_Stash_BackpackEmptyBody" : "#Descent_Stash_EmptyBody")
                     .Width(Size.Du(GridDu));
             else
             {

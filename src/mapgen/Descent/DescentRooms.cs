@@ -33,6 +33,24 @@ public static class DescentRooms
     public static IReadOnlyList<Room> Rooms(int depth, ulong seed) => [.. Dressed(depth, seed).Select(r => r.Dressed)];
 
     /// <summary>
+    /// A depth's rooms as the shapes built them, undressed: its families' rooms whose depth range holds
+    /// the depth, and the quiet twins the layout puts beside the way in
+    /// (<see cref="RoomCatalogue.QuietTwins"/>): at a boss depth the drift's alone, the lobby before the antechamber.
+    /// </summary>
+    public static IReadOnlyList<Room> Built(int depth, ulong seed)
+    {
+        var rooms = RoomCatalogue.Rooms(ShapesFor(depth), KitFor(depth), ThemeFor(depth), seed)
+            .Where(r => depth >= r.Entry.MinDepth && depth <= r.Entry.MaxDepth).ToList();
+        if (!DepthTable.For(Check(depth)).IsBoss)
+            rooms.AddRange(RoomCatalogue.QuietTwins(rooms));
+        else
+            // A boss level's lobby between its way in and its antechamber: the quiet drift, at this depth.
+            rooms.AddRange(RoomCatalogue.QuietTwins(RoomCatalogue.Rooms(RoomCatalogue.Mine.Where(s => s.Family == "drift"), KitFor(depth), ThemeFor(depth), seed))
+                .Select(r => r with { Entry = r.Entry with { MinDepth = depth, MaxDepth = depth } }));
+        return rooms;
+    }
+
+    /// <summary>
     /// Each room of a depth's library as the shapes built it, as dressed
     /// (<see cref="Dressing.RoomDresser"/>), and the theme it is dressed in:
     /// the depth's, or for a way in (<c>room_role up</c>) the theme's
@@ -42,8 +60,7 @@ public static class DescentRooms
     {
         RoomTheme theme = ThemeFor(depth);
         var rooms = new List<(Room, Room, RoomTheme)>();
-        foreach (Room room in RoomCatalogue.Rooms(ShapesFor(depth), KitFor(depth), theme, seed)
-                     .Where(r => depth >= r.Entry.MinDepth && depth <= r.Entry.MaxDepth))
+        foreach (Room room in Built(depth, seed))
         {
             var (built, use) = room.Role == RoomRole.Up && theme.Arrival is { } arrival ? (theme.Redraw(room, arrival), arrival) : (room, theme);
             rooms.Add((built, Dressing.RoomDresser.Dress(built, use, seed), use));

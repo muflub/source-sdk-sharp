@@ -354,6 +354,55 @@ public sealed class TownVerbTests
         Assert.Equal(TownStatusTokens.Done("reclaim"), rig.Status.Token);
     }
 
+    /// <summary>
+    /// The whole run (2026-11-14): the reclaim needs no window, and a town status draws only in
+    /// one, so a refused reclaim showed the hero nothing at all. With no window open the answer
+    /// is a notice too.
+    /// </summary>
+    [Fact]
+    public async Task A_reclaim_refused_with_no_window_open_is_told_as_a_notice()
+    {
+        var rig = new TownRig();
+        rig.Give(rig.Roll("rocket_launcher", 1, 20));
+        Assert.True(await rig.Ledger.RecordDeath(TownRig.Key, default));
+        Assert.Single(rig.Ledger.CorpsesLost());
+        rig.SetPurse(0);
+
+        var r = await rig.Service.Reclaim(TownRig.Index);
+
+        Assert.False(r!.Ok);
+        var notice = rig.Of<Notice>().Last();
+        Assert.Equal(("#Descent_Town_" + LedgerRefusals.LostAndFoundFee, ""), (notice.Text, notice.Arg));
+    }
+
+    [Fact]
+    public async Task A_reclaim_done_with_no_window_open_is_told_as_a_notice()
+    {
+        var rig = new TownRig();
+        rig.Give(rig.Roll("rocket_launcher", 1, 20));
+        Assert.True(await rig.Ledger.RecordDeath(TownRig.Key, default));
+        Assert.Single(rig.Ledger.CorpsesLost());
+        rig.SetPurse(rig.Ledger.ReclaimFee(TownRig.Key)!.Value);
+
+        var r = await rig.Service.Reclaim(TownRig.Index);
+
+        Assert.True(r!.Ok, r.Refusal);
+        Assert.Equal(TownStatusTokens.Done("reclaim"), rig.Of<Notice>().Last().Text);
+    }
+
+    [Fact]
+    public async Task A_verb_answered_in_an_open_window_sends_no_notice()
+    {
+        var rig = new TownRig();
+        rig.Use("saxton");
+        int mark = rig.Mark;
+
+        var r = await rig.Service.Sell(TownRig.Index, 0);   // nothing in the backpack: refused
+
+        Assert.False(r!.Ok);
+        Assert.Equal((1, 0), (rig.Of<TownStatus>(mark).Count, rig.Of<Notice>(mark).Count));
+    }
+
     [Fact]
     public async Task The_reclaim_verb_with_nothing_lost_is_refused_in_words()
     {

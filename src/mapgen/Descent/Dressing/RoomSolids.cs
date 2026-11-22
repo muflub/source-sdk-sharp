@@ -1,8 +1,10 @@
 namespace SourceSharp.MapGen.Descent.Dressing;
 
 /// <summary>
-/// A room's solid brushes (its world, plugs included, and its brush
-/// entities that stay solid) and exact questions about them: how far a
+/// A room's solid brushes (its world, plugs included, its brush entities
+/// that stay solid, and its strips: low rails drawn but not solid,
+/// <see cref="RoomBuilder.WithStrips"/>, which dressing keeps out of as it
+/// did when they were world) and exact questions about them: how far a
 /// level ray from a point runs before it meets a wall, where the ceiling
 /// and the floor are over a point, and whether a box stands in a brush.
 /// The dresser and its lint ask these of any shape, so they work on the
@@ -16,9 +18,12 @@ public sealed class RoomSolids
     {
         Room = room;
         solids = [.. room.World,
-                  .. room.Entities.Where(e => e.ClassName == "func_brush" && e.Key("Solidity") != "1").SelectMany(e => e.Brushes),
+                  .. room.Entities.Where(e => e.ClassName == "func_brush" && (e.Key("Solidity") != "1" || IsStrips(e))).SelectMany(e => e.Brushes),
                   .. extra ?? []];
     }
+
+    /// <summary>Whether a brush entity is a room's strips (<see cref="RoomBuilder.WithStrips"/>): never solid, and kept in every level, so it has no <c>room_needs</c>.</summary>
+    public static bool IsStrips(RoomEntity e) => e.ClassName == "func_brush" && e.Key("Solidity") == "1" && e.Key("room_needs") is null;
 
     /// <summary>The room the solids are of.</summary>
     public Room Room { get; }

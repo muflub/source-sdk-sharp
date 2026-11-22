@@ -3,13 +3,12 @@
 Measured at `ce143b36b` (main, 2026-11-10). Reviewed and committed that day
 ("commit it and start on CR").
 
-**Status, 2026-11-14.** On main at `fe9337f46`: 65 of the 66 packages (CR2 is
+**Status, 2026-11-14.** On main at `9175b350d`: 65 of the 66 packages (CR2 is
 ruled and not built). The wave of 2026-11-13 (rulings L14 to L17) landed
 CR7, CR11, RU14 with the bosses rebalanced, four defect fixes and the lamp's
-two stats; a lane is playing one whole run end to end. Section 4.7 says what
-each landed package gave and found. Nothing has been run hosted. The host
-and map sessions have the asks of section 7 (sent 2026-11-13; their answers
-are recorded there).
+two stats, and one whole run was played end to end unhosted; section 4.7
+says what each gave and what the run found. Nothing has been run hosted. The
+host and map sessions have the asks of section 7 and have answered them.
 
 The design is `plan_tf2_rpg.md` (rulings R1 to R29, defaults D1 to D25,
 appendices A to D). This file does not restate it. It says what to build in
@@ -988,6 +987,44 @@ Seams by name, for the packages that build on them; then what did not hold.
 - The box: the disk filled on 2026-11-13 (349 GB of lane worktrees). 44
   spent lane worktrees were retired (each tip tagged `archive/<branch>`).
 
+**The whole run (2026-11-14, `9f6de1cbe` to `9175b350d`).** A lane played
+one process for an hour and three quarters over twelve map loads (the town
+four times, depths 1 to 5), with a script that walks the room graph, aims and
+fires. No load threw. By play: the town and its eight stalls, depth 1 by
+fighting (35 of 48 robots for about 35 deaths), a real level-up's refill
+(L3), loot on the hero's own seat, equip, a belt potion, a skill learnt and
+cast, wear, a shrine, a barrel, the automap, the lamp, the bestiary (L6),
+death and recovery, the Lost and Found, and with a second player a party, a
+revive and both lamps. With dev help: the portal and most of the way down.
+Not reached: an unmet requirement (L2: every base with one is item level 6
+or more), a field repair (L7: a kit needs 6 metal and one salvage gave 1),
+the door shove (L9: none all run), depths 10 and 15.
+
+- Fixed in the lane: unhosted, a level's cage down and up did nothing (now
+  the process changes level, down to the next installed depth and up to the
+  town); Esc over the depth picker opened the main menu; a refused town verb
+  with no window open showed nothing; an empty stash's words.
+- Blocks a run, open: the Town Portal blueprint is in no vendor's stock and
+  no drop table; a potion picked up or bought never reaches the belt (only
+  the dev command calls `ToBelt`); a hero of level 1 to 3 dies 5 to 25 s
+  after meeting an awake pack, and the depth 5 boss (level 9) was not
+  beaten by the run's level 3 hero in 661 s and 21 deaths (the script
+  skipped depths 3 and 4, so this is the early game's harshness more than
+  the boss's numbers). Closed by the mine-levels session at `218175fc0`: a
+  level's cage button pressed once per load.
+- Wrong, open: another client draws the host's weapon at a stale origin
+  after an in-place kit refresh (TF2 or the core); the path on depth 1 runs
+  through room 8's pillar, and depths 1 and 2 logged 15 and 11 stalled
+  followers; `tf2_descent_spawn_robot` from the server console with two
+  players reads a stale command client (the core's); closing a town window
+  on the client does not tell the server; an Engineer repair of the starting
+  launcher costs 27 Australium against 26 for a new one.
+- The Descent leg's `HostLinkTests` held two facts that waited on a
+  `Task.Delay` continuation under a wall-clock bound; each failed one
+  whole-leg run on a busy box (the pool gave the continuation no thread for
+  5 and for 10 s). Both now complete their step from a thread of the test's
+  own.
+
 **For every lane.** A wall-clock bound in a fact fails on a loaded box: the
 horde's stall fact failed three landings at 255 to 440 ms against 250 and
 now holds the decide at a gate instead. Two lanes that each register a
@@ -1119,7 +1156,12 @@ Nothing here is done by a lane of this plan.
    is free (a hero with no Australium cannot pay the fee on a starting kit);
    Lamplighter as a new skill (52 Mercenary ranks) and robots' sight
    ignoring the lamp's stats; the base lamp's strength (the mine-levels
-   session recommends a dimmer base with the range bought back).
+   session recommends a dimmer base with the range bought back). From
+   the whole run (2026-11-14): whether a potion gained goes to the first
+   free belt slot (the default proposed: Diablo's rule); where the Town
+   Portal blueprint is sold; the early game's balance, which a person should
+   play before anyone tunes it; whether a lost corpse's own Australium may
+   pay its Lost and Found fee.
 9. **Robot traces pass robots** (the team rule above) for every trace a body
    makes, attacks included: a robot's rocket or bullet will not stop on
    another robot, as a teammate's does not in TF2. L12 (a robot is hurt by

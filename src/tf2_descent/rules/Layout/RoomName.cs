@@ -90,6 +90,12 @@ public sealed record RoomShape(string Family, string Variant, Doors Doors, Heigh
     public static ulong SocketBit(Doors side, int offset) =>
         1UL << (16 * (side switch { Doors.North => 0, Doors.East => 1, Doors.South => 2, _ => 3 }) + offset);
 
+    /// <summary>
+    /// A quiet room (flag <c>q</c>, brief p9): one with no pack spawn, which the layout places only
+    /// beside the way in, so a party arriving has no pack in sight.
+    /// </summary>
+    public bool Quiet { get; init; }
+
     /// <summary>The name these facts are spelled as (<see cref="RoomName.Format"/>).</summary>
     public string Name => RoomName.Format(this);
 }
@@ -112,7 +118,8 @@ public sealed record RoomShape(string Family, string Variant, Doors Doors, Heigh
 /// <c>room_footprint</c>, 1 to 16 cells a side), never spelled for one cell. Its doors are the
 /// faces with a socket on every cell edge, since the host's <c>RoomInfo</c> carries no footprint
 /// and no sockets either.</item>
-/// <item><c>flags</c>: any of <c>j s2 s3 b1 b2 b3</c> in that order, joined by <c>.</c>.</item>
+/// <item><c>flags</c>: any of <c>j s2 s3 b1 b2 b3 q</c> in that order, joined by <c>.</c>; <c>q</c>
+/// is a quiet room (<see cref="RoomShape.Quiet"/>).</item>
 /// </list>
 /// Each set of facts has exactly one spelling, so <see cref="Parse"/> refuses a
 /// name whose doors or flags are out of order or repeated, and
@@ -135,13 +142,13 @@ public static class RoomName
     public static bool TryParse(string? name, out RoomShape? shape, out string? error)
     {
         shape = null;
-        error = Check(name, out var family, out var variant, out var doors, out var height, out var jumps, out var cellsX, out var cellsY, out var mask);
+        error = Check(name, out var family, out var variant, out var doors, out var height, out var jumps, out var cellsX, out var cellsY, out var mask, out var quiet);
         if (error is not null)
         {
             error = $"room name '{name}': {error}; a layout room is named <family>_<variant>-<doors>-<height>[-<flags>], e.g. drift_a-ew-l";
             return false;
         }
-        shape = new RoomShape(family, variant, doors, height, jumps) { CellsX = cellsX, CellsY = cellsY, SocketMask = mask };
+        shape = new RoomShape(family, variant, doors, height, jumps) { CellsX = cellsX, CellsY = cellsY, SocketMask = mask, Quiet = quiet };
         return true;
     }
 
@@ -188,17 +195,19 @@ public static class RoomName
         }
         var name = $"{shape.Family}_{shape.Variant}-{doors}-{HeightLetters[(int)shape.Height]}";
         if (shape.IsMultiCell) name += $"-{shape.CellsX}x{shape.CellsY}";
-        if (shape.Jumps == JumpFlags.None) return name;
-        var flags = new List<string>(6);
+        if (shape.Jumps == JumpFlags.None && !shape.Quiet) return name;
+        var flags = new List<string>(7);
         for (var i = 0; i < 6; i++)
             if ((shape.Jumps & FlagAt(i)) != 0) flags.Add(FlagWord(i));
+        if (shape.Quiet) flags.Add(QuietWord);
         return name + "-" + string.Join('.', flags);
     }
 
     private static string? Check(string? name, out string family, out string variant, out Doors doors, out HeightClass height, out JumpFlags jumps,
-        out int cellsX, out int cellsY, out ulong mask)
+        out int cellsX, out int cellsY, out ulong mask, out bool quiet)
     {
         mask = 0;
+        quiet = false;
         cellsX = cellsY = 1;
         family = variant = "";
         doors = Doors.None;
@@ -274,11 +283,12 @@ public static class RoomName
             last = -1;
             foreach (var word in parts[next].Split('.'))
             {
-                var i = FlagIndex(word);
-                if (i < 0) return $"flag '{word}' is not one of j, s2, s3, b1, b2, b3";
-                if (i <= last) return $"flags '{parts[next]}' are not in the order j, s2, s3, b1, b2, b3 without repeats";
+                var i = word == QuietWord ? 6 : FlagIndex(word);
+                if (i < 0) return $"flag '{word}' is not one of j, s2, s3, b1, b2, b3, q";
+                if (i <= last) return $"flags '{parts[next]}' are not in the order j, s2, s3, b1, b2, b3, q without repeats";
                 last = i;
-                jumps |= FlagAt(i);
+                if (i == 6) quiet = true;
+                else jumps |= FlagAt(i);
             }
         }
         return null;
@@ -294,6 +304,9 @@ public static class RoomName
             if (c is not (>= 'a' and <= 'z') and not (>= '0' and <= '9')) return false;
         return true;
     }
+
+    /// <summary>The flag a quiet room's name carries last.</summary>
+    private const string QuietWord = "q";
 
     private static Doors DoorAt(int i) => (Doors)(1 << i);
     private static JumpFlags FlagAt(int i) => (JumpFlags)(1 << i);

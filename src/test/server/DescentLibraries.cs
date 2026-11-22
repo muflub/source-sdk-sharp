@@ -27,8 +27,7 @@ public sealed class DescentLibraries
 
     /// <summary>Depth <paramref name="depth"/>'s rooms at seed 0 as the shapes built them, undressed (names, kits, roles and tags are the dressed rooms').</summary>
     public IReadOnlyList<Room> Built(int depth) =>
-        built.GetOrAdd(depth, d => new(() => [.. RoomCatalogue.Rooms(DescentRooms.ShapesFor(d), DescentRooms.KitFor(d), DescentRooms.ThemeFor(d), 0)
-            .Where(r => d >= r.Entry.MinDepth && d <= r.Entry.MaxDepth)])).Value;
+        built.GetOrAdd(depth, d => new(() => DescentRooms.Built(d, 0))).Value;
 
     /// <summary>Depth <paramref name="depth"/>'s rooms as the host reads them, from their manifest.</summary>
     public IReadOnlyList<Host.Contracts.RoomInfo> Pool(int depth) =>

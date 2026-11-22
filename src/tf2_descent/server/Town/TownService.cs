@@ -433,8 +433,16 @@ public sealed class TownService(
     private void Refuse(int player, string code)
     {
         string token = TokenOf(code);
-        sender.Status(player, token, token == TownStatusTokens.Refused ? code : "", error: true);
+        Tell(player, token, token == TownStatusTokens.Refused ? code : "", error: true);
         log.Msg($"[TF2Descent/Town] {player} refused: {code}\n");
+    }
+
+    /// <summary>A verb's answer on the status line, and as a notice too while no window shows that line.</summary>
+    private void Tell(int player, string token, string arg, bool error, long item = 0)
+    {
+        sender.Status(player, token, arg, error, item);
+        if (!_sessions.ContainsKey(player))
+            sender.Notice(player, token, arg);
     }
 
     private string NameOf(ItemInstance item) =>
@@ -455,7 +463,7 @@ public sealed class TownService(
             if (r.Ok)
             {
                 var (arg, item) = done?.Invoke(r) ?? ("", 0);
-                sender.Status(player, TownStatusTokens.Done(verb), arg, error: false, item);
+                Tell(player, TownStatusTokens.Done(verb), arg, error: false, item);
                 log.Msg(string.Create(CultureInfo.InvariantCulture,
                     $"[TF2Descent/Town] {player} {verb} {arg}: done, Australium {before} -> {after}\n"));
             }

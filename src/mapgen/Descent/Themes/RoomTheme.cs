@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace SourceSharp.MapGen.Descent;
 
 /// <summary>
@@ -124,6 +126,14 @@ public sealed record RoomTheme(Surface Floor, Surface Wall, Surface Ceiling, Sur
     public string Sky { get; init; } = MineShaft.Sky;
 
     /// <summary>
+    /// Lamps set in pools along each room's route besides its theme's own (<see cref="Lamps"/>), or
+    /// null: level 9's candle clusters on the floor by the walls, so its crypts and naves are lit in
+    /// pools rather than by a fill (brief p9). Its <see cref="LampKind.Pools"/> says how many a room
+    /// takes; a floor kind with no stand stands on the floor against the wall.
+    /// </summary>
+    public LampKind? RoutePools { get; init; }
+
+    /// <summary>
     /// The theme a depth's ways in (<c>room_role up</c>) are drawn in instead,
     /// or null: level 1's arrival is the bottom of the town's shaft, in the
     /// town's own timber, rock and lanterns (§8).
@@ -165,9 +175,14 @@ public sealed record RoomTheme(Surface Floor, Surface Wall, Surface Ceiling, Sur
 
     /// <summary>The materials the theme names that ship with the mod, as paths under <c>materials/</c> and their text.</summary>
     public IReadOnlyList<(string Path, string Text)> OwnMaterials =>
-        Plug.Material.StartsWith(MaterialFolder + "/", StringComparison.Ordinal)
-            ? [(Plug.Material + ".vmt", PlugVmt(Wall.Material))]
-            : [];
+        [.. Plug.Material.StartsWith(MaterialFolder + "/", StringComparison.Ordinal) ? [(Plug.Material + ".vmt", PlugVmt(Wall.Material))] : Array.Empty<(string, string)>(),
+         .. Extra.Select(m => (m.Name + ".vmt", m.Vmt))];
+
+    /// <summary>The theme's own materials beside its plug (<see cref="OwnMaterial"/>): a water of its own, a bed under it.</summary>
+    public IReadOnlyList<OwnMaterial> Extra { get; init; } = [];
+
+    /// <summary>The database's material a theme's material stands for: itself, or the one an own material of the theme is made from.</summary>
+    public string AssetOf(string material) => Extra.FirstOrDefault(m => m.Name == material)?.BasedOn ?? material;
 
     /// <summary>Every theme the generators draw rooms in.</summary>
     public static IReadOnlyList<RoomTheme> All => [Grey, Mine, .. Themes.ActOne.All, .. Themes.ActTwo.All];
@@ -274,6 +289,36 @@ public sealed record StandingWater(int Depth, int FromDoors, IReadOnlySet<string
 {
     /// <summary>How far in from the room's body the water stops: 0 floods the floor, more leaves a pool in the middle.</summary>
     public int Inset { get; init; }
+}
+
+/// <summary>
+/// A material a theme ships with the mod (under <c>materials/descent/</c>), made from a database's
+/// <paramref name="BasedOn"/>: its palette row and its checks are that one's.
+/// </summary>
+public sealed record OwnMaterial(string Name, string BasedOn, string Vmt)
+{
+    /// <summary>
+    /// A water that reads as water in an LDR map with no cubemap (brief p9): the scene reflected in it
+    /// (<c>_rt_WaterReflection</c>, no cubemap needed; entities not reflected), what is under it refracted,
+    /// a short fog of <paramref name="fogColour"/> so its depth tints, and TF2's normal map rippling.
+    /// <paramref name="basedOn"/> is the TF2 water it stands for, whose underwater view it keeps.
+    /// </summary>
+    public static OwnMaterial Water(string name, string basedOn, string beneath, string fogColour, int fogEnd, string reflectTint, float refract = 0.25f) =>
+        new(name, basedOn,
+            $"\"Water\"\n{{\n\t\"%compilewater\" 1\n\t\"$abovewater\" 1\n\t\"$forceexpensive\" 1\n" +
+            $"\t\"$reflecttexture\" \"_rt_WaterReflection\"\n\t\"$reflectamount\" \".6\"\n\t\"$reflecttint\" \"{reflectTint}\"\n\t\"$reflectentities\" 0\n" +
+            $"\t\"$envmap\" \"env_cubemap\"\n\t\"$refracttexture\" \"_rt_WaterRefraction\"\n\t\"$refractamount\" \"{refract.ToString(CultureInfo.InvariantCulture)}\"\n" +
+            $"\t\"$normalmap\" \"water/tfwater001_normal\"\n\t\"$bumpframe\" \"0\"\n\t\"$surfaceprop\" \"water\"\n\t\"$bottommaterial\" \"{beneath}\"\n" +
+            $"\t\"$fogenable\" 1\n\t\"$fogcolor\" \"{{{fogColour}}}\"\n\t\"$fogstart\" \"0\"\n\t\"$fogend\" \"{fogEnd}\"\n" +
+            "\t\"Proxies\"\n\t{\n\t\t\"AnimatedTexture\"\n\t\t{\n\t\t\t\"animatedtexturevar\" \"$normalmap\"\n\t\t\t\"animatedtextureframenumvar\" \"$bumpframe\"\n\t\t\t\"animatedtextureframerate\" 30.00\n\t\t}\n" +
+            "\t\t\"TextureScroll\"\n\t\t{\n\t\t\t\"texturescrollvar\" \"$bumptransform\"\n\t\t\t\"texturescrollrate\" .05\n\t\t\t\"texturescrollangle\" 45.00\n\t\t}\n" +
+            "\t\t\"WaterLOD\"\n\t\t{\n\t\t}\n\t}\n}\n");
+
+    /// <summary>A copy of a lit brush material with no <c>$envmap</c>: the map tools' cubemap fix-up throws on one in a room with no <c>env_cubemap</c> (plan 1.3c).</summary>
+    public static OwnMaterial Plain(string name, string basedOn, string baseTexture, string? bumpMap, string surfaceProp) =>
+        new(name, basedOn,
+            $"\"LightmappedGeneric\"\n{{\n\t\"$basetexture\" \"{baseTexture}\"\n" + (bumpMap is null ? "" : $"\t\"$bumpmap\" \"{bumpMap}\"\n") +
+            $"\t\"$surfaceprop\" \"{surfaceProp}\"\n}}\n");
 }
 
 /// <summary>A band of <paramref name="Surface"/> through a wall from <paramref name="From"/> to <paramref name="To"/> above the floor.</summary>

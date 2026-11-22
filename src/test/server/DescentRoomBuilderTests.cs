@@ -200,11 +200,27 @@ public sealed class DescentRoomBuilderTests
     }
 
     [Fact]
+    public void An_up_rooms_button_can_be_pressed_again_after_a_refused_travel()
+    {
+        Room up = New().WithDoors(CellFace.East).WithRole(RoomRole.Up, new Point(256, 512, 32), 90).Build();
+
+        Assert.Equal("3", Assert.Single(up.Entities, e => e.ClassName == "func_button").Key("wait"));
+    }
+
+    [Fact]
+    public void A_down_rooms_hallway_trigger_fires_again_after_a_refused_travel()
+    {
+        Room down = New().WithDoors(CellFace.East).WithRole(RoomRole.Down, new Point(256, 512, 32), 0).Build();
+
+        Assert.Equal("3", Assert.Single(down.Entities, e => e.ClassName == "trigger_multiple").Key("wait"));
+    }
+
+    [Fact]
     public void A_down_room_fires_its_transition_from_a_hallway_trigger()
     {
         Room down = New().WithDoors(CellFace.East).WithRole(RoomRole.Down, new Point(256, 512, 32), 0).Build();
 
-        RoomEntity hall = Assert.Single(down.Entities, e => e.ClassName == "trigger_once");
+        RoomEntity hall = Assert.Single(down.Entities, e => e.ClassName == "trigger_multiple");
         Assert.Contains(hall.Wires, w => w.Output == "OnStartTouch" && w.Target == RoomBuilder.VolumeName && w.Input == "Transition");
         Assert.DoesNotContain(down.Entities, e => e.ClassName == "func_button");
     }

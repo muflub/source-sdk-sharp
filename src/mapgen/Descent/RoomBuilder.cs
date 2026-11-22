@@ -194,6 +194,9 @@ public sealed class RoomBuilder
     }
 
     /// <summary>The transition volume's room-local name, which the link renames per placement.</summary>
+    /// <summary>Seconds before a way up or down can be asked again: the server may refuse a travel, so no way is one-shot.</summary>
+    public const string WayWait = "3";
+
     public const string VolumeName = "cxry_transition";
 
     /// <summary>The room's own height (<c>room_height</c>); the cell size by default.</summary>
@@ -384,6 +387,18 @@ public sealed class RoomBuilder
     public RoomBuilder WithoutDoorFrames()
     {
         frames = false;
+        return this;
+    }
+
+    /// <summary>
+    /// Low strips on the floor (rails, sleepers, planks) drawn and casting shadows but never solid:
+    /// one <c>func_brush</c> that collides with nothing. A solid strip any height over the floor is a
+    /// wall to the level's navigation for a box wider than the gap beside it (<see cref="Dressing.FlatHullWalk"/>).
+    /// </summary>
+    public RoomBuilder WithStrips(IEnumerable<Brush> brushes)
+    {
+        entities.Add(new RoomEntity("func_brush", null,
+            [new("Solidity", "1"), new("vrad_brush_cast_shadows", "1"), new("disableshadows", "1")], [], [.. brushes]));
         return this;
     }
 
@@ -951,10 +966,30 @@ public sealed class RoomBuilder
         if (theme.FrameBrushes is { } brushes)
             yield return BrushFramePiece(brushes, face, offset);
         else
+        {
             yield return ConditionalProp(face, f.Model, Math.Max(f.Depth, kit.WallDepth) + PropProud, f.MinX, kit.Sill - f.Bottom, offset);
+            yield return SillSlabPiece(face, offset);
+        }
         if (f.Sill is { } sill)
             foreach (float inset in SillInsets(kit))
                 yield return ConditionalProp(face, sill.Model, inset, sill.MinX, kit.Sill - DoorwayDip - sill.Floor, offset);
+    }
+
+    /// <summary>
+    /// A model frame's doorway floor (brief p9): a slab of the floor's surface over the dip under the
+    /// plug, a step's fraction above the sill, as one non-solid <c>func_brush</c> kept only where the
+    /// socket is joined, with Act I's frame floor of light (<see cref="BrushFrame.DefaultMinLight"/>):
+    /// the dip and the sill plates on it were in the plug when the room was lit and drew as a black strip
+    /// across the doorway (plan task H9). A brush frame carries its own (<see cref="BrushFrame.SillSlab"/>).
+    /// </summary>
+    private RoomEntity SillSlabPiece(CellFace face, int offset)
+    {
+        float e = Extent, wall = e - kit.WallDepth;
+        Brush slab = Face(face, wall, e - DoorwayDipShort, kit.DoorLow, kit.DoorHigh, kit.Sill - DoorwayDip, kit.Sill + 1, theme.Floor, offset).ToBrush();
+        return new RoomEntity("func_brush", null,
+            [new("room_needs", "joined_" + SocketName(face, offset)), new("Solidity", "1"), new("vrad_brush_cast_shadows", "0"),
+             new("disableshadows", "1"), new("_minlight", BrushFrame.DefaultMinLight.ToString("0.###", CultureInfo.InvariantCulture))],
+            [], [slab]);
     }
 
     /// <summary>
@@ -1014,6 +1049,13 @@ public sealed class RoomBuilder
         if (fr.CapOverhang > 0)
             // A broken set's cap is gone past the sagging half's post.
             boxes.Add(Face(face, inner, wall, lo - fr.CapOverhang, fr.Sag > 0 ? mid : hi + fr.CapOverhang, head, head + fr.HeadDepth, fr.HeadFace ?? fr.Head, offset));
+        if (fr.SillSlab > 0)
+        {
+            // Over the dip under the plug (DipOf: from the wall's face to just short of the cell face, the
+            // opening's width): the floor there and the sill plates on it were in the plug when the room was lit.
+            boxes.Add(Face(face, wall, e - DoorwayDipShort, lo, hi, sill - DoorwayDip, sill + fr.SillSlab, fr.Post, offset));
+        }
+
         if (fr.Crossing is { } planks)
             // Three boards across the threshold, a hand apart, a unit and a half high: the floor of a level crossing.
             for (int k = 0; k < 3; k++)
@@ -1024,7 +1066,7 @@ public sealed class RoomBuilder
 
         return new RoomEntity("func_brush", null,
             [new("room_needs", "joined_" + SocketName(face, offset)), new("Solidity", "1"), new("vrad_brush_cast_shadows", "0"),
-             new("disableshadows", "1"), new("_minlight", BrushFrame.MinLight)],
+             new("disableshadows", "1"), new("_minlight", fr.MinLight.ToString("0.###", CultureInfo.InvariantCulture))],
             [], [.. boxes.Select(b => b.ToBrush()), .. extra]);
     }
 
@@ -1129,11 +1171,11 @@ public sealed class RoomBuilder
             [Brush.Box(volume.Mins, volume.Maxs, theme.Trigger)]));
 
         if (hallTrigger is { } walked)
-            all.Add(new RoomEntity("trigger_once", null, [new("spawnflags", "1")],
+            all.Add(new RoomEntity("trigger_multiple", null, [new("spawnflags", "1"), new("wait", WayWait)],
                 [new VmfConnection("OnStartTouch", VolumeName, "Transition", "", 0f, -1)],
                 [Brush.Box(walked.Mins, walked.Maxs, theme.Trigger)]));
         else if (button is { } pressed)
-            all.Add(new RoomEntity("func_button", null, [new("spawnflags", "1025"), new("wait", "-1")],
+            all.Add(new RoomEntity("func_button", null, [new("spawnflags", "1025"), new("wait", WayWait)],
                 [new VmfConnection("OnPressed", VolumeName, "Transition", "", 0f, -1)],
                 [Brush.Box(pressed.Mins, pressed.Maxs, theme.Block)]));
         else if (role == RoomRole.Up)
@@ -1141,7 +1183,7 @@ public sealed class RoomBuilder
             // A button on a post in the square's north-east corner, out of
             // every door's line but the arm it shares the corner with.
             float b = (kit.Cell + width) / 2f, t = kit.WallDepth;
-            all.Add(new RoomEntity("func_button", null, [new("spawnflags", "1025"), new("wait", "-1")],
+            all.Add(new RoomEntity("func_button", null, [new("spawnflags", "1025"), new("wait", WayWait)],
                 [new VmfConnection("OnPressed", VolumeName, "Transition", "", 0f, -1)],
                 [Brush.Box(new(b - 16, b - 16, t), new(b, b, t + 48), theme.Block)]));
         }
@@ -1150,7 +1192,7 @@ public sealed class RoomBuilder
             (Point Mins, Point Maxs) hall = transitionBox is { } box
                 ? (box.Mins with { X = box.Mins.X - 32, Y = box.Mins.Y - 32 }, box.Maxs with { X = box.Maxs.X + 32, Y = box.Maxs.Y + 32, Z = box.Mins.Z + 128 })
                 : HallwayTrigger(kit);
-            all.Add(new RoomEntity("trigger_once", null, [new("spawnflags", "1")],
+            all.Add(new RoomEntity("trigger_multiple", null, [new("spawnflags", "1"), new("wait", WayWait)],
                 [new VmfConnection("OnStartTouch", VolumeName, "Transition", "", 0f, -1)],
                 [Brush.Box(hall.Mins, hall.Maxs, theme.Trigger)]));
         }

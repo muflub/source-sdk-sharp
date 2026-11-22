@@ -395,7 +395,7 @@ public static partial class RoomDresser
         /// </summary>
         private void WallPools(LampKind kind, int want)
         {
-            if (kind.Stand is not { } stand)
+            if (kind.Stand is null && kind.Mount != LampMount.Floor)
                 return;
             Point mid = new(room.Body.CentreX, room.Body.CentreY, sill);
             var sites = WallSites(32).OrderBy(s => Math.Atan2(s.Face.Y - mid.Y, s.Face.X - mid.X)).ThenBy(s => s.Face.X).ThenBy(s => s.Face.Y).ToList();
@@ -409,7 +409,7 @@ public static partial class RoomDresser
                     WallSite s = sites[(j * span + k) % sites.Count];
                     if (lamps.Any(q => Level(q, s.Face) < apart))
                         continue;
-                    if (TryLamp(OnStand(kind, stand, s.Face, s.Dx, s.Dy, sill)))
+                    if (TryLamp(AgainstWall(kind, s)))
                         break;
                 }
         }
@@ -439,12 +439,21 @@ public static partial class RoomDresser
         /// <summary>A lamp on its stand against the wall nearest <paramref name="p"/>, off the giant's lane.</summary>
         private bool StandNear(LampKind kind, Point p)
         {
-            if (kind.Stand is not { } stand)
+            if (kind.Stand is null && kind.Mount != LampMount.Floor)
                 return false;
             foreach (WallSite s in WallSites(32).OrderBy(s => Level(s.Face, p)).Take(24))
-                if (Level(s.Face, p) < 256 && TryLamp(OnStand(kind, stand, s.Face, s.Dx, s.Dy, sill)))
+                if (Level(s.Face, p) < 256 && TryLamp(AgainstWall(kind, s)))
                     return true;
             return false;
+        }
+
+        /// <summary>A lamp of <paramref name="kind"/> against the wall at <paramref name="s"/>: on its stand, or, for a floor kind with none, on the floor (a candle cluster).</summary>
+        private LampSite AgainstWall(LampKind kind, WallSite s)
+        {
+            if (kind.Stand is { } stand)
+                return OnStand(kind, stand, s.Face, s.Dx, s.Dy, sill);
+            PropModel f = kind.Fixture;
+            return Site(kind, Out(s.Face with { Z = sill - f.Mins.Z }, s.Dx, s.Dy, f.Back + FloorLampOut), Yaw(-s.Dx, -s.Dy) - f.Front);
         }
 
         //---------------------------------------------------------------------

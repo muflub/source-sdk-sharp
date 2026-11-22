@@ -54,15 +54,19 @@ public static class WideDriftShape
         return b;
     }
 
-    /// <summary>A track's two rails, a step's worth of strips on the floor either side of the posts.</summary>
+    /// <summary>
+    /// A track's two rails either side of the posts: strips on the floor that are drawn but not solid, so
+    /// a giant's box crosses them (a solid strip is a wall to the level's navigation, brief p7).
+    /// </summary>
     private static RoomBuilder Rails(this RoomBuilder b, float x0, float x1, float y, float spread)
     {
         x0 += RoomBuilder.DoorApproach;
         x1 -= RoomBuilder.DoorApproach;
+        var rails = new List<Brush>();
         foreach (float centre in (float[])[y - spread / 2, y + spread / 2])
             foreach (float rail in (float[])[centre - 32, centre + 24])
-                b.WithBox(new Point(x0, rail, b.Floor), new Point(x1, rail + 8, b.Floor + 8));
-        return b;
+                rails.Add(Brush.Box(new Point(x0, rail, b.Floor), new Point(x1, rail + 8, b.Floor + 8), b.Theme.Block));
+        return b.WithStrips(rails);
     }
 
     /// <summary>Two rows of lamps over the tracks, every 256.</summary>

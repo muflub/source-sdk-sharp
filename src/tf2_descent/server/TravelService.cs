@@ -27,6 +27,9 @@ public sealed class TravelService(
     ClientMessages messages,
     IBossKills bossKills,
     Party.IPartyTravel party,
+    Level.ILevelData level,
+    LevelHop hop,
+    IServerConsole console,
     ILog log)
 {
     /// <summary>The depth a descent from the town goes to when none was picked: the first level.</summary>
@@ -76,6 +79,8 @@ public sealed class TravelService(
     {
         if (host.Mode != HostingMode.Hosted)
         {
+            if (direction is TravelDirection.Down or TravelDirection.Up && level.Current is { } here)
+                return Task.FromResult(Unhosted(entIndex, here.Depth, direction));
             log.Msg("[TF2Descent] travel asked for with no host (unhosted): nothing happens\n");
             return Task.FromResult<TravelAnswer?>(null);
         }
@@ -100,6 +105,35 @@ public sealed class TravelService(
             return Task.FromResult<TravelAnswer?>(null);
 
         return Ask(entIndex, player.SteamId, direction, boot, picked);
+    }
+
+    /// <summary>The notice for a way down with no level installed below (unhosted); the argument is the depth.</summary>
+    public const string NoLevelToken = "#Descent_Travel_NoLevel";
+
+    /// <summary>
+    /// Unhosted, a level's way down or up (the town's cage and the portal already have theirs):
+    /// this process changes level, down to the next depth's installed level
+    /// (<see cref="LevelHop.InstalledLevel"/>), up to the town, and every player in it comes
+    /// along; with no level installed below the hero is told so. Nothing is asked of a host, so
+    /// the answer is always null.
+    /// </summary>
+    private TravelAnswer? Unhosted(int entIndex, int depth, TravelDirection direction)
+    {
+        bool up = direction == TravelDirection.Up;
+        int next = depth + 1;
+        string? map = up ? Portal.PortalRoute.TownMap : hop.InstalledLevel(next);
+        if (map is null)
+        {
+            string text = next.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            messages.Notice(entIndex, NoLevelToken, text);
+            log.Msg($"[TF2Descent] unhosted: player {entIndex} took the way down from depth {depth}, and no level of depth {text} is installed in {hop.PoolMaps}\n");
+            return null;
+        }
+
+        messages.Notice(entIndex, up ? UpToken : WaysDown.Token(WaysDown.FromLevel(depth)));
+        log.Msg($"[TF2Descent] unhosted: player {entIndex} goes {(up ? "up" : "down")} from depth {depth}: this process changes level to {map}, and every player in it comes along\n");
+        console.Execute($"changelevel {map}");
+        return null;
     }
 
     private static bool IsHub(BootInfo boot) => string.Equals(boot.InstanceKind, "hub", StringComparison.Ordinal);

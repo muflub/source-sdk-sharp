@@ -268,7 +268,9 @@ public static class RoomLint
         {
             string wall = room.SocketName(face, offset);
             var pieces = room.Entities.Where(e => e.ClassName == "prop_static" && e.Key("room_needs") == "joined_" + wall).ToArray();
-            var brushFrames = room.Entities.Where(e => e.ClassName == "func_brush" && e.Key("room_needs") == "joined_" + wall).ToArray();
+            // A slab over the doorway's dip (a model frame's floor, RoomBuilder.SillSlabPiece) is no frame: nothing of it stands above a step.
+            var brushFrames = room.Entities.Where(e => e.ClassName == "func_brush" && e.Key("room_needs") == "joined_" + wall
+                                                       && e.Brushes.Any(b => b.Maxs.Z > kit.Sill + Step)).ToArray();
             int frames = pieces.Count(e => e.Key("model") == kit.Frame.Model) + brushFrames.Length;
             int sills = kit.Frame.Sill is { } sill ? pieces.Count(e => e.Key("model") == sill.Model) : 0;
             int need = RoomBuilder.SillInsets(kit).Count;
@@ -345,6 +347,14 @@ public static class RoomLint
     {
         var markers = room.Markers.ToArray();
         var packs = markers.Where(m => m.Kind == MarkerKind.PackSpawn).ToArray();
+        if (room.Entry.Quiet)
+        {
+            // A quiet room stands beside the way in (brief p9): no pack at all.
+            if (packs.Length > 0)
+                yield return new LintFinding(MarkerCount, room.Name, $"a quiet room has {packs.Length} pack spawn(s); it has none");
+            yield break;
+        }
+
         if (room.Entry.Tags.Contains("corridor") || room.Entry.Tags.Contains("junction"))
         {
             if (packs.Length > 1)

@@ -71,13 +71,18 @@ public static class YardShape
         yield return d.Build();
     }
 
-    /// <summary>A track: two rail strips 64 apart either side of the line at <paramref name="across"/>, from <paramref name="from"/> to <paramref name="to"/> along <paramref name="along"/> (east or north).</summary>
+    /// <summary>
+    /// A track: two rail strips 64 apart either side of the line at <paramref name="across"/>, from
+    /// <paramref name="from"/> to <paramref name="to"/> along <paramref name="along"/> (east or north),
+    /// drawn but not solid, so a giant's box crosses them (a solid strip is a wall to the level's navigation, brief p7).
+    /// </summary>
     private static RoomBuilder Track(this RoomBuilder b, Compass along, float across, float from, float to)
     {
+        var rails = new List<Brush>();
         foreach (float rail in (float[])[across - 36, across + 28])
-            b.WithBox(along == Compass.East ? new Point(from, rail, b.Floor) : new Point(rail, from, b.Floor),
-                      along == Compass.East ? new Point(to, rail + 8, b.Floor + Rail) : new Point(rail + 8, to, b.Floor + Rail));
-        return b;
+            rails.Add(Brush.Box(along == Compass.East ? new Point(from, rail, b.Floor) : new Point(rail, from, b.Floor),
+                                along == Compass.East ? new Point(to, rail + 8, b.Floor + Rail) : new Point(rail + 8, to, b.Floor + Rail), b.Theme.Block));
+        return b.WithStrips(rails);
     }
 
     /// <summary>A turntable's round plinth, a rail's height.</summary>

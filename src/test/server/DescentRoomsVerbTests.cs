@@ -25,9 +25,7 @@ public sealed class DescentRoomsVerbTests(DescentLibraries libs) : IClassFixture
     internal static IReadOnlyList<Host.Contracts.RoomInfo> Pool(int depth) =>
         DescentLevel.ReadManifest(LibraryManifestWriter.Write(DescentRooms.LibraryName(depth), BuiltRooms(depth))).Rooms;
 
-    private static IReadOnlyList<Room> BuiltRooms(int depth) =>
-        [.. RoomCatalogue.Rooms(DescentRooms.ShapesFor(depth), DescentRooms.KitFor(depth), DescentRooms.ThemeFor(depth), 0)
-            .Where(r => depth >= r.Entry.MinDepth && depth <= r.Entry.MaxDepth)];
+    private static IReadOnlyList<Room> BuiltRooms(int depth) => DescentRooms.Built(depth, 0);
 
     /// <summary>The class's own shared copies (the fixture), so a depth is built once for all its facts.</summary>
     private IReadOnlyList<Room> Built(int depth) => libs.Built(depth);
@@ -107,9 +105,12 @@ public sealed class DescentRoomsVerbTests(DescentLibraries libs) : IClassFixture
     [InlineData(15)]
     public void A_boss_library_holds_only_its_rows_rooms(int depth)
     {
-        var families = Built(depth).Select(r => RoomName.Parse(r.Name).Family).Distinct().Order();
+        // The row's rooms, and (brief p9) the quiet drift that stands between its way in and its antechamber.
+        var families = Built(depth).Where(r => !r.Entry.Quiet).Select(r => RoomName.Parse(r.Name).Family).Distinct().Order();
+        var quiet = Built(depth).Where(r => r.Entry.Quiet).Select(r => r.Name).ToArray();
 
         Assert.Equal(depth == 15 ? ["antechamber", "arena", "arrival"] : ["antechamber", "arena", "arrival", "exit"], families);
+        Assert.Equal("drift", RoomName.Parse(Assert.Single(quiet)).Family);
     }
 
     [Fact]
@@ -180,6 +181,8 @@ public sealed class DescentRoomsVerbTests(DescentLibraries libs) : IClassFixture
             yield return $"{report.DeadEndConnectors} hallway dead ends";
         if (report.DeadEndFallbackReason is { } why)
             yield return "dead-end fallback: " + why;
+        if (report.QuietFallbackReason is { } quiet)
+            yield return "quiet fallback: " + quiet;
         if (report.CappedDoors > 0 || report.WastedDoors > 0)
             yield return $"{report.CappedDoors} capped doors, {report.WastedDoors} wasted";
         if (!profile.IsBoss && report.Rooms != profile.Rooms)

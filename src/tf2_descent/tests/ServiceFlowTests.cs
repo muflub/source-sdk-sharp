@@ -624,7 +624,20 @@ public sealed partial class ServiceFlowTests
         if (mode != HostingMode.Hosted)
             w.Link.ModeIs = mode;
         var host = w.Host;
-        return (w, new TravelService(w.Link, host, players, new ClientMessages(net), kills ?? new Kills(), party ?? new AnyoneTravels(), w.Log), net);
+        return (w, new TravelService(w.Link, host, players, new ClientMessages(net), kills ?? new Kills(), party ?? new AnyoneTravels(),
+                                     new Floor.RigLevel(levelDepth, 1) { Current = null }, NoPool(), w.Console, w.Log), net);
+    }
+
+    /// <summary>A pool with nothing installed: the hosted flows never look in it.</summary>
+    private static LevelHop NoPool() => new(new PoolMod(Path.Combine(Path.GetTempPath(), "tf2_descent-nopool-" + Guid.NewGuid().ToString("N"))),
+                                            new FakeConsole(), new ListLog());
+
+    private sealed class PoolMod(string dir) : IModInfo
+    {
+        public string Id => "tf2_descent";
+        public string GameDir => dir;
+        public string ManagedDir => dir;
+        public IReadOnlyList<string> AssembliesFor(Side side) => [];
     }
 
     private static int Notices(RecordingEngine net) => NoticesSent(net).Count;

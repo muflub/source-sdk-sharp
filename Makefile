@@ -839,7 +839,7 @@ ai-maps:
 # src/mapgen (`tfaimaps`) into game/mod_tf2/maps/src/ai and linked into the
 # tf2 mod's maps/ with its .nav3d, as LINKED_MAPS are into the test mod's.
 # `make map MAP=<one of TF_LINKED_MAPS>`; `make ai-maps-tf` builds them all.
-TF_LINKED_MAPS := ss_ai_tf_jump ss_ai_tf_course ss_ai_tf_double ss_ai_tf_wall ss_ai_tf_ends
+TF_LINKED_MAPS := ss_ai_tf_jump ss_ai_tf_course ss_ai_tf_double ss_ai_tf_wall ss_ai_tf_ends ss_ai_tf_pack
 TFAISRC        := game/mod_tf2/maps/src/ai
 TFMOD          := $(CURDIR)/bin/$(CONFIG)/mods/tf2
 
