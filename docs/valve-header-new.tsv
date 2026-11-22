@@ -1235,3 +1235,7 @@ src/tf2_descent/server/Town/TownLocker.cs	ports CRegenerateZone::Touch and Regen
 src/client/managed/PredictionEntityClip.cs	ports CEngineTrace::TraceRay entity clipping with CTraceFilterSimple::ShouldHitEntity (enginetrace.cpp, util_shared.cpp) for the client prediction
 src/tf2/shared/Rooms/TFRespawnRoomCollision.cs	ports CFuncRespawnRoomVisualizer::ShouldCollide and C_FuncRespawnRoomVisualizer::ShouldCollide (func_respawnroom.cpp, c_func_respawnroom.cpp)
 src/tf2/client/Entities/TFClientRespawnRoomCollide.cs	ports C_FuncRespawnRoomVisualizer::ShouldCollide (c_func_respawnroom.cpp) as the client prediction's collide rule
+src/tf2/server/Player/TFObserverRules.cs	ports CTFPlayer::SetObserverMode's mode arm, StateEnterOBSERVER and FindNearestObservableTarget (tf_player.cpp)
+src/tf2/shared/Player/TFEyeAngleWire.cs	ports the m_angEyeAngles send props (tf_player.cpp) through the engine's clamped-float and angle encoding (dt_encode.cpp EncodeFloat/DecodeFloat, dt_send.cpp AssignRangeMultiplier, SendProxy_AngleToFloat)
+src/tf2/server/Player/TFEyeAngles.cs	ports CTFPlayer::PostThink's m_angEyeAngles = EyeAngles() (tf_player.cpp)
+src/tf2/client/Player/TFObserverEyeAngles.cs	ports C_TFPlayer::EyeAngles' networked m_angEyeAngles and its LATCH_SIMULATION_VAR interpolation (c_tf_player.cpp)

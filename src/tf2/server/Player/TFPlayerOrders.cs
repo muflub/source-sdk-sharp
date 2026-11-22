@@ -184,4 +184,7 @@ public static class TFPlayerOrders
     /// its own place on the death walk, after the scoreboard's, on +149.
     /// </summary>
     public const int StickyTray = Band + 149;
+
+    /// <summary>The eye angles each frame sends (<see cref="TFEyeAngles"/>): its frame slot.</summary>
+    public const int EyeAngles = Band + 150;
 }

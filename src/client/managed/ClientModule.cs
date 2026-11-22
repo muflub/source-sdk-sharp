@@ -2308,6 +2308,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // THE OBSERVER'S CAMERA (C7 item 5), after the standalones and the HUD
         // it reads exist: built earlier, its IClientStandalones did not resolve
         // and the container recursed until the stack ran out.
+        _services.AddFactory<IHooks<Render.IObserverEyeAngles>>(locator => new Hooks<Render.IObserverEyeAngles>(locator, Log));
         _observerCamera = _services.Create<Render.ObserverCamera>();
         _services.AddInstance(_observerCamera);
 

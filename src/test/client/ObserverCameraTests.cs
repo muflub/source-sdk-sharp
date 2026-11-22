@@ -68,9 +68,31 @@ public class ObserverCameraTests
         public void ReconsiderFirstPerson() => Asked++;
     }
 
+    private sealed class Eyes(params IObserverEyeAngles[] all) : IHooks<IObserverEyeAngles>
+    {
+        public IReadOnlyList<IObserverEyeAngles> All => all;
+
+        public void Each(string what, Action<IObserverEyeAngles> call)
+        {
+            foreach (IObserverEyeAngles source in all)
+                call(source);
+        }
+    }
+
+    /// <summary>A mod that knows where player <see cref="Watched"/> looks.</summary>
+    private sealed class Aim(QAngle angles) : IObserverEyeAngles
+    {
+        public bool TryEyeAngles(int playerIndex, out QAngle eyes)
+        {
+            eyes = angles;
+            return playerIndex == Watched;
+        }
+    }
+
     private static (ObserverCamera Camera, Slots Slots, ClientSsPlayer Me) Build() => Build(new Wishes());
 
-    private static (ObserverCamera Camera, Slots Slots, ClientSsPlayer Me) Build(Wishes wishes, Gated? gated = null)
+    private static (ObserverCamera Camera, Slots Slots, ClientSsPlayer Me) Build(Wishes wishes, Gated? gated = null,
+                                                                                 IObserverEyeAngles? eyes = null)
     {
         var engine = Fake();
         engine.Returns("Hud.LocalPlayerIndex", Local);
@@ -94,7 +116,8 @@ public class ObserverCameraTests
         var slots = new Slots();
         slots.Poses[Watched] = new EntityRenderPose(new Vector(100, 200, 0), new QAngle(0, 45, 0), true);
 
-        var camera = new ObserverCamera(slots, directory, engine, new ViewReadout(), engine, DeclaredConVars.Holding<ClForceCameraConVar>("1"), wishes);
+        var camera = new ObserverCamera(slots, directory, engine, new ViewReadout(), engine, DeclaredConVars.Holding<ClForceCameraConVar>("1"), wishes,
+                                        eyes is null ? new Eyes() : new Eyes(eyes));
         return (camera, slots, me);
     }
 
@@ -154,6 +177,32 @@ public class ObserverCameraTests
         camera.Pass();
 
         Assert.Equal(0, wishes.InEyeTarget);
+    }
+
+    [Fact]
+    public void InEyeLooksWhereTheModSaysTheWatchedPlayerLooks()
+    {
+        // C_TFPlayer::EyeAngles: the networked m_angEyeAngles, pitch and all,
+        // not the body's facing (yaw 45, pitch 0 in the drawn pose).
+        var (camera, slots, me) = Build(new Wishes(), eyes: new Aim(new QAngle(-30, 120, 0)));
+        me.State.ObserverMode = (int)ObserverMode.InEye;
+        me.State.ObserverTarget = 0x0001_0000u | Watched;
+
+        camera.Pass();
+
+        Assert.Equal(new QAngle(-30, 120, 0), Assert.Single(slots.Views).Angles);
+    }
+
+    [Fact]
+    public void WithoutAModsWordInEyeTakesTheBodysFacing()
+    {
+        var (camera, slots, me) = Build();
+        me.State.ObserverMode = (int)ObserverMode.InEye;
+        me.State.ObserverTarget = 0x0001_0000u | Watched;
+
+        camera.Pass();
+
+        Assert.Equal(new QAngle(0, 45, 0), Assert.Single(slots.Views).Angles);
     }
 
     [Fact]

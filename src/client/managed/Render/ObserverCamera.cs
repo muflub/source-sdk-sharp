@@ -6,6 +6,19 @@ using SourceSharp.Shared;
 namespace SourceSharp.Client.Render;
 
 /// <summary>
+/// A mod's word on where another player looks: stock's
+/// <c>C_TFPlayer::EyeAngles</c> answers the networked, interpolated
+/// <c>m_angEyeAngles</c> for any player but the local one
+/// (c_tf_player.cpp:7281). Without one, the observer's in-eye view takes the
+/// drawn body's angles.
+/// </summary>
+public interface IObserverEyeAngles
+{
+    /// <summary>The eye angles of the player at <paramref name="playerIndex"/> this frame, or false.</summary>
+    bool TryEyeAngles(int playerIndex, out QAngle angles);
+}
+
+/// <summary>
 /// The observer's camera, once a frame at FRAME_RENDER_START after the drawn
 /// poses (plan_client_novalve C7 item 5): the local player's networked
 /// ObserverMode and ObserverTarget, through <see cref="ObserverView"/>, into the
@@ -14,7 +27,7 @@ namespace SourceSharp.Client.Render;
 /// </summary>
 public sealed class ObserverCamera(IObserverCameraSlots slots, IClientStandalones standalones, IEngineHud hud,
                                    ViewReadout view, IGameClock clock, ClForceCameraConVar forceCamera,
-                                   IRenderPolicyWishes policy)
+                                   IRenderPolicyWishes policy, IHooks<IObserverEyeAngles> eyes)
 {
     // WALL_OFFSET (c_baseplayer.h): the camera's hull.
     public const float WallOffset = 6.0f;
@@ -147,7 +160,17 @@ public sealed class ObserverCamera(IObserverCameraSlots slots, IClientStandalone
         {
             PlayerNetState s = player.State;
             bool ducking = (s.Flags & DuckingFlag) != 0;
-            return new ObserverTarget(index, pose.Origin, pose.Angles, pose.Origin + s.ViewOffset, pose.HasModel,
+            QAngle eyeAngles = pose.Angles;
+            foreach (IObserverEyeAngles source in eyes.All)
+            {
+                if (source.TryEyeAngles(index, out QAngle networked))
+                {
+                    eyeAngles = networked;
+                    break;
+                }
+            }
+
+            return new ObserverTarget(index, pose.Origin, eyeAngles, pose.Origin + s.ViewOffset, pose.HasModel,
                                       true, s.Alive, ducking, s.ViewOffset);
         }
         return new ObserverTarget(index, pose.Origin, pose.Angles, pose.Origin, pose.HasModel, false, true, false,

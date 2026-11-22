@@ -114,6 +114,14 @@ public class ObserverTests
             Asked.Add(asked);
             return ObserverMode.InEye;
         }
+
+        public int Exits;
+
+        public bool ExitFreezeCam(SsPlayer player, float now)
+        {
+            Exits++;
+            return true;
+        }
     }
 
     [Fact]
@@ -180,6 +188,36 @@ public class ObserverTests
 
         Assert.False(r.Players[0].Observer.AfterDeath);
         Assert.Equal(0, r.Players[0].State.ObserverMode);
+    }
+
+    [Fact]
+    public void The_freeze_cam_needs_a_target()
+    {
+        var r = new Rig();
+        r.Die(0, 1f);
+
+        Assert.False(r.Observers.StartFreezeCam(r.Players[0]));
+        Assert.Equal(0, r.Players[0].State.ObserverMode);
+
+        r.Players[0].State.ObserverTarget = Handles[1].Value;
+        Assert.True(r.Observers.StartFreezeCam(r.Players[0]));
+        Assert.Equal((int)ObserverMode.FreezeCam, r.Players[0].State.ObserverMode);
+        Assert.Equal(MoveType.Observer, (MoveType)r.Engine.AllOf("PlayerMovement.SetMoveType").Last().Args[1]!);
+    }
+
+    [Fact]
+    public void A_key_in_the_freeze_cam_is_the_mods_to_handle()
+    {
+        var rules = new Rules();
+        var r = new Rig(rules: rules);
+        r.Players[0].State.ObserverTarget = Handles[1].Value;
+        r.Observers.StartFreezeCam(r.Players[0]);
+
+        r.Observers.SpecMode(r.Players[0], null, 2f);
+        r.Observers.SpecNext(r.Players[0], reverse: false, 2f);
+
+        Assert.Equal(2, rules.Exits);
+        Assert.Equal((int)ObserverMode.FreezeCam, r.Players[0].State.ObserverMode);
     }
 
     [Fact]

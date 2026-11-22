@@ -167,6 +167,22 @@ public partial class TFPlayerNetState
     [Predicted]
     public partial bool FeignDeathReady { get; set; }
 
+    /// <summary>
+    /// <c>m_angEyeAngles[PITCH]</c> (tf_player.cpp:731, :751): the player's eye
+    /// pitch as stock sends it to the other players, an 8-bit
+    /// <c>SendPropFloat</c> over [-90, 90] (<see cref="TFEyeAngleWire"/>).
+    /// Copied from <c>EyeAngles()</c> each think (:2687); the observer's in-eye
+    /// view looks along it. Not predicted, as stock's is not.
+    /// </summary>
+    [NetField(NetFieldKind.UInt, Bits = TFEyeAngleWire.PitchBits, Group = "eyes")]
+    public partial int EyePitch { get; set; }
+
+    /// <summary>
+    /// <c>m_angEyeAngles[YAW]</c>: a 10-bit <c>SendPropAngle</c> (<see cref="TFEyeAngleWire"/>).
+    /// </summary>
+    [NetField(NetFieldKind.UInt, Bits = TFEyeAngleWire.YawBits, Group = "eyes")]
+    public partial int EyeYaw { get; set; }
+
     /// <summary><c>m_iAirDash</c>: air dashes taken since the player last stood on ground.</summary>
     [Predicted]
     public partial int AirDash { get; set; }
