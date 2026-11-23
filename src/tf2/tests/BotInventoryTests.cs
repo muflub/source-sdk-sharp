@@ -244,7 +244,7 @@ public sealed class BotInventoryTests
     /// the upgradeable shotgun (199, primary by default, the Engineer's) is a Soldier's, Pyro's and Heavy's secondary.
     /// Keyed by the column it sat under the Soldier's primary, where the inventory refuses it, and the stock launcher stood.
     /// </summary>
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void AMultiClassItemIsDrawnIntoEachClasssOwnSlot()
     {
         EconTestFiles files = CraftedTable("199\tUpgradeable TF_WEAPON_SHOTGUN_PRIMARY\ttf_weapon_shotgun\tprimary\tsoldier,heavy,pyro,engineer\t\t\tworks\t");
@@ -261,7 +261,7 @@ public sealed class BotInventoryTests
     /// Over the shipped table, every works row reaches each class it names in the slot that class takes it in: no
     /// class and slot misses a row the class can carry there (the shotguns, the pistols, the Pain Train, the pan's reskins).
     /// </summary>
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void EveryWorksRowReachesEachOfItsClassesSlots()
     {
         EconTestFiles files = ShippedTable();
@@ -325,7 +325,7 @@ public sealed class BotInventoryTests
     }
 
     /// <summary>The Escape Plan (775) in the shipped table is a Soldier's melee a choice may give and the seeded draw never does.</summary>
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void TheEscapePlanIsOnlyAChoices()
     {
         BotInventory source = Source(ShippedTable(), ShippedSchema());

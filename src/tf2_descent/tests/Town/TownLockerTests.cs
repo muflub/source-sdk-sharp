@@ -1,3 +1,4 @@
+using SourceSharp.Tests;
 using SourceSharp.Abi;
 
 using TF2.Descent.Server.Town;
@@ -52,7 +53,7 @@ public sealed class TownLockerTests
         }
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_hero_standing_against_the_locker_in_town_is_resupplied()
     {
         var rig = new Rig();
@@ -63,7 +64,7 @@ public sealed class TownLockerTests
         Assert.Equal([TownRig.Index], rig.Resupply.Given);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_hero_a_step_away_from_the_locker_is_not_resupplied()
     {
         var rig = new Rig();
@@ -74,7 +75,7 @@ public sealed class TownLockerTests
         Assert.Empty(rig.Resupply.Given);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_hero_on_the_floor_above_the_locker_does_not_touch_it()
     {
         var rig = new Rig();
@@ -85,7 +86,7 @@ public sealed class TownLockerTests
         Assert.Empty(rig.Resupply.Given);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Standing_on_waits_three_seconds_for_the_next_resupply()
     {
         var rig = new Rig();
@@ -100,7 +101,7 @@ public sealed class TownLockerTests
         Assert.Equal(2, rig.Resupply.Given.Count);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_doors_open_on_a_resupply_and_close_two_seconds_later()
     {
         var rig = new Rig();
@@ -117,7 +118,7 @@ public sealed class TownLockerTests
         Assert.Equal(2, rig.Town.World.Animations.Count);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_hero_with_no_living_body_is_not_put_on_the_cooldown()
     {
         var rig = new Rig();
@@ -133,7 +134,7 @@ public sealed class TownLockerTests
         Assert.Equal([TownRig.Index], rig.Resupply.Given);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Off_the_town_the_locker_resupplies_nobody()
     {
         var rig = new Rig(place: false);
@@ -145,7 +146,7 @@ public sealed class TownLockerTests
         Assert.Empty(rig.Resupply.Given);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_cooldown_stamped_on_the_last_level_clock_is_gone_on_the_next()
     {
         var rig = new Rig();
@@ -158,7 +159,7 @@ public sealed class TownLockerTests
         Assert.Equal(2, rig.Resupply.Given.Count);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_close_due_on_the_last_level_is_not_played_on_the_next()
     {
         var rig = new Rig();
