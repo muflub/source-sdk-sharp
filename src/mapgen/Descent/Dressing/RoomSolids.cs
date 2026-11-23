@@ -31,6 +31,9 @@ public sealed class RoomSolids
     /// <summary>Every solid brush.</summary>
     public IReadOnlyList<Brush> Brushes => solids;
 
+    /// <summary>How far beside a brush's box <see cref="Ray"/> may pass and still read its faces: far over float error.</summary>
+    private const float RayMargin = 1f;
+
     /// <summary>
     /// How far a ray from <paramref name="from"/> along a level axis
     /// (<paramref name="dx"/>, <paramref name="dy"/> one of ±1, 0) runs in
@@ -42,6 +45,14 @@ public sealed class RoomSolids
         float best = float.MaxValue;
         foreach (Brush b in solids)
         {
+            // A brush whose box the ray's line passes a unit or more beside, or wholly behind
+            // the start, is one the faces' test below misses: skip it before reading them.
+            if (from.Z < b.Mins.Z - RayMargin || from.Z > b.Maxs.Z + RayMargin
+                || (dx == 0 && (from.X < b.Mins.X - RayMargin || from.X > b.Maxs.X + RayMargin))
+                || (dy == 0 && (from.Y < b.Mins.Y - RayMargin || from.Y > b.Maxs.Y + RayMargin))
+                || (dx > 0 && b.Maxs.X < from.X - RayMargin) || (dx < 0 && b.Mins.X > from.X + RayMargin)
+                || (dy > 0 && b.Maxs.Y < from.Y - RayMargin) || (dy < 0 && b.Mins.Y > from.Y + RayMargin))
+                continue;
             float enter = float.NegativeInfinity, exit = float.PositiveInfinity;
             bool miss = false;
             foreach (BrushFace f in b.Faces)

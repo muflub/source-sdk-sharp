@@ -76,27 +76,45 @@ public sealed class Displacement
 /// </summary>
 public sealed record BrushFace(IReadOnlyList<Point> Polygon, Surface Surface, Displacement? Displacement = null)
 {
-    /// <summary>The outward unit normal (Newell's method, so a slightly uneven polygon still gives its plane).</summary>
-    public Point Normal
-    {
-        get
-        {
-            double x = 0, y = 0, z = 0;
-            for (int i = 0; i < Polygon.Count; i++)
-            {
-                Point a = Polygon[i], b = Polygon[(i + 1) % Polygon.Count];
-                x += (a.Y - b.Y) * (a.Z + b.Z);
-                y += (a.Z - b.Z) * (a.X + b.X);
-                z += (a.X - b.X) * (a.Y + b.Y);
-            }
+    private readonly IReadOnlyList<Point> polygon = Polygon;
+    private readonly Point normal = NewellNormal(Polygon);
 
-            double length = Math.Sqrt(x * x + y * y + z * z);
-            return new((float)(x / length), (float)(y / length), (float)(z / length));
+    /// <summary>
+    /// The face's vertices. Setting them (the constructor, or <c>with</c>) works out the
+    /// plane once: <see cref="Normal"/> was a sum over the polygon on every read, and the
+    /// dresser's rays and containment tests read it often enough to be three quarters of
+    /// a depth's dressing (PR #43's profile of depth 1).
+    /// </summary>
+    public IReadOnlyList<Point> Polygon
+    {
+        get => polygon;
+        init
+        {
+            polygon = value;
+            normal = NewellNormal(value);
         }
     }
 
+    /// <summary>The outward unit normal (Newell's method, so a slightly uneven polygon still gives its plane).</summary>
+    public Point Normal => normal;
+
     /// <summary>The plane's distance: n · p for every p on the face.</summary>
-    public float Distance => Dot(Normal, Polygon[0]);
+    public float Distance => Dot(normal, polygon[0]);
+
+    private static Point NewellNormal(IReadOnlyList<Point> polygon)
+    {
+        double x = 0, y = 0, z = 0;
+        for (int i = 0; i < polygon.Count; i++)
+        {
+            Point a = polygon[i], b = polygon[(i + 1) % polygon.Count];
+            x += (a.Y - b.Y) * (a.Z + b.Z);
+            y += (a.Z - b.Z) * (a.X + b.X);
+            z += (a.X - b.X) * (a.Y + b.Y);
+        }
+
+        double length = Math.Sqrt(x * x + y * y + z * z);
+        return new((float)(x / length), (float)(y / length), (float)(z / length));
+    }
 
     internal static float Dot(Point a, Point b) => a.X * b.X + a.Y * b.Y + a.Z * b.Z;
 }

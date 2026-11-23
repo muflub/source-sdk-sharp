@@ -189,9 +189,10 @@ public sealed class FloorPlan
     public HashSet<(int I, int J)> GiantReached(ISet<(int, int)>? blocked = null)
     {
         var reached = new HashSet<(int, int)>();
+        bool[] fits = GiantFitsMask(blocked);
         foreach (var door in DoorColumns())
         {
-            var (dist, _) = Walk(door, blocked);
+            var (dist, _) = Walk(door, fits);
             for (int k = 0; k < n * n; k++)
                 if (dist[k] >= 0)
                     reached.Add((k / n, k % n));
@@ -210,11 +211,45 @@ public sealed class FloorPlan
         return doors.Skip(1).Any(d => dist[d.I * n + d.J] < 0);
     }
 
-    private (int[] Dist, int[] Parent) Walk((int I, int J) start, ISet<(int, int)>? blocked)
+    private (int[] Dist, int[] Parent) Walk((int I, int J) start, ISet<(int, int)>? blocked) => Walk(start, GiantFitsMask(blocked));
+
+    /// <summary>
+    /// <see cref="GiantFits"/> for every column at once: a summed-area table over the
+    /// columns a giant cannot stand over (not floor, too low, or blocked), so each
+    /// column's hull window is one lookup. The dresser floods a room twice for each
+    /// lamp it tries; a window walked column by column was most of a depth's dressing
+    /// (PR #43's profile of depth 8).
+    /// </summary>
+    private bool[] GiantFitsMask(ISet<(int, int)>? blocked)
     {
-        var dist = Enumerable.Repeat(-1, n * n).ToArray();
-        var parent = Enumerable.Repeat(-1, n * n).ToArray();
-        if (!GiantFits(start.I, start.J, blocked))
+        int m = n + 1;
+        var bad = new int[m * m];
+        for (int i = 0; i < n; i++)
+            for (int j = 0; j < n; j++)
+            {
+                int k = i * n + j;
+                int cell = !floor[k] || clear[k] < GiantHeight || (blocked?.Contains((i, j)) ?? false) ? 1 : 0;
+                bad[(i + 1) * m + j + 1] = cell + bad[i * m + j + 1] + bad[(i + 1) * m + j] - bad[i * m + j];
+            }
+
+        var fits = new bool[n * n];
+        for (int i = GiantReach; i < n - GiantReach; i++)
+            for (int j = GiantReach; j < n - GiantReach; j++)
+            {
+                int i0 = i - GiantReach, j0 = j - GiantReach, i1 = i + GiantReach + 1, j1 = j + GiantReach + 1;
+                fits[i * n + j] = bad[i1 * m + j1] - bad[i0 * m + j1] - bad[i1 * m + j0] + bad[i0 * m + j0] == 0;
+            }
+
+        return fits;
+    }
+
+    private (int[] Dist, int[] Parent) Walk((int I, int J) start, bool[] fits)
+    {
+        var dist = new int[n * n];
+        var parent = new int[n * n];
+        Array.Fill(dist, -1);
+        Array.Fill(parent, -1);
+        if (!In(start.I, start.J) || !fits[start.I * n + start.J])
             return (dist, parent);
         var queue = new Queue<(int, int)>();
         dist[start.I * n + start.J] = 0;
@@ -225,7 +260,7 @@ public sealed class FloorPlan
             foreach (var (di, dj) in ((int, int)[])[(1, 0), (-1, 0), (0, 1), (0, -1)])
             {
                 int a = i + di, b = j + dj;
-                if (!In(a, b) || dist[a * n + b] >= 0 || !GiantFits(a, b, blocked))
+                if (!In(a, b) || dist[a * n + b] >= 0 || !fits[a * n + b])
                     continue;
                 dist[a * n + b] = dist[i * n + j] + 1;
                 parent[a * n + b] = i * n + j;
