@@ -47,6 +47,14 @@ public static class HordeHulls
     /// <summary>The height of extra hull <paramref name="hull"/>, rounded up to the unit.</summary>
     public static float Height(int hull) => MathF.Ceiling(StandHeight * Scales[hull]);
 
+    /// <summary>Half the width of the hull <paramref name="cls"/> plans for: the stand hull's, or extra hull's (crouch: the stand hull's).</summary>
+    public static float HalfWidthOf(ClearanceClass cls) =>
+        (int)cls - 2 is var i && i >= 0 && i < Scales.Length ? Width(i) * 0.5f : StandWidth * 0.5f;
+
+    /// <summary>The height of the hull <paramref name="cls"/> plans for (crouch: the stand hull's, the most a crouched body reaches).</summary>
+    public static float HeightOf(ClearanceClass cls) =>
+        (int)cls - 2 is var i && i >= 0 && i < Scales.Length ? Height(i) : StandHeight;
+
     /// <summary>A class's name for the dev print: stand, or the scale its hull is built for.</summary>
     public static string NameOf(ClearanceClass cls) => cls switch
     {

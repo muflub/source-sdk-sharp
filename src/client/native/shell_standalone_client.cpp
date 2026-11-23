@@ -940,7 +940,11 @@ int C_StandaloneEntity::DrawModel(int flags)
 
 		IManagedStandaloneClient* pStandalone = m_Clients.Managed();
 
-		return pStandalone ? pStandalone->OnStandaloneDraw((uint32_t)BlockHandle().ToInt()) : 0;
+		const int nDrawn = pStandalone ? pStandalone->OnStandaloneDraw((uint32_t)BlockHandle().ToInt()) : 0;
+
+		// Managed passed the draw on to the model, as an override calling BaseClass::DrawModel.
+		if (nDrawn != CStandaloneClients::kDrawOwnModel)
+			return nDrawn;
 	}
 
 	const model_t* pModel = GetModel();
@@ -1163,6 +1167,9 @@ static void BuildStandaloneRecvProps(RecvProp* pOut, int& nOut)
 	// wrote with EntitySetBounds rather than on an empty head box.
 	nOffsets[STANDALONE_NET_FIELD_MINS] = C_StandaloneEntity::BlockBase() + SS_CLIENT_BLOCK_HEAD_OFFSET(Mins);
 	nOffsets[STANDALONE_NET_FIELD_MAXS] = C_StandaloneEntity::BlockBase() + SS_CLIENT_BLOCK_HEAD_OFFSET(Maxs);
+	// The group the prediction's entity clip and the trace filters ask about.
+	nOffsets[STANDALONE_NET_FIELD_COLLISIONGROUP] =
+		C_StandaloneEntity::BlockBase() + SS_CLIENT_BLOCK_HEAD_OFFSET(CollisionGroup);
 
 	int nCount = 0;
 	const StandaloneNetField_t* pFields = StandaloneNetFields(&nCount);

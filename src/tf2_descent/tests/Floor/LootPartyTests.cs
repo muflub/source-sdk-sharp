@@ -130,4 +130,34 @@ public sealed class LootPartyTests
 
         Assert.Equal(LootFloor.Seats, p.Party.Near(default, killer: 0).Count);
     }
+
+    [Fact]
+    public void A_pile_is_shared_with_the_killers_whole_party_on_the_level_far_or_dead_the_killer_first()
+    {
+        var p = new PartyRig();
+        p.Hero(3, new Vector(10, 0, 0));
+        p.Hero(4, new Vector(20, 0, 0));
+        p.Hero(5, new Vector((float)p.Range * 3, 0, 0));
+        p.Hero(6, new Vector(30, 0, 0));
+        p.Together(5, 3, 4);
+        p.Dead.Add(HeroRig.PlayerOf(4));
+        var key = p.Rig.Keys();
+
+        var members = p.Party.PileMembers(key.Of(4)!, key.Of(3)!);
+
+        Assert.Equal([key.Of(4)!, key.Of(3)!, key.Of(5)!], members);
+    }
+
+    [Fact]
+    public void A_pile_whose_killer_left_is_shared_with_the_claimers_party()
+    {
+        var p = new PartyRig();
+        p.Hero(3, new Vector(10, 0, 0));
+        p.Hero(4, new Vector(20, 0, 0));
+        p.Hero(5, new Vector(30, 0, 0));
+        p.Together(3, 4);
+        var key = p.Rig.Keys();
+
+        Assert.Equal([key.Of(3)!, key.Of(4)!], p.Party.PileMembers("76561190000099999", key.Of(4)!));
+    }
 }

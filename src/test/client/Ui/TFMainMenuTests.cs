@@ -39,10 +39,10 @@ public class TFMainMenuTests
         public readonly TFMainMenu Screen;
         public readonly UiContext Ctx = Context();
 
-        public Rig(bool inLevel, FakeTFMainMenuArt? art = null)
+        public Rig(bool inLevel, FakeTFMainMenuArt? art = null, ITFMainMenuBrand? brand = null)
         {
             Menu = new FakeTFMainMenuSource { InLevel = inLevel };
-            Screen = new TFMainMenu(Menu, art ?? new FakeTFMainMenuArt(), Actions, new AllArt());
+            Screen = new TFMainMenu(Menu, art ?? new FakeTFMainMenuArt(), Actions, new AllArt(), brand);
             Draw();
         }
 
@@ -208,6 +208,89 @@ public class TFMainMenuTests
         Assert.False(level.Has("character"));
     }
 
+    // ---- a game built on TF2 (ITFMainMenuBrand) ----
+
+    private static readonly FakeTFMainMenuBrand Brand = new() { Mark = "brand/mark", Background = "brand/menu_background" };
+
+    [Fact]
+    public void Without_a_brand_the_logo_shows_and_no_mark()
+    {
+        var rig = new Rig(false);
+        Assert.True(rig.Has("logo"));
+        Assert.False(rig.Has("mark"));
+    }
+
+    /// <summary>A game built on TF2 keeps TF2's logo and sets its mark under
+    /// it: centred on the logo, a little narrower, from the logo's foot.</summary>
+    [Fact]
+    public void A_brand_s_mark_stands_under_tf2_s_logo()
+    {
+        var rig = new Rig(false, brand: Brand);
+        Assert.True(rig.Has("logo"));
+        var logo = rig.Box("logo");
+        var mark = rig.Box("mark");
+        Near(logo.X + (256f - TFMainMenu.MarkWide) / 2f * 2.25f, mark.X);
+        Assert.InRange(mark.W, TFMainMenu.MarkWide * 2.25f - 1f, TFMainMenu.MarkWide * 2.25f + 1f);   // whole pixels
+        Near(logo.Y + logo.H, mark.Y);
+    }
+
+    /// <summary>The brand's backdrop covers the screen at the menu, in place of the holiday's and the character.</summary>
+    [Fact]
+    public void A_brand_s_backdrop_covers_the_screen_in_place_of_the_holiday_art()
+    {
+        var art = new FakeTFMainMenuArt { Background = "console/title_fullmoon_widescreen" };
+        var rig = new Rig(false, art, Brand);
+        Assert.False(rig.Has("background"));
+        Assert.False(rig.Has("character"));
+        var box = rig.Box("brand background");
+        Near(0f, box.X);
+        Near(0f, box.Y);
+        Near(W, box.W);
+        Near(H, box.H);
+    }
+
+    [Fact]
+    public void A_brand_s_backdrop_hides_in_a_level()
+        => Assert.False(new Rig(true, brand: Brand).Has("brand background"));
+
+    [Fact]
+    public void A_brand_with_no_backdrop_keeps_tf2_s_art()
+    {
+        var art = new FakeTFMainMenuArt { Background = "console/title_fullmoon_widescreen" };
+        var rig = new Rig(false, art, new FakeTFMainMenuBrand { Mark = "brand/mark" });
+        Assert.True(rig.Has("background"));
+        Assert.True(rig.Has("character"));
+        Assert.False(rig.Has("brand background"));
+    }
+
+    [Fact]
+    public void A_brand_that_hides_find_a_game_leaves_it_off_the_bar()
+    {
+        var hiding = new FakeTFMainMenuBrand { Hidden = TFMainMenuButtons.FindAGame };
+        Assert.True(new Rig(false).Has("find"));
+        Assert.False(new Rig(false, brand: hiding).Has("find"));
+        Assert.False(new Rig(true, brand: hiding).Has("find"));
+    }
+
+    /// <summary>In a level FIND A GAME and Resume cover HOST A GAME whole; with FIND A GAME
+    /// left off, Resume closes up, and HOST A GAME is not drawn to peek out beside it.</summary>
+    [Fact]
+    public void Without_find_a_game_host_is_not_drawn_in_a_level_and_stays_at_the_menu()
+    {
+        var hiding = new FakeTFMainMenuBrand { Hidden = TFMainMenuButtons.FindAGame };
+        Assert.True(new Rig(true).Has("host"));                  // TF2's own: drawn, covered
+        Assert.False(new Rig(true, brand: hiding).Has("host"));
+        Assert.True(new Rig(false, brand: hiding).Has("host"));
+    }
+
+    /// <summary>In a level, Resume closes up against Disconnect where FIND A GAME stood.</summary>
+    [Fact]
+    public void Without_find_a_game_resume_stands_against_disconnect()
+    {
+        var rig = new Rig(true, brand: new FakeTFMainMenuBrand { Hidden = TFMainMenuButtons.FindAGame });
+        Near(rig.Box("disconnect").X - 96f * 2.25f, rig.Box("resume").X);
+    }
+
     // ---- the picks ----
 
     [Fact]
@@ -347,11 +430,41 @@ public class TFMainMenuTests
 
     // ---- the taskbar's launchers ----
 
-    private static (TFTaskbarLaunchers Launchers, FakeTFMainMenuActions Actions, ChatFeedTests.RecordingEngineClient Engine) Launchers()
+    private static (TFTaskbarLaunchers Launchers, FakeTFMainMenuActions Actions, ChatFeedTests.RecordingEngineClient Engine) Launchers(
+        ITFMainMenuBrand? brand = null)
     {
         var actions = new FakeTFMainMenuActions();
         var engine = new ChatFeedTests.RecordingEngineClient([]);
-        return (new TFTaskbarLaunchers(actions, engine), actions, engine);
+        return (new TFTaskbarLaunchers(actions, engine, brand), actions, engine);
+    }
+
+    private static readonly FakeTFMainMenuBrand Hiding = new()
+    {
+        Hidden = TFMainMenuButtons.Items | TFMainMenuButtons.ReportPlayer | TFMainMenuButtons.RequestCoach,
+    };
+
+    /// <summary>A brand's hidden launchers are left off and the rest close up, in their order.</summary>
+    [Fact]
+    public void A_brand_s_hidden_launchers_are_left_off_and_the_rest_launch_in_order()
+    {
+        var (bar, actions, engine) = Launchers(Hiding);
+        engine.Level = "ctf_2fort";
+        var tokens = new List<string>();
+        for (int i = 0; i < bar.LauncherCount; i++)
+        {
+            tokens.Add(bar.Launcher(i).Token);
+            bar.Launch(i);
+        }
+        Assert.Equal(["#TF2_MainMenu_AdvancedOptions", "#TF2_MainMenu_CallVote", "#TF2_MainMenu_MutePlayers"], tokens);
+        Assert.Equal(["advanced options", "call vote", "mute players"], actions.Done);
+    }
+
+    [Fact]
+    public void At_the_menu_a_brand_that_hides_items_leaves_the_gear_alone()
+    {
+        var (bar, _, _) = Launchers(Hiding);
+        Assert.Equal(1, bar.LauncherCount);
+        Assert.Equal("#TF2_MainMenu_AdvancedOptions", bar.Launcher(0).Token);
     }
 
     /// <summary>At the menu the bar carries ITEMS and the advanced gear (the

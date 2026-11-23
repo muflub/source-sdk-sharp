@@ -47,7 +47,17 @@ public static class TFAbilities
     /// <summary>The destroy order's word for the bot's own building of <paramref name="type"/> and <paramref name="mode"/>.</summary>
     public static string Destroy(TFObjectType type, int mode = 0) => $"{TFDestroyCommand.Verb} {(int)type} {mode}";
 
-    public static AbilityTable Table() => new([
+    /// <summary>
+    /// The one table (plan_bots_teams_tf2 P7): the shared rows below in block 0, then each class's own rows in its
+    /// block (<see cref="Trees.TFClassSpecs.Compose"/>), so a class's lane adds a row in its own file and no row moves.
+    /// </summary>
+    public static AbilityTable Table() => Trees.TFClassSpecs.Compose(Shared(), Trees.TFClassSpecs.All());
+
+    /// <summary>
+    /// The rows every class shares, block 0, in the order a decider and the recordings found them before P7: the
+    /// rocket jump at 0, the spin-up, the Über, the building orders, the voice lines at 11 to 14. Never reorder them.
+    /// </summary>
+    public static System.Collections.Immutable.ImmutableArray<AbilityRow> Shared() => [
         new AbilityRow(RocketJump, AbilityRun.Program, HoldTicks: RocketJumpCommands),
         new AbilityRow(SpinUp, AbilityRun.Buttons, Buttons: Attack2, HoldTicks: SpinUpTicks),
         new AbilityRow(Uber, AbilityRun.Buttons, Buttons: Attack2, HoldTicks: 2),
@@ -63,5 +73,5 @@ public static class TFAbilities
         new AbilityRow(VoiceThanks, AbilityRun.Command, Voice(ThanksMenu, ThanksItem)),
         new AbilityRow(VoiceSpy, AbilityRun.Command, Voice(SpyMenu, SpyItem)),
         new AbilityRow(VoiceSentryAhead, AbilityRun.Command, Voice(SentryAheadMenu, SentryAheadItem)),
-    ]);
+    ];
 }

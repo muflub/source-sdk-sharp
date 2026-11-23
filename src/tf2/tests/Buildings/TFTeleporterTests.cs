@@ -82,7 +82,26 @@ public class TFTeleporterTests
         Assert.Equal(0f, landed.X);
         Assert.Equal(0f, landed.Y);
         Assert.Equal(TFTeleporter.ArrivalHeight, landed.Z);
-        Assert.True(trip.ArgAs<bool>(3));   // the arrival lands with no velocity
+        Assert.True(trip.ArgAs<bool>(3));   // the arrival lands with no velocity (:1017, vec3_origin)
+    }
+
+    [Fact]
+    public void The_traveller_arrives_facing_the_way_the_exit_was_turned()
+    {
+        // Teleport(&newPosition, &(GetAbsAngles()), &vec3_origin) (tf_obj_teleporter.cpp:1017):
+        // the exit's angles, which CBaseEntity::Teleport snaps a player's eyes to.
+        var (rig, entrance, exit, _) = APair();
+        var exitAngles = new Vector(0f, 135f, 0f);
+        rig.Engine.ReturnsEachCall("Entities.GetAngles",
+                                   () => rig.Engine.Calls[^1].ArgAs<EntityHandle>(0) == exit.Handle ? exitAngles : Vector.Zero);
+        TickBoth(rig, entrance, exit, 1f);
+        EntityHandle rider = AStandingRider(rig);
+        entrance.OnTouch(rider);
+
+        TickBoth(rig, entrance, exit, 11f);
+
+        EngineCall trip = Assert.Single(rig.Engine.AllOf("Entities.Teleport"));
+        Assert.Equal(exitAngles, trip.ArgAs<Vector?>(2));
     }
 
     [Fact]

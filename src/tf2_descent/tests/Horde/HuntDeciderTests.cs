@@ -25,7 +25,7 @@ public sealed class HuntDeciderTests
         private readonly AiSession _s;
         private int _tick = 100;
 
-        public Sim(byte[] levels, AiVector post, HordeLevel? level = null, int weapon = HordeWeapons.RocketLauncher)
+        public Sim(byte[] levels, AiVector post, HordeLevel? level = null, int weapon = HordeWeapons.RocketLauncher, IHordePaths? paths = null)
         {
             Level = level ?? Row(4, markers: 0);
             Weapon = weapon;
@@ -34,7 +34,7 @@ public sealed class HuntDeciderTests
                 TeamCallouts = false,
                 World = HordeBrains.World(0.015f),
                 Curves = HordeSkillMap.Curves(),
-                Deciders = HordeDeciders.For(Level).Make,
+                Deciders = HordeDeciders.For(Level, paths).Make,
             };
             _s.AddBot(Bot, 42, levels);
             At = post;
@@ -50,6 +50,12 @@ public sealed class HuntDeciderTests
         /// <summary>A hero in sight at <paramref name="hero"/> this tick; none for no sight.</summary>
         public AiVector? Seen { get; set; }
 
+        /// <summary>The level graph's epoch the robot's view carries (<see cref="HordeView.NavEpoch"/>); 0 for no graph, so the room route walks.</summary>
+        public int NavEpoch { get; set; }
+
+        /// <summary>Whether the slide keeps the robot on its floor (as a body does), going to each corner on the floor plane only.</summary>
+        public bool OnFloor { get; set; }
+
         /// <summary>The node the last decide ended in; <see cref="HuntDecider.Node.Hunt"/> before the first.</summary>
         public HuntDecider.Node Node => _s.BrainIn(1)!.Decider!.Doing.Leaf is { } leaf
             ? Enum.GetValues<HuntDecider.Node>().First(n => HuntDecider.NameOf(n) == leaf)
@@ -63,7 +69,7 @@ public sealed class HuntDeciderTests
             {
                 _tick++;
                 AiSnapshot snap = _s.Snapshots.BeginWrite(new Tick(_tick));
-                var view = snap.Add(Bot, new SelfState(At, default, default, 100, 0, Weapon, -1, 0, SelfFlags.Alive | SelfFlags.Grounded, Team: HordeBrains.RobotTeam));
+                var view = snap.Add(Bot, new SelfState(At, default, default, 100, 0, Weapon, -1, 0, SelfFlags.Alive | SelfFlags.Grounded, Team: HordeBrains.RobotTeam, AltAmmo: NavEpoch));
                 if (Seen is { } h)
                     view.AddSighted(new ActorFacts(HeroActor, h, default, -1, ActorActivity.None, 1f, Team: HordeBrains.HeroTeam));
                 _s.Publish(snap);
@@ -76,9 +82,10 @@ public sealed class HuntDeciderTests
                 // The slide: 300 units a second to the first corner.
                 if (Last.Move.Kind == MoveKind.Follow && !Last.ExpiredAt(new Tick(_tick)))
                 {
-                    var d = Last.Move.Corner0 - At;
+                    var corner = OnFloor ? Last.Move.Corner0 with { Z = At.Z } : Last.Move.Corner0;
+                    var d = corner - At;
                     float step = 300f * 0.015f;
-                    At = d.Length <= step ? Last.Move.Corner0 : At + d * (step / d.Length);
+                    At = d.Length <= step ? corner : At + d * (step / d.Length);
                 }
             }
         }
@@ -120,6 +127,33 @@ public sealed class HuntDeciderTests
         Assert.Equal(HuntDecider.Node.Engage, sim.Node);
         Assert.Equal(MoveKind.Hold, sim.Last.Move.Kind);
         Assert.Equal(LookKind.Actor, sim.Last.Look.Kind);
+    }
+
+    /// <summary>
+    /// A hero last seen in the air (a jump, a fall, a rocket jump: live, a hero put down 64 units
+    /// over a door on depth 1 seed 1): the robot walks under the place on its floor and is there,
+    /// so it searches; it never stands under it following for good, a stalled follower.
+    /// </summary>
+    [Fact]
+    public void A_hero_lost_in_the_air_is_searched_for_from_the_floor_under_him()
+    {
+        var sim = new Sim(Levels.Eleven(), Post) { OnFloor = true };
+        var lastSeen = Centre(1) + new AiVector(0f, 0f, 64f);
+        sim.Seen = lastSeen;
+        sim.Push(AiEvent.SightGained(Bot, new Tick(sim.Tick + 1), HeroActor, lastSeen, default, 1f));
+        sim.Step(6);
+        sim.Seen = null;
+        sim.Push(AiEvent.SightLost(Bot, new Tick(sim.Tick + 1), HeroActor, lastSeen, default));
+        sim.Step(6);
+        Assert.Equal(HuntDecider.Node.LastKnown, sim.Node);
+
+        int ticks = 0;
+        while (sim.Node != HuntDecider.Node.Search && ticks++ < 2000)
+            sim.Step();
+
+        Assert.Equal(HuntDecider.Node.Search, sim.Node);
+        Assert.Equal(Post.Z, sim.At.Z);
+        Assert.True((sim.At - lastSeen).Length2D <= HuntDecider.ArriveUnits, $"it searches from {sim.At}, not under {lastSeen}");
     }
 
     [Fact]
@@ -183,6 +217,62 @@ public sealed class HuntDeciderTests
         Assert.Equal(MoveKind.Follow, sim.Last.Move.Kind);
         Assert.Equal(MoveSpeed.Walk, sim.Last.Move.Speed);
         Assert.Equal(noise, sim.Last.Move.Corner(sim.Last.Move.CornerCount - 1));
+    }
+
+    /// <summary>
+    /// A hit from out of sight is looked for at the family's range along the hit, from where the
+    /// robot stood when it took the hit as its goal. The place was worked out again from where the
+    /// robot stood at every decide, so it kept its distance ahead of him: he walked the hit's way to
+    /// the end of the level and never searched (seen live: a pack hurt once walked 5,000 units).
+    /// </summary>
+    [Fact]
+    public void A_hit_from_out_of_sight_is_looked_for_at_one_place_and_then_it_goes_home()
+    {
+        var sim = new Sim(Levels.Eleven(5, ("tenacity", 0)), Post);
+        sim.Push(AiEvent.Damaged(Bot, new Tick(sim.Tick + 1), HeroActor, 5f, new AiVector(1f, 0f, 0f), 0));
+        var seen = new List<HuntDecider.Node>();
+        var places = new List<AiVector>();
+        for (int t = 0; t < 4000 && !(seen.Contains(HuntDecider.Node.Home) && sim.Node == HuntDecider.Node.Hold); t++)
+        {
+            sim.Step();
+            if (seen.Count == 0 || seen[^1] != sim.Node)
+                seen.Add(sim.Node);
+            if (sim.Node == HuntDecider.Node.Investigate && (places.Count == 0 || places[^1] != sim.Last.Look.Point))
+                places.Add(sim.Last.Look.Point);
+        }
+
+        // The stimulus reached the decider: it went to look, along the hit and away from its post.
+        Assert.Contains(HuntDecider.Node.Investigate, seen);
+        Assert.True(places[0].X > Post.X + HuntDecider.ArriveUnits && places[0].Y == Post.Y, $"it looked at {places[0]} from {Post}");
+
+        Assert.Single(places);
+        Assert.Equal([HuntDecider.Node.Investigate, HuntDecider.Node.Search, HuntDecider.Node.Home, HuntDecider.Node.Hold], seen.Skip(seen.IndexOf(HuntDecider.Node.Investigate)));
+    }
+
+    /// <summary>
+    /// A place it cannot stand at (a sound through a wall, a hit's line ending off its floor): the
+    /// route leads to the nearest place of its floor and holds there, and the search starts from
+    /// there. It held there for good, going to look and never searching, so it never went home.
+    /// </summary>
+    [Fact]
+    public void A_place_off_its_floor_is_searched_from_the_nearest_place_it_can_stand()
+    {
+        var nearest = Centre(1);
+        var paths = new FakePaths { NearestTo = nearest };
+        var sim = new Sim(Levels.Eleven(5, ("tenacity", 0)), Post, paths: paths) { NavEpoch = paths.Epoch };
+        var noise = Centre(2);
+        sim.Push(AiEvent.SoundHeard(Bot, new Tick(sim.Tick + 1), SoundKind.Gunfire, noise, 0.8f, ActorId.None, -1));
+
+        int ticks = 0;
+        while (sim.Node != HuntDecider.Node.Search && ticks++ < 4000)
+            sim.Step();
+
+        // The stimulus: the paths were asked for the noise and answered the nearest place.
+        Assert.Contains(paths.Asked, a => a.To == noise);
+        Assert.True(sim.At.DistanceTo(nearest) < sim.At.DistanceTo(noise), $"it stands at {sim.At}, nearer the noise {noise} than the nearest place {nearest}");
+        Assert.True(sim.At.DistanceTo(noise) > HuntDecider.ArriveUnits);
+
+        Assert.Equal(HuntDecider.Node.Search, sim.Node);
     }
 
     [Fact]

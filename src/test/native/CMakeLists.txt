@@ -2554,6 +2554,16 @@ ss_cpptest(standalone_fb_texture_test
     INCLUDES public public/tier0 public/tier1
     SOURCES sourcesharp/test/standalone_fb_texture_test.cpp)
 
+# The dynamic mesh taken off its override at the client's level shutdown
+# (dynamic_mesh_override.h, header-only): a buffered fetch with no vertex or
+# index override, bound to vgui/white, so the world's freed vertex buffer is
+# never flushed through at the next level's first draw (crash-uidraw).
+ss_cpptest_engine_headers(dynamic_mesh_override_test
+    DEFINES CLIENT_DLL ${_ss_fwd_client_sdl}
+    OPTIONS ${_ss_fwd_client_vendor_wno}  # Valve headers on -I, not -isystem
+    INCLUDES ${_ss_fwd_client_vendor}
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/dynamic_mesh_override_test.cpp)
+
 # The placing shadow's box (standalone_shadow_hull.h, header-only): the
 # collision hull widened by (10, 10, 0), stock's placing arm of
 # GetShadowRenderBounds (c_obj_sentrygun.cpp:588) -- not the model's render
@@ -2563,12 +2573,18 @@ ss_cpptest(standalone_shadow_hull_test
     SOURCES sourcesharp/test/standalone_shadow_hull_test.cpp)
 
 # The collideable's box on the wire (standalone_bounds_wire_test.cpp): the
-# m_vecMins/m_vecMaxs pair at the tail of StandaloneNetFields, the shape the
+# m_vecMins/m_vecMaxs pair near the tail of StandaloneNetFields, the shape the
 # client's entity clip reads it in — the head's Mins/Maxs answer OBBMins/
 # OBBMaxs for SOLID_BBOX, and without the rows the client-side head stayed a
 # zero-sized box, so the target ID's centre ray passed through every teammate.
 ss_cpptest(standalone_bounds_wire_test
     SOURCES sourcesharp/test/standalone_bounds_wire_test.cpp)
+
+# The collision group on the wire (standalone_collision_group_wire_test.cpp):
+# m_CollisionGroup at the tail of StandaloneNetFields in stock's five bits, the
+# word the client prediction's entity clip asks the group matrix about.
+ss_cpptest(standalone_collision_group_wire_test
+    SOURCES sourcesharp/test/standalone_collision_group_wire_test.cpp)
 
 # What this platform does not build (LINUX_ONLY, and must-not-compile under
 # MSVC), listed at configure time with each reason.

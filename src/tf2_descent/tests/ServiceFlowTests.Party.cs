@@ -88,6 +88,7 @@ public sealed partial class ServiceFlowTests
     [Fact]
     public void Up_through_the_portal_is_a_members_own()
     {
+        Assert.Null(PartyOf("", "c-leader", "c-1").Refusal(3, TravelDirection.Portal));
         Assert.Null(PartyOf("", "c-leader", "c-1").Refusal(3, TravelDirection.Up));
         Assert.Null(PartyOf("", "c-leader", "c-1").Refusal(3, TravelDirection.Corpse));
     }

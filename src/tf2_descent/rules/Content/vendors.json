@@ -1,7 +1,7 @@
 [
   { "id": "saxton", "name": "Saxton Hale", "stock": 8, "kinds": ["weapon"], "odds": [ { "rarity": "stock", "weight": 70 }, { "rarity": "vintage", "weight": 30 } ] },
   { "id": "engineer", "name": "Engineer", "stock": 8, "kinds": ["armour"], "odds": [ { "rarity": "stock", "weight": 70 }, { "rarity": "vintage", "weight": 30 } ] },
-  { "id": "medic", "name": "Medic", "stock": 6, "bases": ["health_small", "health_medium", "mana_small", "mana_medium"] },
+  { "id": "medic", "name": "Medic", "stock": 6, "bases": ["health_small", "health_medium", "mana_small", "mana_medium"], "always": ["town_portal"] },
   { "id": "spy", "name": "Spy", "stock": 2, "bases": ["dossier"] },
   { "id": "scout", "name": "Scout", "stock": 4, "kinds": ["crate"] }
 ]

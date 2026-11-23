@@ -88,6 +88,24 @@ public sealed record Room(
     /// </summary>
     public IReadOnlyList<(CellFace Face, int Offset)>? SocketEdges { get; init; }
 
+    /// <summary>A boss arena's boss spot, track and spawn mouths (<see cref="ArenaData"/>), or null.</summary>
+    public ArenaData? Arena { get; init; }
+
+    /// <summary>Boxes the dressing keeps out of entirely (the Tank's track: its hull swept along it), room-local.</summary>
+    public IReadOnlyList<(Point Mins, Point Maxs)> KeepClear { get; init; } = [];
+
+    /// <summary>
+    /// The room lights itself (a boss arena's set lighting): the dresser keeps its shape's lights, hangs
+    /// the lamps of <see cref="LampSites"/> and none of its theme's own, and adds no fill.
+    /// </summary>
+    public bool OwnLamps { get; init; }
+
+    /// <summary>Lamps the shape asks for, each a theme's lamp kind at an origin and yaw; the dresser hangs each that fits.</summary>
+    public IReadOnlyList<(LampKind Kind, Point Origin, int Yaw)> LampSites { get; init; } = [];
+
+    /// <summary>Set pieces the shape stands (a boss arena's machinery), each a theme's model at an origin and yaw; the dresser places them first.</summary>
+    public IReadOnlyList<(PropModel Model, Point Origin, int Yaw)> SetPieces { get; init; } = [];
+
     /// <summary>Every socket: a wall and the cell edge along it (0 for a room of one cell).</summary>
     public IEnumerable<(CellFace Face, int Offset)> Sockets =>
         SocketEdges ?? (Cells == 1 ? Doors.Select(f => (f, 0)) : Doors.SelectMany(f => Enumerable.Range(0, Cells).Select(k => (f, k))));
@@ -194,6 +212,9 @@ public sealed class RoomBuilder
     }
 
     /// <summary>The transition volume's room-local name, which the link renames per placement.</summary>
+    /// <summary>Seconds before a way up or down can be asked again: the server may refuse a travel, so no way is one-shot.</summary>
+    public const string WayWait = "3";
+
     public const string VolumeName = "cxry_transition";
 
     /// <summary>The room's own height (<c>room_height</c>); the cell size by default.</summary>
@@ -277,6 +298,63 @@ public sealed class RoomBuilder
         return this;
     }
 
+    private readonly List<(string Kind, Point Mins, Point Maxs)> hazards = [];
+
+    /// <summary>
+    /// A hazard volume of <paramref name="kind"/> (a row of <c>hazards.json</c>: lava, slime), a box
+    /// room-local (plan_descent_logic M1, brief p9): a <c>trigger_multiple</c> nothing fires, named
+    /// <c>tf2_descent_hazard_&lt;kind&gt;</c> (<c>HazardRules.VolumePrefix</c>), a global name the link
+    /// keeps as written, which the game's <c>HazardService</c> finds by name and reads by its bounds.
+    /// </summary>
+    public RoomBuilder WithHazard(string kind, Point mins, Point maxs)
+    {
+        if (string.IsNullOrEmpty(kind) || !kind.All(ch => ch is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '_'))
+            throw new ArgumentException($"room {name}: hazard kind '{kind}' is not a lower-case id");
+        if (!(mins.X < maxs.X && mins.Y < maxs.Y && mins.Z < maxs.Z))
+            throw new ArgumentException($"room {name}: hazard volume ({mins})-({maxs}) is empty");
+        hazards.Add((kind, mins, maxs));
+        return this;
+    }
+
+    /// <summary>The name of a hazard volume of <paramref name="kind"/> in a level.</summary>
+    public static string HazardName(string kind) => TF2.Descent.Rules.World.HazardRules.VolumePrefix + kind;
+
+    /// <summary>The always-on hazard volume <see cref="WithHazard"/> writes: a <c>trigger_multiple</c> nothing fires, named for its kind.</summary>
+    public static RoomEntity HazardVolume(string kind, Point mins, Point maxs, Surface trigger) =>
+        new("trigger_multiple", null, [new("targetname", HazardName(kind)), new("spawnflags", "0")], [], [Brush.Box(mins, maxs, trigger)]);
+
+    /// <summary>
+    /// A hazard floor's skin (<see cref="Descent.HazardFloor"/>, lava): one <c>func_brush</c> of the material over
+    /// <paramref name="areas"/>, two units thick on the floor at <paramref name="floor"/>, never solid, casting
+    /// no shadow, lit at least <see cref="Descent.HazardFloor.MinLight"/> (lava is self-lit in game; the lightmap
+    /// keeps its glow for the preview).
+    /// </summary>
+    public static RoomEntity HazardSkin(HazardFloor hazard, IEnumerable<Rect> areas, float floor)
+    {
+        var keys = new List<KeyValuePair<string, string>> { new("Solidity", "1"), new("vrad_brush_cast_shadows", "0"), new("disableshadows", "1") };
+        if (hazard.MinLight > 0)
+            keys.Add(new("_minlight", hazard.MinLight.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)));
+        return new RoomEntity("func_brush", null, keys, [],
+            [.. areas.Select(a => Brush.Box(new(a.X0, a.Y0, floor), new(a.X1, a.Y1, floor + Descent.HazardFloor.Skin), hazard.Surface))]);
+    }
+
+    /// <summary>
+    /// The theme's hazard floor (<see cref="RoomTheme.HazardFloor"/>) over <paramref name="area"/> on the floor at
+    /// <paramref name="floor"/> (the room's own by default): its liquid standing there or its skin laid there, and a
+    /// hazard volume over it to <see cref="Descent.HazardFloor.VolumeAbove"/> over its surface. Nothing when the theme has none.
+    /// </summary>
+    public RoomBuilder HazardFloor(Rect area, float? floor = null)
+    {
+        if (theme.HazardFloor is not { } h)
+            return this;
+        float z = floor ?? Floor;
+        if (h.Liquid)
+            WithWater(area, z, z + h.Depth, h.Surface);
+        else
+            entities.Add(HazardSkin(h, [area], z));
+        return WithHazard(h.Kind, new Point(area.X0, area.Y0, z), new Point(area.X1, area.Y1, z + h.SurfaceHeight + Descent.HazardFloor.VolumeAbove));
+    }
+
     /// <summary>A trigger (a box, room-local) a player walks into to fire the transition, for an up room or a down one; a down room's default is the 128 cube round its volume.</summary>
     public RoomBuilder WithHallTrigger(Point mins, Point maxs)
     {
@@ -288,7 +366,8 @@ public sealed class RoomBuilder
     /// Makes the room <paramref name="n"/> by <paramref name="n"/> cells (M24, map tools'
     /// <c>room_footprint</c>): its box is <c>[0, n x cell]</c> along x and y, it has a door on every
     /// cell edge of its perimeter (sockets <c>east0</c> to <c>east{n-1}</c> and so on, each framed and
-    /// capped as any door), and its open floor is the whole interior. No surface may lie on one of
+    /// capped as any door), and its open floor is the whole interior unless it takes an outline
+    /// (<see cref="WithOutline"/>, level 5's rooms on the 512 kit, brief p18). No surface may lie on one of
     /// its internal cell faces (the tools refuse it); <see cref="Build"/> checks.
     /// </summary>
     public RoomBuilder WithFootprint(int n)
@@ -387,6 +466,18 @@ public sealed class RoomBuilder
         return this;
     }
 
+    /// <summary>
+    /// Low strips on the floor (rails, sleepers, planks) drawn and casting shadows but never solid:
+    /// one <c>func_brush</c> that collides with nothing. A solid strip any height over the floor is a
+    /// wall to the level's navigation for a box wider than the gap beside it (<see cref="Dressing.FlatHullWalk"/>).
+    /// </summary>
+    public RoomBuilder WithStrips(IEnumerable<Brush> brushes)
+    {
+        entities.Add(new RoomEntity("func_brush", null,
+            [new("Solidity", "1"), new("vrad_brush_cast_shadows", "1"), new("disableshadows", "1")], [], [.. brushes]));
+        return this;
+    }
+
     /// <summary>The kit this room is built on.</summary>
     public RoomKit Kit => kit;
 
@@ -446,6 +537,16 @@ public sealed class RoomBuilder
     }
 
     /// <summary>An <c>info_poi</c> marker (a pack spawn, a shrine, a player spawn), facing <paramref name="yaw"/>.</summary>
+    /// <summary>
+    /// A breakable crate or barrel on its marker (ruling M34, <see cref="Breakables"/>) placed by the shape, not the
+    /// dresser: <paramref name="at"/> is its foot, turned <paramref name="yaw"/> (level 5's maze cells' niches, brief p18).
+    /// </summary>
+    public RoomBuilder WithBreakable(BreakableKind kind, Point at, int yaw)
+    {
+        entities.Add(Breakables.Poi(kind, at, yaw, nameof(Dressing.RoomDresser.Role.Corner)));
+        return this;
+    }
+
     public RoomBuilder WithPoi(string type, Point at, int yaw = 0)
     {
         entities.Add(Point("info_poi", at, ("poi_type", type), ("angles", Angles(yaw))));
@@ -521,10 +622,10 @@ public sealed class RoomBuilder
     {
         Validate();
         var shell = new List<RoomBox>();
-        if (cells > 1)
-            MultiShell(shell);
-        else if (outline.Count > 0)
+        if (outline.Count > 0)
             OutlineShell(shell);
+        else if (cells > 1)
+            MultiShell(shell);
         else
             Shell(shell);
         if (cells == 1)
@@ -556,6 +657,8 @@ public sealed class RoomBuilder
             }
         if (role != RoomRole.None)
             RolePieces(all);
+        foreach (var (kind, mins, maxs) in hazards)
+            all.Add(HazardVolume(kind, mins, maxs, theme.Trigger));
         Rect main = Body;
         return new Room(name, kit, height, width, [.. doors], role, world, all)
         {
@@ -569,7 +672,133 @@ public sealed class RoomBuilder
             Body = main,
             Cells = cells,
             SocketEdges = socketEdges is null ? null : [.. socketEdges],
+            Arena = bossSpot is { } boss ? new ArenaData(boss.At, boss.Yaw, [.. track], [.. mouths]) : null,
+            KeepClear = [.. keepClear],
+            OwnLamps = ownLamps,
+            LampSites = [.. lampSites],
+            SetPieces = [.. setPieces],
         };
+    }
+
+    //-------------------------------------------------------------------------
+    // A boss arena's contract with the server (brief p13, ArenaData, BossNames).
+    //-------------------------------------------------------------------------
+
+    private (Point At, int Yaw)? bossSpot;
+    private readonly List<TrackPoint> track = [];
+    private readonly List<ArenaMouth> mouths = [];
+    private readonly List<(Point Mins, Point Maxs)> keepClear = [];
+    private readonly List<(LampKind, Point, int)> lampSites = [];
+    private readonly List<(PropModel, Point, int)> setPieces = [];
+    private bool ownLamps;
+
+    /// <summary>
+    /// Where the arena's boss stands and the yaw it faces at its intro (toward the way in): written into the
+    /// level's <c>ARNA</c>, and as the arena's first pack marker, which the server's fallback stands it on.
+    /// Call it before the arena's other packs.
+    /// </summary>
+    public RoomBuilder WithBossSpot(Point at, int yaw)
+    {
+        if (bossSpot is not null)
+            throw new InvalidOperationException($"room {name}: a second boss spot");
+        if (entities.Any(e => e.Key("poi_type") == Descent.Markers.PoiType(MarkerKind.PackSpawn)))
+            throw new InvalidOperationException($"room {name}: the boss spot must be its first pack marker (the server's fallback stands the boss there)");
+        bossSpot = (at, (yaw % 360 + 360) % 360);
+        return WithMarker(MarkerKind.PackSpawn, at, bossSpot.Value.Yaw, radius: 64);
+    }
+
+    /// <summary>The Tank's track, in order (the server closes it back to the first point); room-local floor points.</summary>
+    public RoomBuilder WithTrack(params TrackPoint[] points)
+    {
+        if (points.Count(p => p.Final) > 1 || points.Length > 0 && points.Any(p => p.Final) && !points[^1].Final)
+            throw new ArgumentException($"room {name}: a track has one final station, its last point");
+        track.AddRange(points);
+        return this;
+    }
+
+    /// <summary>A robot spawn mouth open from the boss's phase <paramref name="leg"/> (1-based).</summary>
+    public RoomBuilder WithMouth(Point at, int yaw, int leg)
+    {
+        if (leg < 1)
+            throw new ArgumentOutOfRangeException(nameof(leg), leg, "a mouth's leg is the boss's phase, 1 or more");
+        mouths.Add(new ArenaMouth(at, (yaw % 360 + 360) % 360, leg));
+        return this;
+    }
+
+    /// <summary>A box the dressing keeps out of (<see cref="Room.KeepClear"/>).</summary>
+    public RoomBuilder WithKeepClear(Point mins, Point maxs)
+    {
+        keepClear.Add((mins, maxs));
+        return this;
+    }
+
+    /// <summary>The room lights itself (<see cref="Room.OwnLamps"/>).</summary>
+    public RoomBuilder WithOwnLamps()
+    {
+        ownLamps = true;
+        return this;
+    }
+
+    /// <summary>A lamp of the theme's <paramref name="kind"/> the dresser hangs at <paramref name="origin"/> turned by <paramref name="yaw"/> (<see cref="Room.LampSites"/>).</summary>
+    public RoomBuilder WithLampSite(LampKind kind, Point origin, int yaw)
+    {
+        lampSites.Add((kind, origin, yaw));
+        return this;
+    }
+
+    /// <summary>A set piece of the theme's (<see cref="RoomTheme.SetPieces"/>) the dresser stands first (<see cref="Room.SetPieces"/>).</summary>
+    public RoomBuilder WithSetPiece(PropModel model, Point origin, int yaw)
+    {
+        setPieces.Add((model, origin, yaw));
+        return this;
+    }
+
+    /// <summary>
+    /// A light with no fixture (a glow off slime, the dark's faint fill), which the dress lint takes as a
+    /// theme's fill: a light the room keeps when it lights itself (<see cref="WithOwnLamps"/>).
+    /// </summary>
+    public RoomBuilder WithFill(Point at, Lamp lamp)
+    {
+        WithLamp(at, lamp);
+        var light = entities[^1];
+        entities[^1] = light with { Keys = [.. light.Keys, new(Dressing.RoomDresser.RoleKey, nameof(Dressing.RoomDresser.Role.Fill))] };
+        return this;
+    }
+
+    /// <summary>
+    /// A brush entity the server switches by name (<see cref="BossNames"/>): a <c>func_brush</c> solid while
+    /// enabled (<c>Solidity</c> 0, toggle), named <paramref name="targetName"/>, casting shadows when it is
+    /// in at the start and <paramref name="castsShadow"/> (not a pillar that falls: the floor under it must be lit
+    /// for the day it is gone), disabled at the start when <paramref name="startDisabled"/> (rubble that falls later).
+    /// </summary>
+    public RoomBuilder WithNamedBrush(string targetName, IEnumerable<Brush> brushes, bool startDisabled = false, bool castsShadow = true)
+    {
+        var list = brushes.ToList();
+        if (list.Count == 0)
+            throw new ArgumentException($"room {name}: the named brush {targetName} has no brush");
+        foreach (Brush brush in list)
+            if (!Inside(brush.Mins, brush.Maxs))
+                throw new ArgumentException($"room {name}: the named brush {targetName} ({brush.Mins})-({brush.Maxs}) leaves the room's cell");
+        entities.Add(new RoomEntity("func_brush", null,
+            [new("targetname", targetName), new("Solidity", "0"), new("StartDisabled", startDisabled ? "1" : "0"),
+             new("vrad_brush_cast_shadows", startDisabled || !castsShadow ? "0" : "1"), new("disableshadows", "1")], [], list));
+        return this;
+    }
+
+    /// <summary>
+    /// A hazard volume of <paramref name="kind"/> the encounter switches on when the boss's phase
+    /// <paramref name="phase"/> starts: the class <see cref="WithHazard"/> writes, named
+    /// <see cref="BossNames.Hazard"/>, disabled at the start.
+    /// </summary>
+    public RoomBuilder WithStagedHazard(int phase, string kind, Point mins, Point maxs)
+    {
+        if (string.IsNullOrEmpty(kind) || !kind.All(ch => ch is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '_'))
+            throw new ArgumentException($"room {name}: hazard kind '{kind}' is not a lower-case id");
+        if (!(mins.X < maxs.X && mins.Y < maxs.Y && mins.Z < maxs.Z))
+            throw new ArgumentException($"room {name}: hazard volume ({mins})-({maxs}) is empty");
+        entities.Add(new RoomEntity("trigger_multiple", null,
+            [new("targetname", BossNames.Hazard(phase, kind)), new("spawnflags", "0"), new("StartDisabled", "1")], [], [Brush.Box(mins, maxs, theme.Trigger)]));
+        return this;
     }
 
     /// <summary>
@@ -586,8 +815,6 @@ public sealed class RoomBuilder
         if (height % kit.NavVoxel != 0)
             throw new ArgumentOutOfRangeException(nameof(height), height,
                 $"room {name}: {height} is not a whole number of the kit's {kit.NavVoxel}-unit navigation voxels");
-        if (cells > 1 && outline.Count > 0)
-            throw new ArgumentException($"room {name}: a larger room's open floor is its whole interior");
         if (width < kit.DoorWidth || width > kit.Interior)
             throw new ArgumentOutOfRangeException(nameof(width), width,
                 $"room {name}: width {width} is outside the door's {kit.DoorWidth} to the cell's {kit.Interior}");
@@ -598,16 +825,16 @@ public sealed class RoomBuilder
             throw new ArgumentOutOfRangeException(nameof(width), width, $"room {name}: width {width} does not centre on whole units");
         if (outline.Count > 0)
         {
-            float t = kit.WallDepth, c = kit.Cell;
+            float t = kit.WallDepth, c = Extent;
             foreach (Rect r in outline)
                 if (r.IsEmpty || r.X0 < t || r.Y0 < t || r.X1 > c - t || r.Y1 > c - t)
                     throw new ArgumentException($"room {name}: an outline rectangle {r} is empty or reaches into the cell's walls ({t} to {c - t})");
-            foreach (CellFace face in doors)
+            foreach (var (face, offset) in Sockets)
             {
-                var (mins, maxs) = ApproachBox(face);
+                var (mins, maxs) = ApproachBox(face, offset);
                 var inside = new Rect(Math.Max(mins.X, t), Math.Max(mins.Y, t), Math.Min(maxs.X, c - t), Math.Min(maxs.Y, c - t));
                 if (!Rects.Covers(outline, inside))
-                    throw new ArgumentException($"room {name}: its {WallName(face)} door's approach ({mins})-({maxs}) is not all open floor of the outline");
+                    throw new ArgumentException($"room {name}: its {SocketName(face, offset)} door's approach ({mins})-({maxs}) is not all open floor of the outline");
             }
         }
 
@@ -775,16 +1002,17 @@ public sealed class RoomBuilder
     /// </summary>
     private void OutlineShell(List<RoomBox> world)
     {
-        float c = kit.Cell, t = kit.WallDepth, h = height;
+        // A larger room may be outlined too (brief p18, level 5's rooms on the 512 kit): its box is the footprint's.
+        float c = Extent, t = kit.WallDepth, h = height;
         float z0 = t, z1 = h - t;
         Floors(world);
         Ceilings(world);
-        var doorways = doors.Select(f => kit.PlugBox(f)).Select(p => new Rect(p.Mins.X, p.Mins.Y, p.Maxs.X, p.Maxs.Y)).ToArray();
+        var doorways = Sockets.Select(s => PlugBox(s.Face, s.Offset)).Select(p => new Rect(p.Mins.X, p.Mins.Y, p.Maxs.X, p.Maxs.Y)).ToArray();
         foreach (Rect r in Rects.Subtract(new Rect(0, 0, c, c), outline.Concat(doorways)))
             world.Add(new RoomBox(new(r.X0, r.Y0, z0), new(r.X1, r.Y1, z1), theme.Wall));
-        foreach (CellFace face in doors)
+        foreach (var (face, offset) in Sockets)
         {
-            var plug = kit.PlugBox(face);
+            var plug = PlugBox(face, offset);
             if (kit.Head < z1)
                 world.Add(new RoomBox(plug.Mins with { Z = kit.Head }, plug.Maxs with { Z = z1 }, theme.Wall));
             world.Add(new RoomBox(plug.Mins, plug.Maxs, theme.Plug));
@@ -951,10 +1179,30 @@ public sealed class RoomBuilder
         if (theme.FrameBrushes is { } brushes)
             yield return BrushFramePiece(brushes, face, offset);
         else
+        {
             yield return ConditionalProp(face, f.Model, Math.Max(f.Depth, kit.WallDepth) + PropProud, f.MinX, kit.Sill - f.Bottom, offset);
+            yield return SillSlabPiece(face, offset);
+        }
         if (f.Sill is { } sill)
             foreach (float inset in SillInsets(kit))
                 yield return ConditionalProp(face, sill.Model, inset, sill.MinX, kit.Sill - DoorwayDip - sill.Floor, offset);
+    }
+
+    /// <summary>
+    /// A model frame's doorway floor (brief p9): a slab of the floor's surface over the dip under the
+    /// plug, a step's fraction above the sill, as one non-solid <c>func_brush</c> kept only where the
+    /// socket is joined, with Act I's frame floor of light (<see cref="BrushFrame.DefaultMinLight"/>):
+    /// the dip and the sill plates on it were in the plug when the room was lit and drew as a black strip
+    /// across the doorway (plan task H9). A brush frame carries its own (<see cref="BrushFrame.SillSlab"/>).
+    /// </summary>
+    private RoomEntity SillSlabPiece(CellFace face, int offset)
+    {
+        float e = Extent, wall = e - kit.WallDepth;
+        Brush slab = Face(face, wall, e - DoorwayDipShort, kit.DoorLow, kit.DoorHigh, kit.Sill - DoorwayDip, kit.Sill + 1, theme.Floor, offset).ToBrush();
+        return new RoomEntity("func_brush", null,
+            [new("room_needs", "joined_" + SocketName(face, offset)), new("Solidity", "1"), new("vrad_brush_cast_shadows", "0"),
+             new("disableshadows", "1"), new("_minlight", BrushFrame.DefaultMinLight.ToString("0.###", CultureInfo.InvariantCulture))],
+            [], [slab]);
     }
 
     /// <summary>
@@ -1014,6 +1262,13 @@ public sealed class RoomBuilder
         if (fr.CapOverhang > 0)
             // A broken set's cap is gone past the sagging half's post.
             boxes.Add(Face(face, inner, wall, lo - fr.CapOverhang, fr.Sag > 0 ? mid : hi + fr.CapOverhang, head, head + fr.HeadDepth, fr.HeadFace ?? fr.Head, offset));
+        if (fr.SillSlab > 0)
+        {
+            // Over the dip under the plug (DipOf: from the wall's face to just short of the cell face, the
+            // opening's width): the floor there and the sill plates on it were in the plug when the room was lit.
+            boxes.Add(Face(face, wall, e - DoorwayDipShort, lo, hi, sill - DoorwayDip, sill + fr.SillSlab, fr.Post, offset));
+        }
+
         if (fr.Crossing is { } planks)
             // Three boards across the threshold, a hand apart, a unit and a half high: the floor of a level crossing.
             for (int k = 0; k < 3; k++)
@@ -1024,7 +1279,7 @@ public sealed class RoomBuilder
 
         return new RoomEntity("func_brush", null,
             [new("room_needs", "joined_" + SocketName(face, offset)), new("Solidity", "1"), new("vrad_brush_cast_shadows", "0"),
-             new("disableshadows", "1"), new("_minlight", BrushFrame.MinLight)],
+             new("disableshadows", "1"), new("_minlight", fr.MinLight.ToString("0.###", CultureInfo.InvariantCulture))],
             [], [.. boxes.Select(b => b.ToBrush()), .. extra]);
     }
 
@@ -1129,11 +1384,11 @@ public sealed class RoomBuilder
             [Brush.Box(volume.Mins, volume.Maxs, theme.Trigger)]));
 
         if (hallTrigger is { } walked)
-            all.Add(new RoomEntity("trigger_once", null, [new("spawnflags", "1")],
+            all.Add(new RoomEntity("trigger_multiple", null, [new("spawnflags", "1"), new("wait", WayWait)],
                 [new VmfConnection("OnStartTouch", VolumeName, "Transition", "", 0f, -1)],
                 [Brush.Box(walked.Mins, walked.Maxs, theme.Trigger)]));
         else if (button is { } pressed)
-            all.Add(new RoomEntity("func_button", null, [new("spawnflags", "1025"), new("wait", "-1")],
+            all.Add(new RoomEntity("func_button", null, [new("spawnflags", "1025"), new("wait", WayWait)],
                 [new VmfConnection("OnPressed", VolumeName, "Transition", "", 0f, -1)],
                 [Brush.Box(pressed.Mins, pressed.Maxs, theme.Block)]));
         else if (role == RoomRole.Up)
@@ -1141,7 +1396,7 @@ public sealed class RoomBuilder
             // A button on a post in the square's north-east corner, out of
             // every door's line but the arm it shares the corner with.
             float b = (kit.Cell + width) / 2f, t = kit.WallDepth;
-            all.Add(new RoomEntity("func_button", null, [new("spawnflags", "1025"), new("wait", "-1")],
+            all.Add(new RoomEntity("func_button", null, [new("spawnflags", "1025"), new("wait", WayWait)],
                 [new VmfConnection("OnPressed", VolumeName, "Transition", "", 0f, -1)],
                 [Brush.Box(new(b - 16, b - 16, t), new(b, b, t + 48), theme.Block)]));
         }
@@ -1150,7 +1405,7 @@ public sealed class RoomBuilder
             (Point Mins, Point Maxs) hall = transitionBox is { } box
                 ? (box.Mins with { X = box.Mins.X - 32, Y = box.Mins.Y - 32 }, box.Maxs with { X = box.Maxs.X + 32, Y = box.Maxs.Y + 32, Z = box.Mins.Z + 128 })
                 : HallwayTrigger(kit);
-            all.Add(new RoomEntity("trigger_once", null, [new("spawnflags", "1")],
+            all.Add(new RoomEntity("trigger_multiple", null, [new("spawnflags", "1"), new("wait", WayWait)],
                 [new VmfConnection("OnStartTouch", VolumeName, "Transition", "", 0f, -1)],
                 [Brush.Box(hall.Mins, hall.Maxs, theme.Trigger)]));
         }

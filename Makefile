@@ -241,12 +241,12 @@ HOST_ROOT ?= $(abspath ../source-sdk-sharp-host)
 SLN := SourceSharp.slnx
 export SS_SLN := $(SLN)
 # What `make setup` must find in $(HOST_ROOT)/bin/nupkg, else it runs host-pack.
-HOST_PACKAGES := $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.0.0.nupkg \
-                 $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Sdk.2.6.0.nupkg
+HOST_PACKAGES := $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.2.0.nupkg \
+                 $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Sdk.2.8.1.nupkg
 
 PHONY_LOADPROF := loadprof loadprof-probe
 PHONY_TESTS := managed-test managed-legs descent-test tf2-test ai-test ai-jank
-.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack mapformats-pack ai-nav ai-nav-tf ai-maps ai-maps-tf windows-cross dedicated join town descent-view descent-rooms descent-level descent-install descent-brightness descent-reach descent-budget mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \        ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate \
+.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack mapformats-pack ai-nav ai-nav-tf ai-maps ai-maps-tf windows-cross dedicated join town descent-view descent-rooms descent-level descent-install descent-brightness descent-reach descent-budget mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow managed-legs-mapgen mapgen-test cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \        ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate \
         sdk-census
 
 help:
@@ -266,7 +266,7 @@ help:
 	@echo "  make town                            generate and compile tf2_descent_town into the tf2_descent mod"
 	@echo "  make descent-rooms [DEPTH=n]         write and pack depth n's Descent room library (MAPTOOLS_DIR=...)"
 	@echo "  make descent-level DEPTH=n SEED=s    lay out, link and preview a Descent level from it"
-	@echo "  make descent-install DEPTH=n SEED=s  link that level into the tf2_descent mod's pool/maps (map tf2_descent-n-ss)"
+	@echo "  make descent-install DEPTH=n SEED=s  copy that level into the tf2_descent mod's pool/maps (map tf2_descent-n-ss)"
 	@echo "  make descent-brightness|descent-reach|descent-budget [DESCENT_DEPTHS=1,2,3,4,6,7,8,9] [DESCENT_SEEDS=1,2,3]"
 	@echo "                                       the Descent levels' gates (tools/descent-gate; MAPTOOLS_DIR=...)"
 	@echo "  make mod-image [CONFIG=release] [MOD_IMAGE=ref]      build (never push) the hosted mod image"
@@ -313,7 +313,7 @@ help:
 SETUP_ARGS ?=
 # The host's packages (SourceSharp.Host.Sdk, SourceSharp.Host.Contracts) that
 # the TF2Descent projects restore from $(HOST_ROOT)/bin/nupkg (src/tf2_descent/
-# Directory.Build.props: Sdk 2.6.0, Contracts 1.0.0). A host change within a
+# Directory.Build.props: Sdk 2.8.1, Contracts 1.2.0). A host change within a
 # version keeps the same package identity, so the machine-wide NuGet cache is
 # cleared of them first, or restore keeps a stale copy.
 # SourceSharp.MapFormats, the .nav3d reader the AI restores from map-tools'
@@ -431,6 +431,9 @@ ci-build:
 # takes its single-instance lock, this is where its binaries live.
 RUN_SNAP := $(CURDIR)/tools/.run/$(RUN_ID)
 RUN_MOD  := $(RUN_SNAP)/mod
+# The engine resolves |gameinfo_path| against the snapshot, so every sibling mod
+# a gameinfo.txt mounts (tf2_descent's ../tf2, tf2's ../test) is linked beside
+# it, expanded here so that make -n shows each link (LaunchModFactsTests).
 run-snapshot:
 	@mkdir -p $(RUN_MOD)/bin
 	@for entry in $(MOD)/*; do \
@@ -450,7 +453,7 @@ run-snapshot:
 	    esac; \
 	done
 	@ln -sfn $(CURDIR)/$(GAME)/content "$(dir $(RUN_SNAP))/content"
-	@ln -sfn $(CURDIR)/$(GAME)/mods/test "$(RUN_SNAP)/test"
+	@$(foreach sibling,$(filter-out $(RUN_MOD_ID),$(notdir $(wildcard $(CURDIR)/$(GAME)/mods/*))),ln -sfn $(CURDIR)/$(GAME)/mods/$(sibling) "$(RUN_SNAP)/$(sibling)";)
 	@echo "==> running against a snapshot in $(RUN_MOD) — rebuilding will not disturb it"
 
 # The launcher is run from bin/<config> and handed the mod with -game. It finds
@@ -694,7 +697,7 @@ ai-nav:
 # HULL=1 builds the map's hull navigation, maps/MAP.navhull, instead (plan_bots_teams_tf2_part_g
 # G.7): the one a map too tall for a .nav3d has (a jump map, found in content/tf/download/maps
 # too), and the one the loader prefers when a map has both.
-TF_NAV_MAPS := ctf_2fort
+TF_NAV_MAPS := ctf_2fort cp_granary
 
 ai-nav-tf:
 	$(call require-setup,$(CONFIG))
@@ -716,9 +719,13 @@ ai-nav-tf:
 # not four of one wall), sets every face's side flag in both maps from its node
 # (tools/descent-face-sides: the linker writes it wrong in every turned room,
 # whose walls the game then draws only from behind; the preview does not cull
-# by it), and previews that with where a Heavy can go and a
+# by it; the same step writes the rewritten map's checksum into the .map2d the
+# link wrote beside it, and --check then fails on a wrong flag or a stale
+# .map2d), and previews that with where a Heavy can go and a
 # camera in a corner of each family's first room (MapGen writes them beside
-# the level file, dNN/tf2_descent-n-ss.cameras). The map tools are $(MAPTOOLS_DIR), the
+# the level file, dNN/tf2_descent-n-ss.cameras); then renders every room's own
+# corner camera (dNN/tf2_descent-n-ss.roomcams) and writes each room's light
+# into the level's .map2d (tools/descent-room-light, its LITE section). The map tools are $(MAPTOOLS_DIR), the
 # checkout at maptools.lock (the kit's doors stand on the floor by its
 # `door_sill floor`); a built bin/Release/ssmap.dll there is run directly,
 # else $(SSMAP).
@@ -768,11 +775,13 @@ descent-level: descent-view
 	    -out $(DESCENT_D)/maps/$(DESCENT_LEVEL).bsp > $(DESCENT_D)/$(DESCENT_LEVEL).link.log 2>&1 || { tail -20 $(DESCENT_D)/$(DESCENT_LEVEL).link.log; exit 1; }
 	@grep 'map entities' $(DESCENT_D)/$(DESCENT_LEVEL).link.log
 	@tools/descent-face-sides $(DESCENT_D)/maps/$(DESCENT_LEVEL).bsp >> $(DESCENT_D)/$(DESCENT_LEVEL).link.log 2>&1 || { tail -5 $(DESCENT_D)/$(DESCENT_LEVEL).link.log; exit 1; }
+	@tools/descent-face-sides --check $(DESCENT_D)/maps/$(DESCENT_LEVEL).bsp >> $(DESCENT_D)/$(DESCENT_LEVEL).link.log 2>&1 || { tail -5 $(DESCENT_D)/$(DESCENT_LEVEL).link.log; exit 1; }
 	@echo "==> ssmap link $(DESCENT_LEVEL) for the preview"
 	@$(SSMAP_DESCENT) link $(DESCENT_D)/$(DESCENT_LEVEL).yaml -rooms $(DESCENT_D)/$(DESCENT_LIB).roompack \
 	    -out $(DESCENT_D)/maps/$(DESCENT_LEVEL)-preview.bsp > $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log 2>&1 || { tail -20 $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log; exit 1; }
 	@tools/descent-preview-spawns $(DESCENT_D)/maps/$(DESCENT_LEVEL)-preview.bsp >> $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log 2>&1 || { tail -5 $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log; exit 1; }
 	@tools/descent-face-sides $(DESCENT_D)/maps/$(DESCENT_LEVEL)-preview.bsp >> $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log 2>&1 || { tail -5 $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log; exit 1; }
+	@tools/descent-face-sides --check $(DESCENT_D)/maps/$(DESCENT_LEVEL)-preview.bsp >> $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log 2>&1 || { tail -5 $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log; exit 1; }
 	@echo "==> ssmap preview $(DESCENT_LEVEL) -movement heavy"
 	@cams=(); while IFS= read -r c; do cams+=(-camera "$$c"); done < $(DESCENT_D)/$(DESCENT_LEVEL).cameras; \
 	$(SSMAP_DESCENT) preview $(DESCENT_D)/maps/$(DESCENT_LEVEL)-preview.bsp -game "$(DESCENT_GAME)" -movement heavy "$${cams[@]}" \
@@ -781,22 +790,34 @@ descent-level: descent-view
 	@$(DESCENT_CONTENT_CHECK) $(DESCENT_D)/$(DESCENT_LEVEL).preview.log || { \
 	    echo "error: $(DESCENT_LEVEL) names a material or model $(DESCENT_GAME) does not hold:"; \
 	    grep 'missing' $(DESCENT_D)/$(DESCENT_LEVEL).preview.log; exit 1; }
+	@echo "==> ssmap preview $(DESCENT_LEVEL), a view of every room, for each room's light"
+	@$(SSMAP_DESCENT) preview $(DESCENT_D)/maps/$(DESCENT_LEVEL)-preview.bsp -game "$(DESCENT_GAME)" -cameras $(DESCENT_D)/$(DESCENT_LEVEL).roomcams \
+	    -no-sheet -size 512x384 -out $(DESCENT_D)/$(DESCENT_LEVEL)-rooms > $(DESCENT_D)/$(DESCENT_LEVEL).rooms.log 2>&1 \
+	    || { tail -20 $(DESCENT_D)/$(DESCENT_LEVEL).rooms.log; exit 1; }
+	@tools/descent-room-light $(DESCENT_D)/maps/$(DESCENT_LEVEL).bsp $(DESCENT_D)/$(DESCENT_LEVEL)-rooms
 	@echo "==> $(DESCENT_D)/$(DESCENT_LEVEL)-preview/sheet.png"
 
 # `make descent-install DEPTH=n SEED=s` puts a linked level where the game
-# finds it: its .bsp, .nav3d and .map2d (the host's levelFiles) linked into
+# finds it: its .bsp, .nav3d and .map2d (the host's levelFiles) copied into
 # the tf2_descent mod's pool/maps, which its gameinfo searches and the
 # same-process hop (LevelHop) links into, so `map tf2_descent-n-ss` loads
-# it. Links, not copies: a rebuilt level is the one the game loads next. A
-# game started with -instance links the mod's entries when it starts, so make
-# pool/ (this does) before such a game starts.
+# it. Copies, not links: tools/setup owns the symlinks under bin/<config>/mods
+# and calls any other one stale, so a link here failed the setup check every
+# build and launch target runs, and `make setup` deleted it. A rebuilt level
+# needs installing again. Each copy is a new file (rm, then cp without -p),
+# so it has a fresh mtime and cp never writes through an old link into the
+# level it points at. The setup check runs last, so an install that leaves
+# anything setup would remove fails here. A game started with -instance links
+# the mod's entries when it starts, so make pool/ (this does) before such a
+# game starts.
 DESCENT_POOL := $(CURDIR)/bin/$(CONFIG)/mods/tf2_descent/pool/maps
 descent-install:
 	@for f in bsp nav3d map2d; do test -f $(DESCENT_D)/maps/$(DESCENT_LEVEL).$$f || { \
 	    echo "error: no $(DESCENT_D)/maps/$(DESCENT_LEVEL).$$f: make descent-level DEPTH=$(DEPTH) SEED=$(SEED) first"; exit 1; }; done
 	@mkdir -p $(DESCENT_POOL)
-	@for f in bsp nav3d map2d; do ln -sfn $(DESCENT_D)/maps/$(DESCENT_LEVEL).$$f $(DESCENT_POOL)/$(DESCENT_LEVEL).$$f; done
-	@echo "==> map $(DESCENT_LEVEL) (linked into $(DESCENT_POOL))"
+	@for f in bsp nav3d map2d; do rm -f $(DESCENT_POOL)/$(DESCENT_LEVEL).$$f && cp $(DESCENT_D)/maps/$(DESCENT_LEVEL).$$f $(DESCENT_POOL)/$(DESCENT_LEVEL).$$f || exit 1; done
+	$(call require-setup,$(CONFIG))
+	@echo "==> map $(DESCENT_LEVEL) (copied into $(DESCENT_POOL))"
 
 # The Descent levels' gates (plan tasks B4-B6), tools/descent-gate: each builds
 # DESCENT_DEPTHS' libraries and DESCENT_SEEDS' levels of each with the two
@@ -828,7 +849,7 @@ ai-maps:
 # src/mapgen (`tfaimaps`) into game/mod_tf2/maps/src/ai and linked into the
 # tf2 mod's maps/ with its .nav3d, as LINKED_MAPS are into the test mod's.
 # `make map MAP=<one of TF_LINKED_MAPS>`; `make ai-maps-tf` builds them all.
-TF_LINKED_MAPS := ss_ai_tf_jump ss_ai_tf_course ss_ai_tf_double ss_ai_tf_wall ss_ai_tf_ends
+TF_LINKED_MAPS := ss_ai_tf_jump ss_ai_tf_course ss_ai_tf_double ss_ai_tf_wall ss_ai_tf_ends ss_ai_tf_pack
 TFAISRC        := game/mod_tf2/maps/src/ai
 TFMOD          := $(CURDIR)/bin/$(CONFIG)/mods/tf2
 
@@ -964,6 +985,9 @@ DESCENT_TEST  = $(DOTNET) test src/tf2_descent/tests --nologo
 TF2_TEST      = $(DOTNET) test src/tf2/tests --nologo
 # The AI's facts (src/ai/tests, plan_hl2mp_ai §8.1): their own project.
 AI_TEST       = $(DOTNET) test src/ai/tests --nologo
+# The map generator's Descent facts (src/test/mapgen): their own project, and in
+# CI their own job (tools/test-tiers OWN_JOB): they dress every Descent depth.
+MAPGEN_TEST   = $(DOTNET) test src/test/mapgen --nologo
 ORACLE_NATIVE_TEST  = $(FARM)/src/buildcpptests --oracle
 # THE MANAGED LEGS RUN THE BUILT ASSEMBLIES. `dotnet test <project>` walks
 # MSBuild's whole up-to-date graph first: 5.5 s for the client project's 999
@@ -982,6 +1006,7 @@ CLIENT_LEG    = $(DOTNET) test $(TEST_DLLS)/tests-client/SourceSharp.Client.Test
 DESCENT_LEG   = $(DOTNET) test $(TEST_DLLS)/tf2_descent-tests/TF2.Descent.Tests.dll --nologo
 TF2_LEG       = $(DOTNET) test $(TEST_DLLS)/tf2-tests/TF2.Tests.dll --nologo
 AI_LEG        = $(DOTNET) test $(TEST_DLLS)/ai-tests/SourceSharp.Ai.Tests.dll --nologo
+MAPGEN_LEG    = $(DOTNET) test $(TEST_DLLS)/tests-mapgen/SourceSharp.MapGen.Tests.dll --nologo
 ORACLE_MANAGED_LEG = $(DOTNET) test $(TEST_DLLS)/oracle-tests/SourceSharp.OracleTests.dll --nologo
 # The census tier (ss_census() in src/test/native/CMakeLists.txt): make test-full only.
 CENSUS_TEST   = $(FARM)/src/buildcpptests --census
@@ -1103,7 +1128,8 @@ MANAGED_TEST_LEGS = \
     'managed-client:tools/leg-floor managed-client && $(CLIENT_LEG)' \
     'tf2_descent:tools/leg-floor tf2_descent && $(DESCENT_LEG)' \
     'tf2:tools/leg-floor tf2 && $(TF2_LEG)' \
-    'ai:tools/leg-floor ai && $(AI_LEG)'
+    'ai:tools/leg-floor ai && $(AI_LEG)' \
+    'mapgen:tools/leg-floor mapgen && $(MAPGEN_LEG)'
 CHECK_MANAGED ?= 1
 # NATIVE_TIER=fast runs the native leg's fast tier in place of the whole leg
 # (tools/test-tiers); CI's linux-check does, and linux-native-slow runs the
@@ -1150,7 +1176,8 @@ TEST_FAST_LEGS = \
     'checks:tools/leg-floor checks && $(CHECKS_TEST) routine' \
     $(foreach l,$(shell tools/test-tiers legs fast),$(call TIER_LEG,$(l))) \
     'ui:tools/leg-floor ui && $(UI_TEST)'
-TEST_SLOW_LEGS = $(foreach l,$(shell tools/test-tiers legs slow),$(call TIER_LEG,$(l)))
+TEST_SLOW_LEGS = $(foreach l,$(shell tools/test-tiers legs slow),$(call TIER_LEG,$(l))) \
+    $(call TIER_LEG,mapgen)
 
 # The list is read before the legs are: a list that does not parse would leave
 # $(shell ...) empty, and the run would drop the managed and native legs.
@@ -1171,6 +1198,13 @@ managed-legs-fast managed-legs-slow: managed-legs-%: ui
 	@$(TEST_BUILD)
 	@$(DOTNET) publish src/launcher/SourceSharp.Launcher.csproj -v q --nologo -c Debug
 	@tools/run-test-legs $(foreach l,$(filter-out native-%,$(shell tools/test-tiers legs $*)),$(call TIER_LEG,$(l)))
+
+# The map generator's leg alone, whole (tools/test-tiers OWN_JOB): CI's
+# linux-managed and windows-managed jobs of their own, beside the two tiers.
+managed-legs-mapgen: ui
+	@tools/test-tiers legs mapgen > /dev/null
+	@$(TEST_BUILD)
+	@tools/run-test-legs $(call TIER_LEG,mapgen)
 
 # The native leg's slow tier alone: buildcpptests builds and runs those tests
 # by name, so this needs a configured tree and not the whole debug build.
@@ -1259,6 +1293,10 @@ tf2-test:
 # The AI facts alone (the ai leg of `make test`), FILTER as above.
 ai-test:
 	@$(AI_TEST) $(if $(FILTER),--filter '$(FILTER)' -- RunConfiguration.TreatNoTestsAsError=true)
+
+# The map generator's facts alone (the mapgen leg of `make test`), FILTER as above.
+mapgen-test:
+	@$(MAPGEN_TEST) $(if $(FILTER),--filter '$(FILTER)' -- RunConfiguration.TreatNoTestsAsError=true)
 
 # The jank score's standard run (plan_hl2mp_ai §3.4.5): dm_lockdown, four bots of
 # mixed presets and a scripted client, recorded and scored. MINUTES as asked (5).

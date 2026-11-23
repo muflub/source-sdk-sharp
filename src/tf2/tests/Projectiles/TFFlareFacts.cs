@@ -110,6 +110,11 @@ public sealed class TFFlareFacts
         // stick arm's handle) is not.
         rig.Engine.ReturnsEachCall("Entities.IsPlayer", () =>
             rig.Engine.Calls[^1].Args[0] is EntityHandle h && (h == ProjectileRig.Victim || h == ProjectileRig.Player));
+        // The flares own window (the rocket family's grace, tf_weaponbase_rocket.cpp:354-369)
+        // only spares its OWN team; the age-0 hit these facts read is therefore
+        // an enemy's shot, standing the other side.
+        rig.Engine.ReturnsEachCall("Players.GetTeam", () =>
+            rig.Engine.Calls[^1].Args[0] is EntityHandle h && h == ProjectileRig.Victim ? 3 : 2);
         var flare = rig.Flare();
         flare.OnSpawn();
         flare.ArmedBy(30f, TFWeaponId.Flaregun, "tf_weapon_flaregun", critical: critShot,
@@ -130,6 +135,8 @@ public sealed class TFFlareFacts
         rig.Directory.Instance = flare;
         rig.Engine.ReturnsEachCall("Entities.IsPlayer", () =>
             rig.Engine.Calls[^1].Args[0] is EntityHandle h && h == ProjectileRig.Victim);
+        rig.Engine.ReturnsEachCall("Players.GetTeam", () =>
+            rig.Engine.Calls[^1].Args[0] is EntityHandle h && h == ProjectileRig.Victim ? 3 : 2);
 
         rig.Effects.Projectile(Attack(3), FlareScript(), new ShotDamage(22.5f), 0f);
 
@@ -331,6 +338,8 @@ public sealed class TFFlareFacts
                                             TFProjectileBehaviour.FlareScorch);
         rig.Engine.ReturnsEachCall("Entities.IsPlayer", () =>
             rig.Engine.Calls[^1].Args[0] is EntityHandle h && h == ProjectileRig.Victim);
+        rig.Engine.ReturnsEachCall("Players.GetTeam", () =>
+            rig.Engine.Calls[^1].Args[0] is EntityHandle h && h == ProjectileRig.Victim ? 3 : 2);
 
         rig.Effects.Projectile(Attack(3), FlareScript(), new ShotDamage(19.5f), 0f);
 
@@ -418,11 +427,25 @@ public sealed class TFFlareFacts
             rig.Engine.Calls[^1].Args[0] is EntityHandle h && h == ProjectileRig.Victim);
         rig.Engine.Returns("Entities.GetVelocity", new Vector(2000f, 0f, 0f));
         var flare = rig.Flare();
+        flare.Handle = ProjectileRig.ProjectileHandle;
+        rig.Directory.Instance = flare;
+        rig.MotionDirectory.Bind(ProjectileRig.ProjectileHandle, flare);
         flare.OnSpawn();
         flare.ArmedBy(30f, TFWeaponId.Flaregun, "tf_weapon_flaregun", critical: false,
                       TFProjectileDefs.FlareGravity, ownerIndex: 3, TFProjectileBehaviour.FlareScorch);
         flare.FiredBy(ProjectileRig.Player, new Vector(TFProjectileDefs.FlareSpeed, 0f, 0f));
         rig.Engine.Returns("Players.GetTeam", 2); // the same side as the shooter's
+
+        // Age the flare past the grace with the rocket facts' aging stubs
+        // (TFProjectileFacts.cs:2251-2264): once the window closes the
+        // teammate stops the shot, so the bounce and the debris land with
+        // him -- and the Explode's own same-side arm is what refuses the shove.
+        rig.Engine.Returns("Entities.GetParent", EntityHandle.None)
+                  .Returns("Entities.GetOrigin", Vector.Zero)
+                  .Returns("Entities.GetAngles", Vector.Zero)
+                  .Returns("WorldQuery.TraceLine", new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None))
+                  .Ignores("Entities.SetOrigin", "Entities.SetVelocity");
+        rig.Motion.RunFrame(0.3f);
 
         flare.OnTouch(ProjectileRig.Victim);
 

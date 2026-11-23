@@ -87,7 +87,8 @@ public sealed class AiNavBuildTests : IDisposable
         public IReadOnlyList<TeamSolid> TeamSolids(MapEntities entities) => [];
     }
 
-    private NavService Nav(string map, byte[] bsp, byte[]? shipped = null, string build = "1", bool gameBuilds = true, INavProfile? profile = null)
+    private NavService Nav(string map, byte[] bsp, byte[]? shipped = null, string build = "1", bool gameBuilds = true, INavProfile? profile = null,
+                         INavBuildPolicy? policy = null)
     {
         IEngineFiles files = _files = DispatchProxy.Create<IEngineFiles, Files>();
         var held = ((Files)(object)files).Held;
@@ -101,7 +102,7 @@ public sealed class AiNavBuildTests : IDisposable
             _ => throw FakeEngine.Unasked(m),
         });
         _nav = new NavService(files, new Mod(_dir), world, _log, FakeEngine.Of<IEnginePlayers>((m, _) => throw FakeEngine.Unasked(m)), new NoTraces(), profile ?? new SourceSharp.Ai.Hl2mp.Nav.Hl2mpNavProfile(),
-                              NavBuildTestKnobs.Of(build), gameBuilds ? new BuildsEvery() : null);
+                              NavBuildTestKnobs.Of(build), policy ?? (gameBuilds ? new BuildsEvery() : null));
         return _nav;
     }
 
@@ -209,6 +210,27 @@ public sealed class AiNavBuildTests : IDisposable
         Assert.Contains(_log.All, l => l.Contains("not built: this game's binding builds no navigation", StringComparison.Ordinal));
     }
 
+    /// <summary>TF2's server list, composed as the tf2 mod composes it, and the build policy it registers (null for none).</summary>
+    private static INavBuildPolicy? TF2sPolicy()
+    {
+        var services = new ServiceContainer();
+        SideServices.Register(services, Side.Server, [.. typeof(global::TF2.Server.Player.TFServerActorFacts).Assembly.GetTypes(),
+                                                      .. typeof(SourceSharp.Ai.Server.Senses.VisionPass).Assembly.GetTypes(),
+                                                      .. typeof(SourceSharp.Ai.TF2.TFBotGame).Assembly.GetTypes()]);
+        return services.IsRegistered<INavBuildPolicy>() ? services.Require<INavBuildPolicy>() : null;
+    }
+
+    [Fact]
+    public void UnderTF2sBindingALevelWithNoNavigationPostsABuild()
+    {
+        NavService nav = Nav("dm_test", Tiny, gameBuilds: false, policy: TF2sPolicy());
+
+        nav.Load("dm_test");
+
+        AssertBuildPosted(nav);
+        Assert.DoesNotContain(_log.All, l => l.Contains(NavService.NotBuilt, StringComparison.Ordinal));
+    }
+
     [Fact]
     public void AFailedBuildIsARefusalNamingWhyAndIsNotRetried()
     {
@@ -275,6 +297,14 @@ public sealed class AiNavBuildTests : IDisposable
     [Fact]
     public void BuildingIsOnByDefault()
         => Assert.Equal("1", typeof(AiNavBuildConVar).GetCustomAttribute<ConVarAttribute>()!.DefaultValue);
+
+    [Fact]
+    public void TheMemoryCapComesFromItsConVarAndDefaultsToTheSettings()
+    {
+        Assert.Equal((7, NavBuildSettings.DefaultMaxMegabytes.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                     (NavBuildTestKnobs.Of("1", maxMegabytes: 7).Settings.MaxMegabytes,
+                      typeof(AiNavBuildMaxMbConVar).GetCustomAttribute<ConVarAttribute>()!.DefaultValue));
+    }
 
     [Fact]
     public void APrebuildOfAnotherMapBuildsItWithoutHoldingTheLevelsBots()

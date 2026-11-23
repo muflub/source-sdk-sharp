@@ -19,6 +19,14 @@ public interface IExperienceStore : IDisposable
     string? Refusal { get; }
 
     /// <summary>
+    /// Why the store is not attached yet, as one line, while it retries in the background (another process held its
+    /// file locked past the busy timeout as it opened): until then it answers as an empty store and merges nothing,
+    /// and a caller keeps what it would have written. Null once attached, for a store that never waited, and for a
+    /// refused one.
+    /// </summary>
+    string? Waiting { get; }
+
+    /// <summary>
     /// The snapshot of <paramref name="key"/>: every row scaled by a half per
     /// <paramref name="halfLife"/> rounds played on the key since the row was
     /// last written (<see cref="ExperienceDecay"/>). Empty for a key never
@@ -56,6 +64,8 @@ public sealed class MemoryExperienceStore : IExperienceStore
     private readonly Dictionary<ExperienceKey, Kept> _maps = new();
 
     public string? Refusal => null;
+
+    public string? Waiting => null;
 
     public MapExperience Load(ExperienceKey key, double halfLife)
     {

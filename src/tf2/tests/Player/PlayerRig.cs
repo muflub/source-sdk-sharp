@@ -62,7 +62,7 @@ internal sealed class PlayerRig
             new InventoryStore(new ModInfo(_ => null), Schema, Log), Schema, new NoClients(), Log);
         Loadout = new TFLoadoutProvider(
             new ListHooks<ITFItemSource>(new TFInventoryItemSource(
-                inventory, new BotInventory(Schema, Engine, LoadoutDeps.NoBots(), Log), LoadoutDeps.NoBots(), Schema)),
+                inventory, new BotInventory(Schema, Engine, LoadoutDeps.NoBots(), Log), LoadoutDeps.NoBots(), Schema, Engine)),
             new ListHooks<ITFPlayerAttributeSource>(),
             Schema, Carriers, Items, Classes,
             new LoadoutDeps.IdleRound(), new LoadoutDeps.NoStalemate(), Catalog, Carriers,

@@ -209,6 +209,39 @@ public sealed class NavBuildJobTests(LockdownBuild lockdown) : IClassFixture<Loc
     }
 
     [Fact]
+    public void ABuildThatTakesTheHeapPastItsCapIsStoppedAndRefusedByNameAndWritesNothing()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "ai-navmemory-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            NavBuildJob job = NavBuildJob.Start(NavBuildInputs.Read("dm_lockdown", lockdown.Bsp, _ => null),
+                                                LockdownBuild.Settings(2) with { MaxMegabytes = 1 }, new BuiltNavStore(dir), null);
+            while (!job.Done)
+                Thread.Sleep(10);
+            job.Release();
+
+            NavBuildOutcome.Failed failed = Assert.IsType<NavBuildOutcome.Failed>(job.Outcome);
+            Assert.False(failed.Retry);
+            Assert.Contains("over ai_nav_build_max_mb 1", failed.Reason, StringComparison.Ordinal);
+            Assert.False(Directory.Exists(dir) && Directory.EnumerateFiles(dir).Any(), "a refused build wrote a file");
+            Assert.True(job.Cells.Done < job.Cells.Total, $"stopped at {job.Cells.Done} of {job.Cells.Total} cells");
+        }
+        finally
+        {
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void TheMemoryCapIsMegabytesAndZeroIsNone()
+    {
+        Assert.True(NavBuildJob.OverMemory((1L << 20) + 1, 1));
+        Assert.False(NavBuildJob.OverMemory(1L << 20, 1));
+        Assert.False(NavBuildJob.OverMemory(long.MaxValue, 0));
+    }
+
+    [Fact]
     public void ANavOverTheLeafCapIsRefusedByName()
     {
         NavBuildException e = Assert.Throws<NavBuildException>(() => NavBuildJob.CheckLeaves(5, 4));

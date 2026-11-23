@@ -303,4 +303,53 @@ public class FrictionSoundsTests
         Assert.Equal(4, engine.Calls.Count(c => c.Member == "Sound.SoundPatchCreate"));
         Assert.Equal(4, sounds.Active);
     }
+
+    [Fact]
+    public void Each_slot_names_the_entity_scraping_in_it_until_the_scrape_stops()
+    {
+        var (sounds, _, _) = World();
+        for (uint i = 0; i < 5; i++)
+            sounds.Friction(new EntityHandle(50 + i), Hard, Crate, RoughFloor, now: 0f);
+
+        Assert.Equal([new EntityHandle(50), new EntityHandle(51), new EntityHandle(52), new EntityHandle(53), EntityHandle.None],
+                     Enumerable.Range(0, 5).Select(sounds.ScrapingAt));
+        Assert.Equal(EntityHandle.None, sounds.ScrapingAt(-1));
+
+        sounds.Update(now: 1f);
+
+        Assert.Equal(EntityHandle.None, sounds.ScrapingAt(0));
+    }
+
+    [Fact]
+    public void A_level_s_scrapes_end_with_it_so_the_next_level_s_restarted_clock_finds_the_table_free()
+    {
+        var (sounds, controller, engine) = World();
+        for (uint i = 0; i < 4; i++)
+            sounds.Friction(new EntityHandle(50 + i), Hard, Crate, RoughFloor, now: 300f);
+
+        sounds.LevelShutdown();
+
+        Assert.Equal(0, sounds.Active);
+        Assert.Equal(4, controller.Calls.Count(c => c == "Destroy 7"));
+        Assert.Equal(4, engine.Calls.Count(c => c.Member == "Sound.SoundPatchFree"));
+
+        // The next level's clock starts again near zero: a new scrape starts.
+        sounds.Friction(new EntityHandle(60), Hard, Crate, RoughFloor, now: 5f);
+        Assert.Equal(5, sounds.Started);
+    }
+
+    [Fact]
+    public void Without_the_shutdown_a_scrape_stamped_on_the_old_clock_holds_its_slot_on_the_new_one()
+    {
+        // The control for the fact above: the stale entries read as kept alive.
+        var (sounds, _, _) = World();
+        for (uint i = 0; i < 4; i++)
+            sounds.Friction(new EntityHandle(50 + i), Hard, Crate, RoughFloor, now: 300f);
+
+        sounds.Update(now: 5f);
+        sounds.Friction(new EntityHandle(60), Hard, Crate, RoughFloor, now: 5f);
+
+        Assert.Equal(4, sounds.Active);
+        Assert.Equal(4, sounds.Started);
+    }
 }

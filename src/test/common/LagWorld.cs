@@ -54,10 +54,31 @@ public sealed class LagWorld : ILagCompensationWorld
     public float TickInterval => Tick;
     public int MaxClients { get; set; } = 4;
 
+    /// <summary>Entities that are not players, by handle (what <see cref="LagEntities"/> opts in).</summary>
+    public readonly Dictionary<EntityHandle, LagPlayer> Entities = new();
+
     public LagPlayer Add(int index)
         => Players[index] = new LagPlayer(new EntityHandle((uint)(0x0001_0000 | index)));
 
-    private LagPlayer? Of(EntityHandle h) => Players.Values.FirstOrDefault(p => p.Handle == h);
+    /// <summary>An entity that is not a player, in entry <paramref name="entry"/>.</summary>
+    public LagPlayer AddEntity(int entry)
+    {
+        var entity = new LagPlayer(new EntityHandle((uint)(0x0002_0000 | entry)));
+        Entities[entity.Handle] = entity;
+        return entity;
+    }
+
+    // A loop, not a query: the allocation facts run the compensation over this world.
+    private LagPlayer? Of(EntityHandle h)
+    {
+        foreach (LagPlayer p in Players.Values)
+        {
+            if (p.Handle == h)
+                return p;
+        }
+
+        return Entities.GetValueOrDefault(h);
+    }
 
     private LagPlayer Must(EntityHandle h) => Of(h) ?? throw new InvalidOperationException($"no player {h}");
 
@@ -69,6 +90,10 @@ public sealed class LagWorld : ILagCompensationWorld
         foreach (LagPlayer p in Players.Values)
             p.SimulationTime = CurTime;
     }
+
+    /// <summary>Every rewind and restore move made of <paramref name="entity"/>, in order.</summary>
+    public int MovesOf(EntityHandle entity)
+        => Relinks.Count(r => r.Player == entity) + TouchingMoves.Count(m => m.Player == entity);
 
     public EntityHandle PlayerByIndex(int index)
         => Players.TryGetValue(index, out LagPlayer? p) ? p.Handle : EntityHandle.None;
@@ -157,6 +182,55 @@ public sealed class LagWorld : ILagCompensationWorld
     }
 
     public void InvalidateBoneCache(EntityHandle player) => Flushes.Add(player);
+}
+
+/// <summary>
+/// The entities that opted in, as plain rows: which entity, the serial its
+/// history is under, the speed it declares, and whether it is opted in now.
+/// </summary>
+public sealed class LagEntities : ILagCompensatedEntities
+{
+    public sealed class Row(EntityHandle handle)
+    {
+        public EntityHandle Handle { get; } = handle;
+        public bool OptedIn = true;
+        public int Serial;
+        public float MaxSpeed;
+    }
+
+    public readonly List<Row> Rows = [];
+
+    public Row Add(EntityHandle handle)
+    {
+        var row = new Row(handle);
+        Rows.Add(row);
+        return row;
+    }
+
+    public void Collect(List<LagCompensatedEntity> into)
+    {
+        into.Clear();
+        foreach (Row row in Rows)
+        {
+            if (row.OptedIn)
+                into.Add(new LagCompensatedEntity(row.Handle, row.Serial, row.MaxSpeed));
+        }
+    }
+
+    public bool TryGet(EntityHandle entity, out LagCompensatedEntity now)
+    {
+        foreach (Row row in Rows)
+        {
+            if (row.Handle == entity && row.OptedIn)
+            {
+                now = new LagCompensatedEntity(row.Handle, row.Serial, row.MaxSpeed);
+                return true;
+            }
+        }
+
+        now = default;
+        return false;
+    }
 }
 
 /// <summary>The four convars, as plain values.</summary>

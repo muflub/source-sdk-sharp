@@ -1550,6 +1550,48 @@ public abstract class ScriptedEntity
     public virtual bool RunsDamageRules => false;
 
     /// <summary>
+    /// Whether the lag compensation (<see cref="SourceSharp.Server.LagCompensation"/>)
+    /// keeps a history of this entity's place and moves it back for a
+    /// shooter's command as it moves another player: a character that is not
+    /// a player, shot at by a client who drew it where it was a moment ago.
+    /// False for everything unless the class says so. Stock compensates
+    /// players only; this is the opt-in for everything else.
+    ///
+    /// <para>
+    /// Asked each frame: an entity answering no keeps no history, and one
+    /// that answers yes again starts a fresh one. A class that stays opted in
+    /// while it becomes something else (a pooled body handed to another
+    /// character) says so with <see cref="RestartLagHistory"/>.
+    /// </para>
+    /// </summary>
+    public virtual bool LagCompensated => false;
+
+    /// <summary>
+    /// The top speed the lag compensation's reach rule reads for this entity,
+    /// as it reads a player's <c>MaxSpeed()</c>
+    /// (<see cref="SourceSharp.Server.LagCompensationRules.InReach"/>): a target
+    /// close enough to have run past the shooter within <c>sv_maxunlag</c> is
+    /// moved back whichever way the shooter looks. Zero leaves only the cone.
+    /// </summary>
+    public virtual float LagCompensationMaxSpeed => 0f;
+
+    /// <summary>
+    /// The serial of this entity's lag history: <see cref="RestartLagHistory"/>
+    /// moves it on, and the lag compensation drops every record it holds for
+    /// the entity under an older serial.
+    /// </summary>
+    public int LagHistorySerial { get; private set; }
+
+    /// <summary>
+    /// "The history starts here": the lag compensation forgets where this
+    /// entity was before now, so no shot is rewound into a past that belongs
+    /// to something else (a pooled body lent to another character, or put
+    /// down somewhere new by a hop too short for the teleport distance to
+    /// see). Takes effect at once, before the next record.
+    /// </summary>
+    protected void RestartLagHistory() => LagHistorySerial++;
+
+    /// <summary>
     /// Something damaged this entity. Return how much damage it actually takes —
     /// zero to ignore it entirely. Whether a breakable yields to a crowbar and
     /// shrugs off bullets is a rule, which is why the answer is here.
@@ -1777,7 +1819,19 @@ public abstract class ScriptedEntity
     }
 
     /// <summary>Gives this entity a model. Must happen during spawn, so it can be precached.</summary>
-    protected void SetModel(string model) => Render.SetModel(Handle, model);
+    protected void SetModel(string model)
+    {
+        Render.SetModel(Handle, model);
+        OnModelWorn();
+    }
+
+    /// <summary>
+    /// After <see cref="SetModel"/>: the skeleton is on sequence 0 now (stock's
+    /// SetModel's SetSequence( 0 ), which the render binding carries out). A
+    /// class that sends its own copy of the sequence to the client sends the
+    /// reset here, as stock's networked m_nSequence carries it.
+    /// </summary>
+    private protected virtual void OnModelWorn() { }
 
     /// <summary>Makes this entity a trigger of the given half-extents that a player can walk into.</summary>
     protected void MakePickup(float sizeX, float sizeY, float sizeZ)
@@ -1877,8 +1931,42 @@ public abstract class ScriptedEntity
     protected void RotateTo(Vector destination, float speed)
         => Movement.MoveToAngles(Handle, destination, speed);
 
-    /// <summary>Whether this brush is drawn.</summary>
-    protected void SetVisible(bool visible) => Render.SetVisible(Handle, visible);
+    /// <summary>
+    /// Whether this brush is drawn. An entity keyed kRenderNone is not, whatever
+    /// its class asks: stock's C_BaseEntity::ShouldDraw (c_baseentity.cpp:1447)
+    /// refuses that render mode before it reads EF_NODRAW.
+    /// </summary>
+    protected void SetVisible(bool visible)
+    {
+        _drawAsked = visible;
+        Render.SetVisible(Handle, visible && !_renderNone);
+    }
+
+    /// <summary>RenderMode_t's kRenderNone (const.h).</summary>
+    private const int RenderModeNone = 10;
+
+    /// <summary>
+    /// The map keyed "rendermode" kRenderNone (CBaseEntity's m_nRenderMode).
+    /// Not a [SaveField]: the base's own fields are outside the walk both save
+    /// tiers agree on (SaveTierAgreementTests), and the hidden draw is the
+    /// engine's state, which a managed reload keeps.
+    /// </summary>
+    private bool _renderNone;
+
+    /// <summary>What the class last asked of <see cref="SetVisible"/>; null before it asked.</summary>
+    private bool? _drawAsked;
+
+    /// <summary>
+    /// CBaseEntity's "rendermode" key, for a class that does not take it
+    /// itself. Keyed again after the class has said whether it is drawn, the
+    /// draw follows at once, as stock's client reads the mode each frame.
+    /// </summary>
+    internal void TakeRenderMode(int mode)
+    {
+        _renderNone = mode == RenderModeNone;
+        if (_drawAsked is bool asked)
+            Render.SetVisible(Handle, asked && !_renderNone);
+    }
 
     /// <summary>
     /// The solid type <see cref="SetSolidity(BrushSolidity)"/> gives this brush:
@@ -3105,7 +3193,8 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
     /// <summary>
     /// The keys CBaseEntity takes for every class that does not take them
     /// itself: disableshadows (CBaseEntity::KeyValue's EF_NOSHADOW, any
-    /// entity). CBaseAnimating's are <see cref="AnimatingVars"/>.
+    /// entity) and rendermode (its m_nRenderMode keyfield, whose kRenderNone
+    /// the client never draws). CBaseAnimating's are <see cref="AnimatingVars"/>.
     /// </summary>
     private bool TakeBaseKey(ScriptedEntity instance, EntityHandle handle, string lowered, string value)
     {
@@ -3114,6 +3203,10 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
             case "disableshadows":
                 if (Atoi(value) != 0 && Services?.Resolve(typeof(SourceSharp.Server.IEntityEffectBits)) is SourceSharp.Server.IEntityEffectBits bits)
                     bits.Set(handle, EntityEffect.NoShadow, true);
+                return true;
+
+            case "rendermode":
+                instance.TakeRenderMode(Atoi(value));
                 return true;
         }
 

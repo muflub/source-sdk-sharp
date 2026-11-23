@@ -220,6 +220,11 @@ public sealed class TFRocket : FlyingProjectile, ITFOwnedProjectile
     /// <summary>The handed-in team, or the owner's through the engine's handle for the index.</summary>
     private int Team() => _team ?? Players.GetTeam(Players.GetHandle(_ownerIndex));
 
+    /// <summary>Stock's teammate window: see <see cref="TFProjectileDefs.OwnTeamWithinPass"/>.</summary>
+    protected override bool FliesThrough(EntityHandle toucher)
+        => Entities.IsPlayer(toucher)
+           && TFProjectileDefs.OwnTeamWithinPass(Players, Shooter, toucher, Motion.SecondsSinceLaunch(Handle));
+
     protected override void Impact(EntityHandle hit)
     {
         // CTFBaseRocket::Explode (tf_weaponbase_rocket.cpp:426) sets the
@@ -1636,6 +1641,11 @@ public sealed class TFArrow : FlyingProjectile, ITFOwnedProjectile
     /// </summary>
     private const float RescueRepairRatio = 4f;
 
+    /// <summary>Stock's teammate window: see <see cref="TFProjectileDefs.OwnTeamWithinPass"/>.</summary>
+    protected override bool FliesThrough(EntityHandle toucher)
+        => Entities.IsPlayer(toucher)
+           && TFProjectileDefs.OwnTeamWithinPass(Players, Shooter, toucher, Motion.SecondsSinceLaunch(Handle));
+
     protected override void Impact(EntityHandle hit)
     {
         if (hit == EntityHandle.None)
@@ -2051,6 +2061,11 @@ public sealed class TFProjectileEnergyBall : FlyingProjectile, ITFOwnedProjectil
             Critical = true;
     }
 
+    /// <summary>Stock's teammate window: see <see cref="TFProjectileDefs.OwnTeamWithinPass"/>.</summary>
+    protected override bool FliesThrough(EntityHandle toucher)
+        => Entities.IsPlayer(toucher)
+           && TFProjectileDefs.OwnTeamWithinPass(Players, Shooter, toucher, Motion.SecondsSinceLaunch(Handle));
+
     protected override void Impact(EntityHandle hit)
     {
         if (hit == EntityHandle.None)
@@ -2285,6 +2300,14 @@ public sealed class TFHealingBolt : FlyingProjectile, ITFOwnedProjectile
     /// owner entity), and the launch hands it in.</summary>
     public int OwnerIndex => _ownerIndex;
 
+    // No teammate window: stock's healing bolt answers 0.f from
+    // GetCollideWithTeammatesDelay (tf_projectile_arrow.h:129), which makes
+    // ResetCollideWithTeammates (shared/baseprojectile.cpp:212-230) set the
+    // collide-with-teammates flag on the very first think, so the heal lands
+    // on a teammate from the launch frame. The base's FliesThrough == false
+    // is exactly that; no extra rule beyond the base here.
+    protected override bool FliesThrough(EntityHandle toucher) => false;
+
     protected override void Impact(EntityHandle hit)
     {
         if (hit == EntityHandle.None)
@@ -2437,6 +2460,11 @@ public sealed class TFBallOfFire : FlyingProjectile, ITFOwnedProjectile
     /// <summary>The ball is flown by its shooter (stock's owner entity, read
     /// through the launch's <see cref="FlyingProjectile.FiredBy"/>).</summary>
     public int OwnerIndex => Shooter.EntryIndex;
+
+    /// <summary>Stock's teammate window: see <see cref="TFProjectileDefs.OwnTeamWithinPass"/>.</summary>
+    protected override bool FliesThrough(EntityHandle toucher)
+        => Entities.IsPlayer(toucher)
+           && TFProjectileDefs.OwnTeamWithinPass(Players, Shooter, toucher, Motion.SecondsSinceLaunch(Handle));
 
     /// <summary>
     /// The combat touch (<c>Burn</c> :262-431): the hit-list dedup (:277-281),
@@ -2691,6 +2719,11 @@ public sealed class TFFlare : FlyingProjectile, ITFOwnedProjectile
     private float GetRadius() =>
         Attributes.Float(TFProjectileDefs.FlareDetRadius, "mult_explosion_radius",
                          Owners.ItemOf(OwnerIndex, WeaponName));
+
+    /// <summary>Stock's teammate window: see <see cref="TFProjectileDefs.OwnTeamWithinPass"/>.</summary>
+    protected override bool FliesThrough(EntityHandle toucher)
+        => Entities.IsPlayer(toucher)
+           && TFProjectileDefs.OwnTeamWithinPass(Players, Shooter, toucher, Motion.SecondsSinceLaunch(Handle));
 
     protected override void Impact(EntityHandle hit)
     {
@@ -3141,6 +3174,17 @@ public sealed class TFJar : FlyingProjectile, ITFOwnedProjectile
         ? TFProjectileDefs.JarMilkImpactEffect
         : TFProjectileDefs.JarImpactEffect;
 
+    /// <summary>
+    /// Stock's teammate window (<see cref="TFProjectileDefs.OwnTeamWithinPass"/>), as
+    /// the jar's <c>PipebombTouch</c> asks it (tf_weapon_jar.cpp:517-533): inside the
+    /// grace a teammate is flown through unless the jar or milk would put them out,
+    /// a burning one being worth the drench. Past the grace a teammate stops the jar.
+    /// </summary>
+    protected override bool FliesThrough(EntityHandle toucher)
+        => Entities.IsPlayer(toucher)
+           && TFProjectileDefs.OwnTeamWithinPass(Players, Shooter, toucher, Motion.SecondsSinceLaunch(Handle))
+           && !Conditions.InCond(toucher, TFCond.Burning);
+
     protected override void Impact(EntityHandle hit)
     {
         // The touch rules are the pipebomb's own, worn by the
@@ -3154,15 +3198,8 @@ public sealed class TFJar : FlyingProjectile, ITFOwnedProjectile
             return;
         }
 
-        // The teammate grace (:521-528): a dry teammate is flown through
-        // too; only a burning one is worth the drench.
-        if (hit != EntityHandle.None
-            && Players.GetTeam(hit) == OwnerTeam()
-            && !Conditions.InCond(hit, TFCond.Burning))
-        {
-            KeepFlying(Entities.GetVelocity(Handle), GravityScale);
-            return;
-        }
+        // The teammate grace (:517-533) is FliesThrough's: a dry teammate
+        // inside it never reaches here, and past it stops the jar as stock's does.
 
         // Handle hitting skybox (PipebombTouch :530-540, the pipebomb's own
         // trace): a jar that would shatter on the sky is simply gone, no
@@ -3456,6 +3493,18 @@ public sealed class TFCleaver : FlyingProjectile, ITFOwnedProjectile
         Precache.PrecacheSound(TFProjectileDefs.CleaverImpactWorldSound);
     }
 
+    /// <summary>
+    /// Stock's teammate window (<see cref="TFProjectileDefs.OwnTeamWithinPass"/>), with
+    /// the jar face's burning exception (<c>PipebombTouch</c>, tf_weapon_jar.cpp:517-533):
+    /// inside the grace a dry teammate is flown through, but an aflame one is worth the
+    /// hit — the cleaver wears the jar's projectile type through the ctor default (:242),
+    /// so it carries the exception too. Past the grace a teammate stops the cleaver.
+    /// </summary>
+    protected override bool FliesThrough(EntityHandle toucher)
+        => Entities.IsPlayer(toucher)
+           && TFProjectileDefs.OwnTeamWithinPass(Players, Shooter, toucher, Motion.SecondsSinceLaunch(Handle))
+           && !Conditions.InCond(toucher, TFCond.Burning);
+
     protected override void Impact(EntityHandle hit)
     {
         // The touch rules are the pipebomb's own, worn by the SetPipebombMode
@@ -3663,6 +3712,11 @@ public sealed class TFBallOrnament : FlyingProjectile, ITFOwnedProjectile
         else
             base.OnThink(context);
     }
+
+    /// <summary>Stock's teammate window: see <see cref="TFProjectileDefs.OwnTeamWithinPass"/>.</summary>
+    protected override bool FliesThrough(EntityHandle toucher)
+        => Entities.IsPlayer(toucher)
+           && TFProjectileDefs.OwnTeamWithinPass(Players, Shooter, toucher, Motion.SecondsSinceLaunch(Handle));
 
     /// <summary>
     /// <c>PipebombTouch</c> (:1223-1244): the blast first, every touch alike

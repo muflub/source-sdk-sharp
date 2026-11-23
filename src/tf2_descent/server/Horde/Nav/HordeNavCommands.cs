@@ -38,14 +38,28 @@ public sealed class HordeNavCommand(HordeNav nav, RobotMotion motion, ILog log)
             }
 
             log.Msg(string.Create(CultureInfo.InvariantCulture,
-                $"{Tag} graph {d.Graph.CellCount} cells, {d.Graph.EdgeCount} edges, {d.Graph.ObstacleCount} obstacles (all open); cells by class:{classes}; derived in {d.DeriveMs:0} ms (+{d.ColumnsMs:0} ms voxels {d.Columns.Width}x{d.Columns.Depth}); ready {nav.TicksToReady} ticks after the level began; epoch {p.Epoch:x8}\n"));
+                $"{Tag} graph {d.Graph.CellCount} cells, {d.Graph.EdgeCount} edges, {d.Graph.ObstacleCount} obstacles ({nav.ArenaBlocking} arena brush(es) blocking, the rest open); cells by class:{classes}; derived in {d.DeriveMs:0} ms (+{d.ColumnsMs:0} ms voxels {d.Columns.Width}x{d.Columns.Depth}); ready {nav.TicksToReady} ticks after the level began; epoch {p.Epoch:x8}\n"));
+        }
+
+        if (nav.Data is { } a && p.Obstacles is { } now)
+        {
+            var arena = new StringBuilder();
+            for (int o = 0; o < a.Nav.Obstacles.Length && o < now.Count; o++)
+            {
+                var info = a.Nav.Obstacles[o];
+                if (info.Kind == SourceSharp.Ai.Server.Nav.NavObstacleKind.Toggle && HordeArenaObstacles.RoleOf(info.Name) != ArenaBrushRole.None)
+                    arena.Append(CultureInfo.InvariantCulture, $" {info.Name} {(now.Blocking(o) ? "BLOCKS" : "open")};");
+            }
+
+            if (arena.Length > 0)
+                log.Msg($"{Tag} arena:{arena}\n");
         }
 
         log.Msg(string.Create(CultureInfo.InvariantCulture,
-            $"{Tag} props: {nav.Probed} of {nav.Candidates} cells probed, {nav.Blocked} blocked, {nav.ProbeMicros:0} us on the game thread\n"));
+            $"{Tag} props:{nav.Probed} of {nav.Candidates} cells probed, {nav.Blocked} blocked, {nav.ProbeMicros:0} us on the game thread\n"));
         double mean = p.Searches > 0 ? p.Micros / p.Searches : 0;
         log.Msg(string.Create(CultureInfo.InvariantCulture,
-            $"{Tag} searches {p.Searches}: found {p.Found}, unreachable {p.Unreachable}, out of budget {p.OutOfBudget}; {mean:0} us each on the workers (longest {p.MostMicros:0} us), {p.CellsOnPaths} cells on found paths\n"));
+            $"{Tag} searches {p.Searches}: found {p.Found}, nearest place of the floor {p.Nearest}, unreachable {p.Unreachable}, out of budget {p.OutOfBudget}; {mean:0} us each on the workers (longest {p.MostMicros:0} us), {p.CellsOnPaths} cells on found paths; components under the arena made {p.JoinsWindowed} by windows and {p.JoinsWhole} whole, {p.JoinMicros:0} us in all on the workers (longest {p.MostJoinMicros:0} us)\n"));
         var s = motion.Stepper;
         log.Msg(string.Create(CultureInfo.InvariantCulture,
             $"{Tag} stepper {nav.StepperName} ({s?.GetType().Name}): {s?.StepsRun} steps at {(s is { StepsRun: > 0 } r ? r.StepMicros / r.StepsRun : 0):0.0} us cpu each; switches {motion.StepperSwitches}\n"));
@@ -93,7 +107,7 @@ public sealed class HordePathCommand(HordeSession session, RobotMotion motion, I
     private static string Describe(HordeRoute r)
     {
         var sb = new StringBuilder();
-        sb.Append(CultureInfo.InvariantCulture, $"{(r.HasPath ? "on the graph" : "room route")}, searches {r.Searches}, moves on graph {r.OnGraph} by rooms {r.ByRooms}; corners");
+        sb.Append(CultureInfo.InvariantCulture, $"{(r.HasPath ? "on the graph" : r.Held ? "HELD at the nearest place of its floor (the goal is off it)" : "room route")}, searches {r.Searches}, moves on graph {r.OnGraph} by rooms {r.ByRooms}, holds {r.Holds}; corners");
         foreach (AiVector c in r.Left.ToArray())
             sb.Append(CultureInfo.InvariantCulture, $" ({c.X:0},{c.Y:0},{c.Z:0})");
         return sb.ToString();

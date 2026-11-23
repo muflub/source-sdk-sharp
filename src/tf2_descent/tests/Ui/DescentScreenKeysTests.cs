@@ -10,8 +10,9 @@ namespace TF2.Descent.Tests.Ui;
 
 /// <summary>
 /// The Descent screens' names and keys on the client (plan_descent_logic UI1):
-/// the command's words, and the window keys, C, I, K and the automap's M (UI5),
-/// which come after TF2's list and the skill keys and take four of TF2's letters.
+/// the command's words, and the window keys, C, I, K, P, the automap's M (UI5)
+/// and the map overlay's Tab, which come after TF2's list and the skill keys and
+/// take TF2's binds on those keys.
 /// </summary>
 public sealed class DescentScreenKeysTests
 {
@@ -65,6 +66,21 @@ public sealed class DescentScreenKeysTests
         Assert.Equal("tf2_descent_ui party", final["p"]);
     }
 
+    /// <summary>
+    /// TF2 has no use key (E calls for a Medic and drops the flag), and Descent is played by
+    /// using things: a stall, a cage's button, loot, a gravestone, a portal pad, a revive. A
+    /// fresh config binds E to +use, and the keyboard page lists it, so a player whose config
+    /// predates the row can bind it there.
+    /// </summary>
+    [Fact]
+    public void E_uses_and_the_keyboard_page_lists_use()
+    {
+        var actions = Actions();
+
+        Assert.Equal("+use", Final(actions)["e"]);
+        Assert.Contains(actions.Actions(), a => a.Command == "+use");
+    }
+
     [Fact]
     public void M_toggles_the_automap()
     {
@@ -73,10 +89,23 @@ public sealed class DescentScreenKeysTests
         Assert.Equal("tf2_descent_ui_toggle automap", final["m"]);
     }
 
+    /// <summary>
+    /// Tab shows the map over the view, as Diablo's Tab map does, and takes TF2's
+    /// +showscores: Descent shows no scoreboard (the party window, P, is its place).
+    /// </summary>
+    [Fact]
+    public void Tab_toggles_the_map_overlay_and_the_keyboard_page_lists_it()
+    {
+        var actions = Actions();
+
+        Assert.Equal("tf2_descent_map_overlay", Final(actions)["tab"]);
+        Assert.Contains(actions.Actions(), a => a.Command == "tf2_descent_map_overlay");
+    }
+
     [Fact]
     public void The_window_keys_are_none_of_the_skill_or_belt_keys()
     {
-        string[] windows = ["c", "i", "k", "m", "p"];
+        string[] windows = ["c", "i", "k", "m", "p", "tab"];
         var reserved = SkillKeys.SlotKeys.Concat(SkillKeys.BeltKeys).ToArray();
 
         Assert.Equal(10, reserved.Length);                       // the stimulus: the skills' six and the belt's four
@@ -86,7 +115,7 @@ public sealed class DescentScreenKeysTests
     }
 
     [Fact]
-    public void The_window_keys_take_exactly_five_of_tf2s_binds()
+    public void The_window_keys_the_map_overlay_and_use_take_exactly_seven_of_tf2s_binds()
     {
         var actions = Actions();
         var tf2Only = ClientKeyActions.Of(typeof(client::TF2.Client.MoveForwardKey).Assembly.GetTypes(), typeof(ClientKeyActions).Assembly);
@@ -102,10 +131,12 @@ public sealed class DescentScreenKeysTests
         Assert.Equal(new Dictionary<string, string>
         {
             ["c"] = "+voice_menu_3",
+            ["e"] = "dropitem",                    // use (+use): TF2 has no use key; its E dropped the flag
             ["i"] = "showmapinfo",
             ["k"] = "cl_decline_first_notification",
             ["m"] = "open_charinfo_direct",        // TF2's loadout, which Descent keeps closed (HE1)
             ["p"] = "say_party",                   // the party window (WO9): heroes are one team, team chat reaches the party
+            ["TAB"] = "+showscores",               // the map overlay: Descent shows no scoreboard (TF2 names the key in capitals)
         }, displaced);
     }
 }

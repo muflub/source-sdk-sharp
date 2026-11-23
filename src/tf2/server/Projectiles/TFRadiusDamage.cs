@@ -376,6 +376,25 @@ public static class TFProjectileDefs
     /// </summary>
     public const float CollideWithTeammatesDelay = 0.25f;
 
+    /// <summary>
+    /// <c>CTFBaseRocket::PhysicsSolidMaskForEntity</c> (<c>tf_weaponbase_rocket.cpp:354-369</c>):
+    /// while the shot is younger than <see cref="CollideWithTeammatesDelay"/>
+    /// (<c>CBaseProjectile::ResetCollideWithTeammates</c>, <c>baseprojectile.cpp:212-230</c>)
+    /// its sweep carries only the OTHER team's contents bit, so a teammate does not stop it
+    /// and an enemy does; after the delay the mask carries both bits and a teammate stops
+    /// it too (<c>CTFPlayer::ShouldCollide</c>, <c>tf_player.cpp:10159-10178</c>). Whether the
+    /// player a flyer touched is to be flown through (the projectiles ask only of a player:
+    /// the team bits are <c>CTFPlayer::ShouldCollide</c>'s): its own team, inside that window. The
+    /// ABI's trace has no per-entity filter, so the decision reads the teams here and the
+    /// flight goes on against brushes alone (<c>EntityMotion</c>'s world-only re-trace).
+    /// </summary>
+    public static bool OwnTeamWithinPass(IEnginePlayers players, EntityHandle shooter, EntityHandle hit, float flownSeconds)
+    {
+        int ownerTeam = players.GetTeam(shooter);
+        return hit != EntityHandle.None && ownerTeam != 0
+            && flownSeconds < CollideWithTeammatesDelay && players.GetTeam(hit) == ownerTeam;
+    }
+
     /// <summary><c>TF_WEAPON_PIPEGRENADE_MODEL</c> (<c>tf_weapon_grenade_pipebomb.cpp</c>).</summary>
     public const string PipeModel = "models/weapons/w_models/w_grenade_grenadelauncher.mdl";
 

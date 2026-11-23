@@ -58,7 +58,8 @@ public static class ActOne
     public static PropModel FuseBox { get; } = M("props_mining/junctionbox02", 0f, -15.73f, 0f, 10.68f, 18.75f, 92.06f);
     public static PropModel ControlPanel { get; } = M("props_mining/computer_industrial04", 0f, -24f, 0f, 3.79f, 24f, 112f);
     public static PropModel DangerSign { get; } = M("props_mining/sign001", -7.22f, -24.39f, 0f, 7.22f, 24.39f, 66.99f);
-    public static PropModel PowderCrate { get; } = M("props_2fort/miningcrate002", -25.33f, -22.5f, 0f, 26.43f, 23.09f, 43f);
+    // The breakables' stand-ins (M34): where these stand as clutter the server's crate and barrel stand.
+    public static PropModel PowderCrate { get; } = M("props_2fort/miningcrate002", -25.33f, -22.5f, 0f, 26.43f, 23.09f, 43f) with { Breakable = BreakableKind.Crate };
     public static PropModel CementSacks { get; } = M("props_mvm/sack_stack", -33.21f, -38.52f, -1.21f, 33.36f, 34.4f, 69.99f);
     public static PropModel CableSpool { get; } = M("props_farm/spool_wire", -32f, -32f, -24f, 32f, 32f, 24f);
     public static PropModel Pallet { get; } = M("props_farm/pallet001", -40.64f, -46.98f, -4.91f, 41.84f, 46.98f, 8.18f);
@@ -66,7 +67,7 @@ public static class ActOne
     public static PropModel Sheeting { get; } = M("props_2fort/corrugated_metal001", -0.5f, -24.97f, 0f, 8.54f, 23f, 95.95f);
     public static PropModel HandTruck { get; } = M("props_well/hand_truck01", -18.2f, -14f, 0f, 18.2f, 18.2f, 84.48f);
     public static PropModel RopeSpool { get; } = M("props_farm/spool_rope", -32f, -32f, -24f, 32f, 32f, 24f);
-    public static PropModel OilDrum { get; } = M("props_2fort/oildrum", -16f, -16f, 0f, 16f, 16f, 55f);
+    public static PropModel OilDrum { get; } = M("props_2fort/oildrum", -16f, -16f, 0f, 16f, 16f, 55f) with { Breakable = BreakableKind.Barrel };
     public static PropModel BigCrate { get; } = M("props_lakeside/wood_crate_01", -50f, -50.45f, -2f, 50.25f, 50f, 98.91f);
     public static PropModel OreCart { get; } = M("props_vehicles/mining_car_metal", -23.66f, -41.54f, 0f, 23.66f, 41.54f, 68.33f);
     public static PropModel Track { get; } = M("props_mining/track_straight_256", -28.26f, -127.45f, -1.59f, 28.19f, 127.45f, 5.09f, solid: false);
@@ -211,20 +212,24 @@ public static class ActOne
         {
             Flange = 12,
             Crossing = new("wood/wood_floor002", 0.25f),
+            // Level 2's walls under its dimmer floods (brief p9) are lit to about 0.115: the arch at 1.5 times.
+            MinLight = 0.3f,
         },
         SquarePillars = true,
         RoofBeams = 256,
-        Lamps = new LampKind(Flood, LampMount.Ceiling, new Lamp("226 236 255", 128, 400, 1024), Spacing: 288, LightAt: new(0, 0, -36))
+        // About 15 % under the first pass's (brief p9: the gate's view figure read level 2 at 75 against
+        // the game's 70).
+        Lamps = new LampKind(Flood, LampMount.Ceiling, new Lamp("226 236 255", 109, 400, 1024), Spacing: 288, LightAt: new(0, 0, -36))
         {
             Spot = new SpotCone(Inner: 75, Outer: 89, Pitch: 90),
         },
-        TallLamps = new LampKind(Flood, LampMount.Wall, new Lamp("226 236 255", 165, 400, 1152), Spacing: 448, LightAt: new(32, 0, -36))
+        TallLamps = new LampKind(Flood, LampMount.Wall, new Lamp("226 236 255", 140, 400, 1152), Spacing: 448, LightAt: new(32, 0, -36))
         {
             Spot = new SpotCone(Inner: 35, Outer: 60, Pitch: 45),
             WallHeight = 256,
             RowPitch = 512,
         },
-        Pendants = Pendant(BellLamp, new Lamp("226 236 255", 75, 384, 1280), new(0, 0, -28), hang: 448, grid: 512),
+        Pendants = Pendant(BellLamp, new Lamp("226 236 255", 64, 384, 1280), new(0, 0, -28), hang: 448, grid: 512),
         // The yard hall's overhead crane (the review of 2026-11-10: a gantry in level 2's and 4's halls).
         Gantry = new Gantry(Height: 704, Girder: 32, Hook: CraneHook, Cable: Cable64),
         Props = new PropSet
@@ -355,11 +360,15 @@ public static class ActOne
             Flange = 20,
             FlangeDepth = 6,
             HeadFace = new("props/hazardstrip001a", 0.5f),
+            // The Mill's walls are lit to about 0.10 (brief p9): the arch at 0.15, not 0.18.
+            MinLight = 0.3f,
         },
-        // Sodium, less saturated (the review of 2026-11-10: the olive cast).
-        Lamps = new LampKind(Gooseneck, LampMount.Wall, new Lamp("255 214 150", 72, 256, 900), Spacing: 512, LightAt: new(76, 0, -24))
+        // Sodium, less saturated (the review of 2026-11-10: the olive cast). The Mill's lamps a tenth over p9's
+        // (brief p11: level 4 read 36 in game for its 40).
+        Lamps = new LampKind(Gooseneck, LampMount.Wall, new Lamp("255 214 150", 79, 256, 900), Spacing: 512, LightAt: new(76, 0, -24))
         {
-            WallHeight = 176,
+            // Its arm's underside clears a giant's 160 (brief p7: at 176 it hung 158 over the floor).
+            WallHeight = 180,
             RowPitch = 448,
         },
         Props = new PropSet
@@ -387,8 +396,8 @@ public static class ActOne
         Bands = new TrimBands(Skirting: 16, DadoHeight: 128, Dado: 8, Beam: 16),
         Hazard = new("props/hazardstrip001a", 0.5f),
         RoofBeams = 320,
-        WorkLamps = new WorkLamps(WorkFlood("214 228 255", 100, 320, 1024, 256), Count: 2, MinFloor: 200_000),
-        Pendants = Pendant(CagedLamp, new Lamp("255 214 150", 45, 384, 1280), new(0, 0, -28), hang: 448, grid: 640),
+        WorkLamps = new WorkLamps(WorkFlood("214 228 255", 110, 320, 1024, 256), Count: 2, MinFloor: 200_000),
+        Pendants = Pendant(CagedLamp, new Lamp("255 214 150", 50, 384, 1280), new(0, 0, -28), hang: 448, grid: 640),
         Gantry = new Gantry(Height: 704, Girder: 32, Hook: CraneHook, Cable: Cable64),
         Fog = new Fog("74 64 44", 256, 2560, 0.55f),
         ToneMap = new ToneMap(1f, 0.6f, 3f, 0.35f),

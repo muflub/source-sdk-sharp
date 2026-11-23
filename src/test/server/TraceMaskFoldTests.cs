@@ -108,13 +108,22 @@ public sealed class TraceMaskFoldTests : System.IDisposable
         Assert.Equal(0x600400b, s_Mask);
     }
 
+    /// <summary>
+    /// A shot, a swing, the brush-only world, or solid — and a mask the table
+    /// does not name is MASK_SOLID. The brush-only arm is new: a hulled flyer
+    /// whose step passed a character re-traces the step against the world alone
+    /// (EntityMotion's WorldOnly), and a hull that still carried MASK_SOLID's
+    /// CONTENTS_MONSTER would find the very character the flyer is meant to
+    /// leave out.
+    /// </summary>
     [Theory]
     [InlineData(TraceMask.Shot, 0x46004003)]
     [InlineData(TraceMask.ShotHull, 0x600400b)]
-    [InlineData(TraceMask.Brushes, 0x200400b)]
+    [InlineData(TraceMask.Brushes, 0x400b)]
     [InlineData(TraceMask.Solid, 0x200400b)]
     [InlineData(TraceMask.All, 0x200400b)]
-    public void AHullIsAShotASwingOrSolidAndNothingElse(TraceMask mask, int engine)
+    [InlineData((TraceMask)99, 0x200400b)]
+    public void AHullIsAShotASwingTheBrushOnlyWorldOrSolid(TraceMask mask, int engine)
     {
         _side.TraceHull(Vector.Zero, new Vector(0, 0, 1), new Vector(-1, -1, -1), new Vector(1, 1, 1), mask);
 
@@ -158,6 +167,26 @@ public sealed class TraceMaskFoldTests : System.IDisposable
         Assert.Equal(0x1234, s_Mask);
         Assert.Equal(player, _traces.Pass);
         Assert.Equal(8, _traces.Group);
+    }
+
+    /// <summary>UTIL_TraceHull with a group: a player's movement (8) passes debris, which COLLISION_GROUP_NONE's box sweep hits.</summary>
+    [Fact]
+    public void ABoxSweepInAGroupCarriesItsOwnMaskGroupAndEntity()
+    {
+        var body = new EntityHandle(45u | (2u << 12));
+        _side.TraceBox(Vector.Zero, new Vector(0, 0, 1), new Vector(-24, -24, 0), new Vector(24, 24, 82), 0x200480bu, body, 8);
+
+        Assert.Equal(0x200480b, s_Mask);
+        Assert.Equal(body, _traces.Pass);
+        Assert.Equal(8, _traces.Group);
+    }
+
+    [Fact]
+    public void ABoxSweepWithNoGroupIsInCollisionGroupNone()
+    {
+        _side.TraceBox(Vector.Zero, new Vector(0, 0, 1), new Vector(-16, -16, -16), new Vector(16, 16, 16), TraceMask.Solid);
+
+        Assert.Equal(0, _traces.Group);
     }
 
     [Fact]

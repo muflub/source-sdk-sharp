@@ -15,6 +15,10 @@ public static class RepairRefusals
     public const string Unusable = "unusable";
     /// <summary>The field repair recipe takes one Repair Kit and one item.</summary>
     public const string NeedsKitAndItem = "needs_kit_and_item";
+    /// <summary>A field repair of what is worn needs a Repair Kit in the backpack.</summary>
+    public const string NoKit = "no_kit";
+    /// <summary>A field repair uses one kit: the host ends the kit it names, so a stack of them is not one.</summary>
+    public const string KitStack = "kit_stack";
 }
 
 /// <summary>One step of a field repair: durability gained, maximum lost, and both after it.</summary>
@@ -110,6 +114,45 @@ public sealed class Repairs
         } while (restored + durability < max);
         durability = Math.Min(durability + restored, max);
         return new(item with { Durability = durability, MaxDurability = max, WearUses = 0 }, steps, null);
+    }
+
+    /// <summary>The kit a field repair uses up (durability.json's <c>fieldRepair.kit</c>).</summary>
+    public string Kit => S.Kit;
+
+    /// <summary>
+    /// The stat that waives the Engineer's price for a hero (stats.json; a perk that sets it to 1
+    /// or more makes his town repairs free). The game's own word for a waived repair is
+    /// <c>town_free</c> (the dev command's); the rules read it from the hero, never from the caller,
+    /// so no server can waive a price the hero has not earned.
+    /// </summary>
+    public const string TownFreeStat = "town_repair_free";
+
+    /// <summary>Whether a hero with <paramref name="stats"/> repairs in town for nothing: <see cref="TownFreeStat"/> at 1 or more.</summary>
+    public static bool TownFree(Hero.HeroStats stats) => stats.Total(TownFreeStat) >= 1;
+
+    /// <summary>
+    /// <c>IGameRules.Repair(item, kind, kit, sheet, seed)</c> (Host.Contracts 1.2), by the repairer:
+    /// <paramref name="heroLevel"/> and <paramref name="townFree"/> are read from his sheet. A town
+    /// repair is the Engineer's (<see cref="Repair(RolledItem)"/>: priced, the maximum untouched),
+    /// <c>Cost = 0</c> when his price is waived (<see cref="TownFree"/>). A field repair takes one
+    /// Repair Kit (<paramref name="kit"/>, a stack of one) and runs <see cref="Field"/> at the
+    /// hero's level: the item comes back in place (<c>Produced[0]</c>), the kit is used up
+    /// (<c>Consumed = [1]</c>), nothing is paid. Refused, nothing used, without a kit, on a stack of
+    /// kits, or where <see cref="Field"/> refuses (at the maximum, unusable, no gear).
+    /// </summary>
+    public ItemChange Repair(RolledItem item, RepairKind kind, RolledItem? kit, int heroLevel, bool townFree, ulong seed)
+    {
+        if (kind == RepairKind.Town)
+        {
+            var town = Repair(item);
+            return town.Ok && townFree ? town with { Cost = 0 } : town;
+        }
+        if (kit is null || kit.BaseType != S.Kit || kit.SchemaVersion != ItemCodec.Schema || item.BaseType == S.Kit)
+            return new([], [], 0, RepairRefusals.NeedsKitAndItem);
+        if (kit.Count != 1) return new([], [], 0, RepairRefusals.KitStack);
+        if (item.SchemaVersion != ItemCodec.Schema) return new([], [], 0, RepairRefusals.NotRepairable);
+        var result = Field(_codec.Instance(item), heroLevel, seed);
+        return result.Ok ? new([1], [_codec.ToRolled(result.Item!)], 0) : new([], [], 0, result.Refusal);
     }
 
     /// <summary>

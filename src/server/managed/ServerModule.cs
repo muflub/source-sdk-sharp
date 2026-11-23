@@ -775,6 +775,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddFactory<IHooks<IChatAudience>>(locator => new Hooks<IChatAudience>(locator, log));
         _services.AddFactory<IHooks<INameChangeGate>>(locator => new Hooks<INameChangeGate>(locator, log));
         _services.AddFactory<IHooks<IRespawnGate>>(locator => new Hooks<IRespawnGate>(locator, log));
+        // The message of the day's veto (a game that shows it only on a player's first level).
+        _services.AddFactory<IHooks<IMotdGate>>(locator => new Hooks<IMotdGate>(locator, log));
         _services.AddFactory<IHooks<IRoundEndGate>>(locator => new Hooks<IRoundEndGate>(locator, log));
         _services.AddFactory<IHooks<IIntermissionHook>>(locator => new Hooks<IIntermissionHook>(locator, log));
         // A mod's WantsLagCompensationOnEntity (TF2's CTFPlayer override).
@@ -1106,11 +1108,15 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance(_services.Create<PlayerNames>());
         // Stock's observer mode, the dead CBasePlayer arm (the death cycle and spec_*).
         _movement.ObserverTargetPose = ObservedPose;
+        // A mod's own observer rules (CTFPlayer's SetObserverMode and
+        // StateEnterOBSERVER), asked lazily: the mods register after this.
+        _services.AddFactory<IHooks<IObserverRules>>(locator => new Hooks<IObserverRules>(locator, Log));
         _services.AddInstance(new Observers(Log, _entities, _services.Require<IEngineEntities>(), _services.Require<IEnginePlayers>(),
                                             _services.Require<IEnginePlayerMovement>(), _services.Require<IEngineEntityRender>(),
                                             _services.Require<IEngineDamage>(), _services.Require<IEngineWorldQuery>(),
                                             _services.Require<IEngineEntityPhysics>(), _services.Require<ForceCameraConVar>(),
-                                            _services.Require<AllowSpectatorsConVar>(), _services.Resolve<IConnectedClients>()));
+                                            _services.Require<AllowSpectatorsConVar>(), _services.Resolve<IConnectedClients>(),
+                                            _services.Require<IHooks<IObserverRules>>()));
 
         // The weapon and ammo tables THIS side reads, registered before the
         // arsenal is built so the container hands the same objects to it, to
@@ -2103,7 +2109,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _skeletons = new ServerSkeletons(new EngineStandaloneBlocks(_services.Require<IEngineEntities>()),
                                          studioModels,
                                          _services.Require<IGameClock>(), Log,
-                                         _surfaceProps, _services.Require<AnimThreeWayBlendConVar>());
+                                         _surfaceProps, _services.Require<AnimThreeWayBlendConVar>(),
+                                         h => _entities.Directory.Resolve(h) as ICustomTraceTarget);
         _services.AddInstance(_skeletons);
         // The buildings' bodygroup helpers read the model's body parts through
         // the same cache the skeletons pose from (animation.cpp:863's hdr).
@@ -2135,7 +2142,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                 _services.Require<SvMaxUnlagConVar>(),
                 _services.Require<SvLagFlushBoneCacheConVar>(),
                 _services.Require<SvLagCompensationTeleportDistConVar>()),
-            _currentCommands, Log, _services.Require<IHooks<ILagCompensationTargets>>());
+            _currentCommands, Log, _services.Require<IHooks<ILagCompensationTargets>>(),
+            // The entities that are not players and opted in (ScriptedEntity.LagCompensated).
+            new ScriptedLagCompensatedEntities(_entities.Directory));
         _services.AddInstance(lagCompensation);
         _services.AddInstance<ILagCompensation>(lagCompensation);
         _arsenal.LagCompensation = lagCompensation;
@@ -2299,10 +2308,11 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _lifecycle = new LifecycleDriver(Log, _services);
         _frames = new FrameDriver(Log, _services);
 
-        // The clients' hooks, collected once like the two drivers above; and
-        // the sink a player entity's removal reports to.
-        _clients = new ClientLifecycleDriver(_services, _log);
-        _services.AddInstance<IPlayerRemovals>(_clients);
+        // The clients' hooks, collected once like the two drivers above. A
+        // departure is the engine's player_disconnect, not a player entity's
+        // removal (the driver says why), heard from here on.
+        _clients = new ClientLifecycleDriver(_services, _log, _services.Require<IConnectedClients>());
+        _clients.Listen(_services.Require<IGameEvent<PlayerDisconnectArgs>>());
 
         //---------------------------------------------------------------------
         // The game DLL, and the environment it reads.
@@ -2726,8 +2736,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _levelInfo.Map = _currentMap;
         _levelInfo.IsReady = false;
         _levelReadyPending = true;
-        if (_clients is not null)
-            _clients.LevelShuttingDown = false;
 
         Log.Msg($"[SourceSharp/Server] level init: {mapName}\n");
 
@@ -2855,9 +2863,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         Log.Msg($"[SourceSharp/Server] level shutdown after {_ticks.Count} ticks\n");
         _physicsRouter?.ForgetSleep();
 
-        // Every player entity is removed below and its client stays: not a disconnect.
-        if (_clients is not null)
-            _clients.LevelShuttingDown = true;
+        // Every player entity is removed below and its client stays. The
+        // engine's bots do not stay: the driver forgets them.
+        _clients?.LevelShutdown();
         _levelInfo.IsReady = false;
         _levelReadyPending = false;
         _entities.Clear();
@@ -3378,6 +3386,11 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _levelInfo.IsReady = true;
         _gameDll?.LevelCarried(_currentMap);
         _lifecycle?.LevelCarried(_currentMap);
+
+        // The clients the composition before had in its slots: this one's
+        // driver learns them, so a client leaving after the reload is heard.
+        Globals g = _services.Require<IEngineEnvironment>().Globals;
+        _clients?.Carried(g.IsAvailable ? g.MaxClients : 0);
     }
 
     /// <summary>
@@ -3830,9 +3843,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // The participants first, while everything they might touch is still
         // up. _lifecycle is null if init never finished, which is exactly when
         // a shutdown is most likely to be the thing running.
-        if (_clients is not null)
-            _clients.LevelShuttingDown = true;
-
         _lifecycle?.Shutdown();
 
         // The mod's services, after the lifecycle's own shutdown pass so a
@@ -3947,6 +3957,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     public void OnClientPutInServer(int entIndex, string playerName)
     {
         _services.Resolve<PlayerNames>()?.PutInServer(entIndex, playerName);
+        // Who is in the slot, so the engine's player_disconnect finds it.
+        _clients?.PutInServer(entIndex);
         // The bot BotPlayers.Add is waiting for, or a bot a level change put in again.
         _services.Resolve<BotPlayers>()?.PutInServer(entIndex, playerName);
         // Reads two C#-declared ConVars — proof they hold live engine values.

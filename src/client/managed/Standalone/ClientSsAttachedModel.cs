@@ -30,7 +30,7 @@ namespace SourceSharp.Client.Standalone;
 /// </para>
 /// </summary>
 [ClientStandaloneEntity(EntityNames.SsAttachedModel)]
-public sealed class ClientSsAttachedModel : ClientStandaloneEntity
+public sealed class ClientSsAttachedModel : ClientStandaloneEntity, IFirstPersonGated
 {
     private readonly IEngineHud _screen;
     private readonly IRenderPolicyWishes _policy;
@@ -81,6 +81,9 @@ public sealed class ClientSsAttachedModel : ClientStandaloneEntity
     /// </summary>
     public void Reconsider() => Decide();
 
+    /// <summary>The in-eye target moved: the world copy's wish again (<see cref="IFirstPersonGated"/>).</summary>
+    public void ReconsiderFirstPerson() => Decide();
+
     private void Decide()
     {
         // Whose eyes, the viewmodel's own rule (the model hangs off the gun the
@@ -122,7 +125,7 @@ public sealed class ClientSsAttachedModel : ClientStandaloneEntity
         // first-person camera is inside its bearer. In the pass the wish is
         // moot — the viewmodel rule answers first — and asked anyway, per
         // decode like the weapon's.
-        bool wish = local > 0 && State.OwnerIndex == local;
+        bool wish = State.OwnerIndex > 0 && (State.OwnerIndex == local || State.OwnerIndex == _policy.InEyeTarget);
 
         if (wish != _wishedOwnerSeen)
         {

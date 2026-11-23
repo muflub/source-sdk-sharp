@@ -67,6 +67,58 @@ public static class Parts
         };
     }
 
+    /// <summary>
+    /// The cells a side a room of the normal kit's size covers on <paramref name="kit"/>: 1 on the
+    /// normal kit, 2 on level 5's 512 kit (brief p18: the maze level's other rooms keep their size and
+    /// become rooms of 2 by 2 cells).
+    /// </summary>
+    public static int SpanCells(RoomKit kit) => Math.Max(1, RoomKit.NormalCell / kit.Cell);
+
+    /// <summary>The extent of a room of the normal kit's size on <paramref name="kit"/>: <see cref="SpanCells"/> cells.</summary>
+    public static float Span(RoomKit kit) => SpanCells(kit) * kit.Cell;
+
+    /// <summary>
+    /// Gives a room of the normal kit's size its doors on <paramref name="doors"/>: on the normal kit one
+    /// door a wall; on a smaller cell (level 5's 512) a room of <see cref="SpanCells"/> cells a side with
+    /// a socket on the first cell edge of each wall (the south's on east and west, the west's on north and
+    /// south), so a row of such rooms meets face to face.
+    /// </summary>
+    public static RoomBuilder Seat(this RoomBuilder b, params CellFace[] doors)
+    {
+        int n = SpanCells(b.Kit);
+        return n == 1 ? b.WithDoors(doors) : b.WithFootprint(n).WithSockets([.. doors.Select(f => (f, 0))]);
+    }
+
+    /// <summary>The door axis of <paramref name="b"/>'s socket on <paramref name="face"/>: its first socket's middle along the wall.</summary>
+    private static float AxisOf(RoomBuilder b, CellFace face) =>
+        b.Kit.Cell / 2f + b.Kit.Cell * b.Sockets.Where(s => s.Face == face).Select(s => s.Offset).DefaultIfEmpty(0).First();
+
+    /// <summary>A door's neck as <see cref="Neck(RoomKit, CellFace, float, float)"/>, in <paramref name="b"/>'s own box and on its socket's axis (a larger room's).</summary>
+    public static Rect Neck(RoomBuilder b, CellFace face, float width, float length)
+    {
+        float c = b.Extent, t = b.Kit.WallDepth, m = AxisOf(b, face), w = width / 2f;
+        return face switch
+        {
+            CellFace.East => new(c - t - length, m - w, c - t, m + w),
+            CellFace.West => new(t, m - w, t + length, m + w),
+            CellFace.North => new(m - w, c - t - length, m + w, c - t),
+            _ => new(m - w, t, m + w, t + length),
+        };
+    }
+
+    /// <summary>A door's point as <see cref="DoorPoint(RoomKit, CellFace, float)"/>, in <paramref name="b"/>'s own box and on its socket's axis.</summary>
+    public static Point DoorPoint(RoomBuilder b, CellFace face, float inset)
+    {
+        float c = b.Extent, t = b.Kit.WallDepth, m = AxisOf(b, face), f = b.Kit.Sill;
+        return face switch
+        {
+            CellFace.East => new(c - t - inset, m, f),
+            CellFace.West => new(t + inset, m, f),
+            CellFace.North => new(m, c - t - inset, f),
+            _ => new(m, t + inset, f),
+        };
+    }
+
     /// <summary>The point on a door's axis <paramref name="inset"/> in from the wall's inner face, on the floor.</summary>
     public static Point DoorPoint(RoomKit kit, CellFace face, float inset)
     {
@@ -106,7 +158,7 @@ public static class Parts
     public static RoomBuilder LampsFromDoors(this RoomBuilder b, Point hub, float spacing, float above, Lamp lamp)
     {
         foreach (CellFace face in b.DoorFaces)
-            b.LampsAlong(DoorPoint(b.Kit, face, 0), hub, spacing, above, lamp);
+            b.LampsAlong(DoorPoint(b, face, 0), hub, spacing, above, lamp);
         return b;
     }
 
@@ -194,6 +246,46 @@ public static class Parts
     /// <summary>A square post, floor to ceiling, in the theme's block.</summary>
     public static RoomBuilder Post(this RoomBuilder b, float x, float y, float half)
         => b.WithBox(new Point(x - half, y - half, b.Floor), new Point(x + half, y + half, b.CeilingUnderside));
+
+    /// <summary>
+    /// A lump of rock from <paramref name="z0"/> to <paramref name="z1"/> inside the box (<paramref name="cx"/> ±
+    /// <paramref name="rx"/>, <paramref name="cy"/> ± <paramref name="ry"/>): its footprint an uneven convex polygon
+    /// (its corners on the ellipse at angles the seed turns), its top that footprint drawn in by half toward a point off
+    /// its middle, so each side leans in by its own amount and it reads as broken rock, not a block (brief p15: the
+    /// Bore's cover and rubble were plain cubes). Every corner is on a whole unit and each side's four corners lie in
+    /// one plane (the top's edges are the footprint's, halved).
+    /// </summary>
+    public static Brush Rock(float cx, float cy, float rx, float ry, float z0, float z1, Surface surface, RoomSeed rng, int sides = 7)
+    {
+        if (sides < 5 || rx < 16 || ry < 16 || z1 <= z0)
+            throw new ArgumentException($"a rock needs five sides, 16 of radius and a height ({sides}, {rx} by {ry}, {z0} to {z1})");
+        float x = MathF.Round(cx), y = MathF.Round(cy), turn = rng.Int(0, 360);
+        // Even offsets from the middle, so the halved top lands on whole units.
+        static float Even(float v) => 2 * MathF.Round(v / 2);
+        var foot = new (float X, float Y)[sides];
+        for (int i = 0; i < sides; i++)
+        {
+            float a = (turn + 360f * (i + rng.Int(-30, 31) / 100f) / sides) * MathF.PI / 180;
+            foot[i] = (Even(rx * MathF.Cos(a)), Even(ry * MathF.Sin(a)));
+        }
+
+        // The top's middle, off the footprint's by up to a fifth of each radius.
+        float ox = MathF.Round(rx * rng.Int(-20, 21) / 100f), oy = MathF.Round(ry * rng.Int(-20, 21) / 100f);
+        Point Low((float X, float Y) p) => new(x + p.X, y + p.Y, z0);
+        Point High((float X, float Y) p) => new(x + ox + p.X / 2, y + oy + p.Y / 2, z1);
+        var faces = new List<BrushFace>
+        {
+            new([.. foot.Select(High)], surface),
+            new([.. foot.Reverse().Select(Low)], surface),
+        };
+        for (int i = 0; i < sides; i++)
+        {
+            var (a, c) = (foot[i], foot[(i + 1) % sides]);
+            faces.Add(new([Low(a), Low(c), High(c), High(a)], surface));
+        }
+
+        return new Brush(faces, surface);
+    }
 
     /// <summary>A box from the floor up <paramref name="height"/> over <paramref name="r"/>.</summary>
     public static RoomBuilder Block(this RoomBuilder b, Rect r, float height, Surface? surface = null)

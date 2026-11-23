@@ -31,7 +31,8 @@ public sealed class VendorTests
     {
         Assert.All(R.VendorStock("saxton@12", 1), i => Assert.Equal(ItemKinds.Weapon, R.Content.ItemBases[i.BaseType].Kind));
         Assert.All(R.VendorStock("engineer@12", 1), i => Assert.Equal(ItemKinds.Armour, R.Content.ItemBases[i.BaseType].Kind));
-        Assert.All(R.VendorStock("medic@12", 1), i => Assert.Equal(ItemKinds.Potion, R.Content.ItemBases[i.BaseType].Kind));
+        Assert.All(R.VendorStock("medic@12", 1), i => Assert.True(
+            R.Content.ItemBases[i.BaseType].Kind == ItemKinds.Potion || R.Content.Vendors["medic"].Always.Contains(i.BaseType), i.BaseType));
         Assert.All(R.VendorStock("spy@12", 1), i => Assert.Equal("dossier", i.BaseType));
         Assert.All(R.VendorStock("scout@12", 1), i => Assert.Equal(ItemKinds.Crate, R.Content.ItemBases[i.BaseType].Kind));
         Assert.Equal(R.Content.Vendors["saxton"].Stock, R.VendorStock("saxton", 1).Count);

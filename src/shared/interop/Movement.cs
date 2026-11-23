@@ -1034,11 +1034,13 @@ public sealed partial class GameMovement
         PlayerMove();
         FinishMove();
 
-        // The enemy-blast latch's end-of-command drop
-        // (tf_gamemovement.cpp:334-336), GAME_DLL-only as stock: one blast
-        // claims its jump on this command's rise and on no later one.
-        if (_s.IsServer)
-            Rules.EndCommand(_s.EntIndex);
+        // The end-of-command ask is NOT here: the command's stage asks it after
+        // the publish, where the engine's ground words carry this command's
+        // move (ServerPlayerCommands.Move). The loop only knows its own state,
+        // and stock's TFPlayerThink reads OnGround after PhysicsSimulate has
+        // handed the move's flags over -- an ask inside this loop would read the
+        // PREVIOUS command's published flags and clear a blast jump on the
+        // first airborne command end rather than on the landing.
 
         _s.FrameTime = storeFrameTime;
         return true;

@@ -1,6 +1,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Server;
 
+using TF2.Server.Buildings;
 using TF2.Server.Combat;
 using TF2.Server.Player;
 using TF2.Shared;
@@ -8,6 +9,7 @@ using TF2.Shared.Combat;
 using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
 using TF2.Shared.Player;
+using TF2.Tests.Buildings;
 
 using Xunit;
 
@@ -28,11 +30,21 @@ public sealed class TFDeathNoticeTests
         public void SetString(string key, string value) => Set[key] = value;
     }
 
+    /// <summary>The notice over the rig: the arms read the rig's healing, conditions, directory and stats.</summary>
+    private static TFDeathNotice Notice(CombatRig rig)
+    {
+        // The healer's handle by its index, as the engine's player table hands it out.
+        rig.Engine.ReturnsEachCall("Players.GetHandle", () =>
+            new EntityHandle((uint)(0x0001_0000u + (uint)rig.Engine.Calls[^1].ArgAs<int>(0))));
+        return new TFDeathNotice(rig.Engine, rig.Engine, rig.Records, rig.Clock, rig.Carriers, rig.Level,
+                                 new TFDominations(rig.Carriers), rig.Owners, new AttributeHooks(),
+                                 rig.Healing, rig.Conditions, rig.Entities, rig.Stats);
+    }
+
     private static Dictionary<string, object> Fill(CombatRig rig, EntityHandle attacker, EntityHandle? inflictor = null,
                                                    string coreWeapon = "tf_weapon_scattergun")
     {
-        var notice = new TFDeathNotice(rig.Engine, rig.Engine, rig.Records, rig.Clock, rig.Carriers, rig.Level,
-                                       new TFDominations(rig.Carriers), rig.Owners, new AttributeHooks());
+        var notice = Notice(rig);
         var fields = new Fields();
         EntityHandle scorer = attacker == CombatRig.Attacker || attacker == CombatRig.Third || attacker == CombatRig.Victim
             ? attacker : EntityHandle.None;
@@ -176,7 +188,7 @@ public sealed class TFDeathNoticeTests
     private static TFBlastJumpState Jump(CombatRig rig, TFBlastJump state)
     {
         var jump = new TFBlastJumpState(rig.Carriers, new TFPlayerConditions(rig.Carriers, rig.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), rig.Engine), rig.Engine,
-                                        new NoEntities(), rig.Engine, rig.Engine);
+                                        new NoEntities(), rig.Engine, rig.Engine, rig.Engine);
         jump.Attach(CombatRig.Victim);
         if (state != TFBlastJump.None)
         {
@@ -318,8 +330,7 @@ public sealed class TFDeathNoticeTests
     /// ask needs (tf_gamerules.cpp:12833-12839).</summary>
     private static Dictionary<string, object> FillSilent(CombatRig rig)
     {
-        var notice = new TFDeathNotice(rig.Engine, rig.Engine, rig.Records, rig.Clock, rig.Carriers, rig.Level,
-                                       new TFDominations(rig.Carriers), rig.Owners, new AttributeHooks());
+        var notice = Notice(rig);
         var fields = new Fields();
         notice.Fill(new DeathNoticeFacts(CombatRig.Victim, CombatRig.Attacker, CombatRig.Attacker, CombatRig.Attacker,
                                          "tf_weapon_knife"), fields);
@@ -383,8 +394,7 @@ public sealed class TFDeathNoticeTests
     /// armed, as <see cref="FillSilent"/> does but for the plain kill's name.</summary>
     private static Dictionary<string, object> FillGilded(CombatRig rig)
     {
-        var notice = new TFDeathNotice(rig.Engine, rig.Engine, rig.Records, rig.Clock, rig.Carriers, rig.Level,
-                                       new TFDominations(rig.Carriers), rig.Owners, new AttributeHooks());
+        var notice = Notice(rig);
         var fields = new Fields();
         notice.Fill(new DeathNoticeFacts(CombatRig.Victim, CombatRig.Attacker, CombatRig.Attacker, CombatRig.Attacker,
                                          "tf_weapon_wrench"), fields);
@@ -479,8 +489,7 @@ public sealed class TFDeathNoticeTests
     /// armed, the fish ask reading the killing item through them.</summary>
     private static Dictionary<string, object> FillFish(CombatRig rig)
     {
-        var notice = new TFDeathNotice(rig.Engine, rig.Engine, rig.Records, rig.Clock, rig.Carriers, rig.Level,
-                                       new TFDominations(rig.Carriers), rig.Owners, new AttributeHooks());
+        var notice = Notice(rig);
         var fields = new Fields();
         notice.Fill(new DeathNoticeFacts(CombatRig.Victim, CombatRig.Attacker, CombatRig.Attacker, CombatRig.Attacker,
                                          "tf_weapon_scattergun"), fields);
@@ -526,5 +535,106 @@ public sealed class TFDeathNoticeTests
         rig.Hit(5f, DamageType.Club | TFDamageBits.Melee);
 
         Assert.Equal((int)TFDamageCustom.None, (int)FillFish(rig)["customkill"]);
+    }
+
+    // ---- the assist chain (CTFGameRules::GetAssister, tf_gamerules.cpp:12690-12736) ----
+
+    /// <summary>The scorer's first healer, a medic, gets the assist and the
+    /// kill-assist stat (tf_gamerules.cpp:12706-12713, Event_AssistKill
+    /// :11514-11518).</summary>
+    [Fact]
+    public void The_medic_healing_the_scorer_assists_the_kill()
+    {
+        var rig = new CombatRig();
+        rig.Healing.Healers[CombatRig.Attacker.EntryIndex] = new[] { CombatRig.Third.EntryIndex };
+        rig.Owners.Classes[CombatRig.Third.EntryIndex] = TFClass.Medic;
+        rig.Hit(6f, DamageType.Bullet);
+
+        Assert.Equal(100 + CombatRig.Third.EntryIndex, Fill(rig, CombatRig.Attacker)["assister"]);
+        Assert.Equal(1, rig.Stats.Round(CombatRig.Third.EntryIndex, TFStat.Killassists));
+    }
+
+    /// <summary>A medic healer through a sentry inflictor answers nobody
+    /// (:12710): the healing arm refuses the sentry's kill, so the buff's
+    /// giver answers from the next arm, not the healer.</summary>
+    [Fact]
+    public void AMedicHealerDoesNotAssistASentryKill()
+    {
+        var bring = new BuildingsRig();
+        bring.StubWorld();
+        EntityHandle builder = bring.AddBuilder();
+        var sentry = bring.Spawn<TFSentryGun>(TFSentryGun.MapClass);
+        sentry.StartPlacement(builder);
+        bring.Clock.Now = 100f;
+        sentry.StartBuilding();
+        bring.Clock.Now += TFObjectInfo.Of(TFObjectType.Sentrygun)!.BuildTime;
+        sentry.OnThink();
+        EntityHandle gun = new(0x0001_000Bu);
+
+        var rig = new CombatRig();
+        rig.Healing.Healers[CombatRig.Attacker.EntryIndex] = new[] { CombatRig.Third.EntryIndex };
+        rig.Owners.Classes[CombatRig.Third.EntryIndex] = TFClass.Medic;
+        rig.Owners.Classes[7] = TFClass.Scout;          // the giver of the scorer's buff, nobody else
+        rig.Conditions.Add(CombatRig.Attacker, TFCond.Offensebuff, provider: new EntityHandle(0x0001_0007u));
+        rig.Entities.Placed[gun] = sentry;
+        rig.Hit(6f, DamageType.Bullet);
+
+        // 107: the offense-buff's giver, not the healer's 105, refused by the sentry gate.
+        Assert.Equal(107, Fill(rig, CombatRig.Attacker, gun)["assister"]);
+    }
+
+    /// <summary>The giver of the scorer's buff condition outranks the second
+    /// recent damager (:12715-12718, the attacker-side list
+    /// tf_player_shared.cpp:1319-1347).</summary>
+    [Fact]
+    public void TheGiverOfTheScorersBuffAssistsAheadOfTheRecentDamager()
+    {
+        var rig = new CombatRig();
+        rig.Conditions.Add(CombatRig.Attacker, TFCond.Offensebuff, provider: new EntityHandle(0x0001_0007u));
+        rig.Hit(10f, DamageType.Bullet, attacker: CombatRig.Third);   // the older hit
+        rig.Hit(10f, DamageType.Bullet);                              // the killing hit
+
+        Assert.Equal(107, Fill(rig, CombatRig.Attacker)["assister"]);
+    }
+
+    /// <summary>A healer who is no medic leaves the healing arm (:12708): the
+    /// second recent damager still gets the assist.</summary>
+    [Fact]
+    public void APlainHealerLeavesTheRecentDamagerToAssist()
+    {
+        var rig = new CombatRig();
+        rig.Healing.Healers[CombatRig.Attacker.EntryIndex] = new[] { 7 };   // a healer with no medic's class
+        rig.Hit(10f, DamageType.Bullet, attacker: CombatRig.Third);
+        rig.Hit(10f, DamageType.Bullet);
+
+        Assert.Equal(100 + CombatRig.Third.EntryIndex, Fill(rig, CombatRig.Attacker)["assister"]);
+    }
+
+    /// <summary>The teammate who last wrenched a sentry assists its kill
+    /// (:12726-12733, the stamp tf_obj_sentrygun.cpp:704-713): the wrench
+    /// swing is the record the gun answers from.</summary>
+    [Fact]
+    public void TheTeammateWhoWrenchedTheSentryAssistsItsKill()
+    {
+        var bring = new BuildingsRig();
+        bring.StubWorld();
+        EntityHandle builder = bring.AddBuilder();
+        var sentry = bring.Spawn<TFSentryGun>(TFSentryGun.MapClass);
+        sentry.StartPlacement(builder);
+        bring.Clock.Now = 100f;
+        sentry.StartBuilding();
+        bring.Clock.Now += TFObjectInfo.Of(TFObjectType.Sentrygun)!.BuildTime;
+        sentry.OnThink();
+        EntityHandle helper = new(0x0001_0009u);        // a teammate, not the builder
+        bring.Players.All[helper] = new TF2.Tests.Entities.Items.FakeMapPlayer();
+        sentry.WrenchHit(helper);
+        EntityHandle gun = new(0x0001_000Bu);
+
+        var rig = new CombatRig();
+        rig.Entities.Placed[gun] = sentry;
+        rig.Hit(6f, DamageType.Bullet);
+
+        // The swing lands inside the window, so the helper answers: 109.
+        Assert.Equal(109, Fill(rig, CombatRig.Attacker, gun)["assister"]);
     }
 }

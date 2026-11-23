@@ -362,6 +362,10 @@ public sealed class TFMaterialProxyTests
         public void WantTransparent(EntityHandle entity, bool transparent) => Asked.Add((entity.Value, transparent));
 
         public void WantOwnerSeen(EntityHandle entity, bool ownerSeen) { }
+
+        public int InEyeTarget => 0;
+
+        public void WatchInEye(int index) { }
     }
 
     private const int BodyIndex = 2;
@@ -457,6 +461,33 @@ public sealed class TFMaterialProxyTests
         // A BLU spy: an enemy of the local view, uncapped (:6863).
         CloakBound(spy, WeaponIndex, out float? enemy, out _, now: 101f);
         Assert.Equal(1f, enemy);
+    }
+
+    [Theory]
+    [InlineData((int)ObserverMode.FreezeCam)]
+    [InlineData((int)ObserverMode.DeathCam)]
+    public void The_enemy_who_killed_us_shows_through_his_cloak_while_the_death_cameras_look_at_him(int mode)
+    {
+        // c_tf_player.cpp:6863-6882: an enemy is uncapped, unless the local
+        // player's death or freeze cam watches him (he just killed us).
+        var data = new PlayerData();
+        data.Players[4] = FadingSpy(TFCond.Stealthed);
+        data.Players[4].InvisChangeCompleteTime = 101f;
+        var st = new Standalones();
+        var (players, screen) = World(data, st);
+        var me = new Standalone.ClientSsPlayer(screen);
+        me.State.BindLocal();
+        me.State.ObserverMode = mode;
+        me.State.ObserverTarget = 0x0001_0000u | 4;
+        st.ByIndex[2] = me;
+        var spy = new Proxies.TFProxySpyInvis(players);
+
+        CloakBound(spy, WeaponIndex, out float? watched, out _, now: 101f);
+        Assert.Equal(0.95f, watched);
+
+        me.State.ObserverMode = (int)ObserverMode.Chase;   // watching after the death: no longer
+        CloakBound(spy, WeaponIndex, out float? later, out _, now: 101f);
+        Assert.Equal(1f, later);
     }
 
     [Fact]

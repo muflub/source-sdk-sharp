@@ -16,6 +16,13 @@ public enum PathAnswer : byte
 
     /// <summary>The level's graph is not ready (or was let go with the level).</summary>
     NotReady,
+
+    /// <summary>
+    /// The goal is off the class's floor (no cell of the class there, or one its floor does not
+    /// join), and the start is on it: the corners lead to the place of the start's floor nearest
+    /// the goal, where a body holds (none when it is there already).
+    /// </summary>
+    Nearest,
 }
 
 /// <summary>

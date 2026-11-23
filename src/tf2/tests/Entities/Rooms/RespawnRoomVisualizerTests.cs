@@ -52,9 +52,6 @@ public sealed class RespawnRoomVisualizerTests
     private static (TFRespawnRoomCollide Rule, MapItemRig Map, FuncRespawnRoomVisualizer Wall) Rig(TFTeam team)
     {
         var map = new MapItemRig();
-        // The brush's box the spawn publishes onto the wire: 96 wide, 128 tall.
-        map.Engine.Returns("Entities.GetBounds",
-                           (new Vector(-48f, -4f, -64f), new Vector(48f, 4f, 64f)));
         var wall = map.Spawn<FuncRespawnRoomVisualizer>(FuncRespawnRoomVisualizer.MapClass,
                                                         ("TeamNum", ((int)team).ToString()));
         return (new TFRespawnRoomCollide(map.Registry, map.Round), map, wall);
@@ -207,23 +204,6 @@ public sealed class RespawnRoomVisualizerTests
 
         map.Input(wall, "SetSolid", "0");
         Assert.Contains(true, map.Engine.AllOf("EntityRender.SetVisible").Select(c => c.Arg(1)).ToList());
-    }
-
-    /// <summary>
-    /// The wire carries the brush's box for the client's shimmer: the centre
-    /// off the origin and the wider-of-two width and height (the rig's stub
-    /// box is −48..48 × −4..4 × −64..64).
-    /// </summary>
-    [Fact]
-    public void TheWireCarriesTheBrushBoxForTheClientDraw()
-    {
-        var (_, _, wall) = Rig(TFTeam.Blue);
-
-        Assert.Equal(0f, wall.State.CenterX);
-        Assert.Equal(0f, wall.State.CenterY);
-        Assert.Equal(0f, wall.State.CenterZ);
-        Assert.Equal(96f, wall.State.Width);
-        Assert.Equal(128f, wall.State.Height);
     }
 
     /// <summary>

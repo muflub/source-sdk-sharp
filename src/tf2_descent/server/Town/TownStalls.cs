@@ -22,9 +22,9 @@ public sealed record TownStall(
 
 /// <summary>
 /// The town's stalls, in their table order (a stall's index is its place here). The town
-/// (src/mapgen/TF2DescentTown.cs, the map session's) carries six <c>shop_*</c> markers; the
-/// Engineer's armour shop and his bench have none, so they stand beside the smithy's (a marker
-/// for each is asked of the map session).
+/// (src/mapgen/TF2DescentTown.cs, the map session's) carries a <c>shop_*</c> marker for each
+/// place a stall stands: six buildings, and since 79be3d68af the Engineer's armour shop
+/// (<c>shop_engineer</c>) and his bench (<c>shop_bench</c>), 176 either side of the smithy's.
 /// </summary>
 public static class TownStalls
 {
@@ -35,9 +35,6 @@ public static class TownStalls
 
     /// <summary>The marker's prefix: <c>shop_&lt;name&gt;</c>.</summary>
     public const string MarkerPrefix = "shop_";
-
-    /// <summary>How far beside the smithy's marker the stalls without a marker of their own stand.</summary>
-    public const float Beside = 176f;
 
     public const string HeavyModel = "models/player/heavy.mdl";
     public const string SpyModel = "models/player/spy.mdl";
@@ -64,9 +61,9 @@ public static class TownStalls
             LockerModel, "", "#Descent_Stash_Title", "", new(-24f, -24f, 0f), new(24f, 24f, 96f)),
         new("engineer_repair", MarkerPrefix + "smithy", Vector.Zero, null, TownScreen.Vendor, TownStance.Repair,
             EngineerModel, StandMelee, "#Descent_Vendor_Engineer", "#Descent_Vendor_Stance_Repair", PlayerMins, PlayerMaxs),
-        new("engineer", MarkerPrefix + "smithy", new(-Beside, 0f, 0f), "engineer", TownScreen.Vendor, TownStance.Armour,
+        new("engineer", MarkerPrefix + "engineer", Vector.Zero, "engineer", TownScreen.Vendor, TownStance.Armour,
             EngineerModel, StandMelee, "#Descent_Vendor_Engineer", "#Descent_Vendor_Stance_Armour", PlayerMins, PlayerMaxs),
-        new("bench", MarkerPrefix + "smithy", new(Beside, 0f, 0f), null, TownScreen.Craft, TownStance.Repair,
+        new("bench", MarkerPrefix + "bench", Vector.Zero, null, TownScreen.Craft, TownStance.Repair,
             BenchModel, "", "#Descent_Craft_Title", "", new(-32f, -32f, 0f), new(32f, 32f, 40f)),
     ];
 

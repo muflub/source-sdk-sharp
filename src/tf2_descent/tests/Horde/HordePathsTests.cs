@@ -9,8 +9,9 @@ namespace TF2.Descent.Tests.Horde;
 
 /// <summary>
 /// The horde's paths over the depth 1 seed 1 graph (<see cref="HordePaths"/>): around a pillar,
-/// through a door square on, a goal a class cannot reach, the expansion budget, and the same
-/// corners on any thread.
+/// through a door square on, a giant into the pillar room, the expansion budget, and the same
+/// corners on any thread; and a goal a class cannot reach, over a floor cut by a corridor
+/// narrower than a giant (<see cref="CutFloorLevel"/>).
 /// </summary>
 public sealed class HordePathsTests(ITestOutputHelper output)
 {
@@ -35,7 +36,7 @@ public sealed class HordePathsTests(ITestOutputHelper output)
     private static (AiVector A, AiVector B) AcrossThePillar() =>
         (Floor(new AiVector(2320f, 8544f, 64f)), Floor(new AiVector(2560f, 8544f, 64f)));
 
-    /// <summary>The middle of the pillar room's south half, which every class but the two largest giants' reaches.</summary>
+    /// <summary>The middle of the pillar room's south half, which every class reaches.</summary>
     private static AiVector PillarRoom => Floor(new AiVector(2560f, 8300f, 64f));
 
     /// <summary>The alcove off the drift south of the arrival (room 12), where pack 34 to 37 stands.</summary>
@@ -108,17 +109,47 @@ public sealed class HordePathsTests(ITestOutputHelper output)
         Assert.True((corners[i] + through * 0.5f - door.Position).Length2D < 2f, "the crossing is not through the door's centre");
     }
 
+    /// <summary>
+    /// A giant hunting into the pillar room (17, behind the widedrift room 15) is found a way into
+    /// it. Until 2026-11-15 its class did not reach the room (the drift rooms' floor rails, whose
+    /// tops lie inside a voxel, were answered blocked to a hull standing on them) and it was led to
+    /// the nearest place of its own floor; that answer is held on a floor really cut, below.
+    /// </summary>
     [Fact]
-    public void A_giant_asked_for_a_room_its_class_cannot_reach_is_answered_unreachable()
+    public void A_giant_asked_for_the_pillar_room_is_found_a_way_into_it()
     {
         using var paths = Paths();
-        // Three doors from the pillar room: the search stops past the door into the dogleg (16), which no giant reaches.
         var from = Floor(new AiVector(2560f, 5300f, 64f));
-        var goal = PillarRoom;
 
+        Assert.Equal(PathAnswer.Found, Find(paths, from, PillarRoom, ClearanceClass.Hull5).Answer);
+        Assert.Equal(0, paths.Nearest);
+    }
+
+    /// <summary>
+    /// The same answer where a floor really is cut (<see cref="CutFloorLevel"/>: a corridor 80 wide
+    /// that a giant of 1.9, 92 wide, does not go through): asked for the far room's end, the giant
+    /// is led to the place of its own floor nearest the goal, on that floor and nearer the goal than
+    /// it stands, to hold there.
+    /// </summary>
+    [Fact]
+    public void A_giant_asked_for_a_room_beyond_a_corridor_narrower_than_its_hull_is_led_to_the_nearest_place_of_its_floor()
+    {
+        using var paths = new HordePaths();
+        paths.Ready(CutFloorLevel.Nav, CutFloorLevel.Level);
+        var nav = CutFloorLevel.Nav;
+        AiVector from = CutFloorLevel.Near, goal = CutFloorLevel.Far;
+        Assert.True(CutFloorLevel.Stands(goal, ClearanceClass.Hull5), "the giant's class holds no cell at the goal");
         Assert.Equal(PathAnswer.Found, Find(paths, from, goal, ClearanceClass.Stand).Answer);
-        Assert.Equal(PathAnswer.Unreachable, Find(paths, from, goal, ClearanceClass.Hull5).Answer);
-        Assert.Equal(1, paths.Unreachable);
+
+        var (answer, corners, _, _) = Find(paths, from, goal, ClearanceClass.Hull5);
+
+        Assert.Equal(PathAnswer.Nearest, answer);
+        Assert.NotEmpty(corners);
+        var end = corners[^1];
+        var held = nav.CellAt(end, ClearanceClass.Hull5);
+        Assert.True(held.IsValid && nav.Joined(nav.CellAt(from, ClearanceClass.Hull5), held, ClearanceClass.Hull5), $"the hold at {end} is off the giant's floor");
+        Assert.True((end - goal).Length2D < (from - goal).Length2D - 500f, $"the hold at {end} is no nearer the goal {goal} than {from}");
+        Assert.Equal(1, paths.Nearest);
     }
 
     [Fact]

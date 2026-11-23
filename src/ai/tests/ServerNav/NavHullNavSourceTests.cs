@@ -187,6 +187,36 @@ public class NavHullNavSourceTests
         Assert.False(src.FitsAbove(src.LeafOf(box, 0, 0), 81f, 32f, 62f));
     }
 
+    /// <summary>
+    /// One column's run on a floor at 16, voxels 1 to 8 under no ceiling, beside a sloped brush: a
+    /// body passes under it with its top at most 100, and stands clear over it with its feet at 120 or more.
+    /// </summary>
+    private static (NavHullNavSource Src, int Leaf) UnderOverhang()
+    {
+        var f = new HullNavFixture(1, 1, 4, 16);
+        int box = f.Box(0, 0, 0, 1, 1, 1, 8, f.KeyUnderOverhang(Floor, 16f, float.PositiveInfinity, float.PositiveInfinity, 100.0, 120.0));
+        NavHullNavSource src = NavHullNavSource.Over(f.Open());
+        return (src, src.LeafOf(box, 0, 0));
+    }
+
+    [Fact]
+    public void AFitBesideASlopedBrushPassesUnderItOrStandsOverIt()
+    {
+        (NavHullNavSource src, int leaf) = UnderOverhang();
+        Assert.True(src.FitsAt(leaf, 38f, 32f, 62f));
+        Assert.False(src.FitsAt(leaf, 39f, 32f, 62f));
+        Assert.False(src.FitsAt(leaf, 119f, 32f, 20f));
+        Assert.True(src.FitsAt(leaf, 120f, 32f, 20f));
+    }
+
+    [Fact]
+    public void AStandBesideASlopedBrushIsAskedFromTheFloor()
+    {
+        (NavHullNavSource src, int leaf) = UnderOverhang();
+        Assert.True(src.Stands(leaf, 32f, 84f));
+        Assert.False(src.Stands(leaf, 32f, 85f));
+    }
+
     /// <summary>One column's free run in mid-air, voxels 4 and 5, with nothing over it.</summary>
     private static NavHullReader OpenRun(out int box)
     {

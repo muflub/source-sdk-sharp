@@ -66,6 +66,10 @@
 			platform			|all_source_engine_paths|platform
 
 			game+download		|gameinfo_path|download
+
+			// Steam's downloaded maps, as the tf2 mod mounts them (its
+			// gameinfo.txt): after our own download path.
+			game+download		|gameinfo_path|../../content/tf/download
 		}
 	}
 }

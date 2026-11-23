@@ -61,6 +61,13 @@ enum
 	STANDALONE_BODY_BITS = 32
 };
 
+// m_CollisionGroup's width on stock's wire (baseentity.cpp): 0..31, which holds
+// the shared groups and every mod's (TF2's end below 32).
+enum
+{
+	STANDALONE_COLLISION_GROUP_BITS = 5
+};
+
 inline const StandaloneNetField_t* StandaloneNetFields(int* pOutCount)
 {
 	static const StandaloneNetField_t s_Fields[] = {
@@ -85,6 +92,11 @@ inline const StandaloneNetField_t* StandaloneNetFields(int* pOutCount)
 		// ID's centre ray then passes through every teammate.
 		{"m_vecMins", STANDALONE_NET_VECTOR, 0},
 		{"m_vecMaxs", STANDALONE_NET_VECTOR, 0},
+		// The collision group, in stock's five bits (baseentity.cpp's
+		// SendPropInt(SENDINFO(m_CollisionGroup), 5, SPROP_UNSIGNED)): the
+		// client's prediction asks the group matrix about each solid entity
+		// it clips, as the server's trace filter does.
+		{"m_CollisionGroup", STANDALONE_NET_INT, STANDALONE_COLLISION_GROUP_BITS},
 	};
 
 	if (pOutCount)
@@ -112,6 +124,8 @@ enum
 	// The bounds pair, appended at the tail with their rows.
 	STANDALONE_NET_FIELD_MINS,
 	STANDALONE_NET_FIELD_MAXS,
+	// The collision group, appended at the tail with its row.
+	STANDALONE_NET_FIELD_COLLISIONGROUP,
 
 	STANDALONE_NET_FIELD_COUNT,
 };

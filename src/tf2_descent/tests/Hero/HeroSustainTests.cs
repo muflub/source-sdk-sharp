@@ -146,7 +146,7 @@ public sealed class HeroSustainTests
     [Fact]
     public void A_hero_regenerates_the_rules_life_a_second()
     {
-        // 2 % of 247 a second: 4.94.
+        // 2 % of 263 a second: 5.26.
         var rig = new HeroStatsRig();
         rig.Dev.Add(HeroRig.Index, "life_regen_pct", 2);
         rig.Hero.Recompute();
@@ -155,8 +155,8 @@ public sealed class HeroSustainTests
 
         regen.Tick(11f);
 
-        Assert.Equal(4.94, rig.Hero.Stats!.LifeRegenPerSecond, 6);
-        Assert.Equal(104, HealthSet(rig));
+        Assert.Equal(5.26, rig.Hero.Stats!.LifeRegenPerSecond, 6);
+        Assert.Equal(105, HealthSet(rig));
     }
 
     [Fact]

@@ -91,7 +91,7 @@ public sealed partial class ServiceFlowTests
         w.Host.OnPostInit();
         var sheets = new HeroSheets(new TF2.Descent.Rules.TF2DescentRules(), w.Host, new FakeClients(), w.Log);
         var players = new PlayerService(w.Link, w.Host, new FakeClients(), new ClientMessages(new RecordingEngine()),
-                                        new NeverScheduler(), w.Log, sheets);
+                                        new NeverScheduler(), w.Log, sheets, new TF2.Descent.Tests.Hero.HeroRig.ListHooks<TF2.Descent.Server.IHeroJoinHook>([]));
 
         Assert.False(new PlayerLevelCheckpoint(players).Checkpoint(3));
         Assert.DoesNotContain(w.Link.Calls, c => c.StartsWith("checkpoint", StringComparison.Ordinal));

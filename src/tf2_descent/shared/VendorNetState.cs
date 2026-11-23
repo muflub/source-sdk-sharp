@@ -17,6 +17,12 @@ public partial class VendorNetState
     /// <summary>The stall's index in the town's stall table, + 1; 0 for none.</summary>
     public partial byte Stall { get; set; }
 
-    /// <summary>The idle sequence, looked up on the server; -1 for none (a prop that stands still).</summary>
+    /// <summary>The sequence it plays, looked up on the server; -1 for none (a prop that stands still).</summary>
     public partial short Sequence { get; set; }
+
+    /// <summary>
+    /// Whether <see cref="Sequence"/> plays once and holds its last frame (the resupply locker's
+    /// doors opening, then closing) rather than looping as an idle does.
+    /// </summary>
+    public partial bool Once { get; set; }
 }

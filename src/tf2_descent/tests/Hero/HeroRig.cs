@@ -49,14 +49,14 @@ internal sealed class HeroRig
     private readonly IHostLink _link;
 
     /// <summary>The player service over the rig's host and sheets (HO13's camps find a character's sheet through it).</summary>
-    public PlayerService NewPlayers() => new(_link, Host, Players, new ClientMessages(Engine), new NeverScheduler(), Log, Sheets);
+    public PlayerService NewPlayers() => new(_link, Host, Players, new ClientMessages(Engine), new NeverScheduler(), Log, Sheets, new ListHooks<IHeroJoinHook>([]));
 
     /// <summary>The item ledger's names for the slots, as the item commands derive them (HE5's ledger sheet).</summary>
     public TF2.Descent.Server.Items.HeroKeys Keys() => KeysOver(Players);
 
     /// <summary>The ledger's names over clients of the fact's own (which slots are connected).</summary>
     public TF2.Descent.Server.Items.HeroKeys KeysOver(IConnectedClients clients) =>
-        new(Host, new PlayerService(_link, Host, clients, new ClientMessages(Engine), new NeverScheduler(), Log, Sheets), clients);
+        new(Host, new PlayerService(_link, Host, clients, new ClientMessages(Engine), new NeverScheduler(), Log, Sheets, new ListHooks<IHeroJoinHook>([])), clients);
 
     public HeroRig(HostingMode mode = HostingMode.Unhosted)
     {

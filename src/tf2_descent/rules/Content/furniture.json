@@ -4,7 +4,9 @@
     { "poi": "descent_mark_container", "kind": "container", "perRoom": 3, "fillPct": 70 },
     { "poi": "descent_mark_dispenser", "kind": "dispenser", "perRoom": 1, "fillPct": 50 },
     { "poi": "descent_mark_barrel", "kind": "explosive", "perRoom": 4, "fillPct": 75 },
-    { "poi": "descent_mark_trap", "kind": "trap", "perRoom": 2, "fillPct": 60 }
+    { "poi": "descent_mark_trap", "kind": "trap", "perRoom": 2, "fillPct": 60 },
+    { "poi": "descent_mark_breakable_crate", "kind": "breakable", "variant": "crate", "perRoom": 12, "fillPct": 100 },
+    { "poi": "descent_mark_breakable_barrel", "kind": "breakable", "variant": "barrel", "perRoom": 12, "fillPct": 100 }
   ],
   "shrines": {
     "badCapPct": 15,
@@ -31,9 +33,9 @@
     "lockedPct": 20,
     "trappedPct": 15,
     "kinds": [
-      { "id": "supply_crate", "weight": 50 },
-      { "id": "locker", "weight": 30 },
-      { "id": "sarcophagus", "weight": 20 }
+      { "id": "supply_crate", "weight": 50, "breaks": true },
+      { "id": "locker", "weight": 30, "breaks": false },
+      { "id": "sarcophagus", "weight": 20, "breaks": false }
     ]
   },
   "explosives": [
@@ -45,5 +47,15 @@
     { "id": "flame_jet", "weight": 25, "damageType": "fire", "damage": 40, "radius": 0, "trigger": 32, "fuse": 0.6, "rearm": 4, "robots": true, "tell": { "kind": "visual", "token": "scorch_marks" } },
     { "id": "charge", "weight": 20, "damageType": "blast", "damage": 90, "radius": 120, "trigger": 40, "fuse": 1.0, "rearm": 0, "robots": true, "tell": { "kind": "sound", "token": "beeping" } },
     { "id": "tesla_coil", "weight": 25, "damageType": "shock", "damage": 35, "radius": 96, "trigger": 48, "fuse": 0.5, "rearm": 5, "robots": true, "tell": { "kind": "visual", "token": "sparks" } }
-  ]
+  ],
+  "breakables": {
+    "kinds": [ "crate", "barrel" ],
+    "outcomes": { "nothing": 58, "australium": 18, "potion": 10, "item": 4, "blast": 4, "cloud": 3, "ambush": 3 },
+    "badCapPct": 12,
+    "lootTable": "container",
+    "australiumScale": 0.5,
+    "blast": "barrel",
+    "cloud": { "condition": "mini_crit_marked", "seconds": 8, "radius": 160 },
+    "ambush": { "min": 1, "max": 2, "huntSeconds": 30 }
+  }
 }

@@ -53,11 +53,12 @@ public sealed class HordeSessionShapeTests
     }
 
     [Fact]
-    public void A_hit_reaches_the_tally_then_the_brains_then_the_immune_notice_then_the_blasts_push()
+    public void A_hit_reaches_the_tally_then_the_brains_then_the_immune_notice_then_the_blasts_push_then_the_ragdoll()
     {
         var members = Members(typeof(HordeSession).Assembly, typeof(IRobotHitSink)).OrderBy(m => m.Order).Select(m => m.Name).ToArray();
         Assert.Equal([nameof(RobotHitTally), nameof(HordeHitSense), nameof(RobotImmuneNotices), nameof(RobotBlastPush),
-                      nameof(TF2.Descent.Server.Horde.Champions.ChampionDeaths), nameof(TF2.Descent.Server.Horde.Champions.ChampionTeleports)], members);
+                      nameof(TF2.Descent.Server.Horde.Champions.ChampionDeaths), nameof(TF2.Descent.Server.Horde.Champions.ChampionTeleports),
+                      nameof(RobotRagdolls)], members);
     }
 
     /// <summary>HO12's guard chain: the buster's spin (the hands) first, then the champions' über and shield; each order its own.</summary>

@@ -30,7 +30,7 @@ public sealed class DirectorCommand(HordeService horde, IHordeRules rules, IMoti
             return;
         }
 
-        var replay = new SpawnDirector(rules.Rules).Plan(level, c.PartySize);
+        var replay = new SpawnDirector(rules.Rules).Plan(level, c.PartySize, c.Reach);
         var held = roster.Rows().ToList();
         var again = replay.Rows().ToList();
         var differences = RosterRow.Differences(held, again);

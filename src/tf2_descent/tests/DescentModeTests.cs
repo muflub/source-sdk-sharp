@@ -35,9 +35,15 @@ public sealed class DescentModeTests
         public int Count(int team) => Players(team).Count;
         public EntityHandle SelectSpawn(EntityHandle player) => EntityHandle.None;
 
-        public JoinTeamResult Join(EntityHandle player, int requested)
+        /// <summary>Each join's silent flag, in join order (a two-argument join is loud).</summary>
+        public List<bool> Silent { get; } = [];
+
+        public JoinTeamResult Join(EntityHandle player, int requested) => Join(player, requested, silent: false);
+
+        public JoinTeamResult Join(EntityHandle player, int requested, bool silent)
         {
             Joins.Add((player, requested));
+            Silent.Add(silent);
             Table[player] = requested;
             return JoinTeamResult.Playing;
         }
@@ -80,8 +86,23 @@ public sealed class DescentModeTests
                                            params EntityHandle[] bots)
     {
         var engine = RecordingEngine.Default();
+        engine.Returns("Players.GetUserId", 2);
+        return Placement(active, slotHandle, teams, picks, sheetClass, engine, bots);
+    }
+
+    private static HeroPlacement Placement(bool active, EntityHandle slotHandle, Board teams, Picks picks, TFClass sheetClass,
+                                           RecordingEngine engine, params EntityHandle[] bots)
+    {
         engine.Returns("Players.GetHandle", slotHandle);
         return new(new ModeState(active), engine, teams, new BotList(bots), picks, new SheetClass(sheetClass), new RecordingLog());
+    }
+
+    /// <summary>One placement whose engine names the player in slot 3 by <paramref name="userId"/> until the fact changes it.</summary>
+    private static (HeroPlacement Placement, RecordingEngine Engine) PlacementWithUser(Board teams, int userId)
+    {
+        var engine = RecordingEngine.Default();
+        engine.Returns("Players.GetUserId", userId);
+        return (Placement(active: true, Hero, teams, new Picks(), TFClass.Soldier, engine), engine);
     }
 
     private static HeroFriendlyFire FriendlyFire(int attackerTeam, int victimTeam, bool active = true)
@@ -210,6 +231,47 @@ public sealed class DescentModeTests
 
         Assert.Equal([(later, (int)TFTeam.Red)], teams.Joins);
         Assert.Equal([(later, TFClass.Soldier)], picks.Made);
+    }
+
+    [Fact]
+    public void A_players_first_placement_of_the_session_joins_aloud()
+    {
+        var teams = new Board();
+        var (placement, _) = PlacementWithUser(teams, 7);
+
+        placement.OnClientActive(3);
+
+        Assert.Equal([false], teams.Silent);
+    }
+
+    [Fact]
+    public void The_same_player_placed_again_after_a_level_change_joins_silently()
+    {
+        // A level change puts the player back on no team: he joins the heroes again, and the
+        // chat has said so once already.
+        var teams = new Board();
+        var (placement, _) = PlacementWithUser(teams, 7);
+
+        placement.OnClientActive(3);
+        teams.Table.Clear();
+        placement.OnClientActive(3);
+
+        Assert.Equal(2, teams.Joins.Count);
+        Assert.Equal([false, true], teams.Silent);
+    }
+
+    [Fact]
+    public void Another_player_in_the_same_slot_joins_aloud()
+    {
+        var teams = new Board();
+        var (placement, engine) = PlacementWithUser(teams, 7);
+
+        placement.OnClientActive(3);
+        teams.Table.Clear();
+        engine.Returns("Players.GetUserId", 8);
+        placement.OnClientActive(3);
+
+        Assert.Equal([false, false], teams.Silent);
     }
 
     [Fact]

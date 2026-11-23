@@ -54,6 +54,7 @@
   { "id": "life_regen_hp", "min": -1000, "max": 1000 },
   { "id": "item_drop_pct", "min": -100, "max": 1000 },
   { "id": "australium_find_pct", "min": -100, "max": 1000 },
+  { "id": "town_repair_free", "min": 0, "max": 1 },
   { "id": "price_buy_pct", "min": -90, "max": 1000 },
   { "id": "price_sell_pct", "min": -90, "max": 1000 },
   { "id": "potion_restore_pct", "min": -100, "max": 1000 },
@@ -61,5 +62,7 @@
   { "id": "wear_rate_pct", "min": -100, "max": 1000 },
   { "id": "loudness_pct", "min": -100, "max": 1000 },
   { "id": "indestructible", "min": 0, "max": 1 },
-  { "id": "skill_ranks_all", "min": -10, "max": 10 }
+  { "id": "skill_ranks_all", "min": -10, "max": 10 },
+  { "id": "lamp_radius_pct", "min": -100, "max": 1000 },
+  { "id": "lamp_brightness_pct", "min": -100, "max": 1000 }
 ]

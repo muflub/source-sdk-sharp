@@ -75,6 +75,21 @@ public sealed record JumpPlan(JumpRecipe Recipe, AiVector Goal, float Slide, flo
     /// </summary>
     public bool StartsStanding { get; init; }
 
+    /// <summary>
+    /// The heal places within a walk of where the jump comes down, nearest first (lane G9, <see cref="JumpHeals"/>): what
+    /// lets the tree begin it under the health floor (<see cref="JumpHealthRule"/>). None when the level's places were not
+    /// known yet, or none is near.
+    /// </summary>
+    public System.Collections.Immutable.ImmutableArray<JumpHeal> Heals { get; init; } = [];
+
+    /// <summary>
+    /// Of <see cref="Heals"/>, those the jump is the quicker way to from where it starts (lane G9b): no walk reaches the place
+    /// in the jump's seconds and the walk from its landing (<see cref="JumpHeals.WalkTo"/>). What a bot going for a pack by
+    /// way of a jump looks for (<see cref="IJumpAdvisor.HealLinks"/>); a place a walk gets to sooner is walked to. Set for a
+    /// level's links when they are published.
+    /// </summary>
+    public System.Collections.Immutable.ImmutableArray<JumpHeal> JumpWays { get; init; } = [];
+
     /// <summary>The direction of travel over the ground, a unit vector.</summary>
     public AiVector Way
     {

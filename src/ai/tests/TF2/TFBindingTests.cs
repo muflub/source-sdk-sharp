@@ -94,9 +94,12 @@ public sealed class TFBindingTests
                 ? ((IOrderedHook)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(t)).HookOrder
                 : 0;
         var chains = concrete.Where(t => ai.Contains(t.Assembly))
-                             .SelectMany(t => t.GetInterfaces().Where(i => i.Name.EndsWith("Hook", StringComparison.Ordinal) && i != typeof(IOrderedHook)))
+                             .SelectMany(t => t.GetInterfaces().Where(i => (i.Name.EndsWith("Hook", StringComparison.Ordinal) && i != typeof(IOrderedHook))
+                                                                           || i == typeof(Debug.Api.Server.Interfaces.IDebugRouteProvider)))
                              .Distinct().ToArray();
         Assert.Contains(chains, c => c.Name == "IPlayerDeathHook");
+        // The dev API's route providers are a chain too (lane G9: two routes at one order made every request fail live).
+        Assert.Contains(chains, c => c.Name == "IDebugRouteProvider");
         string[] clashes = [.. chains.SelectMany(chain => concrete.Where(chain.IsAssignableFrom).GroupBy(Order).Where(g => g.Count() > 1)
                                                          .Select(g => $"{chain.Name} at {g.Key}: {string.Join(", ", g.Select(t => t.Name))}"))];
         Assert.Empty(clashes);
@@ -157,7 +160,8 @@ public sealed class TFBindingTests
         TFFeelGlanceConVar glance = DeclaredConVars.Fresh<TFFeelGlanceConVar>();
         var feel = new TFFeelSwitchConVars(DeclaredConVars.Fresh<TFFeelCarrierConVar>(), DeclaredConVars.Fresh<TFFeelSearchConVar>(), DeclaredConVars.Fresh<TFFeelAimConVar>(),
                                            DeclaredConVars.Fresh<TFFeelRetreatConVar>(), DeclaredConVars.Fresh<TFFeelFriendGateConVar>(), glance,
-                                           DeclaredConVars.Fresh<TFFeelPrefireConVar>());
+                                           DeclaredConVars.Fresh<TFFeelPrefireConVar>(), DeclaredConVars.Fresh<TFFeelJumpHealthConVar>(),
+                                           DeclaredConVars.Fresh<TFFeelFightConVar>(), DeclaredConVars.Fresh<TFFeelRoutesConVar>());
         var game = new TFBotGame(WeaponCatalog.Stock(), null!, classes, null!, null!, feel);
         var duel = new Trees.Duel(Trees.Duel.Preset("normal"));
         var setup = new BrainSetup(new ActorId(1, 1), 7UL, duel.Memory, duel.Params, 0.015f);

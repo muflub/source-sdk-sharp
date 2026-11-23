@@ -242,7 +242,10 @@ public abstract class LedgerFacts
     public async Task Salvaging_a_potion_is_refused_and_changes_nothing()
     {
         await Ledger.Load(A);
-        long id = await Put(A, Roll("health_small"));
+        long id = await Put(A, Roll("health_medium"));
+        // In memory a pickup belts a potion (the kit leaves belt slot 3 free); carried in the backpack it is offered to the bench.
+        if (Ledger.Find(A)!.Inventory.Belt.FirstOrDefault(p => p.Value.Id == id) is { Value: not null } belted)
+            Assert.True((await Ledger.FromBelt(A, belted.Key)).Ok);
         var before = Snapshot(A);
 
         var salvage = await Ledger.Salvage(A, SlotOf(A, id));

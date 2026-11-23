@@ -80,6 +80,7 @@ public static class LayoutNames
             SocketMask = room.SocketEdges is { } edges
                 ? edges.Aggregate(0UL, (m, s) => m | LayoutShape.SocketBit(DoorsOf([s.Face]), s.Offset))
                 : 0,
+            Quiet = room.Entry.Quiet,
         };
     }
 

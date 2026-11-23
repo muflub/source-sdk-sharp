@@ -11,6 +11,13 @@ namespace SourceSharp.MapGen.Descent;
 /// <param name="Front">The yaw of the model's front in its own frame: 0 when it faces +x (Source's convention), 180 when its back is +x (a wall lamp whose mounting plate is its +x side).</param>
 public sealed record PropModel(string Model, Point Mins, Point Maxs, bool Static = true, bool Solid = true, int Front = 0)
 {
+    /// <summary>
+    /// The breakable this prop becomes (ruling M34, <see cref="Breakables"/>): where the dresser would
+    /// stand it as clutter it writes the breakable's point in its stead while the room is under its cap,
+    /// and the prop past it. Null for a prop that stays one. A lamp's stand is never one.
+    /// </summary>
+    public BreakableKind? Breakable { get; init; }
+
     /// <summary>The mesh's box about the origin when the model stands turned by <paramref name="yaw"/> (a multiple of 90).</summary>
     public (Point Mins, Point Maxs) Turned(int yaw)
     {
@@ -114,6 +121,19 @@ public sealed record LampKind(PropModel Fixture, LampMount Mount, Lamp Light, in
     /// for lamps every <see cref="Spacing"/>.
     /// </summary>
     public (int Least, int Most)? Pools { get; init; }
+
+    /// <summary>
+    /// The share of the lamps the dresser hangs along a room's path that have failed: the fixture hangs,
+    /// no light (level 11's factory, "half of them dead"). The floor they leave dark is the cover pass's,
+    /// which lights it with the theme's <see cref="RoomTheme.CoverLamps"/> alone (its emergency lamps).
+    /// </summary>
+    public float Dead { get; init; }
+
+    /// <summary>
+    /// A floor lamp the cover pass may also stand on open floor, away from any wall (level 14's glowing fungi,
+    /// which grow anywhere): the middle of a cave no wall lamp reaches. Otherwise a floor lamp stands by a wall.
+    /// </summary>
+    public bool FreeStanding { get; init; }
 }
 
 /// <summary>A brush frame the dresser stands across a corridor at intervals: two posts against the walls and a cap under the ceiling (a timber or steel set).</summary>

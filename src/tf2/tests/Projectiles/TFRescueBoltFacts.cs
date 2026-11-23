@@ -147,6 +147,12 @@ public sealed class TFRescueBoltFacts
         arrow.Handle = rig.NewHandle();
         // The toucher's pass-through ask, as the projectile rig's default.
         rig.Engine.Returns("EntityPhysics.GetSolidFlags", SolidFlags.None);
+        // A building is no player: stock's teammate window gates on
+        // IsPlayer (tf_projectile_arrow.cpp), so only the builder answers it
+        // and the bolt's touch reaches the building's arm from the first
+        // frame.
+        rig.Engine.ReturnsEachCall("Entities.IsPlayer",
+            () => rig.Engine.Calls[^1].Args[0] is EntityHandle h && h == builder);
         if (worth > 0f)
             rig.Owners.Items[builder.EntryIndex] =
                 rig.AttributeItem("arrow_heals_buildings", AttributeDescriptionFormat.Additive, worth);
@@ -283,6 +289,10 @@ public sealed class TFRescueBoltFacts
         arrow.BindAreas(TestServices.Areas(rig.Engine));
         arrow.Handle = rig.NewHandle();
         rig.Engine.Returns("EntityPhysics.GetSolidFlags", SolidFlags.None);
+        // The sentry is no player either, as in Bolt: the bolt's touch must
+        // reach the building's arm through the window's IsPlayer gate.
+        rig.Engine.ReturnsEachCall("Entities.IsPlayer",
+            () => rig.Engine.Calls[^1].Args[0] is EntityHandle h && h == builder);
         rig.Owners.Items[builder.EntryIndex] =
             rig.AttributeItem("arrow_heals_buildings", AttributeDescriptionFormat.Additive, 40f);
         rig.Engine.Returns("Players.GetTeam", (int)TFTeam.Red);

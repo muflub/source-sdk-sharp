@@ -49,14 +49,16 @@ public sealed class Stash : UiScreen, IUiWindowed
     private readonly IDescentInspectActions? _inspectBackpack, _inspectStash;
 
     private readonly IDescentTownStatus? _status;
+    private readonly IDescentTownClose? _close;
     private readonly TownStatusLine _statusLine = new();
 
     public Stash(UiWindows windows, IDescentItemGridSource backpack, IDescentStash stash,
                  IDescentItemActions actions, ItemGrid grid,
                  IDescentItemHover? hover = null, ItemTooltip? tooltip = null,
                  IDescentInspect? inspect = null, IDescentInspectActions? inspectActions = null,
-                 IDescentTownStatus? status = null)
+                 IDescentTownStatus? status = null, IDescentTownClose? close = null)
     {
+        _close = close;
         _status = status;
         _windows = windows;
         _backpack = backpack;
@@ -95,6 +97,9 @@ public sealed class Stash : UiScreen, IUiWindowed
     public ItemGrid Grid { get; }
 
     public override string Name => "stash";
+
+    /// <summary>Closed on the client (Esc, its x): the server ends the window's session (the whole run's F27).</summary>
+    public override void Closed() => _close?.Closed(Name);
 
     /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
 
@@ -195,7 +200,8 @@ public sealed class Stash : UiScreen, IUiWindowed
                         source.CellCount > source.Capacity ? Tone.Warning : Tone.TextMuted);
             }
             if (source.CellCount == 0 && !source.Overflow)
-                ui.EmptyState(UiShape.Lock, "#Descent_Stash_Empty", "#Descent_Stash_EmptyBody")
+                ui.EmptyState(UiShape.Lock, which == 0 ? "#Descent_Stash_BackpackEmpty" : "#Descent_Stash_Empty",
+                              which == 0 ? "#Descent_Stash_BackpackEmptyBody" : "#Descent_Stash_EmptyBody")
                     .Width(Size.Du(GridDu));
             else
             {

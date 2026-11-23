@@ -224,6 +224,26 @@ public sealed class BossServerTests
         Assert.Equal(1, rig.Encounter.BarsWithdrawn);
     }
 
+    [Fact]
+    public void The_bars_counts_start_over_when_the_level_shuts_down()
+    {
+        // The encounter outlives the map: a level without a horde (the town) never begins it again,
+        // and its report would carry the last level's counts.
+        var rig = new BossRig();
+        rig.Lend();
+        rig.Hero(InArena);
+        rig.Tick(BossRig.Seconds(1));
+        rig.Roster.Hurt(rig.Row, rig.Roster.Life(rig.Row));
+        rig.Tick(BossRig.Seconds(1));
+        long sent = rig.Encounter.BarsSent, withdrawn = rig.Encounter.BarsWithdrawn;
+
+        ((IGameLifecycle)rig.Encounter).OnLevelShutdown();
+
+        Assert.True(sent > 0 && withdrawn > 0, $"sent {sent}, withdrawn {withdrawn} before the shutdown");
+        Assert.Equal(0, rig.Encounter.BarsSent);
+        Assert.Equal(0, rig.Encounter.BarsWithdrawn);
+    }
+
     // ------------------------------------------------------------------ the specials
 
     [Fact]
@@ -363,11 +383,13 @@ public sealed class BossServerTests
         Assert.True(rig.Ask(body, HordeAbilities.BossSummon, 1));
 
         var adds = Enumerable.Range(before, rig.Roster.Count - before).ToList();
-        Assert.Equal(2, adds.Count);   // sir_nukesalot's phase 1: two demomen, once
+        var asked = Assert.Single(BossRules.AddsOf(TheRules.Content.Bosses.Of("sir_nukesalot")!, 1));   // phase 1: demomen (RU14 tuned the count), once
+        Assert.Equal("demoman", asked.Template);
+        Assert.Equal(asked.Count, adds.Count);
         Assert.All(adds, a => Assert.Equal(("demoman", BossRig.ArenaRoom, RobotState.Embodied), (rig.Roster.Template(a), rig.Roster.HomeRoom(a), rig.Roster.State(a))));
         Assert.All(adds, a => Assert.True(rig.Level.Rooms[BossRig.ArenaRoom].Contains(rig.Roster.Post(a) with { Z = 1 })));
         Assert.Equal(1, rig.Abilities.Refused(BossRefusal.Summoned));
-        Assert.Equal(2, rig.World.Particles.Count(p => p.Name == TF2.Descent.Server.Horde.Champions.ChampionTeleports.In));
+        Assert.Equal(asked.Count, rig.World.Particles.Count(p => p.Name == TF2.Descent.Server.Horde.Champions.ChampionTeleports.In));
     }
 
     [Fact]

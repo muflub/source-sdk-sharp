@@ -257,7 +257,7 @@ public class PredictedWeaponFxTests
                        new ClientTraceResult(true, 0.5f, new Vector(64f, 0f, 64f), new Vector(-1f, 0f, 0f),
                                              0, 7, Tile, 0));
 
-        Fx().MeleeSwing(Shot(), Row(EntityNames.WeaponCrowbar), 42f, "Melee.World", "Melee.Flesh");
+        Fx().MeleeSwing(Shot(), Row(EntityNames.WeaponCrowbar), 42f, Hull, "Melee.World", "Melee.Flesh");
 
         var (name, data) = Assert.Single(_dispatch.Ran);
         Assert.Equal(("Impact", 7), (name, data.EntIndex));
@@ -272,7 +272,7 @@ public class PredictedWeaponFxTests
         _world.Returns("WorldQuery.ClientClipRayToEntities",
                        new ClientTraceResult(true, 0.3f, new Vector(12f, 0f, 64f), Vector.Zero, 0, 2, 0, 0));
 
-        Fx().MeleeSwing(Shot(), Row(EntityNames.WeaponCrowbar), 42f, "Melee.World", "Melee.Flesh");
+        Fx().MeleeSwing(Shot(), Row(EntityNames.WeaponCrowbar), 42f, Hull, "Melee.World", "Melee.Flesh");
 
         Assert.Equal((Player, "Melee.Flesh"), Assert.Single(_sounds.Emitted));
     }
@@ -284,9 +284,11 @@ public class PredictedWeaponFxTests
         _world.Returns("WorldQuery.ClientTraceLine",
                        new ClientTraceResult(false, 1f, Wall, Vector.Zero, 0, -1, 0, 0))
               .Returns("WorldQuery.ClientClipRayToEntities",
-                       new ClientTraceResult(false, 1f, Wall, Vector.Zero, 0, -1, -1, 0));
+                       new ClientTraceResult(false, 1f, Wall, Vector.Zero, 0, -1, -1, 0))
+              .Returns("WorldQuery.ClientTraceHullEntities",
+                       new ClientBoxTrace(false, 1f, Vector.Zero, -1, Vector.Zero));
 
-        Fx().MeleeSwing(Shot(), Row(EntityNames.WeaponCrowbar), 42f, "Melee.World", "Melee.Flesh");
+        Fx().MeleeSwing(Shot(), Row(EntityNames.WeaponCrowbar), 42f, Hull, "Melee.World", "Melee.Flesh");
 
         Assert.Empty(_dispatch.Ran);
         Assert.Empty(_sounds.Emitted);
@@ -296,10 +298,113 @@ public class PredictedWeaponFxTests
     [Fact]
     public void A_swings_reach_is_the_range_it_was_handed()
     {
-        Fx().MeleeSwing(Shot(), Row(EntityNames.WeaponCrowbar), 42f, "Melee.World", "Melee.Flesh");
+        Fx().MeleeSwing(Shot(), Row(EntityNames.WeaponCrowbar), 42f, Hull, "Melee.World", "Melee.Flesh");
 
         var trace = _world.Calls.Single(c => c.Member == "WorldQuery.ClientTraceLine");
         Assert.Equal(Eye + new Vector(42f, 0f, 0f), trace.ArgAs<Vector>(1));
+    }
+
+    /// <summary>
+    /// Stock's hull arm (<c>tf_weaponbase_melee.cpp:509-534</c>): the swing's
+    /// line stops short of a wall the swing's box still reaches, and the box's
+    /// stop is the hit — the wall takes the mark and the world sound. Found
+    /// against the live boot (2026-11-15): a shovel whose 48-unit ray ended 11
+    /// units shy of the blue spawn's end wall marked nothing, while the server's
+    /// hull met the wall and the box front, 18 units past the line's end, met it
+    /// too. Without the hull arm the dispatch never happens and the wall stays
+    /// clean.
+    /// </summary>
+    [Fact]
+    public void A_swings_line_short_of_a_wall_marks_where_the_box_stopped()
+    {
+        _world.Returns("WorldQuery.ClientTraceLine", LineMiss)
+              .Returns("WorldQuery.ClientClipRayToEntities", LineMiss);
+        // The wall face 60 from the eye: past the 42-unit line, inside the box's
+        // front face at the line's end plus the hull's half-extent.
+        var face = new Vector(60f, 0f, 64f);
+        _world.Returns("WorldQuery.ClientTraceHullEntities",
+                       new ClientBoxTrace(true, 1f, face, 0, Vector.Zero));
+
+        Fx().MeleeSwing(Shot(), Row(EntityNames.WeaponCrowbar), 42f, Hull, "Melee.World", "Melee.Flesh");
+
+        var (name, data) = Assert.Single(_dispatch.Ran);
+        Assert.Equal(("Impact", face), (name, data.Origin));
+        Assert.Equal((int)DamageType.Club, data.DamageType);
+        Assert.True(data.Start.X < data.Origin.X, "the impact starts on the near side of the face it marks");
+        Assert.Equal((Player, "Melee.World"), Assert.Single(_sounds.Emitted));
+
+        var hull = _world.Calls.Single(c => c.Member == "WorldQuery.ClientTraceHullEntities");
+        Assert.Equal(Eye, hull.ArgAs<Vector>(0));
+        Assert.Equal(Eye + new Vector(42f, 0f, 0f), hull.ArgAs<Vector>(1));
+        Assert.Equal((new Vector(-18f, -18f, -18f), new Vector(18f, 18f, 18f)),
+                     (hull.ArgAs<Vector>(2), hull.ArgAs<Vector>(3)));
+        Assert.Equal(TraceMask.Solid, hull.ArgAs<TraceMask>(4));
+        Assert.Equal(LocalPlayer, hull.ArgAs<int>(5));
+        Assert.DoesNotContain(LocalPlayer, hull.ArgAs<int[]>(6));
+
+        // The hull is asked only once the line has met nothing: the swing's line
+        // and ray come before it (FindHullIntersection's lines come after, and
+        // here meet nothing, so the box's own stop is what is marked).
+        int hullAt = _world.Calls.ToList().FindIndex(c => c.Member == "WorldQuery.ClientTraceHullEntities");
+        Assert.Equal(2, _world.Calls.Take(hullAt).Count(c => c.Member == "WorldQuery.ClientTraceLine"
+                                                             || c.Member == "WorldQuery.ClientClipRayToEntities"));
+    }
+
+    /// <summary>
+    /// Stock's <c>FindHullIntersection</c> (<c>tf_weaponbase.cpp:113-155</c>,
+    /// asked at <c>tf_weaponbase_melee.cpp:525-530</c>): the box stops at its
+    /// CENTRE, a half-extent off the wall, and the impact effect looks only 8
+    /// units past the point it is handed, so the mark goes where a line to twice
+    /// the box's stop meets the surface. Review of F241: the 2fort boot's
+    /// before and after shots of the spawn wall were the same pixels.
+    /// </summary>
+    [Fact]
+    public void A_swings_box_stop_on_the_world_marks_the_surface_its_line_finds()
+    {
+        var centre = new Vector(42f, 0f, 64f);
+        var face = new Vector(60f, 0f, 64f);
+        int lines = 0;
+        _world.ReturnsEachCall("WorldQuery.ClientTraceLine",
+                               () => ++lines == 1
+                                   ? LineMiss
+                                   : new ClientTraceResult(true, 0.7f, face, new Vector(-1f, 0f, 0f), 0, 0, Tile, 0))
+              .Returns("WorldQuery.ClientClipRayToEntities", LineMiss)
+              .Returns("WorldQuery.ClientTraceHullEntities", new ClientBoxTrace(true, 1f, centre, 0, Vector.Zero));
+
+        Fx().MeleeSwing(Shot(), Row(EntityNames.WeaponCrowbar), 42f, Hull, "Melee.World", "Melee.Flesh");
+
+        var (name, data) = Assert.Single(_dispatch.Ran);
+        Assert.Equal(("Impact", face, Tile), (name, data.Origin, data.SurfaceProp));
+        var toSurface = _world.Calls.Where(c => c.Member == "WorldQuery.ClientTraceLine").ElementAt(1);
+        Assert.Equal(Eye + (centre - Eye) * 2f, toSurface.ArgAs<Vector>(1));
+    }
+
+    /// <summary>
+    /// <c>FindHullIntersection</c>'s corners: when the line to twice the box's
+    /// stop misses (a wall struck by the box's edge), the nearest of the eight
+    /// lines to the intersect box's corners around that point is the surface.
+    /// </summary>
+    [Fact]
+    public void A_swings_box_stop_takes_the_nearest_corner_lines_surface()
+    {
+        var centre = new Vector(42f, 0f, 64f);
+        var near = new Vector(70f, 30f, 64f);
+        var far = new Vector(90f, -30f, 64f);
+        int lines = 0;
+        _world.ReturnsEachCall("WorldQuery.ClientTraceLine",
+                               () => ++lines switch
+                               {
+                                   3 => new ClientTraceResult(true, 0.9f, far, new Vector(0f, 1f, 0f), 0, 0, Tile, 0),
+                                   6 => new ClientTraceResult(true, 0.8f, near, new Vector(0f, -1f, 0f), 0, 0, Tile, 0),
+                                   _ => LineMiss,
+                               })
+              .Returns("WorldQuery.ClientClipRayToEntities", LineMiss)
+              .Returns("WorldQuery.ClientTraceHullEntities", new ClientBoxTrace(true, 1f, centre, 0, Vector.Zero));
+
+        Fx().MeleeSwing(Shot(), Row(EntityNames.WeaponCrowbar), 42f, Hull, "Melee.World", "Melee.Flesh");
+
+        Assert.Equal(near, Assert.Single(_dispatch.Ran).Data.Origin);
+        Assert.Equal(10, _world.Calls.Count(c => c.Member == "WorldQuery.ClientTraceLine"));
     }
 
     [Fact]
@@ -509,6 +614,9 @@ public class PredictedWeaponFxTests
     //-------------------------------------------------------------------------
 
     private static readonly ClientTraceResult LineMiss = new(false, 1f, Vector.Zero, Vector.Zero, 0, -1, -1, 0);
+
+    /// <summary>A TF swing's box: half-extent 18, and TF's duck hull for the corner lines.</summary>
+    private static readonly MeleeHull Hull = new(18f, new Vector(-24f, -24f, 0f), new Vector(24f, 24f, 62f));
 
     /// <summary>A crowbar's replay, aimed along +x from <see cref="Eye"/> (or <paramref name="eye"/>).</summary>
     private ClientArsenal AimedSwing(Vector? eye = null, Action<ClientEntityDirectory>? populate = null)

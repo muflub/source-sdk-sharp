@@ -151,6 +151,7 @@ public interface IDescentAutomap
     float RoomH(int room);
     int RoomStorey(int room);
     bool RoomCurrentStorey(int room);             // the hero's storey, drawn brighter
+    bool RoomDiscovered(int room);                // seen through a door, not entered: its outline only, fainter
     int DoorStubCount { get; }
     float DoorStubX(int i);
     float DoorStubY(int i);
@@ -164,6 +165,12 @@ public interface IDescentAutomap
     float HeroY { get; }
     float HeroHeadingDeg { get; }
     int FocusStorey { get; }                       // the storey the view shows; the map screen's tabs set it
+}
+
+/// <summary>Whether the map overlay is up: Diablo's Tab map, drawn over the view with the HUD still live.</summary>
+public interface IDescentMapOverlay
+{
+    bool Shown { get; }
 }
 
 /// <summary>The whole sheet: C.1's fields, left to right, in read order.</summary>
@@ -255,6 +262,8 @@ public interface IDescentItemActions
     void Hover(int slotOrCell);
     void Use(int slotOrCell);
     void Move(int fromCell, int toCell);
+    void ToBelt(int cell, int beltSlot);          // a backpack potion onto a belt slot (0-based)
+    void OffBelt(int beltSlot, int cell);         // a belt slot's potion into a backpack cell
 }
 
 /// <summary>An item hovered anywhere: the tooltip's subject, plus the compare target when relevant.</summary>

@@ -34,17 +34,20 @@ public sealed class SoldierTreeTests
     }
 
     [Fact]
-    public void The_soldier_tabs_offer_138_ranks_and_the_mercenary_tab_47()
+    public void The_soldier_tabs_offer_138_ranks_and_the_mercenary_tab_47_and_the_lamps_5()
     {
-        // A.1: "30 points to spend against 138 ranks on offer in the class tabs plus 47 in the Mercenary tab".
+        // A.1: "30 points to spend against 138 ranks on offer in the class tabs plus 47 in the Mercenary tab";
+        // the miner's lamp's Lamplighter (the user, 2026-11-13) adds its five.
         Assert.Equal(138, Content.Skills.Rows.Where(s => s.Class == "soldier").Sum(s => s.MaxRank));
-        Assert.Equal(47, Tab("mercenary").Sum(s => s.MaxRank));
+        Assert.Equal(47, Tab("mercenary").Where(s => s.Id != "lamplighter").Sum(s => s.MaxRank));
+        Assert.Equal(52, Tab("mercenary").Sum(s => s.MaxRank));
     }
 
     [Fact]
-    public void The_mercenary_tab_has_the_nine_utility_upgrades_of_A5_and_no_tiers()
+    public void The_mercenary_tab_has_the_nine_utility_upgrades_of_A5_then_the_lamps_and_no_tiers()
     {
-        string[] ids = ["deep_pockets", "storage_plan", "second_wind", "leech", "clear_head", "siphon", "scavenger", "haggler", "field_rations"];
+        string[] ids = ["deep_pockets", "storage_plan", "second_wind", "leech", "clear_head", "siphon", "scavenger", "haggler", "field_rations",
+                        "lamplighter"];
         var tab = Tab("mercenary").ToList();
 
         Assert.Equal(ids, tab.Select(s => s.Id));
@@ -77,7 +80,7 @@ public sealed class SoldierTreeTests
     {
         var rest = Tab("mercenary").Where(s => s.Id is not ("deep_pockets" or "storage_plan")).ToList();
 
-        Assert.Equal(7, rest.Count);
+        Assert.Equal(8, rest.Count);   // A.5's seven and the lamp's Lamplighter
         Assert.All(rest, s => Assert.Equal([3, 6, 9, 12, 15], Enumerable.Range(1, 5).Select(r => s.LevelFloor!.At(r))));
     }
 

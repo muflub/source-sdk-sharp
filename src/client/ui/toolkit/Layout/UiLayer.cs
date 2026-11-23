@@ -141,6 +141,8 @@ public sealed class UiLayer : IUiLayer
                 _context.Take(takes[t]);
         }
 
+        // Popups (a dropdown's list) keep clear of the chrome's band, a window's too.
+        _context.PopupBandDu = _windows is not null && ChromeShown ? _windows.DockReserved : 0f;
         for (int k = 0; k < _order.Length; k++)
         {
             int i = _order[k];
@@ -155,6 +157,7 @@ public sealed class UiLayer : IUiLayer
             _context.EndScreen();
         }
         _context.ChromeBandDu = 0f;
+        _context.PopupBandDu = 0f;
         _context.EndFrame();
         _backend.Draw(_context.List.AsDrawList());
 

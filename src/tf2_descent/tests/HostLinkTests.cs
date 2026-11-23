@@ -112,14 +112,16 @@ public sealed class HostLinkTests
 
     private static void RunFramesUntil(GameThread game, Func<bool> done)
     {
-        var until = DateTime.UtcNow.AddSeconds(10);
-        while (!done() && DateTime.UtcNow < until)
+        // The bound is a guard against a hang, never a pace: a whole-leg run on a busy box once took
+        // more than 10 s to give a 5 ms Task.Delay's continuation a pool thread.
+        long start = System.Diagnostics.Stopwatch.GetTimestamp();
+        while (!done() && System.Diagnostics.Stopwatch.GetElapsedTime(start) < TimeSpan.FromSeconds(60))
         {
             game.RunFrame(new NullLog());
             Thread.Sleep(1);
         }
 
-        Assert.True(done(), "timed out waiting for the game thread to see the result");
+        Assert.True(done(), "the game thread never saw the result (60 s hang guard)");
     }
 
     /// <summary>
@@ -159,7 +161,16 @@ public sealed class HostLinkTests
                 await link.OnSdkThread(async () =>
                 {
                     ranOn = Environment.CurrentManagedThreadId;
-                    await Task.Delay(5);                              // completes on the thread pool...
+
+                    // Completed on a thread of the test's own, after this await has (all but always)
+                    // suspended: no timer and no pool thread, which a busy box can withhold for seconds.
+                    var elsewhere = new TaskCompletionSource();
+                    new Thread(() =>
+                    {
+                        Thread.Sleep(20);
+                        elsewhere.SetResult();
+                    }) { IsBackground = true }.Start();
+                    await elsewhere.Task;                             // completes on another thread...
                     resumedOn = Environment.CurrentManagedThreadId;   // ...and resumes on the SDK thread
                     return 1;
                 });

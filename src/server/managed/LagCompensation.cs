@@ -56,7 +56,15 @@ public interface ILagCompensation
 /// <param name="MaxUnlag"><c>sv_maxunlag</c>.</param>
 public readonly record struct LagCompensationTarget(EntityHandle Shooter, EntityHandle Target, UserCmd Command,
                                                     Vector ShooterOrigin, Vector TargetOrigin,
-                                                    float TargetMaxSpeed, float MaxUnlag);
+                                                    float TargetMaxSpeed, float MaxUnlag)
+{
+    /// <summary>
+    /// The target is not a player but an entity that opted in
+    /// (<see cref="ScriptedEntity.LagCompensated"/>); its
+    /// <see cref="TargetMaxSpeed"/> is the one it declares.
+    /// </summary>
+    public bool OptedIn { get; init; }
+}
 
 /// <summary>
 /// A mod's <c>WantsLagCompensationOnEntity</c> override (TF2's
@@ -321,6 +329,19 @@ public sealed class LagRecord
 /// sequence, its cycle and the pose parameters. They carry no overlay layers,
 /// so none are recorded (docs/divergences.md).
 /// </para>
+///
+/// <para>
+/// ENTITIES THAT OPTED IN (<see cref="ScriptedEntity.LagCompensated"/>, through
+/// <see cref="ILagCompensatedEntities"/>; stock has no such arm) are recorded,
+/// moved back and put back exactly as a player is, with three differences
+/// that follow from their not being players: a record's time is the frame's
+/// (an entity is simulated every frame, as stock's NPCs are, and runs no
+/// commands to stamp one), an entity opted in is alive, and its simulation
+/// time is neither read nor restored. A history starts again when the entity
+/// stops answering yes, or when its <see cref="ScriptedEntity.LagHistorySerial"/>
+/// moves on; a rewind asks the entity's serial at the shot, so a history
+/// restarted since the frame's record is not used.
+/// </para>
 /// </summary>
 public sealed class LagCompensation : ILagCompensation, IFrameLifecycle, IGameLifecycle
 {
@@ -352,6 +373,7 @@ public sealed class LagCompensation : ILagCompensation, IFrameLifecycle, IGameLi
     private readonly ILagCompensationSettings _settings;
     private readonly PlayerCurrentCommands _commands;
     private readonly IHooks<ILagCompensationTargets>? _targets;
+    private readonly ILagCompensatedEntities? _entities;
     private readonly ILog _log;
 
     // m_PlayerTrack: each slot's records, oldest first (stock's tail) and
@@ -369,19 +391,46 @@ public sealed class LagCompensation : ILagCompensation, IFrameLifecycle, IGameLi
     // CHL2MP_Player::m_iLastWeaponFireUsercmd, by player.
     private readonly Dictionary<uint, int> _lastWeaponFire = new();
 
+    // The opted-in entities' tracks, by handle; the frame's census of them;
+    // the tracks the census no longer names; tracks kept for reuse; and the
+    // tracks the session moved (m_RestorePlayer's half for entities).
+    private readonly Dictionary<uint, EntityTrack> _entityTracks = new();
+    private readonly List<LagCompensatedEntity> _census = new();
+    private readonly List<uint> _goneEntities = new();
+    private readonly Stack<EntityTrack> _spareTracks = new();
+    private readonly List<EntityTrack> _restoreEntities = new();
+
     private bool _needToRestore;
     private EntityHandle _currentPlayer;
     private float _teleportDistanceSqr = 64f * 64f;
 
     public LagCompensation(ILagCompensationWorld world, ILagCompensationSettings settings,
                            PlayerCurrentCommands commands, ILog log,
-                           IHooks<ILagCompensationTargets>? targets = null)
+                           IHooks<ILagCompensationTargets>? targets = null,
+                           ILagCompensatedEntities? entities = null)
     {
         _world = world ?? throw new ArgumentNullException(nameof(world));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _commands = commands ?? throw new ArgumentNullException(nameof(commands));
         _log = log ?? throw new ArgumentNullException(nameof(log));
         _targets = targets;
+        _entities = entities;
+    }
+
+    /// <summary>
+    /// One opted-in entity's history (a player's <c>m_PlayerTrack</c> slot)
+    /// with its restore and change records, the serial its records were taken
+    /// under and the top speed it declared.
+    /// </summary>
+    private sealed class EntityTrack
+    {
+        public EntityHandle Handle;
+        public int Serial;
+        public float MaxSpeed;
+        public bool Seen;
+        public readonly List<LagRecord> Records = new();
+        public readonly LagRecord Restore = new();
+        public readonly LagRecord Change = new();
     }
 
     int IFrameLifecycle.FrameOrder => (int)FrameStage.LagCompensation;
@@ -394,6 +443,18 @@ public sealed class LagCompensation : ILagCompensation, IFrameLifecycle, IGameLi
     /// <summary>A slot's records, oldest first; empty for a slot with none.</summary>
     public IReadOnlyList<LagRecord> History(int playerIndex)
         => _tracks.TryGetValue(playerIndex, out List<LagRecord>? track) ? track : Array.Empty<LagRecord>();
+
+    /// <summary>An opted-in entity's records, oldest first; empty for an entity with none.</summary>
+    public IReadOnlyList<LagRecord> EntityHistory(EntityHandle entity)
+        => _entityTracks.TryGetValue(entity.Value, out EntityTrack? track) ? track.Records : Array.Empty<LagRecord>();
+
+    /// <summary>The entities with a track, into <paramref name="into"/> (cleared first).</summary>
+    public void CopyTrackedEntities(List<EntityHandle> into)
+    {
+        into.Clear();
+        foreach (EntityTrack track in _entityTracks.Values)
+            into.Add(track.Handle);
+    }
 
     /// <summary><c>Shutdown</c>.</summary>
     void IGameLifecycle.OnShutdown() => ClearHistory();
@@ -419,6 +480,14 @@ public sealed class LagCompensation : ILagCompensation, IFrameLifecycle, IGameLi
     {
         foreach (List<LagRecord> track in _tracks.Values)
             Purge(track, track.Count);
+
+        foreach (EntityTrack track in _entityTracks.Values)
+        {
+            Purge(track.Records, track.Records.Count);
+            _spareTracks.Push(track);
+        }
+
+        _entityTracks.Clear();
     }
 
     private void Purge(List<LagRecord> track, int count)
@@ -497,8 +566,98 @@ public sealed class LagCompensation : ILagCompensation, IFrameLifecycle, IGameLi
             track.Add(record);
         }
 
+        RecordEntities(deadTime);
+
         // Clear the current player.
         _currentPlayer = EntityHandle.None;
+    }
+
+    /// <summary>
+    /// The frame's record for each opted-in entity, as a player's is taken: its
+    /// old records go, and a record at the frame's time joins the head. A
+    /// track whose serial moved on starts empty; the track of an entity no
+    /// longer opted in goes.
+    /// </summary>
+    private void RecordEntities(int deadTime)
+    {
+        if (_entities is null)
+            return;
+
+        _entities.Collect(_census);
+
+        foreach (EntityTrack track in _entityTracks.Values)
+            track.Seen = false;
+
+        float now = _world.CurTime;
+
+        foreach (LagCompensatedEntity entity in _census)
+        {
+            EntityTrack track = EntityTrackOf(entity);
+            track.Seen = true;
+            track.MaxSpeed = entity.MaxSpeed;
+
+            // The history starts here: whatever was recorded is someone else's.
+            if (track.Serial != entity.HistorySerial)
+            {
+                Purge(track.Records, track.Records.Count);
+                track.Serial = entity.HistorySerial;
+            }
+
+            List<LagRecord> records = track.Records;
+
+            int old = 0;
+            while (old < records.Count && records[old].SimulationTime < deadTime)
+                old++;
+
+            Purge(records, old);
+
+            if (records.Count > 0 && records[^1].SimulationTime >= now)
+                continue;
+
+            if (!_world.TryGetPlacement(entity.Handle, out EntityPlacement placement))
+                continue;
+
+            LagRecord record = _spare.Count > 0 ? _spare.Pop() : new LagRecord();
+            record.Clear();
+            record.Flags = Alive;
+            record.SimulationTime = now;
+            record.Angles = placement.Angles;
+            record.Origin = placement.Origin;
+            record.MinsPreScaled = placement.Mins;
+            record.MaxsPreScaled = placement.Maxs;
+            record.HasAnimation = _world.CaptureAnimation(entity.Handle, record.Animation);
+
+            records.Add(record);
+        }
+
+        foreach (KeyValuePair<uint, EntityTrack> pair in _entityTracks)
+        {
+            if (!pair.Value.Seen)
+                _goneEntities.Add(pair.Key);
+        }
+
+        foreach (uint key in _goneEntities)
+        {
+            EntityTrack gone = _entityTracks[key];
+            Purge(gone.Records, gone.Records.Count);
+            _entityTracks.Remove(key);
+            _spareTracks.Push(gone);
+        }
+
+        _goneEntities.Clear();
+    }
+
+    private EntityTrack EntityTrackOf(in LagCompensatedEntity entity)
+    {
+        if (!_entityTracks.TryGetValue(entity.Handle.Value, out EntityTrack? track))
+        {
+            track = _spareTracks.Count > 0 ? _spareTracks.Pop() : new EntityTrack();
+            track.Handle = entity.Handle;
+            track.Serial = entity.HistorySerial;
+            _entityTracks[entity.Handle.Value] = track;
+        }
+
+        return track;
     }
 
     private List<LagRecord> Track(int index)
@@ -569,6 +728,47 @@ public sealed class LagCompensation : ILagCompensation, IFrameLifecycle, IGameLi
             // Move the other player back in time.
             BacktrackPlayer(i, other, targetTime);
         }
+
+        StartEntities(player, in cmd, shooter.Origin, targetTime);
+    }
+
+    /// <summary>
+    /// The opted-in entities moved back as the players are: each asked
+    /// <see cref="ILagCompensationTargets"/> the same question, and walked
+    /// back through its track. An entity no longer opted in, or whose history
+    /// restarted since its records were taken, is left where it is.
+    /// </summary>
+    private void StartEntities(EntityHandle shooter, in UserCmd cmd, Vector shooterOrigin, float targetTime)
+    {
+        if (_entities is null)
+            return;
+
+        foreach (EntityTrack track in _entityTracks.Values)
+        {
+            if (track.Records.Count <= 0 || track.Handle == shooter)
+                continue;
+
+            if (!_entities.TryGet(track.Handle, out LagCompensatedEntity now) || now.HistorySerial != track.Serial)
+                continue;
+
+            if (!_world.TryGetPlacement(track.Handle, out EntityPlacement place))
+                continue;
+
+            var asked = new LagCompensationTarget(shooter, track.Handle, cmd, shooterOrigin, place.Origin,
+                                                  now.MaxSpeed, _settings.MaxUnlag) { OptedIn = true };
+
+            if (!WantsLagCompensationOn(in asked))
+                continue;
+
+            track.Restore.Clear();
+            track.Change.Clear();
+
+            if (Backtrack(track.Handle, track.Records, track.Restore, track.Change, targetTime, isPlayer: false))
+            {
+                _restoreEntities.Add(track);
+                _needToRestore = true;
+            }
+        }
     }
 
     /// <summary>
@@ -585,6 +785,7 @@ public sealed class LagCompensation : ILagCompensation, IFrameLifecycle, IGameLi
         }
 
         _restorePlayer.Clear();
+        _restoreEntities.Clear();
         _needToRestore = false;
         _currentPlayer = player;
         return true;
@@ -632,18 +833,25 @@ public sealed class LagCompensation : ILagCompensation, IFrameLifecycle, IGameLi
         var asked = new LagCompensationTarget(shooter, target, cmd, shooterOrigin, targetPlace.Origin,
                                               _world.MaxSpeed(target), _settings.MaxUnlag);
 
+        return WantsLagCompensationOn(in asked);
+    }
+
+    /// <summary>The mods' hooks in order, the first that decides winning; else HL2MP's rule.</summary>
+    private bool WantsLagCompensationOn(in LagCompensationTarget asked)
+    {
         if (_targets is not null)
         {
-            foreach (ILagCompensationTargets rule in _targets.All)
+            IReadOnlyList<ILagCompensationTargets> rules = _targets.All;
+            for (int i = 0; i < rules.Count; i++)
             {
-                Decision decided = rule.WantsLagCompensationOnEntity(in asked);
+                Decision decided = rules[i].WantsLagCompensationOnEntity(in asked);
                 if (decided != Decision.UseStockRule)
                     return decided == Decision.Yes;
             }
         }
 
         return LagCompensationRules.Hl2mpWants(in asked,
-                                               _lastWeaponFire.TryGetValue(shooter.Value, out int fired) ? fired : 0);
+                                               _lastWeaponFire.TryGetValue(asked.Shooter.Value, out int fired) ? fired : 0);
     }
 
     //-------------------------------------------------------------------------
@@ -656,8 +864,24 @@ public sealed class LagCompensation : ILagCompensation, IFrameLifecycle, IGameLi
         if (!_tracks.TryGetValue(index, out List<LagRecord>? track) || track.Count <= 0)
             return;
 
-        if (!_world.TryGetPlacement(player, out EntityPlacement now))
+        if (!Backtrack(player, track, Data(_restoreData, index), Data(_changeData, index), targetTime, isPlayer: true))
             return;
+
+        _restorePlayer.Add(index);   // remember that we changed this player
+        _needToRestore = true;       // we changed at least one player
+    }
+
+    /// <summary>
+    /// One player's or opted-in entity's walk back through <paramref name="track"/>
+    /// to <paramref name="targetTime"/>, and the move there; answers whether it
+    /// was moved (and so must be restored). Only a player's simulation time is
+    /// remembered for the restore.
+    /// </summary>
+    private bool Backtrack(EntityHandle player, List<LagRecord> track, LagRecord restore, LagRecord change,
+                           float targetTime, bool isPlayer)
+    {
+        if (track.Count <= 0 || !_world.TryGetPlacement(player, out EntityPlacement now))
+            return false;
 
         LagRecord? prevRecord = null;
         LagRecord? record = null;
@@ -672,12 +896,12 @@ public sealed class LagCompensation : ILagCompensation, IFrameLifecycle, IGameLi
 
             // The player must be alive: lost track.
             if ((record.Flags & Alive) == 0)
-                return;
+                return false;
 
             // Lost track: too much difference.
             Vector delta = record.Origin - prevOrg;
             if (delta.X * delta.X + delta.Y * delta.Y > _teleportDistanceSqr)
-                return;
+                return false;
 
             // A context at or before the target time: stop.
             if (record.SimulationTime <= targetTime)
@@ -687,7 +911,7 @@ public sealed class LagCompensation : ILagCompensation, IFrameLifecycle, IGameLi
         }
 
         if (record is null)
-            return;
+            return false;
 
         Vector org;
         QAngle ang;
@@ -719,11 +943,11 @@ public sealed class LagCompensation : ILagCompensation, IFrameLifecycle, IGameLi
 
         // See if this represents a change for the player.
         int flags = 0;
-        LagRecord restore = Data(_restoreData, index);
-        LagRecord change = Data(_changeData, index);
 
-        // Always remember the pristine simulation time in case we need to restore it.
-        restore.SimulationTime = _world.GetSimulationTime(player);
+        // Always remember the pristine simulation time in case we need to
+        // restore it (a player's: an entity's is not ours to set).
+        if (isPlayer)
+            restore.SimulationTime = _world.GetSimulationTime(player);
 
         Vector angdiff = new(now.Angles.Pitch - ang.Pitch, now.Angles.Yaw - ang.Yaw, now.Angles.Roll - ang.Roll);
         Vector orgdiff = now.Origin - org;
@@ -771,10 +995,9 @@ public sealed class LagCompensation : ILagCompensation, IFrameLifecycle, IGameLi
         if (_settings.FlushBoneCache)
             _world.InvalidateBoneCache(player);
 
-        _restorePlayer.Add(index);   // remember that we changed this player
-        _needToRestore = true;       // we changed at least one player
         restore.Flags = flags;       // we need to restore these flags
         change.Flags = flags;        // we have changed these flags
+        return true;
     }
 
     /// <summary>
@@ -842,64 +1065,76 @@ public sealed class LagCompensation : ILagCompensation, IFrameLifecycle, IGameLi
             if (other == EntityHandle.None || !_world.TryGetPlacement(other, out EntityPlacement now))
                 continue;
 
-            LagRecord restore = Data(_restoreData, i);
-            LagRecord change = Data(_changeData, i);
+            Restore(other, now, Data(_restoreData, i), Data(_changeData, i), isPlayer: true);
+        }
 
-            bool restoreSimulationTime = false;
-
-            if ((restore.Flags & SizeChanged) != 0)
-            {
-                restoreSimulationTime = true;
-
-                // Restored only if the attack made no change of its own.
-                if (now.Mins.Equals(change.MinsPreScaled) && now.Maxs.Equals(change.MaxsPreScaled))
-                {
-                    _world.SetSize(other, restore.MinsPreScaled, restore.MaxsPreScaled);
-                    now = now with { Mins = restore.MinsPreScaled, Maxs = restore.MaxsPreScaled };
-                }
-            }
-
-            if ((restore.Flags & AnglesChanged) != 0)
-            {
-                restoreSimulationTime = true;
-
-                if (now.Angles.Equals(change.Angles))
-                {
-                    _world.Relink(other, now.Origin, restore.Angles);
-                    now = now with { Angles = restore.Angles };
-                }
-            }
-
-            if ((restore.Flags & OriginChanged) != 0)
-            {
-                restoreSimulationTime = true;
-
-                // Something reasonable with the change the attack made...
-                Vector delta = now.Origin - change.Origin;
-
-                // ...unless it moved them really far: then they stay in the new spot.
-                if (delta.X * delta.X + delta.Y * delta.Y < _teleportDistanceSqr)
-                    RestorePlayerTo(other, now, restore.Origin + delta);
-            }
-
-            if ((restore.Flags & AnimationChanged) != 0)
-            {
-                restoreSimulationTime = true;
-
-                if (restore.HasAnimation)
-                    _world.RestoreAnimation(other, restore.Animation);
-
-                // The bone cache is not keyed on the pose parameters here, so
-                // the rewound bones go with the rewound pose (docs/divergences.md).
-                if (_settings.FlushBoneCache)
-                    _world.InvalidateBoneCache(other);
-            }
-
-            if (restoreSimulationTime)
-                _world.SetSimulationTime(other, restore.SimulationTime);
+        foreach (EntityTrack track in _restoreEntities)
+        {
+            if (_world.TryGetPlacement(track.Handle, out EntityPlacement now))
+                Restore(track.Handle, now, track.Restore, track.Change, isPlayer: false);
         }
 
         IsCurrentlyDoingLagCompensation = false;
+    }
+
+    /// <summary>
+    /// One player or opted-in entity put back (:791-870): only what the attack
+    /// did not change itself. Only a player's simulation time is restored.
+    /// </summary>
+    private void Restore(EntityHandle other, EntityPlacement now, LagRecord restore, LagRecord change, bool isPlayer)
+    {
+        bool restoreSimulationTime = false;
+
+        if ((restore.Flags & SizeChanged) != 0)
+        {
+            restoreSimulationTime = true;
+
+            // Restored only if the attack made no change of its own.
+            if (now.Mins.Equals(change.MinsPreScaled) && now.Maxs.Equals(change.MaxsPreScaled))
+            {
+                _world.SetSize(other, restore.MinsPreScaled, restore.MaxsPreScaled);
+                now = now with { Mins = restore.MinsPreScaled, Maxs = restore.MaxsPreScaled };
+            }
+        }
+
+        if ((restore.Flags & AnglesChanged) != 0)
+        {
+            restoreSimulationTime = true;
+
+            if (now.Angles.Equals(change.Angles))
+            {
+                _world.Relink(other, now.Origin, restore.Angles);
+                now = now with { Angles = restore.Angles };
+            }
+        }
+
+        if ((restore.Flags & OriginChanged) != 0)
+        {
+            restoreSimulationTime = true;
+
+            // Something reasonable with the change the attack made...
+            Vector delta = now.Origin - change.Origin;
+
+            // ...unless it moved them really far: then they stay in the new spot.
+            if (delta.X * delta.X + delta.Y * delta.Y < _teleportDistanceSqr)
+                RestorePlayerTo(other, now, restore.Origin + delta);
+        }
+
+        if ((restore.Flags & AnimationChanged) != 0)
+        {
+            restoreSimulationTime = true;
+
+            if (restore.HasAnimation)
+                _world.RestoreAnimation(other, restore.Animation);
+
+            // The bone cache is not keyed on the pose parameters here, so
+            // the rewound bones go with the rewound pose (docs/divergences.md).
+            if (_settings.FlushBoneCache)
+                _world.InvalidateBoneCache(other);
+        }
+
+        if (restoreSimulationTime && isPlayer)
+            _world.SetSimulationTime(other, restore.SimulationTime);
     }
 
     /// <summary>

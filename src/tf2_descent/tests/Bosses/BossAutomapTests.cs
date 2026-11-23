@@ -92,6 +92,19 @@ public sealed class BossAutomapTests
         Assert.DoesNotContain(k.Rooms().SelectMany(r => r.Marks), m => m.Kind == AutomapMarkKind.Boss);
     }
 
+    /// <summary>Seen through a door, the arena is an outline: the boss's mark waits for a hero to enter it.</summary>
+    [Fact]
+    public void A_discovered_arena_carries_no_boss_s_mark()
+    {
+        var k = new Kit(Committed with { Depth = 5, BossArena = ArenaRoom });
+
+        k.StandIn(Committed.Neighbours(ArenaRoom).First());
+
+        var arena = Assert.Single(k.Rooms(), r => r.Room == ArenaRoom);
+        Assert.True(arena.Discovered);
+        Assert.Empty(arena.Marks);
+    }
+
     [Fact]
     public void A_level_with_no_arena_marks_no_boss()
     {

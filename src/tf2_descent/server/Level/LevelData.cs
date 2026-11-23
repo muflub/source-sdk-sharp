@@ -62,6 +62,12 @@ public enum LevelMarkerKind
     MapMarker,
     Spawn,
     Arrival,
+
+    /// <summary>A crate a hit breaks, where the dresser would stand one (the map session's marker).</summary>
+    BreakableCrate,
+
+    /// <summary>A barrel a hit breaks, where the dresser would stand one (the map session's marker).</summary>
+    BreakableBarrel,
 }
 
 /// <summary>
@@ -80,6 +86,8 @@ public enum LevelMarkerKind
 /// <param name="Low">A low room (height class <c>l</c>).</param>
 /// <param name="Jump">A jump room (flag <c>j</c>).</param>
 /// <param name="Label">Its map label, or empty.</param>
+/// <param name="Light">Its light from the <c>.map2d</c>'s <c>LITE</c> section (<see cref="RoomLight"/>: level 1 = 100 on the brightness gate's scale), or null when the level does not say or the room was not measured.</param>
+/// <param name="DarkByDesign">The level says the room holds no light of its own (the <c>LITE</c> section's flag 1).</param>
 public sealed record LevelRoom(
     int Id,
     string Name,
@@ -94,7 +102,9 @@ public sealed record LevelRoom(
     LevelRoomRole Role,
     bool Low,
     bool Jump,
-    string Label)
+    string Label,
+    float? Light = null,
+    bool DarkByDesign = false)
 {
     /// <summary>Whether <paramref name="p"/> is inside the room's bounds (faces included).</summary>
     public bool Contains(Vector p) =>
@@ -126,7 +136,8 @@ public sealed record LevelExit(Vector Position, int Room, string Map);
 /// between them, every marker, where a party arrives, the way down, the boss arena, and the
 /// depth and seed. Built once at level ready by <see cref="LevelReader"/> from what the level
 /// ships; immutable. <see cref="Sources"/> says, for each piece, whether it was shipped,
-/// derived (and the load line names the rule) or absent.
+/// derived (and the load line names the rule) or absent. <see cref="Arena"/> is the boss arena's
+/// layout when the <c>.map2d</c> ships an <c>ARNA</c> section (<see cref="ArenaLayout"/>), else null.
 /// </summary>
 public sealed record LevelData(
     string Map,
@@ -140,7 +151,8 @@ public sealed record LevelData(
     LevelExit? Exit,
     int? BossArena,
     ImmutableDictionary<LevelPiece, PieceSource> Sources,
-    ImmutableArray<string> Notes)
+    ImmutableArray<string> Notes,
+    ArenaLayout? Arena = null)
 {
     /// <summary>Where <paramref name="piece"/> came from; absent when the reader said nothing of it.</summary>
     public PieceSource Source(LevelPiece piece) => Sources.TryGetValue(piece, out var s) ? s : PieceSource.Absent;

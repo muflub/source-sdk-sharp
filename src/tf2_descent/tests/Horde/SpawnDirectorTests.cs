@@ -213,6 +213,68 @@ public sealed class SpawnDirectorTests
         Assert.True(ordinary > 1000);
     }
 
+    /// <summary>A reach that joins every floor: the navigation's answer where a giant's hull reaches every room.</summary>
+    private sealed class JoinsAll : IHullReach
+    {
+        public bool Joins(int room, AiVector at, double scale) => true;
+    }
+
+    [Fact]
+    public void With_the_navigations_reach_a_giant_stands_where_its_floor_joins_whatever_the_doors_sill()
+    {
+        // The sill rule guessed at a floor a giant could not climb to; the navigation measures it
+        // (giants climb stairs since 2026-11-15), so where its reach joins, the sill refuses nothing.
+        int giants = 0;
+        for (ulong seed = 0; seed < 3000; seed++)
+        {
+            var level = HordeLevel.Create(seed, 5, [Room(0), Room(1, Marker(1, 500, 500, Open()))], [Door(0, sill: 48)]);
+            giants += Director.Plan(level, 4, new JoinsAll()).Packs.SelectMany(p => p.Robots)
+                .Count(r => TheRules.Robots.Template(r.Roll.Template).Size == "giant");
+        }
+
+        Assert.True(giants > 20, $"{giants} giants posted behind the raised sill with a reach that joins");
+    }
+
+    /// <summary>A level's floor by hull as a fact draws it: rooms whose floor a hull above a scale does not share with the arrival's.</summary>
+    private sealed class CutOff(double above, params int[] rooms) : IHullReach
+    {
+        public int Asked { get; private set; }
+
+        public bool Joins(int room, AiVector at, double scale)
+        {
+            Asked++;
+            return scale <= above || !rooms.Contains(room);
+        }
+    }
+
+    /// <summary>
+    /// A room whose doors fit a giant but whose floor its hull does not share with the arrival
+    /// (a corridor narrower than its hull, as <c>CutFloorLevel</c>'s; depth 1 seed 1's rooms 6,
+    /// 16 and 17 were cut off so for scale 1.6 and up until the sill fix of 2026-11-15, and are
+    /// reached now): the director never posts a robot that large there.
+    /// </summary>
+    [Fact]
+    public void A_robot_is_never_posted_where_its_hulls_floor_does_not_join_the_arrivals()
+    {
+        int large = 0, cutOff = 0;
+        for (ulong seed = 0; seed < 1500; seed++)
+        {
+            var level = HordeLevel.Create(seed, 5, [Room(0, Marker(0, 500, 500, Open())), Room(1, Marker(1, 500, 500, Open()))], [Door(0)]);
+            large += Director.Plan(level, 4).Packs.SelectMany(p => p.Robots).Count(r => r.Room == 1 && r.Roll.Scale > 1.5);
+            var reach = new CutOff(1.5, 1);
+            foreach (var r in Director.Plan(level, 4, reach).Packs.SelectMany(p => p.Robots).Where(r => r.Room == 1))
+            {
+                Assert.True(r.Roll.Scale <= 1.5, $"seed {seed}: {r.Roll.Template} at {r.Roll.Scale} posted in room 1, whose floor its hull cannot leave");
+                cutOff++;
+            }
+
+            Assert.True(reach.Asked > 0, "the control: the director never asked the reach");
+        }
+
+        Assert.True(large > 20, $"the control: only {large} robots above 1.5 were posted in room 1 with no reach");
+        Assert.True(cutOff > 1000, $"{cutOff} robots in room 1");
+    }
+
     [Fact]
     public void A_room_no_robot_fits_is_emptied_and_named()
     {

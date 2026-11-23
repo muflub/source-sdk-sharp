@@ -45,6 +45,13 @@ public interface IPlayerProxyEyes
     /// carries one — the declared-refusal arm of <see cref="EntitySpeedProxy"/>.
     /// </summary>
     float? EntitySpeed(int entityIndex);
+
+    /// <summary>
+    /// Where the entity at the index has its <c>WorldSpaceCenter()</c>, as an
+    /// offset from its origin: its model's box centre, turned with the entity.
+    /// Null when no model answers, and the origin is then the centre.
+    /// </summary>
+    Vector? CentreOffset(int entityIndex);
 }
 
 /// <summary>
@@ -53,7 +60,8 @@ public interface IPlayerProxyEyes
 /// directory by bound index, the player resource's team rows, and the view
 /// angles the prediction publishes.
 /// </summary>
-public sealed class PlayerProxyEyes(IClientStandalones standalones, IEngineHud screen, ViewReadout view)
+public sealed class PlayerProxyEyes(IClientStandalones standalones, IEngineHud screen, ViewReadout view,
+                                    IEngineWorldQuery world)
     : IPlayerProxyEyes
 {
     private const int Slots = PlayerResourceNetState.Slots;
@@ -78,6 +86,15 @@ public sealed class PlayerProxyEyes(IClientStandalones standalones, IEngineHud s
         => standalones.GetByIndex(entityIndex) is ClientSsPlayer player
             ? player.State.Velocity.Length
             : null;
+
+    public Vector? CentreOffset(int entityIndex)
+    {
+        if (!world.ClientEntityModelBounds(entityIndex, out Vector mins, out Vector maxs, out Vector angles))
+            return null;
+
+        Vector centre = (mins + maxs) * 0.5f;
+        return Transform.FromOriginAngles(Vector.Zero, new QAngle(angles.X, angles.Y, angles.Z)).TransformPoint(centre);
+    }
 
     private ClientPlayerResource? Core
     {
@@ -105,6 +122,8 @@ internal sealed class NoPlayerProxyEyes : IPlayerProxyEyes
     public int TeamNumber(int entityIndex) => 0;
 
     public float? EntitySpeed(int entityIndex) => null;
+
+    public Vector? CentreOffset(int entityIndex) => null;
 }
 
 /// <summary>
@@ -113,14 +132,13 @@ internal sealed class NoPlayerProxyEyes : IPlayerProxyEyes
 /// :41) into the result.
 ///
 /// <para>
-/// The one divergence, stated: stock measures center to center
-/// (<c>WorldSpaceCenter()</c>, :57). The bind seam carries the entity's origin
-/// (the engine block's <c>GetAbsOrigin</c>) and the net state the local
-/// player's, and no interface on this boundary carries model mins/maxs — so
-/// this measures origin to origin. The distance differs from stock's by the
-/// two centers' fixed offsets above their origins: materials use it as a
-/// falloff curve's input, which the offset shifts on its scale but never
-/// inverts.
+/// Stock measures centre to centre (<c>WorldSpaceCenter()</c>, :57). The bound
+/// entity's centre is its origin plus its model box's centre
+/// (<see cref="IPlayerProxyEyes.CentreOffset"/>): a brush entity's origin can
+/// sit far from its brush (cp_badlands' red spawn visualizers, 830 units off,
+/// past their material's 800-unit fade). The one divergence, stated: the local
+/// player's end is its origin, not its hull's centre (the net state carries no
+/// hull), which shifts the distance by at most the hull's half height.
 /// </para>
 /// </summary>
 public sealed class PlayerProximityProxy(IPlayerProxyEyes eyes) : ResultProxy
@@ -146,7 +164,8 @@ public sealed class PlayerProximityProxy(IPlayerProxyEyes eyes) : ResultProxy
         if (eyes.LocalPlayer() is not { } player)
             return;
 
-        Vector delta = entity.Origin - player.State.Origin;
+        Vector centre = entity.Origin + (eyes.CentreOffset(entity.EntIndex) ?? Vector.Zero);
+        Vector delta = centre - player.State.Origin;
         SetFloatResult(bind, delta.Length * _factor);
     }
 }
@@ -176,7 +195,9 @@ public sealed class PlayerTeamMatchProxy(IPlayerProxyEyes eyes) : ResultProxy
 /// <summary>
 /// <c>CPlayerViewProxy</c> ("PlayerView", proxyplayer.cpp:118-164): how squarely
 /// the local view looks at the bound entity — the unit delta dotted with the
-/// view's forward, scaled (<c>scale</c> 2, :133).
+/// view's forward, scaled (<c>scale</c> 2, :133). The delta runs to the bound
+/// entity's centre and from the player's origin, as
+/// <see cref="PlayerProximityProxy"/>'s does.
 /// </summary>
 public sealed class PlayerViewProxy(IPlayerProxyEyes eyes) : ResultProxy
 {
@@ -201,7 +222,8 @@ public sealed class PlayerViewProxy(IPlayerProxyEyes eyes) : ResultProxy
         if (eyes.LocalPlayer() is not { } player || eyes.LocalAngles() is not { } angles)
             return;
 
-        Vector delta = entity.Origin - player.State.Origin;
+        Vector centre = entity.Origin + (eyes.CentreOffset(entity.EntIndex) ?? Vector.Zero);
+        Vector delta = centre - player.State.Origin;
         MoveVec.Normalize(ref delta);                                  // :150
         MoveVec.AngleVectors(angles, out Vector forward, out _, out _); // :153
         SetFloatResult(bind, forward.Dot(delta) * _factor);             // :156

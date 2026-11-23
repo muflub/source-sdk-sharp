@@ -30,7 +30,7 @@ namespace SourceSharp.Ai.TF2.Nav;
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFExperienceUse(AiBots bots, TFRouteWeights weights, ExperienceRouteSlot routes, IAiNavigation nav, ServerAiSession ai,
-                                    ITFLevelEntities placed, ITFObjectives objectives)
+                                    ITFLevelEntities placed, ITFObjectives objectives, TFRouteVariation? variation = null)
     : IFrameLifecycle, IDebugRouteProvider, IOrderedHook
 {
     /// <summary>The units a second of a route's walk is: a Soldier's run, as the links are weighed (<see cref="NavLinkCosts.RunSpeed"/>).</summary>
@@ -307,7 +307,9 @@ public sealed class TFExperienceUse(AiBots bots, TFRouteWeights weights, Experie
         foreach (AiBot b in bots.Bots)
         {
             EntityHandle p = bots.Applier.PlayerOf(b.Id);
-            if (p != EntityHandle.None && nav.ObstaclesFor(p) is { } state && ReferenceEquals(state.Hazard, hazard))
+            // A bot with a field of its own (lane Groutes) minds its field composed over its team's hazard.
+            if (p != EntityHandle.None && nav.ObstaclesFor(p) is { } state
+                && (ReferenceEquals(state.Hazard, hazard) || (variation is not null && ReferenceEquals(variation.TeamOf(state.Hazard), hazard))))
                 return state.Clone();
         }
 

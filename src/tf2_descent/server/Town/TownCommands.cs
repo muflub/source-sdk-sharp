@@ -23,6 +23,8 @@ namespace TF2.Descent.Server.Town;
 /// <item><c>tf2_descent_town_crate</c>: the Scout's stall.</item>
 /// <item><c>tf2_descent_town_stash_in &lt;backpack slot&gt;</c>, <c>_stash_out &lt;stash slot&gt;</c>: the locker.</item>
 /// <item><c>tf2_descent_town_descend &lt;depth&gt;</c>: the depth picker.</item>
+/// <item><c>tf2_descent_town_reclaim</c>: the Lost &amp; Found (no window: anywhere in town).</item>
+/// <item><c>tf2_descent_town_close &lt;screen&gt;</c>: the client closed that window (Esc, its x): the session ends.</item>
 /// </list>
 /// </summary>
 [SideService(Side.Server)]
@@ -31,7 +33,8 @@ public sealed class TownCommands(TownService town, IEngineEntities entities) : I
     public const string Prefix = "tf2_descent_town_";
     public const string Buy = Prefix + "buy", Sell = Prefix + "sell", BuyBack = Prefix + "buyback", Identify = Prefix + "identify",
                         Repair = Prefix + "repair", RepairAll = Prefix + "repair_all", Craft = Prefix + "craft", Crate = Prefix + "crate",
-                        StashIn = Prefix + "stash_in", StashOut = Prefix + "stash_out", Descend = Prefix + "descend";
+                        StashIn = Prefix + "stash_in", StashOut = Prefix + "stash_out", Descend = Prefix + "descend",
+                        Reclaim = Prefix + "reclaim", Close = Prefix + "close";
 
     /// <summary>In TF2 Descent's town block, after the town (First + 1215).</summary>
     public int HookOrder => ModStages.First + 1220;
@@ -76,6 +79,12 @@ public sealed class TownCommands(TownService town, IEngineEntities entities) : I
                 return true;
             case Descend when Int(first) is int depth:
                 town.Descend(index, depth);
+                return true;
+            case Reclaim:
+                _ = town.Reclaim(index);
+                return true;
+            case Close when first.Length > 0:
+                town.ClosedOnClient(index, first);
                 return true;
             default:
                 return false;

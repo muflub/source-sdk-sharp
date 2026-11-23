@@ -699,4 +699,47 @@ public sealed class TFTeamsTests
 
         Assert.True(say.CanHear(Listener, Talker, teamOnly: true), "the two red players hear each other");
     }
+
+    // ---- TFServerPlayerTeam's team read ------------------------------------------
+
+    /// <summary>A roster answering red only for the slot's serial handle, recording what it was asked with.</summary>
+    private sealed class SerialTeam(EntityHandle serialHandle) : ITeams
+    {
+        /// <summary>The packed handle of the last <see cref="Team"/> ask.</summary>
+        public uint Seen { get; private set; }
+
+        public int Team(EntityHandle player)
+        {
+            Seen = player.Value;
+            return player == serialHandle ? (int)TFTeam.Red : -1;
+        }
+
+        public IReadOnlyList<EntityHandle> Players(int team) => [];
+        public int Count(int team) => 0;
+        public JoinTeamResult Join(EntityHandle player, int requested) => JoinTeamResult.Playing;
+        public EntityHandle SelectSpawn(EntityHandle player) => EntityHandle.None;
+    }
+
+    /// <summary>
+    /// The roster's team answer (<see cref="TFServerPlayerTeam"/>) reads the
+    /// slot through its REAL handle, serial and all: after a changelevel the
+    /// slot's handle carries one (0x00010003 for slot 3) and a bare index
+    /// crosses the engine's handle table as another slot, so the team read
+    /// would land on someone else — here, on nobody, the Unassigned.
+    /// </summary>
+    [Fact]
+    public void TheTeamsReadOfASlotCarriesItsSerialHandle()
+    {
+        var serial = new EntityHandle(0x0001_0000u | 3);
+        var engine = new RecordingEngine();
+        engine.Returns("Players.GetHandle", serial);
+
+        var teams = new SerialTeam(serial);
+
+        // A bare index answers nobody: the red only comes through with the serial.
+        Assert.Equal(TFTeam.Red, new TFServerPlayerTeam(teams, engine).Of(3));
+
+        // The ask itself carried the slot's REAL handle, serial and all.
+        Assert.Equal(0x0001_0003u, teams.Seen);
+    }
 }

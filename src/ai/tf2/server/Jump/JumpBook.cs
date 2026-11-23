@@ -41,6 +41,19 @@ public interface IJumpAdvisor
     void LinkRefused(int slot, Tick tick, AiVector goal, JumpLinkRefusal why)
     {
     }
+
+    /// <summary>
+    /// The level's links that are the quicker way to a heal place by their landing (lane G9b, <see cref="JumpPlan.JumpWays"/>),
+    /// as the plans the program flies: what a bot looks through for a jump to a pack near it. None by default.
+    /// </summary>
+    IReadOnlyList<JumpPlan> HealLinks => [];
+
+    /// <summary>
+    /// Whether a bot standing at <paramref name="landing"/> is within a walk of the heal place at <paramref name="place"/>
+    /// (lane G9b): a jump that came down by its place, or one that fizzled, was called off or fell short of it. Null when the
+    /// level's places are not known. Null by default.
+    /// </summary>
+    bool? LandedBy(AiVector landing, AiVector place) => null;
 }
 
 /// <summary>Why the tree did not begin the link its bot stands at the start of (the first of its rule's parts that failed).</summary>
@@ -119,8 +132,13 @@ public sealed record JumpBookSettings
     public int Asks { get; init; } = 4;
 }
 
-/// <summary>What the book has done, for the counters.</summary>
-public readonly record struct JumpBookCounts(long Advised, long Asked, long Dropped, long Planned, long Refused, int Plans, int Waiting);
+/// <summary>
+/// What the book has done, for the counters: <paramref name="Calls"/> every <see cref="JumpBook.Advise"/> (lane G9b), of which
+/// <paramref name="Advised"/> answered a plan, <paramref name="Asked"/> queued the stretch, <paramref name="Dropped"/> found the
+/// queue full and <paramref name="Covered"/> found it waiting, under way or answered none that still stands (the rest wait for
+/// a plan ahead).
+/// </summary>
+public readonly record struct JumpBookCounts(long Advised, long Asked, long Dropped, long Planned, long Refused, int Plans, int Waiting, long Calls = 0, long Covered = 0);
 
 /// <summary>
 /// The jumps known on a level (plan_bots_teams_tf2_part_g G.5 step 6): the plans a planner has
@@ -146,7 +164,7 @@ public sealed class JumpBook(JumpBookSettings settings) : IJumpAdvisor
     private readonly long[] _refusals = new long[Enum.GetValues<JumpRefusal>().Length];
     private JumpStretchAsk? _working;
     private int _nextId = 1, _generation;
-    private long _advised, _asked, _dropped, _planned;
+    private long _advised, _asked, _dropped, _planned, _calls, _covered;
 
     public JumpBookSettings Settings => settings;
 
@@ -158,6 +176,7 @@ public sealed class JumpBook(JumpBookSettings settings) : IJumpAdvisor
         bool queued = false;
         lock (_gate)
         {
+            _calls++;
             bool wait = false;
             foreach (JumpPlan plan in _plans)
             {
@@ -176,7 +195,9 @@ public sealed class JumpBook(JumpBookSettings settings) : IJumpAdvisor
                 wait |= -along <= Latest(plan) && along <= settings.WaitFor;
             }
 
-            if (!wait && !Covered(ask))
+            bool covered = !wait && Covered(ask);
+            _covered += covered ? 1 : 0;
+            if (!wait && !covered)
             {
                 if (_asks.Count >= settings.Asks)
                 {
@@ -288,7 +309,7 @@ public sealed class JumpBook(JumpBookSettings settings) : IJumpAdvisor
 
             if (_plans.Count >= settings.Plans)
                 _plans.RemoveAt(0);
-            JumpPlan kept = plan with { Id = _nextId++ };
+            JumpPlan kept = plan with { Id = _nextId++, Heals = _heals is { } heals ? heals.Near(new AiVector(plan.Touch.X, plan.Touch.Y, plan.Touch.Z)) : [] };
             // A plan's number stays under the links' (NavLinks.ArgumentBase), so a one-shot names one or the other.
             if (_nextId >= NavLinks.ArgumentBase)
                 _nextId = 1;
@@ -310,14 +331,61 @@ public sealed class JumpBook(JumpBookSettings settings) : IJumpAdvisor
             _working = null;
             _links = null;
             _linkPlans = null;
+            _healLinks = [];
+            _heals = null;
             Array.Clear(_routes);
         }
+    }
+
+    private JumpHeals? _heals;
+
+    /// <summary>
+    /// The level's heal places (lane G9), or null: a stretch's plan answered after they are set carries those near its touch
+    /// (<see cref="JumpPlan.Heals"/>). Set when the level's links' task has them; another level clears them.
+    /// </summary>
+    public JumpHeals? Heals
+    {
+        get
+        {
+            lock (_gate)
+                return _heals;
+        }
+
+        set
+        {
+            lock (_gate)
+                _heals = value;
+        }
+    }
+
+    public bool? LandedBy(AiVector landing, AiVector place)
+    {
+        JumpHeals? heals = Heals;
+        if (heals is null)
+            return null;
+        foreach (JumpHeal h in heals.Near(landing))
+        {
+            if (h.At.DistanceTo(place) <= 1f)
+                return true;
+        }
+
+        return false;
     }
 
     // ------------------------------------------------------------------ the level's links (lane G5c-2b)
 
     private NavLinks? _links;
     private JumpPlan[]? _linkPlans;
+    private JumpPlan[] _healLinks = [];
+
+    public IReadOnlyList<JumpPlan> HealLinks
+    {
+        get
+        {
+            lock (_gate)
+                return _healLinks;
+        }
+    }
     private readonly RouteReports[] _routes = new RouteReports[RouteSlots];
     private readonly AiVector?[] _errands = new AiVector?[RouteSlots];
     private long _routeNotes, _routeAdvised;
@@ -337,6 +405,7 @@ public sealed class JumpBook(JumpBookSettings settings) : IJumpAdvisor
         {
             _links = links;
             _linkPlans = links is null ? null : [.. plans!];
+            _healLinks = _linkPlans is null ? [] : [.. _linkPlans.Where(static p => !p.JumpWays.IsEmpty)];
         }
     }
 
@@ -494,7 +563,7 @@ public sealed class JumpBook(JumpBookSettings settings) : IJumpAdvisor
         get
         {
             lock (_gate)
-                return new JumpBookCounts(_advised, _asked, _dropped, _planned, _refusals.Sum(), _plans.Count, _asks.Count + (_working is null ? 0 : 1));
+                return new JumpBookCounts(_advised, _asked, _dropped, _planned, _refusals.Sum(), _plans.Count, _asks.Count + (_working is null ? 0 : 1), _calls, _covered);
         }
     }
 

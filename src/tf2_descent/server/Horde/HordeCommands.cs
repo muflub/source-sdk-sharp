@@ -93,7 +93,7 @@ public static class HordeLines
 
         var p = roster.Position(i);
         var line = FormattableString.Invariant(
-            $"robot {i} {roster.Id(i)} {roster.Template(i)} scale {roster.Scale(i):0.000} level {roster.MonsterLevel(i)} {roster.State(i)} room {roster.Room(i)} at ({p.X:0.0},{p.Y:0.0},{p.Z:0.0}) yaw {roster.Yaw(i):0} life {roster.Life(i):0.###} of {roster.Stats(i).Life:0.###} champion {roster.IsChampion(i)} body {roster.Body(i)}");
+            $"robot {i} {roster.Id(i)} {roster.Template(i)} scale {roster.Scale(i):0.000} level {roster.MonsterLevel(i)} {roster.State(i)} room {roster.Room(i)} at ({p.X:0.0},{p.Y:0.0},{p.Z:0.0}) yaw {roster.Yaw(i):0} post ({roster.Post(i).X:0},{roster.Post(i).Y:0},{roster.Post(i).Z:0}) yaw {roster.PostYaw(i):0} life {roster.Life(i):0.###} of {roster.Stats(i).Life:0.###} champion {roster.IsChampion(i)} body {roster.Body(i)}");
         int b = roster.Body(i);
         if (b == 0)
             return line;
@@ -203,11 +203,11 @@ public sealed class HordeTimeCommand(HordeTickTimer timer, HordeService horde, I
 /// medic and its patient).
 /// </summary>
 [ConCommand("tf2_descent_spawn_robot", Flags = ConVarFlags.Cheat,
-            Help = "tf2_descent_spawn_robot <template> [scale] [affix] [join]: put a robot on the roster at the crosshair and lend it a body; scale 0 rolls it; an affix makes it a champion (- for none); join 1 puts it in the newest pack (the last robot spawned's)")]
+            Help = "tf2_descent_spawn_robot <template> [scale] [affix] [join] [player slot]: put a robot on the roster at the crosshair (of the player in the slot, else of who typed it) and lend it a body; scale 0 rolls it; an affix makes it a champion (- for none); join 1 puts it in the newest pack (the last robot spawned's)")]
 public sealed class SpawnRobotCommand(HordeService horde, IHordeClock clock, IEnginePlayers players, IEngineEntities entities,
                                       IEngineWorldQuery world, ILog log)
 {
-    public void Execute(string template, float scale = 0f, string affix = "", int join = 0)
+    public void Execute(string template, float scale = 0f, string affix = "", int join = 0, int slot = 0)
     {
         if (horde.Current is not { Begun: true } c)
         {
@@ -215,7 +215,7 @@ public sealed class SpawnRobotCommand(HordeService horde, IHordeClock clock, IEn
             return;
         }
 
-        var who = DevContext.WhoTyped(players);
+        var who = HordeDev.Aimer(players, slot);
         if (who == EntityHandle.None)
         {
             log.Msg("[TF2Descent/Horde] spawn_robot: no player to aim\n");
@@ -238,4 +238,15 @@ public sealed class SpawnRobotCommand(HordeService horde, IHordeClock clock, IEn
             ? $"[TF2Descent/Horde] spawn_robot: {id}: {why}; {HordeLines.Robot(c, id.Index)}\n"
             : $"[TF2Descent/Horde] spawn_robot: {why}\n");
     }
+}
+
+/// <summary>What the horde's dev commands share.</summary>
+public static class HordeDev
+{
+    /// <summary>
+    /// Whose crosshair a dev command aims by: the player in <paramref name="slot"/> when one is named
+    /// (an admin menu's choice acts for a chosen player), else who typed it, else the sole player.
+    /// </summary>
+    public static EntityHandle Aimer(IEnginePlayers players, int slot) =>
+        slot > 0 ? players.GetHandle(slot) : DevContext.WhoTyped(players);
 }

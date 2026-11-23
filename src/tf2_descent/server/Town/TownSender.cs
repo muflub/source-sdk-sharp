@@ -111,5 +111,12 @@ public sealed class TownSender(IUserMessageSender sender, OwnerItemViews views, 
             Item = item,
         }, player);
 
+    /// <summary>
+    /// A verb's answer as a HUD notice, for a hero with no window open (the Lost &amp; Found needs
+    /// none): a status line draws only inside a town window.
+    /// </summary>
+    public void Notice(int player, string token, string arg) =>
+        sender.Send(new Shared.Notice { Text = Cut(token, Shared.Notice.MaxText), Arg = Cut(arg, Shared.Notice.MaxArg) }, player);
+
     private static string Cut(string text, int max) => text.Length <= max ? text : text[..max];
 }

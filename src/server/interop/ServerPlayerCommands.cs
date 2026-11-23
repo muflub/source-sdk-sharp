@@ -416,6 +416,16 @@ public sealed class ServerPlayerCommands
 
         // ProcessImpacts, after FinishMove as stock's RunCommand orders them.
         Impacts?.ProcessImpacts(player);
+
+        // The end-of-command ask, here rather than inside the loop: asked after
+        // this command's publish, the engine's ground words carry THIS command's
+        // move, as stock's TFPlayerThink (tf_player.cpp:1441-1483, called after
+        // PhysicsSimulate's commands at :978/:1775) reads OnGround after the
+        // move handed its flags over. The enemy-blast latch's drop lives here
+        // too (tf_gamemovement.cpp:334-336), GAME_DLL-only as stock. Asked any
+        // earlier, the blast jump of a grounded blast clears on the first
+        // airborne command end instead of the landing.
+        Rules.EndCommand(s.EntIndex);
         return true;
     }
 

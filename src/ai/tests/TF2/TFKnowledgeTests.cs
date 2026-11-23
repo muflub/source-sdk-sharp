@@ -1,4 +1,5 @@
 using SourceSharp.Ai.TF2.Knowledge;
+using SourceSharp.Ai.TF2.Trees;
 using TFThingType = SourceSharp.Ai.TF2.Senses.TFThingType;
 using SourceSharp.Shared;
 using TF2.Server.Buildings;
@@ -131,6 +132,11 @@ public sealed class TFKnowledgeTests
     [Fact]
     public void ASentrysRangeIsTheModsSentryGuns() => Assert.Equal(TFSentryGun.SentryMaxRange, TFKnowledge.SentryRange);
 
+    /// <summary>A sticky leaves at the launcher's least charge's speed, 900 u/s (the Demoman research: it read 0, so no sticky was ever led).</summary>
+    [Fact]
+    public void AStickyLeavesAtTheLaunchersLeastChargesSpeed()
+        => Assert.Equal(TFProjectileDefs.StickyMinChargeSpeed, TFKnowledge.StockSpeed(TFProjectile.PipebombRemote));
+
     [Fact]
     public void TheRocketJumpIsAProgramWithCommandsForItsApproachAndAFlight()
     {
@@ -145,7 +151,8 @@ public sealed class TFKnowledgeTests
     [Fact]
     public void EveryBuildingCommandRowIsTheModsBuildOrDestroyOrder()
     {
-        AbilityRow[] commands = [.. TFAbilities.Table().Rows.Where(r => r.Run == AbilityRun.Command && !r.Name.StartsWith("voice_", StringComparison.Ordinal))];
+        AbilityRow[] commands = [.. TFAbilities.Table().Rows.Where(r => r.Run == AbilityRun.Command && r.Name != TFClassSpecs.Unused
+                                                                       && !r.Name.StartsWith("voice_", StringComparison.Ordinal))];
         Assert.Equal(8, commands.Length);
         Assert.All(commands, r => Assert.Contains(r.Command.Split(' ')[0], new[] { TFBuildCommand.Verb, TFDestroyCommand.Verb }));
         Assert.Contains(commands, r => r.Command == "build 2 0");

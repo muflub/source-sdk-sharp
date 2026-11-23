@@ -18,7 +18,9 @@ namespace TF2.Descent.Ai.Embodiment;
 /// <item><b>Never in view.</b> A body is taken only at a point no hero can see, and given up
 /// (demoted, or taken under pressure) only when no hero can see it.</item>
 /// <item><b>Claimants</b> are far robots (and a waking room's sleepers) within the wake distance
-/// of a hero, ranked: same room as a hero, then a pack alerted to a hero, then nearer by
+/// of a hero, and a far robot queued at a door a hero sees through at any distance (it can go no
+/// further bodiless; live on level 5's maze a hero's PVS reached past the wake distance and a
+/// queued pack waited out its alert there), ranked: same room as a hero, then a pack alerted to a hero, then nearer by
 /// room-graph distance; at the same rung and distance a champion first, then the lower row.</item>
 /// <item><b>Demotion.</b> No hero within the wake distance and none in sight for
 /// <see cref="HordeSettings.DemoteDelaySeconds"/>. Under pressure, a claimant with no free body
@@ -148,7 +150,9 @@ public sealed class EmbodimentRules
             var state = roster.StateAt(i);
             int room = roster.RoomRef(i);
             bool waking = state == RobotState.Asleep && !roster.RoomAwake(room) && _heroDistance[room] <= wake;
-            if (!(state == RobotState.Far || waking) || _heroDistance[room] > wake) continue;
+            // Queued at a door a hero sees through: it can go no further bodiless, so it takes its body where it stands, however far.
+            bool queued = state == RobotState.Far && roster.Activity(i) == FarActivity.Queue;
+            if (!(state == RobotState.Far || waking) || (_heroDistance[room] > wake && !queued)) continue;
             if (roster.BossAt(i))
             {
                 int bossBody = pool.BossBody;

@@ -85,6 +85,7 @@ public class DescentHudTopTests
         public float RoomH(int room) => 0f;
         public int RoomStorey(int room) => 0;
         public bool RoomCurrentStorey(int room) => false;
+        public bool RoomDiscovered(int room) => false;
         public int DoorStubCount => 0;
         public float DoorStubX(int i) => 0f;
         public float DoorStubY(int i) => 0f;

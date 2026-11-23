@@ -145,6 +145,16 @@ public sealed class EntityMotion
         /// PhysicsCheckSweep makes without CONTENTS_MONSTER. See <see cref="PassCharacters"/>.
         /// </summary>
         public bool PassCharacters;
+
+        /// <summary>Seconds this mover has been integrated since its launch — the
+        /// flight's own clock, for a grace whose length is in seconds rather than
+        /// frames. A <c>KeepFlying</c> re-launch carries on counting, because a
+        /// continued flight is the same flight. See <see cref="SecondsSinceLaunch"/>.</summary>
+        public float Age;
+
+        /// <summary>The one entity this flyer is flying past: struck once and
+        /// left out of every step whose sweep still meets it. See <see cref="FlyPast"/>.</summary>
+        public EntityHandle Passing;
     }
 
     private readonly Dictionary<EntityHandle, Mover> _movers = new();
@@ -229,6 +239,22 @@ public sealed class EntityMotion
     /// <summary>Whether a flyer passes through players. See <see cref="PassCharacters"/>.</summary>
     public bool PassesCharacters(EntityHandle entity)
         => _movers.TryGetValue(entity, out var mover) && mover.PassCharacters;
+
+    /// <summary>
+    /// Flies a flyer past the one entity it struck, and only that one: stock's
+    /// TF shot whose sweep leaves its own team's contents bit out
+    /// (<c>CTFBaseRocket::PhysicsSolidMaskForEntity</c>) while everyone else still
+    /// stops it. Each step whose sweep meets <paramref name="struck"/> is traced
+    /// again against brushes alone; the first step whose sweep no longer meets it
+    /// ends the pass, so the next body in the way is struck as usual. Unlike
+    /// <see cref="PassCharacters"/>, which leaves out every player until it is
+    /// turned off. Nothing for an entity that is not flying.
+    /// </summary>
+    public void FlyPast(EntityHandle entity, EntityHandle struck)
+    {
+        if (_movers.TryGetValue(entity, out var mover))
+            mover.Passing = struck;
+    }
 
     /// <summary>
     /// Velocity applied and nothing asked about what is there — stock's
@@ -322,6 +348,12 @@ public sealed class EntityMotion
     /// </summary>
     public Vector IncomingVelocityOf(EntityHandle entity)
         => _movers.TryGetValue(entity, out var mover) ? mover.Incoming : Vector.Zero;
+
+    /// <summary>Seconds this entity's flight has been integrating: what a grace
+    /// period measured in seconds (stock's <c>GetCollideWithTeammatesDelay</c>)
+    /// asks for. Zero for something not flying.</summary>
+    public float SecondsSinceLaunch(EntityHandle entity)
+        => _movers.TryGetValue(entity, out var mover) ? mover.Age : 0f;
 
     /// <summary>How many bounces an entity has left.</summary>
     public int BouncesLeftOf(EntityHandle entity)
@@ -451,6 +483,8 @@ public sealed class EntityMotion
             return;
         }
 
+        mover.Age += frameTime;
+
         var input = new FlightInput(frameTime, gravity, mover.GravityScale,
                                     _entities.GetOrigin(handle), mover.Velocity,
                                     mover.BouncesLeft);
@@ -478,9 +512,18 @@ public sealed class EntityMotion
             trace = new TraceResult(false, 1f, step.Destination, Vector.Zero, EntityHandle.None);
 
         // A flyer made not solid sweeps without CONTENTS_MONSTER, so a player
-        // in its way is flown through and the world still stops it.
-        if (mover.PassCharacters && trace.Entity != EntityHandle.None && _entities.IsPlayer(trace.Entity))
-            trace = new TraceResult(false, 1f, step.Destination, Vector.Zero, EntityHandle.None);
+        // in its way is flown through — AND THE WORLD STILL STOPS IT. Stock's
+        // sweep is a MASK change, not a cleared trace: the step carries on to
+        // whatever brush stands past the player. Asking the step again with the
+        // brush-only mask is how this side says that, there being no per-entity
+        // filter on the ABI's trace. Clearing the step instead (which is what
+        // stood here) flew the flyer through the world as well: a passed player
+        // standing on the floor let the projectile fall straight through it.
+        bool flyingPast = trace.Entity != EntityHandle.None && trace.Entity == mover.Passing;
+        if (!flyingPast)
+            mover.Passing = EntityHandle.None;
+        if (flyingPast || (mover.PassCharacters && trace.Entity != EntityHandle.None && _entities.IsPlayer(trace.Entity)))
+            trace = WorldOnly(handle, mover, input, step);
 
         FlightResult result = MoveMath.ResolveFlight(input, step, trace.Fraction,
                                                      trace.End, trace.Normal);
@@ -536,6 +579,24 @@ public sealed class EntityMotion
         _movers[entity] = mover;
         _order.Add(entity);
         return mover;
+    }
+
+    /// <summary>
+    /// The step traced again against the world alone: what a flyer's sweep sees
+    /// once a character it flies through is left out of it. Stock gets this from
+    /// its mask — <c>PhysicsCheckSweep</c> dropping <c>CONTENTS_MONSTER</c>, or
+    /// <c>CTFBaseRocket::PhysicsSolidMaskForEntity</c> leaving the other team's
+    /// <c>CONTENTS_*TEAM</c> bit out — so the sweep carries on PAST the player
+    /// and a wall behind them still stops the shot. This ENGINE's trace has no
+    /// per-entity filter, so the same answer comes from tracing the step with
+    /// the brush-only mask, which finds that wall.
+    /// </summary>
+    private TraceResult WorldOnly(EntityHandle handle, Mover mover, in FlightInput input, in FlightStep step)
+    {
+        Vector hull = mover.Hull;
+        return hull.X != 0f || hull.Y != 0f || hull.Z != 0f
+            ? Swept(_world.TraceBox(input.Origin, step.Destination, hull * -1f, hull, TraceMask.Brushes, handle))
+            : _world.TraceLine(input.Origin, step.Destination, TraceMask.Brushes, handle);
     }
 
     /// <summary>

@@ -19,7 +19,8 @@ public sealed class SnapshotBuilderTests
 
     private static readonly VisionParams Eyes = new(6000f, 90f, 0.3f, 0.5f);
 
-    private static (PerceivedView View, ActorId Seen, ActorId Hidden) Build(bool selfReloading = false, float eye = 64f, bool ducked = false, bool teams = false)
+    private static (PerceivedView View, ActorId Seen, ActorId Hidden) Build(bool selfReloading = false, float eye = 64f, bool ducked = false, bool teams = false,
+                                                                            float seenYaw = 0f)
     {
         var w = new SenseWorld();
         SenseWorld.Player bot = w.Add(1, new AiVector(0, 0, 0));
@@ -27,6 +28,7 @@ public sealed class SnapshotBuilderTests
         seen.Weapon = "weapon_shotgun";
         seen.EyeHeight = eye;
         seen.Ducked = ducked;
+        seen.Angles = new AiVector(10f, seenYaw, 0f);
         SenseWorld.Player hidden = w.Add(3, new AiVector(500, 600, 0));
         w.Occluder(new AiVector(250, 100, -10), new AiVector(266, 2000, 300), SenseWorld.Solid);
         var pass = new VisionPass(w.Engine(), w.Entities(), w.Traces());
@@ -56,6 +58,17 @@ public sealed class SnapshotBuilderTests
         Assert.Equal(WeaponCatalog.Stock().IndexOf("weapon_shotgun"), f.WeaponSeen);
         Assert.Equal(ActorActivity.Reloading, f.Activity);
         Assert.Equal(1f, f.VisibleFraction);
+    }
+
+    /// <summary>Where a sighted player looks is in the view, as every client draws his head and aim (P7): facing the bot, yaw 180; facing away, 0.</summary>
+    [Fact]
+    public void TheViewHoldsWhereTheSeenOpponentLooks()
+    {
+        (PerceivedView toward, ActorId seen, _) = Build(seenYaw: 180f);
+        (PerceivedView away, ActorId same, _) = Build(seenYaw: 0f);
+        Assert.True(toward.TryActor(seen, out ActorFacts a));
+        Assert.True(away.TryActor(same, out ActorFacts b));
+        Assert.Equal((new AiAngles(10f, 180f, 0f), new AiAngles(10f, 0f, 0f)), (a.Facing, b.Facing));
     }
 
     /// <summary>A crouched body is one a client can see: the flag its animation turns on says so (§4.3).</summary>

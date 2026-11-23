@@ -227,7 +227,8 @@ public class CreateServerTests
             }
             """);
         var lines = new RecordingCommandLine();
-        var source = new ServerSettingsSource(files, new MemoryConVarStore().With("hostname", "SourceSharp"), lines);
+        var source = new ServerSettingsSource(files, new MemoryConVarStore().With("hostname", "SourceSharp"), lines,
+                                              new OptionsScriptTests.Names("hostname", "maxplayers"));
         var entries = source.Load();
         Assert.Equal(["hostname", "maxplayers"], entries.Select(e => e.Name));
         Assert.Equal("Team Fortress 2", entries[0].Value);   // the script's, not the convar's, as stock's page

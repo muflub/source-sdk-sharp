@@ -96,6 +96,19 @@ public partial class HeroNetState
     [NetField(Bits = 4)] public partial byte Hazard { get; set; }
 
     /// <summary>
+    /// How far the hero's lamp reaches, in whole units: his lamp range stat over lamp.json's radius
+    /// (<c>HeroStats.LampRadius</c>). What he has equipped is seen by all (L11), so every client
+    /// draws his lamp this long. 0 before the server writes it: lamp.json's radius.
+    /// </summary>
+    [NetField(Bits = 13)] public partial ushort LampRadius { get; set; }
+
+    /// <summary>
+    /// How bright the hero's lamp is, in percent of lamp.json's light (<c>HeroStats.LampBrightness</c>;
+    /// 100 is the light as lamp.json gives it). 0 before the server writes it: 100.
+    /// </summary>
+    [NetField(Bits = 9)] public partial ushort LampBrightness { get; set; }
+
+    /// <summary>
     /// The wire's rounding: a value as the whole number a HUD shows, rounded
     /// down and held inside 0..65535. A NaN is 0.
     /// </summary>

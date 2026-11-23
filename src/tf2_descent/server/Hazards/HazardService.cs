@@ -9,6 +9,7 @@ using TF2.Descent.Rules;
 using TF2.Descent.Rules.World;
 using TF2.Descent.Server.Hero;
 using TF2.Descent.Server.Horde;
+using TF2.Descent.Server.Horde.Boss;
 using TF2.Descent.Server.Level;
 using TF2.Descent.Server.Mode;
 using TF2.Server.Combat;
@@ -19,10 +20,12 @@ namespace TF2.Descent.Server.Hazards;
 
 /// <summary>
 /// A hazard volume: a box of one kind (hazards.json's id) in level coordinates. <see cref="Source"/>
-/// says where it came from: <c>map</c> (a brush entity named <c>tf2_descent_hazard_&lt;kind&gt;</c>)
-/// or <c>dev</c> (<c>tf2_descent_hazard</c>).
+/// says where it came from: <c>map</c> (a brush entity named <c>tf2_descent_hazard_&lt;kind&gt;</c>,
+/// or a boss arena's staged <c>descent_boss_hazard_&lt;phase&gt;_&lt;kind&gt;</c>) or <c>dev</c>
+/// (<c>tf2_descent_hazard</c>). <see cref="Phase"/> is the boss's phase (1-based) a staged volume
+/// waits for, off until the fight enters it; 0 for a volume that is always on.
 /// </summary>
-public sealed record HazardVolume(int Id, string Kind, Vector Min, Vector Max, string Source)
+public sealed record HazardVolume(int Id, string Kind, Vector Min, Vector Max, string Source, int Phase = 0)
 {
     /// <summary>Whether <paramref name="feet"/> stand inside the box (faces included).</summary>
     public bool Holds(Vector feet) =>
@@ -43,6 +46,12 @@ public interface IHazardWorld
 
     /// <summary>The level's own hazard volumes of the named kinds: its brush entities named <c>tf2_descent_hazard_&lt;kind&gt;</c>.</summary>
     IReadOnlyList<(string Kind, Vector Min, Vector Max)> MapVolumes(IReadOnlyList<string> kinds);
+
+    /// <summary>
+    /// A boss arena's staged volumes of the named kinds, phases 2 to <paramref name="lastPhase"/>: its
+    /// brush entities named <c>descent_boss_hazard_&lt;phase&gt;_&lt;kind&gt;</c> (the ARNA contract).
+    /// </summary>
+    IReadOnlyList<(int Phase, string Kind, Vector Min, Vector Max)> StagedVolumes(IReadOnlyList<string> kinds, int lastPhase);
 
     bool IsAlive(EntityHandle player);
 
@@ -81,6 +90,25 @@ public sealed class EngineHazardWorld(IHordeClock clock, ILevelData level, IEngi
                 var origin = entities.GetOrigin(e);
                 var (mins, maxs) = entities.GetBounds(e);
                 found.Add((kind, origin + mins, origin + maxs));
+            }
+        }
+
+        return found;
+    }
+
+    public IReadOnlyList<(int Phase, string Kind, Vector Min, Vector Max)> StagedVolumes(IReadOnlyList<string> kinds, int lastPhase)
+    {
+        var found = new List<(int, string, Vector, Vector)>();
+        for (int phase = 2; phase <= lastPhase; phase++)
+        {
+            foreach (string kind in kinds)
+            {
+                foreach (var e in entities.FindAllByName(ArenaStage.HazardName(phase, kind)))
+                {
+                    var origin = entities.GetOrigin(e);
+                    var (mins, maxs) = entities.GetBounds(e);
+                    found.Add((phase, kind, origin + mins, origin + maxs));
+                }
             }
         }
 
@@ -134,12 +162,14 @@ public interface IHazardBiteListener
 /// takes his resistance to it (a world hit takes no armour: <c>HeroDamage</c>'s rule); a downed
 /// hero takes none, as the downed rules say. Robot bodies stand in it too: a kind that hurts robots
 /// bites them by the same cadence through their own damage rules. The hazard a hero stands in is on
-/// his networked state (<see cref="Shared.HeroNetState.Hazard"/>), for his HUD. A level's end
-/// forgets every volume and every bite.
+/// his networked state (<see cref="Shared.HeroNetState.Hazard"/>), for his HUD. A boss arena's
+/// staged volumes (<c>descent_boss_hazard_&lt;phase&gt;_&lt;kind&gt;</c>, the ARNA contract) are off
+/// until the fight enters their phase (<see cref="IArenaPhase"/>, the arena stage's), then on like
+/// any other. A level's end forgets every volume and every bite.
 /// </summary>
 [SideService(Side.Server)]
 public sealed class HazardService(IDescentModeState mode, Heroes heroes, TF2DescentRules rules, IHazardWorld world,
-                                  IHooks<IHazardBiteListener> listeners, ILog log)
+                                  IHooks<IHazardBiteListener> listeners, IArenaPhase stage, ILog log)
     : IGameLifecycle, IFrameLifecycle
 {
     /// <summary>TF2 Descent's lamp and hazard block, after the lamp.</summary>
@@ -168,15 +198,26 @@ public sealed class HazardService(IDescentModeState mode, Heroes heroes, TF2Desc
 
     private HazardSettings S => rules.Content.Hazards;
 
+    /// <summary>The most phases a boss has (bosses.json): the last phase a staged volume can wait for.</summary>
+    private int LastPhase => rules.Content.Bosses.Bosses.Max(b => b.Phases.Count);
+
     public void OnLevelReady(string mapName)
     {
         Forget();
         if (!mode.Active)
             return;
-        foreach (var (kind, min, max) in world.MapVolumes([.. S.Kinds.Select(k => k.Id)]))
+        string[] kinds = [.. S.Kinds.Select(k => k.Id)];
+        foreach (var (kind, min, max) in world.MapVolumes(kinds))
             _volumes.Add(new HazardVolume(_nextId++, kind, min, max, "map"));
+        int staged = 0;
+        foreach (var (phase, kind, min, max) in world.StagedVolumes(kinds, LastPhase))
+        {
+            _volumes.Add(new HazardVolume(_nextId++, kind, min, max, "map", phase));
+            staged++;
+        }
+
         log.Msg(string.Create(CultureInfo.InvariantCulture,
-            $"[TF2Descent/Hazard] {mapName}: {_volumes.Count} hazard volume(s) [{string.Join(", ", _volumes.GroupBy(v => v.Kind).Select(g => g.Count() + " " + g.Key))}], depth {world.Depth}\n"));
+            $"[TF2Descent/Hazard] {mapName}: {_volumes.Count} hazard volume(s) [{string.Join(", ", _volumes.GroupBy(v => v.Kind).Select(g => g.Count() + " " + g.Key))}]{(staged > 0 ? $", {staged} staged for the boss's phases [{string.Join(", ", _volumes.Where(v => v.Phase > 0).Select(v => $"{v.Kind} phase {v.Phase}"))}]" : "")}, depth {world.Depth}\n"));
     }
 
     public void OnLevelShutdown() => Forget();
@@ -209,8 +250,11 @@ public sealed class HazardService(IDescentModeState mode, Heroes heroes, TF2Desc
     /// <summary>Every dev hazard gone; the map's stay. How many went.</summary>
     public int ClearDev() => _volumes.RemoveAll(v => v.Source == "dev");
 
-    /// <summary>The first volume holding <paramref name="feet"/>, or null.</summary>
-    public HazardVolume? At(Vector feet) => _volumes.FirstOrDefault(v => v.Holds(feet));
+    /// <summary>The first volume holding <paramref name="feet"/> that is on (<see cref="On"/>), or null.</summary>
+    public HazardVolume? At(Vector feet) => _volumes.FirstOrDefault(v => v.Holds(feet) && On(v));
+
+    /// <summary>Whether <paramref name="v"/> bites now: always, or once the boss fight has entered its staged phase.</summary>
+    public bool On(HazardVolume v) => v.Phase <= stage.Phase || v.Phase == 0;
 
     public void OnThink(float frameTime)
     {
@@ -245,7 +289,7 @@ public sealed class HazardService(IDescentModeState mode, Heroes heroes, TF2Desc
         _robotsNow.Clear();
         foreach (var volume in _volumes)
         {
-            if (S.Kind(volume.Kind) is not { Robots: true } kind)
+            if (S.Kind(volume.Kind) is not { Robots: true } kind || !On(volume))
                 continue;
             foreach (var robot in world.RobotsIn(volume.Min, volume.Max))
             {
@@ -294,7 +338,7 @@ public sealed class HazardService(IDescentModeState mode, Heroes heroes, TF2Desc
                 $"[TF2Descent/Hazard]   kind {k.Id}: {k.DamageType}, {HazardRules.PerSecond(k, world.Depth):0.##}/s = {HazardRules.Bite(S, k, world.Depth):0.##} a bite, robots {(k.Robots ? "hurt" : "untouched")}\n");
         foreach (var v in _volumes)
             sb.Append(CultureInfo.InvariantCulture,
-                $"[TF2Descent/Hazard]   #{v.Id} {v.Kind} ({v.Source}) ({v.Min.X:0} {v.Min.Y:0} {v.Min.Z:0}) to ({v.Max.X:0} {v.Max.Y:0} {v.Max.Z:0})\n");
+                $"[TF2Descent/Hazard]   #{v.Id} {v.Kind} ({v.Source}{(v.Phase > 0 ? $", staged for phase {v.Phase}: {(On(v) ? "on" : "off")}" : "")}) ({v.Min.X:0} {v.Min.Y:0} {v.Min.Z:0}) to ({v.Max.X:0} {v.Max.Y:0} {v.Max.Z:0})\n");
         foreach (var hero in heroes.All.OrderBy(h => h.PlayerIndex))
         {
             var feet = world.Feet(hero.Player);

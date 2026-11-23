@@ -47,7 +47,7 @@ public static class ActTwo
     public static PropModel LampPost { get; } = M("props_swamp/lamp_post001", -8.51f, -8.52f, -0.34f, 8.53f, 8.52f, 91.15f);
     public static PropModel HandPump { get; } = M("props_2fort/waterpump001", -45.82f, -10f, 0f, 18.09f, 10f, 96.25f);
     public static PropModel Grate { get; } = M("props_trainyard/drainage_grate01", -64.35f, -4f, -60.31f, 64.32f, 4f, 59.62f, solid: false, front: 90);
-    public static PropModel OpenDrum { get; } = M("props_swamp/oildrum_open", -16f, -16f, 0f, 16f, 16f, 55f);
+    public static PropModel OpenDrum { get; } = M("props_swamp/oildrum_open", -16f, -16f, 0f, 16f, 16f, 55f) with { Breakable = BreakableKind.Barrel };
     public static PropModel KarstLow { get; } = M("props_swamp/karst_rock_05", -89.13f, -87.77f, -0.82f, 91.95f, 162.28f, 50.23f);
     public static PropModel Karst { get; } = M("props_swamp/karst_rock_01", -128.42f, -45.91f, -1.48f, 118.34f, 94.05f, 112.95f);
     public static PropModel RowBoat { get; } = M("props_swamp/row_boat_ref", -104.88f, -42.06f, -15.02f, 112.57f, 42.06f, 17.42f);
@@ -105,21 +105,26 @@ public static class ActTwo
         {
             CapOverhang = 24,
             Sag = 12,
+            // Each Act II frame's floor of light is about one and a half times its level's walls' (brief p9:
+            // at Act I's 0.35 the arches glowed, three to eight times their walls at levels 7 to 9).
+            MinLight = 0.25f,
         },
         WallLow = new("nature/rockwall002_island", 0.25f),
         WallBand = 160,
         LargeWall = new("winter/rockwall014", 0.5f),
-        CoolFill = (new Lamp("150 166 200", 30, 448, 1280), 512),
-        Lamps = new LampKind(ActOne.Lantern, LampMount.Floor, new Lamp("255 186 120", 200, 192, 900), Spacing: 448, LightAt: new(0, 0, 40))
+        // Its lamps about a seventh over p9's (brief p11: level 6 read 28 in game for its 32; its fog moved the
+        // game's figure by under half a point, removed or lifted, so the lights carry it).
+        CoolFill = (new Lamp("150 166 200", 31, 448, 1280), 512),
+        Lamps = new LampKind(ActOne.Lantern, LampMount.Floor, new Lamp("255 186 120", 206, 192, 900), Spacing: 448, LightAt: new(0, 0, 40))
         {
             Stand = ActOne.PowderCrate,
             Pools = (2, 3),
         },
-        CoverLamps = new LampKind(ActOne.Lantern, LampMount.Wall, new Lamp("255 186 120", 150, 192, 900), Spacing: 320, LightAt: new(0, 0, 40))
+        CoverLamps = new LampKind(ActOne.Lantern, LampMount.Wall, new Lamp("255 186 120", 155, 192, 900), Spacing: 320, LightAt: new(0, 0, 40))
         {
             WallHeight = 128,
         },
-        Pendants = Pendant(WorkLight, new Lamp("206 214 230", 64, 384, 1280), new(0, -4, -24), hang: 448, grid: 640),
+        Pendants = Pendant(WorkLight, new Lamp("206 214 230", 67, 384, 1280), new(0, -4, -24), hang: 448, grid: 640),
         Props = new PropSet
         {
             Wall = [Planks, Boards, Barrier, ActOne.FuseBox],
@@ -135,7 +140,10 @@ public static class ActTwo
             // Timber sets along the drifts, about one in three fallen in (a post left, its cap gone).
             Sets = new SetFrame(Spacing: 320, Post: 16, Cap: 24) { Broken = 0.35f },
         },
-        Fog = new Fog("58 60 66", 384, 2304, 0.5f),
+        // Far rooms fade to dark, not to a flat grey panel in each doorway (brief p9, tried in game at
+        // 58 60 66 / 384-2304 / 0.5, 28 29 32 / 512-3072 / 0.5 and 20 21 24 / 768-4096 / 0.6): a fog near
+        // the darks of the level, starting later; it still closes in from level 4's.
+        Fog = new Fog("22 23 27", 640, 2400, 0.55f),
         ToneMap = new ToneMap(1f, 0.5f, 3f, 0.35f),
         Wetness = 0.45f,
         DynamicBudget = 8,
@@ -161,22 +169,28 @@ public static class ActTwo
             Fillet = 40,
             Flange = 24,
             FlangeDepth = 12,
+            MinLight = 0.11f,
         },
         WallLow = new("nature/cliffface002a", 0.25f),
         WallBand = 128,
         LargeWall = new("nature/blendrockgroundwallisland_interior02", 0.5f),
-        Water = "water/water_well",
+        // TF2's well water reflecting the cave, no cubemap needed (brief p9: the pools read as flat dark
+        // sheets over the black floor).
+        Water = "descent/dripstone_water",
+        Extra = [OwnMaterial.Water("descent/dripstone_water", "water/water_well", "water/water_well_beneath", "24 38 53", 80, "[.6 .66 .75]", 0.2f)],
         // Pools in the middle of the caves, not their whole floor (a cave floor is not a flood).
         Standing = new StandingWater(12, 160, CaveFamilies) { Inset = 224 },
-        CoolFill = (new Lamp("120 150 214", 22, 448, 1280), 512),
-        Lamps = new LampKind(CageLight, LampMount.Wall, new Lamp("186 210 255", 45, 192, 768), Spacing: 288, LightAt: new(12, 0, -5))
+        // One fill a cell, not one every 512 (160 lights a level).
+        CoolFill = (new Lamp("120 150 214", 42, 640, 1600), 1024),
+        // One row of bulbs, two thirds as many as the first pass's and brighter (brief p9: level 7 spent
+        // 764 to 816 map entities, 482 of them these bulbs' lights in rows every 640 up the tall walls).
+        Lamps = new LampKind(CageLight, LampMount.Wall, new Lamp("186 210 255", 48, 224, 900), Spacing: 448, LightAt: new(12, 0, -5))
         {
             WallHeight = 176,
-            RowPitch = 640,
         },
         // A caged bulb hung from the roof where the walls' string leaves a cave's middle dark.
-        CoverLamps = new LampKind(CageLight, LampMount.Ceiling, new Lamp("186 210 255", 52, 256, 900), Spacing: 288, LightAt: new(4, 0, -14)),
-        Pendants = Pendant(CageLight, new Lamp("186 210 255", 52, 384, 1280), new(4, 0, -14), hang: 448, grid: 640),
+        CoverLamps = new LampKind(CageLight, LampMount.Ceiling, new Lamp("186 210 255", 44, 256, 900), Spacing: 288, LightAt: new(4, 0, -14)),
+        Pendants = Pendant(CageLight, new Lamp("186 210 255", 44, 384, 1280), new(4, 0, -14), hang: 448, grid: 640),
         Props = new PropSet
         {
             Wall = [RockSpire, RockLow],
@@ -188,7 +202,7 @@ public static class ActTwo
             Hanging = [Stalactites, StalactitesSmall],
             HangingSpacing = 384,
         },
-        Fog = new Fog("36 44 58", 384, 2048, 0.55f),
+        Fog = new Fog("16 20 28", 576, 2240, 0.6f),
         ToneMap = new ToneMap(1f, 0.5f, 3f, 0.35f),
         Wetness = 0.55f,
     };
@@ -199,7 +213,9 @@ public static class ActTwo
     /// drain grates, a wrecked boat; dim green lamp posts and the water's own green; green fog.
     /// </summary>
     public static RoomTheme Sunken { get; } = new(
-        Floor: new("swamp/nature/blendswampmudtodirt001", 0.25f),
+        // Wet grey rock, the bottom the standing water and the lamp show (brief p9: the water over the mud
+        // read in game as a mud floor); a copy of nature/rockfloor003a without its $envmap.
+        Floor: new("descent/sunken_bed", 0.25f),
         Wall: new("nature/rockwall006a", 0.25f),
         Ceiling: new("nature/rockwall006a", 0.25f),
         Block: new("swamp/wood/swampwall015", 0.25f),
@@ -214,18 +230,29 @@ public static class ActTwo
             Flange = 24,
             FlangeDepth = 8,
             Crossing = new("swamp/metal/swampmetal001", 0.25f),
+            MinLight = 0.12f,
         },
         WallLow = new("swamp/concrete/swampcrete001", 0.25f),
         WallBand = 192,
         LargeWall = new("nature/rockwall006a", 0.5f),
-        Water = "swamp/water/water_murky",
+        // Murky green water that reflects the gallery (no cubemap needed) over a wet rock bed the lamp lights
+        // (brief p9: water_murky's brown fog over the mud read in game as a mud floor; tried in game with
+        // a gravel bed and no reflection, and with water_murky's own fog). Its fog near black and the
+        // reflection tinted down (brief p11: at fog 30 44 30 the water drew a lit teal sheet over half of
+        // every flooded view and level 8 read 35 in game for its 24), with its lamps a seventh under p9's.
+        Water = "descent/sunken_water",
+        Extra =
+        [
+            OwnMaterial.Water("descent/sunken_water", "swamp/water/water_murky", "swamp/water/water_murky_beneath", "10 15 10", 64, "[.5 .6 .5]"),
+            OwnMaterial.Plain("descent/sunken_bed", "nature/rockfloor003a", "Nature/rockfloor003a", "Nature/rockfloor003a_normal", "concrete"),
+        ],
         Standing = new StandingWater(16, 160, null),
-        CoolFill = (new Lamp("104 132 96", 17, 448, 1280), 512),
-        Lamps = new LampKind(LampPost, LampMount.Floor, new Lamp("190 214 140", 86, 192, 768), Spacing: 384, LightAt: new(0, 0, 74)),
+        CoolFill = (new Lamp("104 132 96", 15, 448, 1280), 512),
+        Lamps = new LampKind(LampPost, LampMount.Floor, new Lamp("190 214 140", 74, 192, 768), Spacing: 384, LightAt: new(0, 0, 74)),
         // A bell lamp under the roof where the posts by the walls leave a room's middle dark, and on long
         // cables over the tall galleries' water.
-        CoverLamps = new LampKind(ActOne.BellLamp, LampMount.Ceiling, new Lamp("170 200 130", 46, 256, 900), Spacing: 384, LightAt: new(0, 0, -28)),
-        Pendants = Pendant(ActOne.BellLamp, new Lamp("170 200 130", 46, 384, 1280), new(0, 0, -28), hang: 448, grid: 640),
+        CoverLamps = new LampKind(ActOne.BellLamp, LampMount.Ceiling, new Lamp("170 200 130", 39, 256, 900), Spacing: 384, LightAt: new(0, 0, -28)),
+        Pendants = Pendant(ActOne.BellLamp, new Lamp("170 200 130", 39, 384, 1280), new(0, 0, -28), hang: 448, grid: 640),
         Bands = new TrimBands(Skirting: 0, DadoHeight: 0, Dado: 0, Beam: 16, Belt: 0),
         Pilasters = new Pilasters(Spacing: 384, Width: 16, Depth: 12),
         Props = new PropSet
@@ -241,7 +268,7 @@ public static class ActTwo
             HungSpacing = 448,
             Centrepiece = [RowBoat],
         },
-        Fog = new Fog("34 42 32", 256, 1792, 0.6f),
+        Fog = new Fog("16 22 16", 512, 2048, 0.65f),
         ToneMap = new ToneMap(1f, 0.5f, 3f, 0.4f),
         Wetness = 0.7f,
     };
@@ -270,6 +297,7 @@ public static class ActTwo
             Plinth = 24,
             Flange = 16,
             FlangeDepth = 8,
+            MinLight = 0.06f,
         },
         WallLow = new("cp_manor/wood_wall002_burnt", 0.25f),
         WallBand = 128,
@@ -283,6 +311,13 @@ public static class ActTwo
         CoverLamps = new LampKind(Chandelier, LampMount.Ceiling, new Lamp("255 156 76", 38, 256, 900), Spacing: 384, LightAt: new(0, 0, 30)),
         Pendants = Pendant(Chandelier, new Lamp("255 160 80", 44, 256, 1024), new(0, 0, 30), hang: 384, grid: 640),
         WorkLamps = new WorkLamps(new LampKind(Brazier, LampMount.Floor, new Lamp("255 120 50", 70, 192, 900), Spacing: 0, LightAt: new(0, 0, 48)), Count: 2, MinFloor: 500_000),
+        // Candle clusters burning on the floor by the walls, in pools along every room's route and round
+        // the naves' walls, so the crypts read as candle pools in the black and not as a fill (brief p9:
+        // level 9 from 17 to about 20 in game).
+        RoutePools = new LampKind(Candles, LampMount.Floor, new Lamp("255 140 60", 70, 128, 640), Spacing: 288, LightAt: new(-3, 13, 34))
+        {
+            Pools = (3, 5),
+        },
         Pilasters = new Pilasters(Spacing: 384, Width: 32, Depth: 16, MinHeight: 512),
         Bands = new TrimBands(Skirting: 0, DadoHeight: 128, Dado: 12, Beam: 24, Belt: 16),
         Props = new PropSet
@@ -299,7 +334,7 @@ public static class ActTwo
             HungSpacing = 320,
             Centrepiece = [Statue, Gargoyle],
         },
-        Fog = new Fog("22 18 16", 256, 1536, 0.65f),
+        Fog = new Fog("12 10 9", 448, 1856, 0.7f),
         ToneMap = new ToneMap(1f, 0.5f, 3f, 0.4f),
         Wetness = 0.75f,
     };

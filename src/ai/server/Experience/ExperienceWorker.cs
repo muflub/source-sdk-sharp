@@ -6,9 +6,11 @@ namespace SourceSharp.Ai.Server.Experience;
 /// <summary>
 /// What the experience worker last said of itself, for the game's thread to
 /// read: the key it is on, the file, whether it fell back to memory and why,
-/// and the rows the store held at its last load or flush.
+/// why the store is not attached yet while it retries a busy file
+/// (<see cref="IExperienceStore.Waiting"/>), and the rows the store held at
+/// its last load or flush.
 /// </summary>
-public sealed record ExperienceStatus(ExperienceKey Key, string Path, bool MemoryOnly, string? Refusal, ExperienceCounts Counts, long LastFlushStamp)
+public sealed record ExperienceStatus(ExperienceKey Key, string Path, bool MemoryOnly, string? Refusal, string? Waiting, ExperienceCounts Counts, long LastFlushStamp)
 {
     /// <summary>Seconds since the last flush that wrote; -1 for none yet.</summary>
     public double SecondsSinceFlush => LastFlushStamp == 0 ? -1d : Stopwatch.GetElapsedTime(LastFlushStamp).TotalSeconds;
@@ -34,6 +36,15 @@ public readonly record struct ShownJumpSeen(ShownJumpKind Kind, int Class, World
 /// <para>A file that is refused (or no database assembly in the mod's list)
 /// leaves the server on a <see cref="MemoryExperienceStore"/>: it learns for
 /// the life of the process and says why in <see cref="ExperienceStatus.Refusal"/>.</para>
+///
+/// <para>A file another process held locked as it was opened leaves the store
+/// <see cref="IExperienceStore.Waiting"/> (G.11's ruling: retry, then go on):
+/// the brains read the empty snapshot the store answers, and what a flush
+/// would write is kept, summed into one delta (as a merge the file refused
+/// for a lock is), so it grows with the map's rows, not with time. Before each
+/// job the worker looks whether the store attached; when it has, the snapshot
+/// is read again from the file and the next flush writes what was kept. A
+/// level that ends first drops it, as a refused merge's is dropped.</para>
 /// </summary>
 public sealed class ExperienceWorker(IExperienceStores? stores) : IDisposable
 {
@@ -52,6 +63,7 @@ public sealed class ExperienceWorker(IExperienceStores? stores) : IDisposable
     private ExperienceKey _key;
     private string _path = "";
     private string? _refusal;
+    private bool _waiting;
     private double _halfLife = ExperienceDecay.DefaultHalfLife;
     private long _flushStamp;
     private readonly ShownJumpLedger _ledger = new();
@@ -61,7 +73,7 @@ public sealed class ExperienceWorker(IExperienceStores? stores) : IDisposable
     private volatile MapExperience? _loaded;
     private volatile ExperienceStatus? _status;
     private int _owner = -1;
-    private long _frames, _events, _flushes, _rowsMerged, _mergeFailures, _loads, _dropped, _onOwner;
+    private long _frames, _events, _flushes, _rowsMerged, _mergeFailures, _loads, _dropped, _onOwner, _attaches;
     private readonly long[] _verdicts = new long[(int)ShownJumpVerdict.NoWay + 1];
     private readonly Queue<ShownJumpSeen> _seen = new();
 
@@ -82,6 +94,9 @@ public sealed class ExperienceWorker(IExperienceStores? stores) : IDisposable
 
     /// <summary>Snapshots read from the store.</summary>
     public long Loads => Interlocked.Read(ref _loads);
+
+    /// <summary>Stores that waited on a busy file and then attached.</summary>
+    public long Attaches => Interlocked.Read(ref _attaches);
 
     /// <summary>Posts dropped: the worker was stopped, or <see cref="QueueLimit"/> were waiting.</summary>
     public long Dropped => Interlocked.Read(ref _dropped);
@@ -139,6 +154,7 @@ public sealed class ExperienceWorker(IExperienceStores? stores) : IDisposable
 
                 // A file refused as it was opened is closed before anything is asked of it.
                 FellBack();
+                _waiting = _store.Waiting is not null;
             }
 
             Reload();
@@ -254,6 +270,9 @@ public sealed class ExperienceWorker(IExperienceStores? stores) : IDisposable
     /// <summary>Writes what was gathered since the last flush.</summary>
     public bool Flush(double halfLife) => Post(() => FlushNow(halfLife));
 
+    /// <summary>Has the worker look whether a waiting store attached (every job looks first): the game's thread posts it while the store waits, so a level with nothing to gather notices too.</summary>
+    public bool CheckAttach() => Post(static () => { });
+
     /// <summary>
     /// Waits until everything posted before this call has run, at most
     /// <paramref name="waitMs"/>: for the facts and for a debugging read. The
@@ -300,6 +319,7 @@ public sealed class ExperienceWorker(IExperienceStores? stores) : IDisposable
     {
         _store?.Dispose();
         _store = null;
+        _waiting = false;
         _path = "";
         _key = default;
         _kept = null;
@@ -340,6 +360,14 @@ public sealed class ExperienceWorker(IExperienceStores? stores) : IDisposable
 
         if (delta.IsEmpty)
             return;
+        if (_store.Waiting is not null)
+        {
+            // Not attached yet: kept for the flush after it attaches, and no merge failure.
+            _kept = delta;
+            Say();
+            return;
+        }
+
         if (_store.Merge(_key, delta, halfLife))
         {
             Wrote(delta);
@@ -375,8 +403,20 @@ public sealed class ExperienceWorker(IExperienceStores? stores) : IDisposable
         return true;
     }
 
+    /// <summary>Whether the store that waited on a busy file has attached (or been refused) since the last job: its snapshot is read again from the file.</summary>
+    private void NoticeAttach()
+    {
+        if (!_waiting || _store is null || _store.Waiting is not null)
+            return;
+        _waiting = false;
+        // A retry that met a real refusal (a newer build wrote the file meanwhile) falls back to memory, as an open's does.
+        if (!FellBack())
+            Interlocked.Increment(ref _attaches);
+        Reload();
+    }
+
     private void Say()
-        => _status = new ExperienceStatus(_key, _path, _store is MemoryExperienceStore, _refusal, _store?.Counts(_key) ?? default, _flushStamp);
+        => _status = new ExperienceStatus(_key, _path, _store is MemoryExperienceStore, _refusal, _store?.Waiting, _store?.Counts(_key) ?? default, _flushStamp);
 
     private void OnWorker()
     {
@@ -389,6 +429,7 @@ public sealed class ExperienceWorker(IExperienceStores? stores) : IDisposable
         public void Run()
         {
             owner.OnWorker();
+            owner.NoticeAttach();
             work();
         }
     }

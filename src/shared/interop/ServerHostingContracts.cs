@@ -34,7 +34,17 @@ public interface IClientLifecycle
     /// <summary>The client is fully in the game: the engine's "client active".</summary>
     void OnClientActive(int entIndex) { }
 
-    /// <summary>The client left, by any route. Not called for a level change.</summary>
+    /// <summary>
+    /// The client left, by any route the engine reports (its
+    /// <c>player_disconnect</c>: a quit, a kick, a time-out, a leave while the
+    /// next level loads), while its player still stands when it has one; the
+    /// engine's same-address reconnect sends no event, and the client before is
+    /// reported as the new connection is put in its slot. Not
+    /// called for a level change, which keeps the client connected: the engine
+    /// takes it out of the game and puts it back, and
+    /// <see cref="OnClientActive"/> comes again on the new level. Not called for
+    /// a bot the engine drops with the level either.
+    /// </summary>
     void OnClientDisconnected(int entIndex) { }
 
     /// <summary>
@@ -52,16 +62,6 @@ public interface IClientLifecycle
     /// <c>PlayerNames</c> half and is not a participant's to take.
     /// </summary>
     void OnClientSettingsChanged(int entIndex) { }
-}
-
-/// <summary>
-/// Told when a player entity is removed. ClientLifecycleDriver turns that into
-/// <see cref="IClientLifecycle.OnClientDisconnected"/> unless a level is
-/// shutting down, when every player entity goes and the clients stay.
-/// </summary>
-public interface IPlayerRemovals
-{
-    void PlayerRemoved(int entIndex);
 }
 
 /// <summary>The UDP port the server's socket actually bound, read from the kernel.</summary>

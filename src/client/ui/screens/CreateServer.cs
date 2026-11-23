@@ -64,6 +64,14 @@ public sealed class CreateServer(UiWindows windows, IMapListSource maps, IServer
 
     public string Password { get; set; } = "";
 
+    private string? _openMapList;
+
+    /// <summary>
+    /// Opens the map list on the next frame, as a click on the Map field does,
+    /// with <paramref name="filter"/> typed: what a sample shows it open by.
+    /// </summary>
+    public void OpenMapList(string filter = "") => _openMapList = filter;
+
     /// <summary>The maps listed, by name.</summary>
     public IReadOnlyList<string> Maps { get; private set; } = [];
 
@@ -279,7 +287,12 @@ public sealed class CreateServer(UiWindows windows, IMapListSource maps, IServer
             if (Maps.Count == 0)
                 ui.Text("#SS_UI_Create_NoMaps", Text.Body, Tone.TextMuted);
             else
+            {
+                if (_openMapList is { } filter)
+                    ui.OpenChoice("map", Map, filter);
+                _openMapList = null;
                 Map = ui.Choice("map", Map, _mapNames.Count, new UiChoiceList(_mapNames), tokens: true);
+            }
         }
         Label(ref ui, 1, "#SS_UI_Create_HostName");
         using (Control(ref ui, 1))

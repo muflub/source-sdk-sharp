@@ -18,7 +18,8 @@ public sealed class FurnitureCatalogTests
             .Concat(f.Containers.Kinds.Select(k => (FurnitureKindId.Container, k.Id)))
             .Append((FurnitureKindId.Dispenser, "dispenser"))
             .Concat(f.Explosives.Select(x => (FurnitureKindId.Explosive, x.Id)))
-            .Concat(f.Traps.Select(t => (FurnitureKindId.Trap, t.Id)));
+            .Concat(f.Traps.Select(t => (FurnitureKindId.Trap, t.Id)))
+            .Concat(f.Breakables.Kinds.Select(k => (FurnitureKindId.Breakable, k)));
     }
 
     [Fact]

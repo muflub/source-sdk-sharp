@@ -2,7 +2,8 @@
 """tools/descent-face-sides -- a linked Descent level's turned rooms drawn from the front.
 
     tools/descent-face-sides <level.bsp>      set each face's side flag from its node
-    tools/descent-face-sides --check <level.bsp>   count the faces whose flag is wrong; exit 1 if any
+    tools/descent-face-sides --check <level.bsp>   count the faces whose flag is wrong; exit 1 if any,
+                                                   or if the .map2d beside it is stale
     tools/descent-face-sides --self-test
 
 The engine files every world face on the BSP node whose plane it lies on, and
@@ -22,11 +23,24 @@ Until the linker writes the flag, this sets it from the face's own plane: 0
 when the face's plane is the node's, 1 when it is the node's pair. A face on a
 plane that is neither is left alone and counted. Faces are fixed-size records,
 so the file is rewritten in place and no lump moves.
+
+The level's .map2d (written by the same link, beside the .bsp) records the
+map's checksum, and the map tools' Map2dReader.Read(file, checksum) refuses a
+file whose number is not the loaded map's. That checksum (BspMapChecksum) is
+the CRC-32 of every lump but the entity lump, so it covers the faces, and the
+rewrite changes it: every level linked before this rebinding shipped a stale
+.map2d (brief p6, 2026-11-13, M5: level 1 seed 1 linked again records
+d80abfe1, the same map after the rewrite is 25e921b2). So the rewrite also
+writes the new checksum into a .map2d beside the map, when that file recorded
+the map as it was before the rewrite; one made for some other map is refused,
+never blessed. The .nav3d needs nothing: a linked level's binds by the level
+id in the entity lump, not by the map's bytes.
 """
 import os
 import struct
 import sys
 import tempfile
+import zlib
 
 PLANES, FACES, NODES = 1, 7, 5
 HEADER_LUMPS = 64
@@ -34,6 +48,9 @@ PLANE = struct.Struct('<ffffi')
 FACE = struct.Struct('<HBBihhhh4BifiiiiiHHI')   # dface_t, 56 bytes
 NODE = struct.Struct('<iiihhhhhhHHhh')          # dnode_t, 32 bytes
 SIDE_AT = 2                                       # dface_t.side: after the ushort planenum
+ENTITIES = 0                                      # the one lump the map checksum leaves out
+MAP2D_MAGIC = b'SSMAP2D\0'
+MAP2D_CHECKSUM_AT = 20                            # the .map2d header's uint32 map checksum
 
 
 def lump(data, index):
@@ -70,18 +87,71 @@ def wrong_sides(data):
     return fixes, other
 
 
+def map_checksum(data):
+    """The map tools' BspMapChecksum (the engine's): CRC-32 of every lump's bytes in order, the entity lump left out."""
+    crc = 0
+    for index in range(HEADER_LUMPS):
+        if index == ENTITIES:
+            continue
+        off, length, _, _ = struct.unpack_from('<iiii', data, 8 + 16 * index)
+        if length:
+            if off < 0 or length < 0 or off + length > len(data):
+                raise ValueError('lump %d runs outside the file' % index)
+            crc = zlib.crc32(data[off:off + length], crc)
+    return crc & 0xFFFFFFFF
+
+
+def map2d_of(path):
+    """The .map2d the link wrote beside a level's .bsp (it may not exist)."""
+    return os.path.splitext(path)[0] + '.map2d'
+
+
+def recorded_checksum(map2d):
+    with open(map2d, 'rb') as f:
+        head = f.read(MAP2D_CHECKSUM_AT + 4)
+    if len(head) < MAP2D_CHECKSUM_AT + 4 or head[:8] != MAP2D_MAGIC:
+        raise ValueError('%s is not a .map2d' % map2d)
+    return struct.unpack_from('<I', head, MAP2D_CHECKSUM_AT)[0]
+
+
+def write_atomic(path, data):
+    tmp = path + '.tmp'
+    with open(tmp, 'wb') as f:
+        f.write(data)
+    os.replace(tmp, path)
+
+
 def rewrite(path):
+    """Fix the side flags in place, and rebind the .map2d beside the map. Returns (fixed, other, rebound)."""
     with open(path, 'rb') as f:
         data = bytearray(f.read())
     fixes, other = wrong_sides(data)
+    map2d = map2d_of(path)
+    before = map_checksum(data)
+    if os.path.exists(map2d) and fixes and recorded_checksum(map2d) != before:
+        raise ValueError('%s records map checksum %08x, not %08x (this map before the rewrite): it was made for '
+                         'another map; link the level again' % (map2d, recorded_checksum(map2d), before))
     for at, want in fixes:
         data[at + SIDE_AT] = want
+    rebound = False
     if fixes:
-        tmp = path + '.tmp'
-        with open(tmp, 'wb') as f:
-            f.write(data)
-        os.replace(tmp, path)
-    return len(fixes), other
+        write_atomic(path, data)
+        if os.path.exists(map2d):
+            with open(map2d, 'rb') as f:
+                side = bytearray(f.read())
+            struct.pack_into('<I', side, MAP2D_CHECKSUM_AT, map_checksum(data))
+            write_atomic(map2d, side)
+            rebound = True
+    return len(fixes), other, rebound
+
+
+def stale_map2d(path, data):
+    """Why the .map2d beside the map is stale, or None (also None when there is none)."""
+    map2d = map2d_of(path)
+    if not os.path.exists(map2d):
+        return None
+    have, want = recorded_checksum(map2d), map_checksum(data)
+    return None if have == want else '%s records map checksum %08x, the map is %08x' % (map2d, have, want)
 
 
 def minimal_bsp(faces, nodes):
@@ -112,11 +182,23 @@ def self_test():
         fixes, _ = wrong_sides(before)
         if sorted(at for at, _ in fixes) != sorted(lump(before, FACES)[0] + i * FACE.size for i in (2, 3)):
             bad.append('the wrong faces were found: want faces 2 and 3 only')
-        fixed, other = rewrite(path)
+        # The link's .map2d beside it records the map as linked.
+        map2d = map2d_of(path)
+        with open(map2d, 'wb') as f:
+            f.write(MAP2D_MAGIC + b'\x00' * 12 + struct.pack('<I', map_checksum(before)) + b'\x00' * 8)
+        if stale_map2d(path, before) is not None:
+            bad.append('the .map2d made for the linked map is called stale before the rewrite')
+        fixed, other, rebound = rewrite(path)
         with open(path, 'rb') as f:
             after = f.read()
         if fixed != 2 or other != 0:
             bad.append('the rewrite fixed %d face(s), want 2' % fixed)
+        if map_checksum(after) == map_checksum(before):
+            bad.append('the rewrite did not change the map checksum (the stimulus never reached it)')
+        if not rebound or recorded_checksum(map2d) != map_checksum(after):
+            bad.append('the .map2d still records the map before the rewrite: it is stale')
+        if stale_map2d(path, after) is not None:
+            bad.append('the check calls the rebound .map2d stale')
         off = lump(after, FACES)[0]
         sides = [after[off + i * FACE.size + SIDE_AT] for i in range(4)]
         if sides != [0, 1, 0, 1]:
@@ -127,10 +209,26 @@ def self_test():
             bad.append('a second pass still finds faces to fix')
         if len(before) != len(after):
             bad.append('the file changed size')
+        # A .map2d made for another map is refused, and the map is left as it was.
+        with open(path, 'wb') as f:
+            f.write(before)
+        with open(map2d, 'wb') as f:
+            f.write(MAP2D_MAGIC + b'\x00' * 12 + struct.pack('<I', map_checksum(before) ^ 1) + b'\x00' * 8)
+        if stale_map2d(path, before) is None:
+            bad.append('the check passes a .map2d made for another map')
+        try:
+            rewrite(path)
+            bad.append('a .map2d made for another map was rebound')
+        except ValueError:
+            pass
+        with open(path, 'rb') as f:
+            if f.read() != before:
+                bad.append('the map was rewritten although its .map2d was refused')
+        os.remove(map2d)
         # A face on neither the node's plane nor its pair is counted and left alone.
         with open(path, 'wb') as f:
             f.write(minimal_bsp([(0, 1)], [(2, 0, 1)]))
-        fixed, other = rewrite(path)
+        fixed, other, _ = rewrite(path)
         if fixed != 0 or other != 1:
             bad.append('a face on another plane was changed or not counted')
     for b in bad:
@@ -150,16 +248,20 @@ def main(argv):
     try:
         if check:
             with open(paths[0], 'rb') as f:
-                fixes, other = wrong_sides(f.read())
+                data = f.read()
+            fixes, other = wrong_sides(data)
+            stale = stale_map2d(paths[0], data)
             print('descent-face-sides: %d face(s) with the wrong side flag, %d on another plane, in %s'
                   % (len(fixes), other, paths[0]))
-            return 1 if fixes else 0
-        fixed, other = rewrite(paths[0])
+            if stale:
+                print('descent-face-sides: stale .map2d: ' + stale)
+            return 1 if fixes or stale else 0
+        fixed, other, rebound = rewrite(paths[0])
     except (OSError, ValueError) as e:
         print('descent-face-sides: %s' % e, file=sys.stderr)
         return 1
-    print('descent-face-sides: set the side flag of %d face(s) from their node (%d on another plane) in %s'
-          % (fixed, other, paths[0]))
+    print('descent-face-sides: set the side flag of %d face(s) from their node (%d on another plane) in %s%s'
+          % (fixed, other, paths[0], '; rebound ' + map2d_of(paths[0]) if rebound else ''))
     return 0
 
 

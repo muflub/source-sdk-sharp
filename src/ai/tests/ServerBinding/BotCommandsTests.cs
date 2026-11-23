@@ -251,12 +251,57 @@ public class BotCommandsTests
     [Fact]
     public void AddTakesAtMostANameASpecAndATeam()
     {
-        var said = new List<string>();
+        new AiBotAddCommand(_roster, _log, _notices).RunLine("Alyx hard team=2 extra");
 
-        new AiBotAddCommand(_roster, _log, _notices).RunLine("Alyx hard team=2 extra", said.Add);
-
-        Assert.Contains("'extra' is one argument too many", Assert.Single(said));
+        Assert.Contains(_log.All, l => l.Contains("'extra' is one argument too many", StringComparison.Ordinal));
         Assert.Empty(_players.Asked);
+    }
+
+    /// <summary>A game's options (P7): the keys it reads, wherever they stand.</summary>
+    private sealed class Options : IBotOptions
+    {
+        public IReadOnlyCollection<string> Keys { get; } = ["class"];
+        public List<RosterBot> Joined { get; } = [];
+
+        public string? Check(IReadOnlyDictionary<string, string> options) => options["class"] == "tank" ? "'tank' is no class" : null;
+
+        void IBotOptions.Joined(RosterBot bot) => Joined.Add(bot);
+    }
+
+    /// <summary>A game's own key=value, anywhere on the line, reaches the bot's roster entry, and the game hears the bot join with it.</summary>
+    [Fact]
+    public void AGamesOptionRidesTheBotIntoTheGame()
+    {
+        var options = new Options();
+        var roster = new AiRoster(_bots, new NoProfiles(), new BotRosterTests.Slots(), _log, _teams, options);
+        new AiBotAddCommand(roster, _log, _notices, options).RunLine("class=medic Alyx hard team=2");
+
+        RosterBot joined = Assert.Single(options.Joined);
+        Assert.Equal(("Alyx", "medic"), (joined.Name, joined.Options["class"]));
+    }
+
+    /// <summary>A key the game does not read is refused, naming it and the keys there are; with no game reading any, so is class=.</summary>
+    [Fact]
+    public void AnOptionNoGameReadsIsRefused()
+    {
+        new AiBotAddCommand(_roster, _log, _notices, new Options()).RunLine("Alyx hard colour=red");
+        new AiBotAddCommand(_roster, _log, _notices).RunLine("Gordon hard class=medic");
+
+        Assert.Contains(_log.All, l => l.Contains("'colour=red' is no option (team=, class=)", StringComparison.Ordinal));
+        Assert.Contains(_log.All, l => l.Contains("'class=medic' is no option (team=)", StringComparison.Ordinal));
+        Assert.Empty(_players.Asked);
+    }
+
+    /// <summary>The game's check refuses a value it does not take, and nobody is added.</summary>
+    [Fact]
+    public void AnOptionTheGameRefusesAddsNobody()
+    {
+        var options = new Options();
+        var roster = new AiRoster(_bots, new NoProfiles(), new BotRosterTests.Slots(), _log, _teams, options);
+        new AiBotAddCommand(roster, _log, _notices, options).RunLine("Alyx hard class=tank");
+
+        Assert.Contains(_log.All, l => l.Contains("'tank' is no class", StringComparison.Ordinal));
+        Assert.Empty(options.Joined);
     }
 
     /// <summary>A third word that is no team (plan_bots_teams_tf2 B.6) is refused, naming it, and adds nobody.</summary>

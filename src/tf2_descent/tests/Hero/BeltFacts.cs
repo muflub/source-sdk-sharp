@@ -148,7 +148,7 @@ public sealed class BeltFacts
     public void The_last_potion_of_a_slot_drunk_refills_it_from_the_backpack()
     {
         var rig = new BeltRig();
-        int bp = rig.Give(BeltRig.Carried("health_small", 2));
+        int bp = rig.Carry(BeltRig.Carried("health_small", 2));
 
         rig.Drink(1);
 

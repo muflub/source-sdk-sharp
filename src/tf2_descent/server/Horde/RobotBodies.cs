@@ -92,6 +92,7 @@ public sealed class RobotBodies : IRobotBodies
 
         body.Lend(lease, robot, model, (float)_roster.Scale(i), start.Position, start.Yaw, start.Life, stats.Life,
                   TemplateId(t.Id), (byte)Math.Clamp(_roster.MonsterLevel(i), 0, 255), flags, (byte)_roster.StatusBits(i));
+        body.Paces((float)stats.Speed);
         body.Play(Sequence(body, model, RobotLooks.IdleSequence(t)), running: false);
         body.Holds(RobotLooks.WeaponModel(t));
         _parking.Unpark(body.Handle);

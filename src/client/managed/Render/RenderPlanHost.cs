@@ -16,7 +16,7 @@ namespace SourceSharp.Client.Render;
 /// the answer is always given on the frame that was recorded.
 /// </para>
 /// </summary>
-public sealed class RenderPlanHost : IClientRenderPlan
+public sealed class RenderPlanHost : IClientRenderPlan, IViewFreezeFrame
 {
     private readonly object _lock = new();
     private readonly Queue<(int Tag, Action<string> Done)> _requests = new();

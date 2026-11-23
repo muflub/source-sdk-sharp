@@ -70,6 +70,7 @@ public sealed class TF2DescentRules : IGameRules
         Loot = new LootRules(Content, Robots, ItemRules);
         Experience = new ExperienceRules(Content, Robots);
         Checkpoints = new CheckpointRules(Heroes, SheetCodec, Evidence, Experience);
+        EquipSlots = Inventory.EquipSlotIds;
     }
 
     /// <summary>The XP a kill pays a hero, and the most a kill could pay (RU4, D10).</summary>
@@ -294,4 +295,160 @@ public sealed class TF2DescentRules : IGameRules
 
     /// <summary>Gear to metal by rarity and item level (RU9, D24).</summary>
     public ItemChange Salvage(RolledItem item, ItemRollContext ctx, ulong seed) => Crafting.Salvage(item, ctx, seed);
+
+    //-------------------------------------------------------------------------
+    // Host.Contracts 1.1: the three containers, wear, both repairs, use, the kit, containers
+    //-------------------------------------------------------------------------
+
+    /// <summary>The equipment slots in inventory.json's order (contract 1.1): an equipped item's slot is its index here.</summary>
+    public IReadOnlyList<string> EquipSlots { get; }
+
+    /// <summary>The backpack's capacity by the sheet, the nine equipment slots, the belt's four (contract 1.1).</summary>
+    public int ContainerSlots(CharacterSheet sheet, ItemContainer container) => container switch
+    {
+        ItemContainer.Backpack => BackpackSlots(sheet),
+        ItemContainer.Equipped => EquipSlots.Count,
+        ItemContainer.Belt => Inventory.BeltSlots,
+        _ => 0,
+    };
+
+    /// <summary>
+    /// The inventory's refusal of a placement (contract 1.1, <see cref="InventoryRules.PlaceRefusal"/>):
+    /// potions only on the belt, gear in the slot its base takes for a hero who may wear it. An
+    /// item of an older schema goes only in the backpack.
+    /// </summary>
+    public string? PlaceRefusal(CharacterSheet sheet, RolledItem item, ItemContainer container, int slot)
+    {
+        if (item.SchemaVersion != ItemCodec.Schema)
+            return container == ItemContainer.Backpack ? null : InventoryRefusals.WrongSlot;
+        return Inventory.PlaceRefusal(SheetCodec.Read(sheet), ItemRules.Codec.Instance(item), container, slot);
+    }
+
+    /// <summary>A potion drunk, a scroll read (contract 1.1, <see cref="InventoryRules.UseUp"/>): the last ends the item, else the stack is re-encoded one lower.</summary>
+    public ItemChange Consume(CharacterSheet sheet, RolledItem item, int count) =>
+        item.SchemaVersion != ItemCodec.Schema ? new([], [], 0, InventoryRefusals.NotConsumable)
+        : Inventory.UseUp(ItemRules.Codec.Instance(item), count);
+
+    /// <summary>
+    /// Wear (contract 1.1): <paramref name="amount"/> uses of a weapon or hits on armour, by the
+    /// rules' <see cref="Durability"/>, wear progress kept: <c>Produced[0]</c> is the item in place.
+    /// Anything that does not wear comes back as it was; an amount below 1 is refused (<c>bad_amount</c>).
+    /// </summary>
+    public ItemChange Wear(RolledItem item, int amount)
+    {
+        if (amount < 1) return new([], [], 0, WearRefusals.BadAmount);
+        if (item.SchemaVersion != ItemCodec.Schema) return new([], [], 0, RepairRefusals.NotRepairable);
+        return new([], [ItemRules.Codec.ToRolled(ItemRules.Durability.Worn(ItemRules.Codec.Instance(item), amount, amount))], 0);
+    }
+
+    /// <summary>Whether <paramref name="sheet"/>'s perks waive the Engineer's price (<see cref="Repairs.TownFree"/> over the sheet's skill stats).</summary>
+    public bool TownFree(HeroSheet sheet) => Repairs.TownFree(Skills.Stats(sheet, SkillBonuses.None));
+
+    /// <summary>
+    /// What a new hero of <paramref name="className"/> starts with (contract 1.1; starting_kits.json):
+    /// each gear base equipped in the first equipment slot its base takes, each potion on the belt
+    /// slot by slot, every item a Stock item of its base at item level 1 rolled under
+    /// <see cref="StartingKitRow.Source"/> from <paramref name="seed"/> (so each replays). The
+    /// unhosted ledger starts a hero with the same bases (gear in the backpack, which the first kit
+    /// then equips; the potions on the belt).
+    /// </summary>
+    public IReadOnlyList<StartingItem> StartingKit(string className, CharacterSheet sheet, ulong seed)
+    {
+        var hero = SheetCodec.Read(sheet);
+        var row = StartingKit(className);
+        var kit = new List<StartingItem>();
+        var taken = new HashSet<int>();
+        int n = 0;
+        RolledItem Roll(string baseId) =>
+            ItemRules.Roll(new ItemRollContext(className, hero.Level, 0, 1, 0, Content.ItemSettings.ForcedBasePrefix + baseId, StartingKitRow.Source),
+                Hash("starting_kit", seed, className, n++));
+        var slots = Content.InventorySettings.Equipment;
+        foreach (var b in row.Backpack)
+        {
+            string accepts = Content.ItemBases[b].Slot;
+            int slot = Enumerable.Range(0, slots.Count).FirstOrDefault(i => slots[i].Accepts == accepts && !taken.Contains(i), -1);
+            taken.Add(slot);
+            kit.Add(new StartingItem(Roll(b), ItemContainer.Equipped, slot));
+        }
+        for (int i = 0; i < row.Belt.Count; i++)
+            kit.Add(new StartingItem(Roll(row.Belt[i]), ItemContainer.Belt, i));
+        return kit;
+    }
+
+    /// <summary>
+    /// What a world container gives one opener (contract 1.1): the rules' container roll for the
+    /// instance, the container's number and the opener (<see cref="LootRules.ContainerDrops"/>).
+    /// </summary>
+    public IReadOnlyList<RolledItem> ContainerDrops(ulong instanceSeed, uint containerSeq, int depth, CharacterSheet opener)
+    {
+        var hero = SheetCodec.Read(opener);
+        return Loot.ContainerDrops(instanceSeed, containerSeq, depth, hero.Name, hero.ClassId, hero.Level);
+    }
+
+    //-------------------------------------------------------------------------
+    // Host.Contracts 1.2: the Australium pile, repairs by the hero, breakables, merges
+    //-------------------------------------------------------------------------
+
+    /// <summary>
+    /// A kill's Australium pile divided when it is picked up (contract 1.2; the user's ruling L24):
+    /// <see cref="LootRules.Split"/> among <paramref name="killerFirst"/> (the remainder one apiece
+    /// from the killer), each share raised by its member's own <c>australium_find_pct</c>
+    /// (<see cref="LootRules.FoundShare"/>: Scavenger, read from the sheet's skill ranks), and never
+    /// past the whole pile.
+    /// </summary>
+    public IReadOnlyList<long> AustraliumShares(long total, IReadOnlyList<CharacterSheet> killerFirst)
+    {
+        if (killerFirst.Count == 0)
+            return [];
+        var split = LootRules.Split(Math.Max(0, total), killerFirst.Count);
+        return [.. killerFirst.Select((s, i) => Math.Min(Math.Max(0, total), LootRules.FoundShare(split[i], AustraliumFindPct(SheetCodec.Read(s)))))];
+    }
+
+    /// <summary>The Australium a hero finds beyond his share, in percent: his sheet's skill stats' <c>australium_find_pct</c>.</summary>
+    public double AustraliumFindPct(HeroSheet sheet) => Skills.Stats(sheet, SkillBonuses.None).Total("australium_find_pct");
+
+    /// <summary>
+    /// A repair by a hero (contract 1.2, <see cref="Repairs.Repair(RolledItem, RepairKind, RolledItem?, int, bool, ulong)"/>):
+    /// a field repair runs at the repairer's level, a town repair is free when his perks waive it
+    /// (<see cref="TownFree"/>). The 1.1 member, which carries no sheet, is the contract's default:
+    /// the town's price, and no field repair.
+    /// </summary>
+    public ItemChange Repair(RolledItem item, RepairKind kind, RolledItem? kit, CharacterSheet sheet, ulong seed)
+    {
+        var hero = SheetCodec.Read(sheet);
+        return Repairs.Repair(item, kind, kit, hero.Level, TownFree(hero), seed);
+    }
+
+    /// <summary>
+    /// One numbered breakable broken by <paramref name="opener"/> (contract 1.2): the outcome keyed on
+    /// the instance, the number and the depth (<see cref="BreakRules.Hosted"/>), so every hero agrees;
+    /// a share of his own for Australium, a potion or an item (<see cref="LootRules.Breakable"/> from
+    /// <see cref="BreakRules.HostedRequest"/>, its item as a container's); the empty roll for nothing
+    /// and for a blast, a cloud or an ambush, which the game carries out from the same outcome.
+    /// </summary>
+    public BreakableRoll BreakableDrops(ulong instanceSeed, uint breakableSeq, int depth, CharacterSheet opener)
+    {
+        var outcome = Furniture.Breaks.Hosted(instanceSeed, breakableSeq, depth);
+        if (!BreakableSettings.PerPlayer(outcome))
+            return new(0, []);
+        var hero = SheetCodec.Read(opener);
+        var request = Furniture.Breaks.HostedRequest(instanceSeed, breakableSeq, hero.Name, hero.ClassId);
+        var share = Loot.Breakable(request, outcome, depth);
+        var item = Loot.ContainerItem(hero.ClassId, hero.Level, depth, share.Item ? share.Tier : -1,
+            share.Outcome == LootOutcome.Potion ? share.Potion : null, request.Seed);
+        return new(share.Australium, item is null ? [] : [ItemRules.Codec.ToRolled(item)]);
+    }
+
+    /// <summary>Two stacks of one kind become one (contract 1.2, <see cref="InventoryRules.Merge"/>); an item of an older schema does not stack.</summary>
+    public ItemChange Merge(RolledItem source, RolledItem target) =>
+        source.SchemaVersion != ItemCodec.Schema || target.SchemaVersion != ItemCodec.Schema
+            ? new([], [], 0, InventoryRefusals.NotStackable)
+            : Inventory.Merge(ItemRules.Codec.Instance(source), ItemRules.Codec.Instance(target));
+}
+
+/// <summary>Why the contract's <c>Wear</c> was refused.</summary>
+public static class WearRefusals
+{
+    /// <summary>An amount of wear below 1 (the host refuses one itself, with the same word).</summary>
+    public const string BadAmount = "bad_amount";
 }

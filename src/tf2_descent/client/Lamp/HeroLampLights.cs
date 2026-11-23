@@ -39,6 +39,29 @@ public sealed record LampNumbers(float Radius, float InnerAngle, float OuterAngl
     /// <summary>The pitch in degrees a wire step count stands for: the rules' <c>LampRules.PitchOf</c>.</summary>
     public float PitchOf(int steps) => Math.Clamp(PitchFloor + steps * PitchStep, PitchFloor, -PitchFloor);
 
+    /// <summary>A hero's lamp radius from the wire's whole units: lamp.json's while the server has written none (0).</summary>
+    public float RadiusOf(int wire) => wire <= 0 ? Radius : wire;
+
+    /// <summary>A hero's lamp brightness from the wire's percent, as a multiplier: 1 while the server has written none (0).</summary>
+    public float BrightnessOf(int wire) => wire <= 0 ? 1f : wire / 100f;
+
+    /// <summary>
+    /// The light's colour and exponent at <paramref name="brightness"/> times lamp.json's intensity,
+    /// its hue kept: the engine lights by colour times two to the exponent, so the exponent takes
+    /// the power of two and the colour the rest, every channel within 0..255. At 1 this is
+    /// lamp.json's colour and exponent exactly.
+    /// </summary>
+    public (int Red, int Green, int Blue, int Exponent) Colour(float brightness)
+    {
+        int top = Math.Max(Red, Math.Max(Green, Blue));
+        if (top <= 0 || !(brightness > 0f) || brightness == 1f)
+            return (Red, Green, Blue, Exponent);
+        int shift = (int)Math.Ceiling(Math.Log2(top * (double)brightness / 255.0));
+        double scale = brightness / Math.Pow(2, shift);
+        int Channel(int c) => (int)Math.Clamp(Math.Round(c * scale, MidpointRounding.AwayFromZero), 0, 255);
+        return (Channel(Red), Channel(Green), Channel(Blue), Exponent + shift);
+    }
+
     /// <summary>The numbers in lamp.json's bytes.</summary>
     public static LampNumbers Parse(byte[] json)
     {
@@ -70,7 +93,14 @@ public sealed class LampContent(DescentCatalog catalog)
 /// One hero as the lamp needs him: his player index, whether his lamp is lit on the wire, whether
 /// this client can see him (alive, his player not dormant), his eye, and where he looks.
 /// </summary>
-public readonly record struct LampHero(int PlayerIndex, bool LampOn, bool Visible, Vector Eye, float Pitch, float Yaw);
+public readonly record struct LampHero(int PlayerIndex, bool LampOn, bool Visible, Vector Eye, float Pitch, float Yaw)
+{
+    /// <summary>How far his lamp reaches, in units, from his wire (<see cref="HeroNetState.LampRadius"/>); 0 is lamp.json's.</summary>
+    public float Radius { get; init; }
+
+    /// <summary>How bright his lamp is, as a multiplier on lamp.json's light, from his wire (<see cref="HeroNetState.LampBrightness"/>); 0 is 1.</summary>
+    public float Brightness { get; init; }
+}
 
 /// <summary>The heroes this client holds, as the lamp reads them each frame.</summary>
 public interface ILampHeroes
@@ -114,11 +144,12 @@ public sealed class EngineLampHeroes(IClientStandalones standalones, IEngineHud 
             }
 
             bool visible = player.State.Alive && !render.IsDormant(player.Handle);
-            if (index == local && view.Known)
-                _heroes.Add(new LampHero(index, state.LampOn, visible, view.Eye, view.Pitch, view.Yaw));
-            else
-                _heroes.Add(new LampHero(index, state.LampOn, visible, player.State.Origin + player.State.ViewOffset,
-                                         content.Numbers.PitchOf(state.LampPitch), player.EyeAngles().Y));
+            var numbers = content.Numbers;
+            var lamp = index == local && view.Known
+                ? new LampHero(index, state.LampOn, visible, view.Eye, view.Pitch, view.Yaw)
+                : new LampHero(index, state.LampOn, visible, player.State.Origin + player.State.ViewOffset,
+                               numbers.PitchOf(state.LampPitch), player.EyeAngles().Y);
+            _heroes.Add(lamp with { Radius = numbers.RadiusOf(state.LampRadius), Brightness = numbers.BrightnessOf(state.LampBrightness) });
         }
 
         return _heroes;
@@ -163,6 +194,21 @@ public interface IHeroLamps
 /// can see; none for a dark lamp, a dead hero or one out of the client's view (dormant), and a
 /// light that was lit and is no longer is put out once. The engine's pool goes with the level, so
 /// a level's end forgets what was lit.
+///
+/// <para><b>Range and brightness</b> are each hero's own, from his wire. Range is the light's
+/// radius, for the world and models alike: a longer lamp shows a robot further off. Brightness is
+/// the light's intensity (its colour times two to its exponent, the hue kept:
+/// <see cref="LampNumbers.Colour"/>) on the WORLD only. The engine lights a wall with a dlight as a
+/// point light whose cone it ignores (gl_lightmap.cpp's AddSingleDynamicLight tests only that the
+/// surface faces the light), and a model as a spot whose intensity falls with the square of the
+/// distance (lightcache.cpp's WorldLightFromDynamicLight); colour and exponent scale both alike, so
+/// one brighter light brightens the view model, a few units from the lamp, as much as the wall,
+/// and the inner cone brightens no wall at all. So a lamp brighter (or dimmer) than lamp.json's is
+/// two lights: the world's at his brightness, flagged to light no model, and the models' (robots,
+/// view models) at lamp.json's intensity under <see cref="ModelKeyOf"/>, flagged to light no
+/// world surface. That half is a dlight, not an elight: static props (a gravestone, furniture)
+/// take only dlights (lightcache.cpp's AddDLightsForStaticProps), and the first live try with an
+/// elight left them black. A lamp at lamp.json's brightness stays one light.</para>
 /// </summary>
 [SideService(Side.Client, As = [typeof(IHeroLamps)])]
 public sealed class HeroLampLights(ILampHeroes heroes, ILampLightSink sink, LampContent content)
@@ -174,12 +220,23 @@ public sealed class HeroLampLights(ILampHeroes heroes, ILampLightSink sink, Lamp
     /// <summary>After the robots' poses (500), beside the mod's other frame members.</summary>
     public int HookOrder => 1300;
 
+    /// <summary>The first key of the models' half of a brighter lamp: clear of the world lights' keys.</summary>
+    public const int ModelKeyBase = KeyBase + 0x100;
+
     private readonly HashSet<int> _lit = [];
     private readonly HashSet<int> _now = [];
+    private readonly HashSet<int> _litModels = [];
+    private readonly HashSet<int> _nowModels = [];
     private readonly HashSet<int> _on = [];
 
     /// <summary>The key of the hero in <paramref name="playerIndex"/>'s lamp.</summary>
     public static int KeyOf(int playerIndex) => KeyBase + playerIndex;
+
+    /// <summary>The key of the models' light of the hero in <paramref name="playerIndex"/>'s lamp when it is not lamp.json's brightness.</summary>
+    public static int ModelKeyOf(int playerIndex) => ModelKeyBase + playerIndex;
+
+    /// <summary>Whether the hero's lamp is two lights: its brightness is not lamp.json's.</summary>
+    public static bool Split(LampHero hero) => hero.Brightness > 0f && hero.Brightness != 1f;
 
     /// <summary>Lights made since the client started, and put out.</summary>
     public long Lights { get; private set; }
@@ -196,6 +253,7 @@ public sealed class HeroLampLights(ILampHeroes heroes, ILampLightSink sink, Lamp
     {
         var numbers = content.Numbers;
         _now.Clear();
+        _nowModels.Clear();
         _on.Clear();
         foreach (var hero in heroes.Heroes())
         {
@@ -207,31 +265,70 @@ public sealed class HeroLampLights(ILampHeroes heroes, ILampLightSink sink, Lamp
             sink.Light(in light);
             Lights++;
             _now.Add(hero.PlayerIndex);
+            if (!Split(hero))
+                continue;
+            var models = ModelLightOf(hero, numbers);
+            sink.Light(in models);
+            Lights++;
+            _nowModels.Add(hero.PlayerIndex);
         }
 
-        foreach (int gone in _lit)
+        PutOut(_lit, _now, KeyOf);
+        PutOut(_litModels, _nowModels, ModelKeyOf);
+    }
+
+    /// <summary>Puts out each light lit last frame and not this one, once; this frame's become the lit.</summary>
+    private void PutOut(HashSet<int> lit, HashSet<int> now, Func<int, int> key)
+    {
+        foreach (int gone in lit)
         {
-            if (_now.Contains(gone))
+            if (now.Contains(gone))
                 continue;
-            sink.Out(KeyOf(gone));
+            sink.Out(key(gone));
             Outs++;
         }
 
-        _lit.Clear();
-        _lit.UnionWith(_now);
+        lit.Clear();
+        lit.UnionWith(now);
     }
 
-    /// <summary>The hero's lamp as a dynamic light: a cone from just ahead of his eye along his look.</summary>
+    /// <summary>
+    /// The hero's lamp as a dynamic light: a cone from just ahead of his eye along his look, his
+    /// radius. At lamp.json's brightness it lights the world and models; brighter or dimmer it
+    /// lights only the world, at his brightness (<see cref="ModelLightOf"/> lights the models).
+    /// </summary>
     public static DynamicLight LightOf(LampHero hero, LampNumbers n)
+    {
+        var light = Cone(hero, n);
+        light.Key = KeyOf(hero.PlayerIndex);
+        if (Split(hero))
+        {
+            (light.Red, light.Green, light.Blue, light.Exponent) = n.Colour(hero.Brightness);
+            light.Flags = (int)DynamicLightFlags.NoModelIllumination;
+        }
+
+        return light;
+    }
+
+    /// <summary>The models' half of a lamp that is not lamp.json's brightness: a dlight that lights no world surface, at lamp.json's colour, his radius and cone.</summary>
+    public static DynamicLight ModelLightOf(LampHero hero, LampNumbers n)
+    {
+        var light = Cone(hero, n);
+        light.Key = ModelKeyOf(hero.PlayerIndex);
+        light.Flags = (int)DynamicLightFlags.NoWorldIllumination;
+        return light;
+    }
+
+    /// <summary>The lamp's cone at lamp.json's colour: from just ahead of his eye along his look, his radius.</summary>
+    private static DynamicLight Cone(LampHero hero, LampNumbers n)
     {
         Vector forward = MoveVec.AngleForward(new Vector(hero.Pitch, hero.Yaw, 0f));
         Vector origin = hero.Eye + forward * n.Forward;
         return new DynamicLight
         {
-            Key = KeyOf(hero.PlayerIndex),
             OriginX = origin.X, OriginY = origin.Y, OriginZ = origin.Z,
             DirectionX = forward.X, DirectionY = forward.Y, DirectionZ = forward.Z,
-            Radius = n.Radius,
+            Radius = hero.Radius > 0f ? hero.Radius : n.Radius,
             Red = n.Red, Green = n.Green, Blue = n.Blue, Exponent = n.Exponent,
             InnerAngle = n.InnerAngle,
             OuterAngle = n.OuterAngle,
@@ -244,6 +341,8 @@ public sealed class HeroLampLights(ILampHeroes heroes, ILampLightSink sink, Lamp
     {
         _lit.Clear();
         _now.Clear();
+        _litModels.Clear();
+        _nowModels.Clear();
         _on.Clear();
     }
 
@@ -257,7 +356,9 @@ public sealed class HeroLampLights(ILampHeroes heroes, ILampLightSink sink, Lamp
         foreach (var h in list.OrderBy(h => h.PlayerIndex))
             sb.Append(CultureInfo.InvariantCulture,
                 $"[TF2Descent/Lamp]   player {h.PlayerIndex}: wire {(h.LampOn ? "lit" : "dark")}, {(h.Visible ? "seen" : "unseen")}, " +
-                $"{(_lit.Contains(h.PlayerIndex) ? "lit here" : "not lit here")}, eye ({h.Eye.X:0} {h.Eye.Y:0} {h.Eye.Z:0}) look {h.Pitch:0.#} {h.Yaw:0.#}\n");
+                $"{(_lit.Contains(h.PlayerIndex) ? "lit here" : "not lit here")}{(_litModels.Contains(h.PlayerIndex) ? " (world and models apart)" : "")}, " +
+                $"radius {(h.Radius > 0f ? h.Radius : content.Numbers.Radius):0} brightness x{(h.Brightness > 0f ? h.Brightness : 1f):0.##}, " +
+                $"eye ({h.Eye.X:0} {h.Eye.Y:0} {h.Eye.Z:0}) look {h.Pitch:0.#} {h.Yaw:0.#}\n");
         return sb.ToString();
     }
 }

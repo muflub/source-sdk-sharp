@@ -13,6 +13,15 @@ namespace TF2.Descent.Tests.Horde;
 /// The level's navigation as the horde derives it (plan_descent_logic 3.7): the committed depth 1
 /// seed 1 <c>.nav3d</c> becomes a graph for the robots' numbers with a class per robot scale band,
 /// and its voxel columns; which rooms each class reaches from the arrival.
+///
+/// <para>
+/// The committed level is depth 1 as generated before 50cefc6c3 (2026-11-14), kept on purpose
+/// (Level/Fixtures/README.md): its wide drift rooms have solid 8-unit floor rails. Since the
+/// derivation asks a hull's fit on a step from the voxel over its feet (ruling 2026-11-15) the
+/// giants stand on those rails, so every class reaches every room, as in a level built today
+/// (whose rails are not solid). The cut floor the reach and path facts need is a level of their
+/// own (<see cref="CutFloorLevel"/>).
+/// </para>
 /// </summary>
 public sealed class HordeNavDataTests(ITestOutputHelper output)
 {
@@ -52,21 +61,90 @@ public sealed class HordeNavDataTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// The stairs limit (docs/todo.md, "a hull wider than the game's cannot climb stairs"): a hull
-    /// is raised one step only, so the two largest giants' classes stop at a stair two steps
-    /// tall for them. On depth 1 seed 1 they reach 15 of the 18 rooms (HO0 measured the same).
+    /// The two largest giants' classes reach all 18 rooms. Until 2026-11-15 they reached 15: the
+    /// wide drift rooms' 8-unit floor rails top out inside a voxel, and the derivation answered a
+    /// hull standing on such a step as blocked, which cut rooms 6, 16 and 17 off (first read as
+    /// the rails being in the way, 2026-11-13). Asked from the voxel over the feet, the giants stand
+    /// on the rails as the game's movement puts them.
     /// </summary>
     [Fact]
-    public void The_two_largest_giant_classes_reach_15_of_the_18_rooms()
+    public void The_two_largest_giant_classes_reach_every_room_standing_on_the_floor_rails()
     {
-        var stand = RoomsReached(Nav, FixtureLevel, Nav.CellAt(Arrival, ClearanceClass.Stand), ClearanceClass.Stand);
         foreach (var cls in new[] { ClearanceClass.Hull4, ClearanceClass.Hull5 })
         {
             var giant = RoomsReached(Nav, FixtureLevel, Nav.CellAt(Arrival, cls), cls);
-            output.WriteLine($"{HordeHulls.NameOf(cls)}: {giant.Count} rooms; missing {string.Join(", ", stand.Except(giant).Select(r => $"{r} {Data.Rooms[r].Name}"))}");
-            Assert.Equal(15, giant.Count);
-            Assert.Subset(stand, giant);
+            output.WriteLine($"{HordeHulls.NameOf(cls)}: {giant.Count} rooms");
+            Assert.Equal(FixtureLevel.RoomCount, giant.Count);
         }
+    }
+
+    /// <summary>
+    /// Every class reaches every room of a built level whose pool rooms stand their walkways 64
+    /// over the floor up a flight from each door: the derivation stands a hull on the highest step
+    /// under its box. While it raised them one step only, every extra hull reached 20 of depth 8
+    /// seed 1's 37 rooms and 21 of depth 9's (measured 2026-11-15 over 16a29fcd6's derivation).
+    /// Depth 9 is asked at seed 2: its seed 1 layout at 6b09663d7 draws no pool room.
+    /// </summary>
+    private void EveryClassReachesEveryRoomOf(int depth, ulong seed)
+    {
+        var files = LevelFixture.Built(depth, seed);
+        LevelData data = files.Read();
+        HordeLevel level = LevelAdapters.ToHorde(data);
+        HordeNavData nav = HordeNavData.Derive(files.Nav3d);
+        var arrival = new AiVector(data.Arrivals[0].Position.X, data.Arrivals[0].Position.Y, data.Arrivals[0].Position.Z);
+        Assert.Contains(data.Rooms, r => r.Name.StartsWith("pool", StringComparison.Ordinal));
+        foreach (var cls in new[] { ClearanceClass.Stand, ClearanceClass.Hull2, ClearanceClass.Hull3, ClearanceClass.Hull4, ClearanceClass.Hull5 })
+        {
+            var reached = RoomsReached(nav, level, nav.CellAt(arrival, cls), cls);
+            output.WriteLine($"{HordeHulls.NameOf(cls)}: {reached.Count} of {level.RoomCount} rooms");
+            Assert.Equal(level.RoomCount, reached.Count);
+        }
+    }
+
+    [BuiltLevelFact(8, 1)]
+    public void Every_class_reaches_every_room_of_depth_8_seed_1_pools_included() => EveryClassReachesEveryRoomOf(8, 1);
+
+    [BuiltLevelFact(9, 2)]
+    public void Every_class_reaches_every_room_of_depth_9_seed_2_pools_included() => EveryClassReachesEveryRoomOf(9, 2);
+
+    /// <summary>
+    /// The room table of depth 1 seed 1 (the output): for each room, the cells each class stands on
+    /// and how many of them it reaches from the arrival. Every class reaches cells in every room;
+    /// until 2026-11-15 the x1.75 and x1.90 classes reached none in rooms 6, 16 and 17 (see
+    /// <see cref="The_two_largest_giant_classes_reach_every_room_standing_on_the_floor_rails"/>).
+    /// </summary>
+    [Fact]
+    public void The_room_table_of_depth_1_seed_1_has_every_class_reaching_cells_in_every_room()
+    {
+        var nav = Nav;
+        var level = FixtureLevel;
+        var classes = new[] { ClearanceClass.Stand, ClearanceClass.Hull2, ClearanceClass.Hull3, ClearanceClass.Hull4, ClearanceClass.Hull5 };
+        var reached = classes.Select(c => nav.Reachable(nav.CellAt(Arrival, c), c)).ToArray();
+        var unreached = new List<string>();
+        for (int r = 0; r < level.RoomCount; r++)
+        {
+            var row = new System.Text.StringBuilder(FormattableString.Invariant($"room {r,2} {Data.Rooms[r].Name,-16}"));
+            for (int k = 0; k < classes.Length; k++)
+            {
+                int stands = 0, reach = 0;
+                for (int i = 0; i < nav.Graph.CellCount; i++)
+                {
+                    if (level.RoomAt(nav.Graph.Cell(i).Centre + new AiVector(0f, 0f, 1f)) != r || !nav.Graph.Cell(i).Admits(classes[k]))
+                        continue;
+                    stands++;
+                    if (reached[k][i])
+                        reach++;
+                }
+
+                row.Append(FormattableString.Invariant($" | {HordeHulls.NameOf(classes[k])} {reach}/{stands}{(reach == 0 ? " UNREACHED" : "")}"));
+                if (reach == 0)
+                    unreached.Add($"{HordeHulls.NameOf(classes[k])} in room {r}");
+            }
+
+            output.WriteLine(row.ToString());
+        }
+
+        Assert.Empty(unreached);
     }
 
     [Fact]

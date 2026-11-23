@@ -13,10 +13,16 @@ namespace TF2.Descent.Tests.Horde;
 /// What a fact and a gated derivation share: the work says it is inside its gate, the fact says
 /// when it may go on. The gate also opens by itself after <see cref="CapMs"/>, so a game thread
 /// that waited on it fails the fact instead of hanging the run (as <see cref="StallGate"/>).
+///
+/// <para>
+/// The cap is a guard against a hang and nothing else, so it is long: the derivation it waits
+/// for is a tenth of a second on a quiet box and took more than 30 s twice in a whole-leg run on
+/// a box at a load of 70 to 120 (2026-11-14), which failed a fact that was not wrong.
+/// </para>
 /// </summary>
 internal sealed class DeriveGate : IDisposable
 {
-    public const int CapMs = 30_000;
+    public const int CapMs = 300_000;
 
     public ManualResetEventSlim Entered { get; } = new(false);
     public ManualResetEventSlim Release { get; } = new(false);
@@ -195,7 +201,8 @@ public sealed class HordeNavTests
         nav.End();
         gate.Release.Set();
         Assert.True(gate.Left.Wait(DeriveGate.CapMs));
-        for (int i = 0; i < 10_000 && nav.ThreadsAlive > 0; i++)
+        long left = System.Diagnostics.Stopwatch.GetTimestamp();
+        while (nav.ThreadsAlive > 0 && System.Diagnostics.Stopwatch.GetElapsedTime(left).TotalMilliseconds < DeriveGate.CapMs)
             Thread.Sleep(1);
 
         Assert.Equal(0, nav.ThreadsAlive);
@@ -262,6 +269,69 @@ public sealed class HordeNavTests
             Assert.False(InCrate(from, corners[i], crate), $"the leg {from} to {corners[i]} goes through the crate");
             from = corners[i];
         }
+    }
+
+    /// <summary>
+    /// The same crate and a giant: its path keeps the giant's own hull off it (live on level 10 seed 1, 2026-11-20 at
+    /// 225fe2e96: x1.75 and x1.9 pyros held 9 to 13 s blocked by the world beside a construction light, its cells probed
+    /// with a standing body's box, so the giants' paths ran their hulls into it).
+    /// </summary>
+    [Theory]
+    [InlineData(ClearanceClass.Hull3)]
+    [InlineData(ClearanceClass.Hull5)]
+    public void A_giants_path_past_a_prop_the_file_does_not_hold_keeps_its_own_hull_off_it(ClearanceClass cls)
+    {
+        var (rig, nav) = Make();
+        var crate = new AiVector(2400f, 3600f, 16f);
+        AiVector mins = new(crate.X - 24f, crate.Y - 24f, 16f), maxs = new(crate.X + 24f, crate.Y + 24f, 72f);
+        rig.World.Put(new Vector(mins.X, mins.Y, mins.Z), new Vector(maxs.X, maxs.Y, maxs.Z));
+        nav.Work = (bytes, _) =>
+        {
+            var data = HordeNavData.Derive(bytes);
+            var near = new List<int>();
+            data.Graph.CellsNear(crate.X - HordeNav.PropReach, crate.Y - HordeNav.PropReach, crate.X + HordeNav.PropReach, crate.Y + HordeNav.PropReach, near);
+            near.Sort();
+            return (data, near.ToArray());
+        };
+        nav.Begin(Fixture.Map, HordeNavDataTests.FixtureLevel);
+        UntilReady(rig, nav);
+        var a = new AiVector(2260f, 3600f, 16f);
+        var b = new AiVector(2540f, 3600f, 16f);
+        var corners = new AiVector[HordeRoute.MaxCorners];
+        var arrive = new NavEdgeType[HordeRoute.MaxCorners];
+
+        var answer = nav.Paths.Find(a, b, cls, HordeRoute.SearchBudget, corners, arrive, out int n, out _);
+
+        Assert.Equal(PathAnswer.Found, answer);
+        float over = HordeArenaClearanceTests.WorstOverlap(a, corners.AsSpan(0, n), mins, maxs, HordeArenaClearanceTests.HalfWidth(cls));
+        Assert.True(over <= 0f, $"a {HordeHulls.NameOf(cls)} hull on the path {string.Join(" ", corners[..n])} is {over} units inside the crate");
+    }
+
+    /// <summary>A cell the biggest hull's box is clear at takes one probe; one in a prop is probed down the classes to the first it is clear for.</summary>
+    [Fact]
+    public void A_cell_clear_for_the_biggest_hull_takes_one_probe_and_one_in_a_prop_more()
+    {
+        var (rig, nav) = Make();
+        var crate = new AiVector(2400f, 3600f, 16f);
+        rig.World.Put(new Vector(crate.X - 24f, crate.Y - 24f, 16f), new Vector(crate.X + 24f, crate.Y + 24f, 72f));
+        var far = new AiVector(2400f, 5200f, 16f);
+        int[] clear = [], round = [];
+        nav.Work = (bytes, _) =>
+        {
+            var data = HordeNavData.Derive(bytes);
+            var near = new List<int>();
+            data.Graph.CellsNear(far.X - 32f, far.Y - 32f, far.X + 32f, far.Y + 32f, near);
+            clear = [.. near];
+            data.Graph.CellsNear(crate.X - HordeNav.PropReach, crate.Y - HordeNav.PropReach, crate.X + HordeNav.PropReach, crate.Y + HordeNav.PropReach, near);
+            round = [.. near];
+            return (data, [.. clear.Concat(round).Distinct().Order()]);
+        };
+        nav.Begin(Fixture.Map, HordeNavDataTests.FixtureLevel);
+        UntilReady(rig, nav);
+        Assert.NotEmpty(clear);   // the control: cells far from the crate were probed
+
+        Assert.True(nav.Probes > nav.Candidates, $"{nav.Probes} probes for {nav.Candidates} cells: none in the crate probed twice");
+        Assert.True(nav.Probes < nav.Candidates * HordeNav.ProbeOrder.Length, $"{nav.Probes} probes for {nav.Candidates} cells: every cell probed for every class");
     }
 
     /// <summary>A body pressed against a prop stands in a blocked cell: it is planned from the nearest free one, never answered unreachable.</summary>

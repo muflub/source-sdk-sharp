@@ -59,6 +59,7 @@ public class DescentAutomapTests
         public float RoomH(int r) => Rooms[r].H;
         public int RoomStorey(int r) => 1;
         public bool RoomCurrentStorey(int r) => true;
+        public bool RoomDiscovered(int r) => false;
         public int DoorStubCount => 0;
         public float DoorStubX(int i) => 0;
         public float DoorStubY(int i) => 0;

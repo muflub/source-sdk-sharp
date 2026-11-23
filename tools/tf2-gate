@@ -5310,6 +5310,7 @@ BOTS_JUMP_RUNS = (
     ("double", "ss_ai_tf_double", ["course", "--map", "ss_ai_tf_double", "--runs", str(BOTS_JUMP_TRIES), "--reload"]),
     ("wall", "ss_ai_tf_wall", ["course", "--map", "ss_ai_tf_wall", "--runs", str(BOTS_JUMP_TRIES), "--reload"]),
     ("ends", "ss_ai_tf_ends", ["course", "--map", "ss_ai_tf_ends", "--runs", str(BOTS_JUMP_TRIES), "--reload"]),
+    ("pack", "ss_ai_tf_pack", ["course", "--map", "ss_ai_tf_pack", "--runs", str(BOTS_JUMP_TRIES), "--reload"]),
 )
 # A run of the tool, its games' loads and its tries together, is given this long before it is a failure.
 BOTS_JUMP_SECONDS = 2400.0
@@ -5349,7 +5350,8 @@ def bots_jump_verdict(name, rc, result, need=BOTS_JUMP_NEED):
 def step_bots_jump(run, state):
     """G.7's gate, bots-jump: one red Soldier bot alone on each jump map, each across a second load of its map: the 250 u
     ledge of ss_ai_tf_jump by a link (`tools/ai-tf-jump links --tries 5 --reload`), the three courses (`course --runs 5
-    --reload`: ss_ai_tf_course, ss_ai_tf_double and the wall jump's ss_ai_tf_wall), and the course of ends (`course --map ss_ai_tf_ends`); each at least
+    --reload`: ss_ai_tf_course, ss_ai_tf_double and the wall jump's ss_ai_tf_wall), the course of ends (`course --map ss_ai_tf_ends`) and lane G9's
+    pack course (`course --map ss_ai_tf_pack`: a jump under the health floor to a pack, and the same jump healed for at a cabinet); each at least
     4 of 5 before the reload and after it. The tool runs its own headless games on BOTS_JUMP_PORT, beside the gate's two
     (which the step does not use); a map without its navigation fails, saying how to build it. The jump_academy2 arm of
     G.7 waits for that map's navigation (the rooms proposal's ruling)."""
@@ -5978,8 +5980,8 @@ def self_test():
     check(not bots_jump_verdict("course", 1, course_ok)[0] and not bots_jump_verdict("course", "timeout", course_ok)[0],
           "the tool's failure or a timeout fails it")
     check("bots-jump" not in DEFAULT_STEPS and select_steps("bots-jump") == ["bots-jump"], "bots-jump runs only when named")
-    check([m for _, m, _ in BOTS_JUMP_RUNS] == ["ss_ai_tf_jump", "ss_ai_tf_course", "ss_ai_tf_double", "ss_ai_tf_wall", "ss_ai_tf_ends"]
-          and all("--reload" in a for _, _, a in BOTS_JUMP_RUNS), "bots-jump runs the ledge, the three courses and the ends, each across a reload")
+    check([m for _, m, _ in BOTS_JUMP_RUNS] == ["ss_ai_tf_jump", "ss_ai_tf_course", "ss_ai_tf_double", "ss_ai_tf_wall", "ss_ai_tf_ends", "ss_ai_tf_pack"]
+          and all("--reload" in a for _, _, a in BOTS_JUMP_RUNS), "bots-jump runs the ledge, the three courses, the ends and the pack course, each across a reload")
     status, why = step_bots_payload(None, {})
     check(status == "FAIL" and "P8" in why["detail"], "bots-payload says it waits for P8")
 

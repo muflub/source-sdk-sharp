@@ -19,8 +19,11 @@ namespace SourceSharp.Ai.Server.Nav;
 /// (into the next cell too), the box touching from below or above in the
 /// leaf's own column, and the jump links whose end is this box at this
 /// column.</item>
-/// <item><b>Fits</b> are the key's ceiling for the width asked
-/// (<see cref="NavHullReader.FitsAt"/>), inside the box's height as
+/// <item><b>Fits</b> are the reader's (<see cref="NavHullReader.FitsAt"/>):
+/// the key's ceiling for the width asked and each of its overhang records
+/// (a sloped brush's highest top that passes under it and lowest feet that
+/// stand over it; <c>.navhull</c> version 2), so a fit at any feet is the
+/// <c>.nav3d</c>'s; asked inside the box's height as
 /// <see cref="Nav3dNavSource"/> asks inside a leaf's. The file holds ceilings
 /// only for the widths it was built for: <see cref="MissingWidth"/> says
 /// which of a game's widths it lacks, and the loader refuses the file by
@@ -38,7 +41,10 @@ public sealed class NavHullNavSource : INavSource
     /// <summary>
     /// The numbering's revision: part of a cached graph's name (<see cref="NavLoader.HullKey"/>),
     /// since a cached graph names its cells' leaves. Raise it with any change to which leaf is
-    /// which column of which box.
+    /// which column of which box, or to what this class answers of a leaf. A change in the file
+    /// or the reader alone does not raise it: the cache's name already carries the file's hash
+    /// and the reader's version (<c>NavGraphCache</c>), so <c>.navhull</c> version 2
+    /// (MapFormats 1.0.8) left it at 1.
     /// </summary>
     public const int Revision = 1;
 
@@ -145,6 +151,47 @@ public sealed class NavHullNavSource : INavSource
         NavHullBox b = _reader.Box(box);
         int offset = leaf - _first[box], width = b.X1 - b.X0;
         return (box, b, b.X0 + offset % width, b.Y0 + offset / width);
+    }
+
+    /// <summary>
+    /// Every leaf's column, counted from <paramref name="origin"/> (a column's corner), into
+    /// <paramref name="x"/> and <paramref name="y"/>: what <c>round((Leaf(l).MinX - origin.X) / voxel)</c>
+    /// answers, read box by box without looking a leaf's box up.
+    /// </summary>
+    public void LeafColumns(int[] x, int[] y, (float X, float Y) origin)
+    {
+        ArgumentNullException.ThrowIfNull(x);
+        ArgumentNullException.ThrowIfNull(y);
+        if (x.Length < LeafCount || y.Length < LeafCount)
+            throw new ArgumentException($"the arrays hold fewer than {LeafCount} leaves");
+        double s = _reader.VoxelSize;
+        int n = _reader.CellVoxels;
+        int dx = (int)Math.Round((_reader.Origin.X - origin.X) / s), dy = (int)Math.Round((_reader.Origin.Y - origin.Y) / s);
+        for (int box = 0; box < _reader.BoxCount; box++)
+        {
+            NavHullBox b = _reader.Box(box);
+            int cell = _reader.BoxCell(box), leaf = _first[box];
+            int gx = (cell % _reader.Columns) * n + dx, gy = (cell / _reader.Columns) * n + dy;
+            for (int yy = b.Y0; yy < b.Y1; yy++)
+            {
+                for (int xx = b.X0; xx < b.X1; xx++)
+                {
+                    x[leaf] = gx + xx;
+                    y[leaf] = gy + yy;
+                    leaf++;
+                }
+            }
+        }
+    }
+
+    /// <summary>Each jump link's two leaves, once each: <see cref="Jumps"/> answers each end's other.</summary>
+    public IEnumerable<(int A, int B)> JumpPairs()
+    {
+        for (int j = 0; j < _reader.JumpCount; j++)
+        {
+            NavHullJump jump = _reader.Jump(j);
+            yield return (LeafOf((int)jump.BoxA, jump.AX, jump.AY), LeafOf((int)jump.BoxB, jump.BX, jump.BY));
+        }
     }
 
     public NavLeaf Leaf(int leaf)

@@ -32,3 +32,15 @@ public sealed class FovDesiredConVar : FloatConVar { }
 /// <summary>TF's default field of view.</summary>
 [ConVarDefault("default_fov", "75")]
 public sealed class TFDefaultFovDefault { }
+
+// Stock TF declares viewmodel_fov FCVAR_ARCHIVE (view.cpp:110-111, under
+// TF_CLIENT_DLL) where every other game declares it FCVAR_CHEAT
+// (view.cpp:113), the core's row. TF's options script offers it as a 54-70
+// slider (cfg/user_default.scr); under the core's flags a listen server
+// without sv_cheats refused the line the options page ran ("Can't use cheat
+// cvar viewmodel_fov in multiplayer"). Stock's competitive bounds (54, 70)
+// bind only in a competitive match, which this port does not play.
+
+/// <summary>TF's viewmodel field of view: the player's own setting, kept in config.cfg.</summary>
+[ConVarDefault("viewmodel_fov", "54", ConVarFlags.Archive)]
+public sealed class TFViewmodelFovDefault { }

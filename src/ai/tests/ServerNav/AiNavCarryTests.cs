@@ -47,8 +47,14 @@ public sealed class AiNavCarryTests : IDisposable
 
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "ai-navcarry-" + Guid.NewGuid().ToString("N"));
 
+    /// <summary>The navigations the fact made: a carried level starts its choke points on a worker that writes into the cache.</summary>
+    private readonly List<NavService> _navs = [];
+
+    /// <summary>Each navigation's worker stops, as the composition's shutdown stops it, before its cache directory goes.</summary>
     public void Dispose()
     {
+        foreach (NavService nav in _navs)
+            ((IGameLifecycle)nav).OnShutdown();
         if (Directory.Exists(_dir))
             Directory.Delete(_dir, recursive: true);
     }
@@ -165,8 +171,10 @@ public sealed class AiNavCarryTests : IDisposable
             nameof(IEnginePlayers.GetTeam) => _teams.GetValueOrDefault((EntityHandle)a![0]!),
             _ => throw FakeEngine.Unasked(m),
         });
-        return new NavService(files, new Mod(_dir), world, new Lines(), players, new NoTraces(),
-                              profile ?? new SourceSharp.Ai.Hl2mp.Nav.Hl2mpNavProfile(), NavBuildTestKnobs.Off());
+        var nav = new NavService(files, new Mod(_dir), world, new Lines(), players, new NoTraces(),
+                                 profile ?? new SourceSharp.Ai.Hl2mp.Nav.Hl2mpNavProfile(), NavBuildTestKnobs.Off());
+        _navs.Add(nav);
+        return nav;
     }
 
     [Fact]

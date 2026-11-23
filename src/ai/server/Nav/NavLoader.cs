@@ -52,6 +52,31 @@ public sealed record NavLoadResult(LoadedNav? Nav, string? Refusal, string? Miss
 }
 
 /// <summary>
+/// A level whose navigation is a file per room (plan_bots_teams_tf2_part_g R.2 stage A): the room
+/// index, the room table, the map's bytes and entities, and what names a room's graph in the
+/// cache. Nothing is derived here: a room is derived when the game asks for it
+/// (<see cref="NavRoomJob"/>).
+/// </summary>
+public sealed record NavRoomsLevel(string Map, NavRoomIndex Index, NavRoomTable Table, byte[] Bsp, string BspSha256, MapEntities Entities)
+{
+    /// <summary>The room a place is in: the room in play when it is one of the index's answers, else the first answer with a room in the table; -1 for none.</summary>
+    public int RoomAt(AiVector at, int inPlay, List<int> scratch)
+    {
+        ArgumentNullException.ThrowIfNull(scratch);
+        Index.RegionsAt(new SourceSharp.MapFormats.Geometry.Vec3(at.X, at.Y, at.Z + 1f), scratch);
+        if (scratch.Contains(inPlay))
+            return inPlay;
+        foreach (int region in scratch)
+        {
+            if (Table.Room(region) is not null)
+                return region;
+        }
+
+        return -1;
+    }
+}
+
+/// <summary>
 /// Loads a level's navigation (plan_hl2mp_ai §6.3, plan_bots_teams_tf2 E.3,
 /// plan_bots_teams_tf2_part_g G.7), in order: <c>maps/&lt;map&gt;.nav3d</c>
 /// beside its bsp, read through the engine's file seam (a shipped or
@@ -127,6 +152,86 @@ public static class NavLoader
         }
 
         return new NavLoadResult(null, refusal, none ? NavPath(map) : null) { Bsp = bsp };
+    }
+
+    /// <summary>The map's room index beside it (<c>ai-replay navsplit rooms</c>).</summary>
+    public static string RoomIndexPath(string map) => $"maps/{map}.navrooms";
+
+    /// <summary>The map's room table beside it.</summary>
+    public static string RoomTablePath(string map) => $"maps/{map}.navrooms.json";
+
+    /// <summary>A room's own file beside the map.</summary>
+    public static string RoomPath(string file) => $"maps/{file}";
+
+    /// <summary>
+    /// What a room's graph adds to its numbers' name in the cache: the hull numbering's, the rules
+    /// the room was made by (<see cref="NavRoomTable.RulesRevision"/>), and the 4 by 4 merge.
+    /// </summary>
+    public static string RoomKey(string numbersKey) => $"{HullKey(numbersKey)}rooms{NavRoomTable.RulesRevision}k4";
+
+    /// <summary>
+    /// The level in rooms when it is one (plan_bots_teams_tf2_part_g R.2 item 1): a room index and table beside the
+    /// map, the table naming a whole navigation over <paramref name="maxLeaves"/>. Null when it is not (the level
+    /// loads as before), with <paramref name="refusal"/> null; null with why when the files are there but cannot
+    /// be used (the caller says so and loads the level as one with none).
+    /// </summary>
+    public static NavRoomsLevel? Rooms(string map, Func<string, byte[]?> read, int maxLeaves, out string? refusal)
+    {
+        ArgumentNullException.ThrowIfNull(read);
+        refusal = null;
+        if (read(RoomTablePath(map)) is not { } tableBytes)
+            return null;
+        NavRoomTable table;
+        try
+        {
+            table = NavRoomTable.FromJson(System.Text.Encoding.UTF8.GetString(tableBytes));
+        }
+        catch (InvalidDataException e)
+        {
+            refusal = $"{RoomTablePath(map)} cannot be read: {e.Message}";
+            return null;
+        }
+
+        if (table.WholeLeaves <= maxLeaves)
+            return null;
+        if (read(RoomIndexPath(map)) is not { } indexBytes)
+        {
+            refusal = $"no navigation for {map}: {RoomTablePath(map)} has no {RoomIndexPath(map)} beside it";
+            return null;
+        }
+
+        if (read(BspPath(map)) is not { } bsp)
+        {
+            refusal = $"no {BspPath(map)} to bind {RoomTablePath(map)} to";
+            return null;
+        }
+
+        NavRoomIndex index;
+        MapEntities entities;
+        try
+        {
+            index = NavRoomIndex.Read(indexBytes);
+            entities = MapEntities.Read(bsp);
+        }
+        catch (InvalidDataException e)
+        {
+            refusal = $"the rooms of {map} cannot be read: {e.Message}";
+            return null;
+        }
+
+        if (table.Revision != NavRoomTable.RulesRevision)
+        {
+            refusal = $"{RoomTablePath(map)} was made by room rules {table.Revision}, this game's are {NavRoomTable.RulesRevision}: build it again (tools/ai-nav-build {map} --hull --rooms --force)";
+            return null;
+        }
+
+        if (table.StartRoom is null)
+        {
+            refusal = $"{RoomTablePath(map)} has no room with a spawn";
+            return null;
+        }
+
+        return new NavRoomsLevel(map, index, table, bsp, Convert.ToHexStringLower(SHA256.HashData(bsp)), entities);
     }
 
     /// <summary>

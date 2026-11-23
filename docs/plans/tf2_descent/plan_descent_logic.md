@@ -3,15 +3,12 @@
 Measured at `ce143b36b` (main, 2026-11-10). Reviewed and committed that day
 ("commit it and start on CR").
 
-**Status, 2026-11-13.** On main at `6875df092`: 62 of the 66 packages, and
-every hero, horde, world and UI package. CR1, CR3 to CR6, CR8 to CR10; every
-rules package but RU14 (its retune and model are held on `descent-ru-d` for
-a ruling); HE0 to HE10 with the class gate; HO0 to HO13; WO1 to WO9; UI1 to
-UI7. Ruled and not built: CR2. Not started, held for the user: CR7, CR11.
-No lane is running. Section 4.7 says what each landed package gave and
-found. Each part of section 5's milestones has been seen live in an unhosted
-game, one package's proof at a time; no whole run has been played through in
-one sitting, and nothing has been run hosted.
+**Status, 2026-11-14.** On main at `9175b350d`: 65 of the 66 packages (CR2 is
+ruled and not built). The wave of 2026-11-13 (rulings L14 to L17) landed
+CR7, CR11, RU14 with the bosses rebalanced, four defect fixes and the lamp's
+two stats, and one whole run was played end to end unhosted; section 4.7
+says what each gave and what the run found. Nothing has been run hosted. The
+host and map sessions have the asks of section 7 and have answered them.
 
 The design is `plan_tf2_rpg.md` (rulings R1 to R29, defaults D1 to D25,
 appendices A to D). This file does not restate it. It says what to build in
@@ -43,6 +40,17 @@ their row, so the two plans do not both assign them.
 | L11 | **(2026-11-11)** A player's equipped items and their attributes are sent to every client, on the player's own networked state: all players see what the others have equipped. | Replaces CR9's owner-only entity. The owner's client predicts from it; every other client can show it (inspect, party frames). An equipped item's rolled attributes are therefore not secret. An unidentified item cannot be equipped (D22), so nothing hidden is exposed. |
 | L12 | **(2026-11-11)** A robot is hurt by its own blast, is pushed by blasts as a player is, and can rocket jump and grenade jump as a player can. | Replaces the kept divergence (CR10). The body's motion takes the blast push stock gives a player (HO3, HO8); Soldier and Demoman robots may blast jump as a decision (HO6, HO12). |
 | L13 | **(2026-11-11)** Subagent lanes of this plan run on Opus 5.5. | Section 6. |
+| L14 | **(2026-11-13)** The economy retune and model land as a starting point: a gate that still fails stays a skipped fact with its numbers, and boss balance is done with it. | RU14 (branch `descent-ru14`, carrying `c5e116065` and `f7de49543` from `descent-ru-d`). |
+| L15 | **(2026-11-13)** CR7 (lag compensation for opted-in entities) and CR11 (pose parameters on the server) start. | Core packages; lanes `descent-cr7`, `descent-cr11`. |
+| L16 | **(2026-11-13)** The known defects are fixed first, then one whole run is played end to end; the asks of section 7 are sent to the host and map sessions. | Lane `descent-defects`; the run after it lands. The asks went that day to `source-sdk-map-tools-af`, `source-sdk-sharp-26` and `source-sdk-sharp-46` (which session makes the levels was not known). |
+| L17 | **(2026-11-13, said to the mine-levels session and relayed by it)** "build the miner lamp (which can have brightness increase and range increase from skills and itmes) then remeasure". | Lamp range and lamp brightness are hero stats (lane `descent-lampstat`). Replaces Appendix D.2 row 11 ("skip the stat") for the hero's own view; robots' sight still reads only whether the lamp is lit. |
+| L18 | **(2026-11-14)** Fix what the whole run found (run fixes), then play again: potions gained go to the belt, the Medic always stocks a Teleporter Blueprint, the resupply locker is the Lost & Found counter. | Landed 6b09663d7. |
+| L19 | **(2026-11-14)** "do 1 and 2": the core's model change resets the skeleton's sequence to 0, as stock's SetModel does (the sentry's turret hitboxes follow its aim). | Core; landed with 6b09663d7 (e54248424). |
+| L20 | **(2026-11-14 and 2026-11-16, relayed by the mine-levels session)** The lamp's base radius is 480; its range ceiling is +90 % (912), not +125 %. | lamp.json; landed a9bdd73a76 and 6551fa3e6. |
+| L21 | **(2026-11-15, played)** A level's way up goes to the level above (arriving at its way down), level 1's to the town; the depth picker offers every depth reached. Camp levels 6 and 11 go up one level too (the mine plan's hoist to town is overruled). | Lane `descent-travel`; landed 1a7820b93. |
+| L22 | **(2026-11-15)** Crates and barrels break with a seeded roll (nothing, Australium, potion, item; or a blast, a cloud, an ambush), all of a level's owned by ONE manager entity (health, collision, breaking, sync; client-only props, one edict). | Lanes `descent-breakables` (1a7820b93) and the mine-levels session's markers (e6ba31b21). |
+| L23 | **(2026-11-15, played)** What the user asked while playing, each landed with the coordinator's default named for overruling: E is use; Tab shows the map over the view; TF2's strings load under make run; the town locker resupplies; a Descent admin menu; respawn with the class's stock weapons; robots BLU, ragdolls, ammo drops; robots notice within a room's reach, one pack at a time; the MOTD is Descent's and shows on the first level only, with no map info; TF2's logo with DESCENT over a town still, TF2's dead buttons hidden; a pickaxe window icon; rooms beyond an explored room's doors drawn faint. | Landed 6b09663d7, 4e72e55c9, 1a7820b93, 6c1e2ac40. |
+| L24 | **(2026-11-16, relayed by the host session)** Australium from a kill is one pile, party-shared on pickup (AustraliumShares), in SDK 2.8.0; until then the host credits every nearby member the whole roll. | Host SDK 2.8.0 / Contracts 1.2.0 (approved by the user in the host session 2026-11-20); lane `descent-sdk28`, landed d09d5b121..46ea39600 (2026-11-21). The pile's members are the killer's party on the level; unhosted keeps the same rule (one pile, shared on pickup). Also in 2.8: repair by the sheet (`town_free` repairs at Cost 0), hosted crates and barrels broken once per hero in the room (R4), equip Swap and belt Merge. |
 
 ### 0.2 What the tree has that `plan_tf2_rpg.md` did not know
 
@@ -317,9 +325,10 @@ not: the body sets its bounds to the scaled hull itself
 Animation is the client's. The entity block networks origin, angles, model,
 skin and bounds, and no sequence, cycle, scale or pose parameter: the body's
 own net state carries scale, sequence, a restart serial and the pose
-parameters (36 bytes in the spike), and the client plays them. The server
-cannot pose a skeleton today (CR11), so until it can a hit is tested against
-the unposed hitboxes.
+parameters (36 bytes in the spike), and the client plays them. Since CR11
+(`e34bd6bb2`, 2026-11-14) the server holds the same pose parameters on the
+body's skeleton, so a hit is tested against the posed hitboxes; the overlay
+gestures (an attack's layer) are still the client's alone.
 
 ### 3.8 Fighting
 
@@ -484,7 +493,12 @@ What they found that later packages must hold to:
   doors, and tags it as arena-bound otherwise (RPG plan 5d). A giant that
   follows a hero down a flight needs a derivation rule that stands a wide
   hull across several steps; that is the AI coordinator's to design and was
-  put to that session on 2026-11-11.
+  put to that session on 2026-11-11. Landed on branch `descent-giant-stairs`
+  (2026-11-15): a hull stands on the highest step under its box, each rise
+  within a step, exact where a step's top lies on a voxel boundary. Every
+  class now reaches all 37 rooms of depth 8 and 9 seed 1, pools included;
+  what is left is in docs/todo.md ("a wide hull on a step whose top is
+  inside a voxel").
 - **A recording of a session with callouts off does not replay as it ran.**
   `AiReplayer` builds its own session with the team layer on. HO4 agrees the
   replayer's change with the AI coordinator before its record and replay
@@ -910,6 +924,119 @@ Seams by name, for the packages that build on them; then what did not hold.
   first time it is asked. The composition fact that guards the session and
   the downed state against a constructor cycle stops at a chain.
 
+**Landed 2026-11-13 and 14 (`8ca876d53` to `9a51b5088`, then `fe9337f46`).**
+
+- CR7 (`9da21f59a`, `8ca876d53`): a `ScriptedEntity` opts into the lag
+  compensation (`LagCompensated`, `LagCompensationMaxSpeed`,
+  `RestartLagHistory`; `ILagCompensatedEntities`), is recorded and rewound as
+  a player is, and `ILagCompensationTargets` is asked with
+  `LagCompensationTarget.OptedIn`. A robot body opts in while lent and alive
+  and starts a fresh history at each lend and park. Recording 49 entities
+  costs 9 to 17 us a tick over the fake world (release, a scratch bench) and
+  allocates nothing. Live: a robot crossing the hero's view was rewound 46
+  units for the probe and put back. Not shown live: a fair hit count with and
+  without it (a lagged client's shot could not be timed). Left for the
+  performance pass: `Collect` walks every live managed entity a frame.
+- CR11 (`e34bd6bb2` and the Descent commits after it): the pose-parameter
+  calls answer on the server with stock's rules, the bone cache's key holds a
+  pose generation (a rewind that changed only the poses was traced against
+  stale bones before), poses ride a hot reload, and a robot body sets its four
+  dials on the server as it writes them to its net state. Live: a body leaned
+  45 degrees moves its head hitbox to where the client draws it (the old
+  place hits the wall, the new one the body). One posed setup is about 67 us
+  (release, managed-only bench). **Not measured:** the horde's release tick
+  with posed bodies (the disk was full). Found: a built sentry's turret does
+  not follow its aim, because `TFBaseObject` never plays `ACT_OBJ_RUNNING`
+  (the TF2 port session has it) and the core's model change does not reset
+  the sequence to 0 as stock's `SetModel` does (no owner; asked of the user).
+- The four defects (`c94691f02` to `b615d6fa5`). A robot idle at its post
+  turns to its post's yaw. A corpse whose level is gone goes to a Lost and
+  Found (the design's R5 / D6: reclaim in town for 25 % of sell value;
+  `IItemLedger.CorpsesLost`, `tf2_descent_town_reclaim`; the host has the
+  same in SDK 2.6.0, not yet called). Giants: `IHullReach` keeps a robot over
+  scale 1 off a floor its hull cannot reach, and one hunting off its floor
+  holds at the nearest place (`PathAnswer.Nearest`); the cut on depth 1 is
+  the wide drift rooms' solid floor rails and posts, which the mine-levels
+  session is making passable. Stalls: a body sat on a ledge lower than a step
+  (the accept sweep now tries across and down), and a hero last seen in the
+  air was never searched for (arrival is measured on the floor plane); a
+  robot that follows a path and does not move for 5 s is logged once as
+  `STALLED FOLLOWER`. **Found joining it and fixed:** the place a hit from
+  out of sight is looked for at was worked out again at every decide, so it
+  kept ahead of the robot (a pack hurt once walked 5,000 units; on main the
+  same fault stood robots still, 48 of 58 path searches unreachable), and a
+  goal off the floor was never searched. Open: a third kind of stall at floor
+  height in the wide drift rooms; a far robot walked home keeps its walking
+  yaw until it has a body; boss adds are not asked the reach; a reclaim the
+  hero cannot pay for says nothing in the console.
+- RU14 (`7c20dd57b` to `9a51b5088`): the held retune and the economy model
+  carried onto today's content, the bosses in the model as `bosses.json`
+  scripts them, and three families of gates. Passing: threat per XP 1.176
+  (band 1.25), a solo hero clears every depth and boss, the Sergeant beats a
+  fourth Artillery (un-skipped), crates dearer than play, no boss hit over
+  half a hero's life (the largest is a tenth), every build wins each boss
+  alone, a party of four is not trivial. **Skipped with their numbers, not
+  loosened:** the first three builds within 25 % (1.458), a Stock weapon
+  costing the Gunman most, and the depth-10 solo fight's length (M14's 10 to
+  20 minutes is longer than a solo hero survives). Numbers changed beyond the
+  carried retune: Sir Nukesalot life 1600 and damage 24, Major Crits 8000 and
+  12, Captain Punch 12600 and 60, the Tank slower with longer stops, and **a
+  level gives 18 life, not 2, for all nine classes** (solo deaths a run fell
+  from 28-81 to 8-27). One live boss fight said nothing about the boss: the
+  hero died in seconds to the arena's pack and his own rockets. The model
+  fights the pack and then the boss; in the game they stand together.
+- The lamp's stats (L17, `fe9337f46`): `lamp_radius_pct` and
+  `lamp_brightness_pct` over `lamp.json`'s light, each with a floor and a
+  ceiling there (range 360 to 1,080 units round 720; brightness x0.5 to x2);
+  two affixes on hats and trinkets (Radiant, of Light) and a five-rank skill,
+  Lamplighter, on the Mercenary tab (52 ranks now). Every number is
+  provisional. On every client by the hero's own state. Brightness scales
+  the world's light only (a second dlight keeps models at the base, so the
+  view model is not whitened further); range is the radius for both. The
+  mine-levels session measured that range is the lever and brightness is
+  nearly spent at the base, and will recommend a dimmer base lamp to the
+  user.
+- The box: the disk filled on 2026-11-13 (349 GB of lane worktrees). 44
+  spent lane worktrees were retired (each tip tagged `archive/<branch>`).
+
+**The whole run (2026-11-14, `9f6de1cbe` to `9175b350d`).** A lane played
+one process for an hour and three quarters over twelve map loads (the town
+four times, depths 1 to 5), with a script that walks the room graph, aims and
+fires. No load threw. By play: the town and its eight stalls, depth 1 by
+fighting (35 of 48 robots for about 35 deaths), a real level-up's refill
+(L3), loot on the hero's own seat, equip, a belt potion, a skill learnt and
+cast, wear, a shrine, a barrel, the automap, the lamp, the bestiary (L6),
+death and recovery, the Lost and Found, and with a second player a party, a
+revive and both lamps. With dev help: the portal and most of the way down.
+Not reached: an unmet requirement (L2: every base with one is item level 6
+or more), a field repair (L7: a kit needs 6 metal and one salvage gave 1),
+the door shove (L9: none all run), depths 10 and 15.
+
+- Fixed in the lane: unhosted, a level's cage down and up did nothing (now
+  the process changes level, down to the next installed depth and up to the
+  town); Esc over the depth picker opened the main menu; a refused town verb
+  with no window open showed nothing; an empty stash's words.
+- Blocks a run, open: the Town Portal blueprint is in no vendor's stock and
+  no drop table; a potion picked up or bought never reaches the belt (only
+  the dev command calls `ToBelt`); a hero of level 1 to 3 dies 5 to 25 s
+  after meeting an awake pack, and the depth 5 boss (level 9) was not
+  beaten by the run's level 3 hero in 661 s and 21 deaths (the script
+  skipped depths 3 and 4, so this is the early game's harshness more than
+  the boss's numbers). Closed by the mine-levels session at `218175fc0`: a
+  level's cage button pressed once per load.
+- Wrong, open: another client draws the host's weapon at a stale origin
+  after an in-place kit refresh (TF2 or the core); the path on depth 1 runs
+  through room 8's pillar, and depths 1 and 2 logged 15 and 11 stalled
+  followers; `tf2_descent_spawn_robot` from the server console with two
+  players reads a stale command client (the core's); closing a town window
+  on the client does not tell the server; an Engineer repair of the starting
+  launcher costs 27 Australium against 26 for a new one.
+- The Descent leg's `HostLinkTests` held two facts that waited on a
+  `Task.Delay` continuation under a wall-clock bound; each failed one
+  whole-leg run on a busy box (the pool gave the continuation no thread for
+  5 and for 10 s). Both now complete their step from a thread of the test's
+  own.
+
 **For every lane.** A wall-clock bound in a fact fails on a loaded box: the
 horde's stall fact failed three landings at 255 to 440 ms against 250 and
 now holds the decide at a gate instead. Two lanes that each register a
@@ -984,7 +1111,7 @@ Nothing here is done by a lane of this plan.
 |---|---|---|
 | X1 | host | `KillRoll(instanceSeed, killSeq, robotTemplate, depth, partySize)` has no player and no magic-find input. R4 rolls items once per eligible player, and *Scavenger* raises drop chance. Until answered, RU4 rolls once per (kill, player) by advancing `killSeq` per roll, and *Scavenger* affects Australium found only through the split. |
 | X2 | host | `RoomInfo` carries no door sockets (already noted in the mine plan). |
-| X3 | host | Field repair fits `Craft("field_repair", ...)` as the contract stands; confirm the host has no fixed recipe list that would refuse it. |
+| X3 | host | Field repair. **Answered 2026-11-13:** the host keeps no recipe list, so `Craft("field_repair", ...)` would pass, but a craft terminates its inputs and mints a new item (a new id). A field repair must change the same item, so it needs a repair kind on `IGameRules.Repair` (in place, `Items.Mutate`) with the kit as a terminated input. Not a recipe. |
 | X4 | host | RU13 made an empty `CheckpointEvidence` earn nothing, so the host's admin edit of a character (which passes none) can no longer raise XP or level. Either the admin path passes evidence, or the contract tells a checkpoint from an edit. The evidence is at most 16 KiB. |
 | X5 | host | No `IGameRules` member reports the rules' content hash; the host can log it only by reaching into the concrete type. |
 | Y1 | map session | What a linked level ships that the server can read at load: rooms and their bounds, door links, marker positions. Whether the server should rebuild the layout from Rules (`GenerateLayout` needs the library's room list) or read a sidecar. WO1 waits on this. |
@@ -992,7 +1119,9 @@ Nothing here is done by a lane of this plan.
 | Y3 | AI coordinator | CR3 and CR4: agree the shape before a lane touches `src/ai/core`. Done. The six later asks (the service-free nav library, the drain, the pool, the team-layer flag, four event kinds, a brain's home) landed 2026-11-11 (`70a734e52` to `a108dbc72`). |
 | X6 | host | Equip, belt use and consume are not in the SDK, so hosted play cannot change a kit, drink or read a tome. No credit of Australium on pickup, no potion mint, no report of items left on a floor. A hosted `KillDrop` that completes after a level change leaves an item on the new level's ledger floor. |
 | Y4 | map session | A level's `.map2d` checksum is stale after `tools/descent-face-sides`; props are not in the nav; a pack's members share one marker. |
+| X7 | host | Optional (2026-11-21, from the hub fix 053f4df43): the SDK could name the service's `not_booting` refusal (it reaches the game as `HostError.Rejected`), and sdk-integration.md §6 could say plainly that only a same-process hop calls Booting again. A hosted hub's changelevel that is no hop now keeps its boot and asks only MapReady. |
 | Y5 | map session | A light level per room in the level data the server reads (`ILevelData`'s rooms carry bounds, doors and markers, no light): the preview's lightmap mean over the room's luxels would do, on the mine plan's scale (level 1's mean is 100). Until then the horde's sight reads the depth's darkness from lamp.json's `sight.darkness` (lit to depth 10, black at 15) in place of the room's (2026-11-12, the sight lane). |
+| Y6 | map session | Level 5's maze (2026-11-21, lane `descent-d5-maze` at e3eea4a81, `tf2_descent-5-s1`): the boss spot is the arena's and the maze's centre (5632, 2560), but yaw 180 faces the arena's doorless west wall and its pillar 182 u ahead; the route from the arrival enters by the north door (bearing 116.6°, 63° off), so a hero sees him side-on. Face the entry door, or a diagonal between pillars. Harmless: the exit cell (6648, 2696, 16) is joined by components but no search reaches it (a one-way edge, the lane's reading); for x1.50 and up it is off the main floor. |
 
 ---
 
@@ -1024,16 +1153,29 @@ Nothing here is done by a lane of this plan.
    clone) as the reference for what each does.
 7. Appendix D's undecided rows: quests and story (2), elixirs (7), named
    uniques (10).
-8. **Waiting on the user** (2026-11-11): the economy retune and model on
-   `descent-ru-d` (two of its gates still fail); whether plain TF2 always
-   sends attribute lists; giants for the classes with no giant model
-   (Engineer, Medic, Sniper, Spy): scale the ordinary model or drop them;
-   whether C, I and K may take three of TF2's binds; Australium split at
-   the drop instead of on collection; whether one robot's blast should hurt
-   another robot (it does not, since `a04ae8d77`'s stack); what an unarmed
-   hero fights with after a death (the polish lane proposes the class's
-   stock melee as a fallback that is no item); M for the automap takes a
-   fourth TF2 bind; whether CR7 and CR11 (core packages) should start.
+8. **Waiting on the user** (2026-11-14). Ruled 2026-11-13 and gone from
+   this list: the retune (L14), CR7 and CR11 (L15). Still open from before:
+   whether plain TF2 always sends attribute lists; giants for the classes
+   with no giant model (Engineer, Medic, Sniper, Spy): scale the ordinary
+   model or drop them; Descent's keys taking six of TF2's binds (C, I, K, M,
+   L, P); Australium split at the drop instead of on collection; whether one
+   robot's blast should hurt another robot (it does not); the class's stock
+   melee as an unarmed hero's fallback; the 60 s respawn-blind ceiling. New
+   from this wave: the core's model change resetting the sequence to 0 as
+   stock does (it reaches every entity; no session owns that code); a level
+   giving 18 life for all nine classes; the boss fight bands (depth 5 one to
+   four minutes, depth 15 two to eight) and what to do about depth 10's (M14
+   asks ten to twenty minutes, which a solo hero does not survive); the two
+   skipped build gates; whether the first reclaim from the Lost and Found
+   is free (a hero with no Australium cannot pay the fee on a starting kit);
+   Lamplighter as a new skill (52 Mercenary ranks) and robots' sight
+   ignoring the lamp's stats; the base lamp's strength (the mine-levels
+   session recommends a dimmer base with the range bought back). From
+   the whole run (2026-11-14): whether a potion gained goes to the first
+   free belt slot (the default proposed: Diablo's rule); where the Town
+   Portal blueprint is sold; the early game's balance, which a person should
+   play before anyone tunes it; whether a lost corpse's own Australium may
+   pay its Lost and Found fee.
 9. **Robot traces pass robots** (the team rule above) for every trace a body
    makes, attacks included: a robot's rocket or bullet will not stop on
    another robot, as a teammate's does not in TF2. L12 (a robot is hurt by

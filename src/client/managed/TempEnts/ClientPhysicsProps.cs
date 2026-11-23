@@ -70,6 +70,22 @@ public interface IPropBreakLimits
     int FrameCount { get; }
 }
 
+/// <summary>
+/// A game's group for a broken piece, the per-game arms of stock's client
+/// <c>BreakModelCreateSingle</c> (physpropclientside.cpp): TF's and DOD's
+/// <c>SetCollisionGroup( COLLISION_GROUP_DEBRIS )</c> after <c>Initialize</c>.
+/// A CHAIN, folded in <see cref="IOrderedHook.HookOrder"/> order: each rule is
+/// handed the group so far (Initialize's COLLISION_GROUP_PUSHAWAY first) and
+/// returns it unchanged for no opinion. The no-health swap to
+/// COLLISION_GROUP_NONE comes after, and takes only a piece still PUSHAWAY, as
+/// stock's does. Register with <c>[SideService(Side.Client)]</c>.
+/// </summary>
+public interface IBreakPieceGroupRule
+{
+    /// <summary>The group a broken piece takes, given <paramref name="group"/>, the answer so far.</summary>
+    EngineCollisionGroup Group(EngineCollisionGroup group);
+}
+
 /// <summary>No limits: both -1, as the convars' defaults.</summary>
 public sealed class NoPropBreakLimits : IPropBreakLimits
 {
@@ -148,8 +164,9 @@ public sealed class PoolPhysicsPropSlots(ClientTempEntPool pool) : IPhysicsPropS
 /// and its object carries that handle's tagged word: the impact sounds, the
 /// solver, the splash and the scrape see an owned object, and ask this class
 /// (<see cref="IClientPhysicsPropOwners"/>) what the entity would have
-/// answered. Its group is Initialize's COLLISION_GROUP_PUSHAWAY, and a piece
-/// with no health BreakModelCreateSingle's COLLISION_GROUP_NONE.
+/// answered. Its group is Initialize's COLLISION_GROUP_PUSHAWAY; a piece's is
+/// the game's (<see cref="IBreakPieceGroupRule"/>: TF's DEBRIS), and one with
+/// no health still PUSHAWAY then BreakModelCreateSingle's COLLISION_GROUP_NONE.
 /// </para>
 ///
 /// <para>
@@ -187,7 +204,8 @@ public sealed class PoolPhysicsPropSlots(ClientTempEntPool pool) : IPhysicsPropS
 /// </summary>
 public sealed class ClientPhysicsProps(IRagdollVPhysics vphysics, IPhysicsPropSlots slots, IClientModelNames models,
                                        BreakModels breaks, IGameClock clock, Func<int> maxClients, IRandomSeeds seeds,
-                                       ILog log, IPropBreakLimits? limits = null)
+                                       ILog log, IPropBreakLimits? limits = null,
+                                       IHooks<IBreakPieceGroupRule>? pieceGroups = null)
     : ITempEntDriver, IClientPhysicsPropOwners, IReloadParticipant, Physics.IClientTouchReceiver
 {
     /// <summary>HitSurface's blood splat; none without it. Set by the composition.</summary>
@@ -252,11 +270,11 @@ public sealed class ClientPhysicsProps(IRagdollVPhysics vphysics, IPhysicsPropSl
     /// <summary>The slots alive, for a test or a probe.</summary>
     public IEnumerable<int> Slots => _bySlot.Keys;
 
-    /// <summary>Each prop's slot, where its object is and whether it sleeps, for <c>cs_cl_physprops</c>.</summary>
-    public IEnumerable<(int Slot, Vector Origin, bool Asleep)> Report()
+    /// <summary>Each prop's slot, where its object is, whether it sleeps, its group and its model, for <c>cs_cl_physprops</c>.</summary>
+    public IEnumerable<(int Slot, Vector Origin, bool Asleep, EngineCollisionGroup Group, string Model)> Report()
     {
         foreach ((int slot, Prop prop) in _bySlot)
-            yield return (slot, vphysics.PositionAngles(prop.Object).Position, vphysics.IsAsleep(prop.Object));
+            yield return (slot, vphysics.PositionAngles(prop.Object).Position, vphysics.IsAsleep(prop.Object), prop.Group, prop.Model);
     }
 
     /// <summary>The physics object behind a slot, or 0.</summary>
@@ -380,13 +398,27 @@ public sealed class ClientPhysicsProps(IRagdollVPhysics vphysics, IPhysicsPropSl
     }
 
     /// <summary>
-    /// The prop's collision group: Initialize's COLLISION_GROUP_PUSHAWAY ("player
-    /// can push it away"), and for a broken piece BreakModelCreateSingle's
-    /// COLLISION_GROUP_NONE when it has no health ("don't collide with player
+    /// A broken piece's group: Initialize's COLLISION_GROUP_PUSHAWAY through the
+    /// game's rules (<see cref="IBreakPieceGroupRule"/>), then the no-health swap.
+    /// </summary>
+    private EngineCollisionGroup PieceGroup(float health)
+    {
+        var group = EngineCollisionGroup.PushAway;
+        if (pieceGroups is not null)
+            foreach (var rule in pieceGroups.All)
+                group = rule.Group(group);
+        return GroupFor(piece: true, health, group);
+    }
+
+    /// <summary>
+    /// The prop's collision group, given <paramref name="group"/> (Initialize's
+    /// COLLISION_GROUP_PUSHAWAY, "player can push it away", or the game's for a
+    /// piece): a broken piece with no health still PUSHAWAY is
+    /// BreakModelCreateSingle's COLLISION_GROUP_NONE ("don't collide with player
     /// anymore").
     /// </summary>
-    public static EngineCollisionGroup GroupFor(bool piece, float health)
-        => piece && health == 0f ? EngineCollisionGroup.None : EngineCollisionGroup.PushAway;
+    public static EngineCollisionGroup GroupFor(bool piece, float health, EngineCollisionGroup group = EngineCollisionGroup.PushAway)
+        => piece && health == 0f && group == EngineCollisionGroup.PushAway ? EngineCollisionGroup.None : group;
 
     /// <summary>C_PhysPropClientside::CreateNew's cap.</summary>
     private bool MayCreate()
@@ -532,7 +564,8 @@ public sealed class ClientPhysicsProps(IRagdollVPhysics vphysics, IPhysicsPropSl
     {
         // params.defCollisionGroup lands in each breakmodel_t, which the
         // client's BreakModelCreateSingle never reads: the piece's group is
-        // Initialize's, and NONE for a piece with no health (GroupFor).
+        // Initialize's or the game's, and NONE for a piece with no health still
+        // PUSHAWAY (PieceGroup).
         const CollisionGroup defaultGroup = CollisionGroup.Interactive;
         Transform frame = Transform.FromOriginAngles(origin, angles);
 
@@ -588,7 +621,7 @@ public sealed class ClientPhysicsProps(IRagdollVPhysics vphysics, IPhysicsPropSl
 
             float spread = _random.Float(-0.025f, 0.025f);
             int slot = Create(pieceIndex, pieceModel, skin, position, angles, velocity + velocity * spread,
-                              angularVelocity, piece.FadeTime, GroupFor(piece: true, piece.Health), effects);
+                              angularVelocity, piece.FadeTime, PieceGroup(piece.Health), effects);
             if (slot < 0)
                 continue;
 

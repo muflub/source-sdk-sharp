@@ -115,6 +115,20 @@ public static class RoomCatalogue
     ];
 
     /// <summary>
+    /// Level 5's rooms on its 512 kit (brief p18, M35, M36): the way in, the antechamber and the way down as rooms
+    /// of 2 by 2 cells, the narrowed Magazine, and the maze's cells by door mask in the connector families their
+    /// doors make (<see cref="Shapes.MazeShape"/>). The lobby is the drift's quiet twin, as at every boss level.
+    /// </summary>
+    public static IReadOnlyList<RoomShape> Maze { get; } =
+    [
+        new("arrival", Shapes.ArrivalShape.Variants),
+        new("antechamber", Shapes.AntechamberShape.Variants),
+        new("arena", Shapes.ArenaShape.Variants),
+        new("exit", Shapes.ExitShape.Variants),
+        .. Shapes.MazeShape.Families.Select(f => new RoomShape(f, Shapes.MazeShape.Of(f))),
+    ];
+
+    /// <summary>
     /// Every room of every family, family by family, in each family's order,
     /// each renamed from its author's <c>family_variant</c> to the layout's
     /// name (<see cref="LayoutNames"/>).
@@ -127,6 +141,37 @@ public static class RoomCatalogue
                 rooms.Add(room with { Name = LayoutNames.Name(room, shape.Family) });
 
         return rooms;
+    }
+
+    /// <summary>The families whose first room has a quiet twin (<see cref="QuietTwins"/>): a door set each of two opposite, two at a corner, three and four, and a stub's one.</summary>
+    public static IReadOnlyList<string> QuietFamilies { get; } = ["drift", "bend", "tee", "cross", "stub"];
+
+    /// <summary>
+    /// A quiet twin of the first room of each of <see cref="QuietFamilies"/> among <paramref name="rooms"/>
+    /// (brief p9: depth 3 seed 1's arrival was a pack's reach from the next room's packs, and the hero
+    /// died within seconds of arriving, twice): the same room without its pack spawns, its entry
+    /// <see cref="RoomEntry.Quiet"/>, its author's name <c>&lt;family&gt;_&lt;variant&gt;q</c> spelled
+    /// by the codec with the flag <c>q</c>. The layout puts only these beside the way in, and them
+    /// nowhere else.
+    /// </summary>
+    public static IReadOnlyList<Room> QuietTwins(IReadOnlyList<Room> rooms)
+    {
+        var twins = new List<Room>();
+        foreach (string family in QuietFamilies)
+        {
+            if (rooms.FirstOrDefault(r => r.Role == RoomRole.None && TF2.Descent.Rules.Layout.RoomName.TryParse(r.Name, out var s, out _) && s!.Family == family && !s.Quiet) is not { } first)
+                continue;
+            var shape = TF2.Descent.Rules.Layout.RoomName.Parse(first.Name);
+            Room twin = first with
+            {
+                Name = $"{family}_{shape.Variant}q",
+                Entities = [.. first.Entities.Where(e => !(e.ClassName == "info_poi" && e.Key("poi_type") == Markers.PoiType(MarkerKind.PackSpawn)))],
+                Entry = first.Entry with { Quiet = true },
+            };
+            twins.Add(twin with { Name = LayoutNames.Name(twin, family) });
+        }
+
+        return twins;
     }
 
     /// <summary>The room an author named <paramref name="stem"/> (<c>family_variant</c>), by its layout name's stem.</summary>

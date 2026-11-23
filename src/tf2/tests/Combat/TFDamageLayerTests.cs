@@ -1708,7 +1708,7 @@ public sealed class TFDamageLayerTests
         Assert.Equal(Decision.UseStockRule, rig.Rules.Decide(in hit));
 
         rig.VictimState.SetConditions(TFCondMask.Of(TFCond.Invulnerable));
-        Assert.Equal(Decision.No, rig.Rules.Decide(in hit));
+        Assert.Equal(Decision.EventsOnly, rig.Rules.Decide(in hit));
 
         rig.Engine.Returns("Entities.GetClassName", TFDamageRules.TriggerHurt);
         Assert.Equal(Decision.UseStockRule, rig.Rules.Decide(in hit));
@@ -1726,7 +1726,7 @@ public sealed class TFDamageLayerTests
         rig.Engine.Returns("Entities.GetClassName", TFDamageRules.PointHurt)
                   .Returns("Entities.GetSpawnFlags", 0);
 
-        Assert.Equal(Decision.No, rig.Rules.Decide(in hit));
+        Assert.Equal(Decision.EventsOnly, rig.Rules.Decide(in hit));
 
         rig.Engine.Returns("Entities.GetSpawnFlags", TFDamageRules.HurtUberSpawnflag);
         Assert.Equal(Decision.UseStockRule, rig.Rules.Decide(in hit));
@@ -1743,7 +1743,7 @@ public sealed class TFDamageLayerTests
         rig.VictimState.SetConditions(TFCondMask.Of(TFCond.Invulnerable));
         rig.Engine.Returns("Entities.GetClassName", "player");
 
-        Assert.Equal(Decision.No, rig.Rules.Decide(in hit));
+        Assert.Equal(Decision.EventsOnly, rig.Rules.Decide(in hit));
 
         using (rig.Scopes.Push(TFDamageCustom.Telefrag, TFWeaponId.None, ""))
             Assert.Equal(Decision.UseStockRule, rig.Rules.Decide(in hit));
@@ -1762,7 +1762,7 @@ public sealed class TFDamageLayerTests
                   .Returns("Entities.GetSpawnFlags", 0);
 
         using (rig.Scopes.Push(TFDamageCustom.Telefrag, TFWeaponId.None, ""))
-            Assert.Equal(Decision.No, rig.Rules.Decide(in hit));
+            Assert.Equal(Decision.EventsOnly, rig.Rules.Decide(in hit));
     }
 
     [Fact]

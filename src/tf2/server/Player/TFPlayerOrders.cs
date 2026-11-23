@@ -173,6 +173,13 @@ public static class TFPlayerOrders
     public const int KillStats = Band + 109;
 
     /// <summary>
+    /// The death's class grunt (<see cref="TFDeathSounds"/>): the kill's damage bits
+    /// decide the arm. On +5: +110 is the objectives band's (999_410), and +10..+19
+    /// are the anim hooks' (TF2LifecycleOrderTests).
+    /// </summary>
+    public const int DeathSounds = Band + 5;
+
+    /// <summary>
     /// The runtime attribute list's sweep (<see cref="TFCustomAttributeLifetime"/>):
     /// the spawn walk after the kit and the health are in (the spawn's own arm is +0), and
     /// the death walk, on +87 — the band's hundred ends where the objectives' begins.
@@ -184,4 +191,7 @@ public static class TFPlayerOrders
     /// its own place on the death walk, after the scoreboard's, on +149.
     /// </summary>
     public const int StickyTray = Band + 149;
+
+    /// <summary>The eye angles each frame sends (<see cref="TFEyeAngles"/>): its frame slot.</summary>
+    public const int EyeAngles = Band + 150;
 }

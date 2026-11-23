@@ -83,6 +83,30 @@ public sealed class LevelHopTests : IDisposable
     }
 
     [Fact]
+    public void The_level_a_hop_changed_to_is_told_it_is_the_hop_once()
+    {
+        var hop = Hop();
+        Assert.False(hop.Take("tf2_descent-1-a"));
+
+        hop.OnHopped(Notice("tf2_descent-1-a"));
+
+        Assert.False(hop.Take("tf2_descent_town"));
+        Assert.True(hop.Take("tf2_descent-1-a"));
+        Assert.False(hop.Take("tf2_descent-1-a"));
+    }
+
+    [Fact]
+    public void A_cross_process_or_unacknowledged_hop_is_no_level_change_of_this_process()
+    {
+        var hop = Hop();
+
+        hop.OnHopped(Notice("tf2_descent-1-a", sameProcess: false));
+        hop.OnHopped(Notice("tf2_descent-1-a", ready: false));
+
+        Assert.False(hop.Take("tf2_descent-1-a"));
+    }
+
+    [Fact]
     public void A_cross_process_or_unacknowledged_hop_changes_nothing()
     {
         var hop = Hop();
@@ -118,4 +142,20 @@ public sealed class LevelHopTests : IDisposable
 
         Assert.Equal(again, new FileInfo(Path.Combine(hop.PoolMaps, "tf2_descent-1-a.bsp")).LinkTarget);
     }
+
+    [Fact]
+    public void The_installed_depths_are_each_depth_with_a_level_in_the_pool_shallowest_first()
+    {
+        var hop = Hop();
+        Directory.CreateDirectory(hop.PoolMaps);
+        foreach (string name in new[] { "tf2_descent-3-s2.bsp", "tf2_descent-1-s1.bsp", "tf2_descent-3-s1.bsp", "tf2_descent-12-s4.bsp",
+                                        "tf2_descent-1-s1.nav3d", "tf2_descent_town.bsp", "tf2_descent-x-s1.bsp", "tf2_descent-0-s1.bsp" })
+            File.WriteAllText(Path.Combine(hop.PoolMaps, name), name);
+
+        Assert.Equal([1, 3, 12], hop.InstalledDepths());
+    }
+
+    [Fact]
+    public void With_no_pool_no_depth_is_installed()
+        => Assert.Empty(Hop().InstalledDepths());
 }

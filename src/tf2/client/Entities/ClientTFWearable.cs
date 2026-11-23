@@ -44,7 +44,7 @@ namespace TF2.Client.Entities;
 /// </para>
 /// </summary>
 [ClientStandaloneEntity(TFEntityNames.Wearable)]
-public sealed class ClientTFWearable : ClientStandaloneEntity
+public sealed class ClientTFWearable : ClientStandaloneEntity, IFirstPersonGated
 {
     private readonly IRenderPolicyWishes _policy;
     private readonly IEngineHud _screen;
@@ -79,6 +79,9 @@ public sealed class ClientTFWearable : ClientStandaloneEntity
 
     public override void OnDataChanged(ReadOnlySpan<byte> blob, DataUpdateType updateType) => Redecide();
 
+    /// <summary>The in-eye target moved: the decisions again (<see cref="IFirstPersonGated"/>).</summary>
+    public void ReconsiderFirstPerson() => Redecide();
+
     /// <summary>
     /// Re-runs the three decisions: the wearable's own decode asks it, and so
     /// does the owner's disguise condition, through
@@ -111,7 +114,9 @@ public sealed class ClientTFWearable : ClientStandaloneEntity
 
         // Stock's first-person arm: the owner's own world copy hides while the
         // camera is inside them, per decode like the carried weapon's wish.
-        bool wish = _screen.LocalPlayerIndex > 0 && State.OwnerIndex == _screen.LocalPlayerIndex;
+        // And the player watched in-eye, in first person too (InFirstPersonView).
+        bool wish = State.OwnerIndex > 0
+                    && (State.OwnerIndex == _screen.LocalPlayerIndex || State.OwnerIndex == _policy.InEyeTarget);
 
         if (wish != _wishedOwnerSeen)
         {

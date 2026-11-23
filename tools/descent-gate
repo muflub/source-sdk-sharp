@@ -11,14 +11,31 @@ Each gate builds the depths it is asked for (`make descent-rooms DEPTH=d`, then
 link for the preview, `ssmap preview -movement heavy`) and reads what the tools
 wrote into bin/<config>/descent-rooms/dNN. --no-build reads the last build.
 
-brightness  The per-depth mean of `checks.lighting.mean` over the seeds must
-            fall strictly from each depth to the next, and every seed's
+brightness  What a player sees, offline: each room view's tile in the
+            preview's sheet (the spawn view and every room camera, the label
+            band cut off), its sRGB pixels re-encoded to the pure 2.2 power
+            the game's LDR path draws in (texture times lightmap in gamma
+            space; the preview applies the sRGB curve, whose linear toe
+            leaves the darks darker than the game), the mean Rec.709 luma of
+            that. A level's figure is the mean over its views, a depth's the
+            mean over its seeds, scaled so that level 1 is 100 (LEVEL1_VIEW,
+            the figure level 1 measured), the pixels of the preview's orange
+            scale figure left out. Brief p9 chose it against the game: over
+            p6's 14 in-game cameras per level (lamp off) it reads levels 1-4
+            and 6-9 as 100/71/56/36/33/27/20/18 where the game reads
+            100/70/57/37/31/27/25/17; the lightmap mean (the old gate) reads
+            100/89/89/64/44/39/34/32 and cannot tell level 2 from 3. Level 8
+            reads low: the preview draws its water as a dark sheet.
+            Each depth's figure times its act's CALIBRATION (the game's own
+            reading of the act, brief p15: Act III draws a quarter darker in
+            game than here) must land within TOLERANCE of its target (TARGET,
+            the in-game table of plan section 6, ruling M30) and fall strictly
+            from each depth to the next; every seed's lightmap
             `clipped_fraction` must stay under 0.02, and so must every room's
-            view (the spawn view and each room camera's rendered
-            `luminance.clipped_fraction`): a level's share can hide one room
-            washed white (the review of 0c79c6fc2: level 1's shaft foot).
-            Prints the table with the first depth scaled to 100 beside the
-            plan's target row (section 6).
+            view (each camera's rendered `luminance.clipped_fraction`): a
+            level's share can hide one room washed white (the review of
+            0c79c6fc2: level 1's shaft foot). Prints the table beside the
+            lightmap mean, for reference.
 reach       Every room's floor is reached from the spawn by a Heavy (no
             unreached island of nodes at floor height), no stuck spawn, and
             no trap but the exit's own: a trap whose region stands inside the
@@ -54,9 +71,43 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(os.path.realpath(__file__)))
 ROOT = os.path.abspath(os.path.join(HERE, '..'))
 
-# plan_descent_mine_levels.md section 6: level 1's mean is 100.
-TARGET = {1: 100, 2: 85, 3: 70, 4: 60, 5: 52, 6: 42, 7: 35, 8: 30, 9: 25,
-          10: 22, 11: 19, 12: 16, 13: 13, 14: 10, 15: 7}
+# plan_descent_mine_levels.md section 6, ruling M30 (2026-11-14): the level's own light as the
+# game shows it (lamp off), level 1 = 100. The boss levels' targets (brief p13, plan section 7: the
+# Powder Magazine 52, the Bore 22, the Pit 7) are their set pieces' light, not a step of the descent.
+TARGET = {1: 100, 2: 70, 3: 55, 4: 40, 5: 52, 6: 32, 7: 27, 8: 24, 9: 20, 10: 22,
+          11: 16, 12: 13, 13: 11, 14: 9, 15: 7}
+# The boss levels: each is held to its own target, and the falling order runs over the levels between
+# them (level 5's magazine is lit for its fight, brighter than level 4; the Bore brighter than level 9).
+BOSS = {5, 10, 15}
+# The view figure of level 1 (seeds 1-3, brief p9's r0 build at c7b689ffe): the 100 of the scale.
+# A fixed number, so a run of some depths scales as a run of all, and level 1 moving shows.
+LEVEL1_VIEW = 0.3308
+# Points either side of a target. Brief p9's r0 build (c7b689ffe), seeds 1-3 of levels 1-4 and 6-9, read
+# per seed 102.4 98.2 99.4 / 74.4 72.8 77.7 / 57.0 57.0 56.6 / 37.2 40.7 38.5 / 34.0 33.7 32.8 /
+# 27.4 26.2 27.2 / 20.4 22.9 19.0 / 18.3 16.8 18.9: a seed's spread about its depth's mean is 1.6
+# points (pooled standard deviation), so the mean of three seeds that the gate holds moves by about
+# 0.9, and 3 is three of those. The figure's own error against the game (p6's shots: within 2 at
+# levels 1-4, 6, 7 and 9, 5 at 8, whose water the preview draws as a dark sheet) is a reason the
+# targets are the game's and the tolerance is not wider.
+TOLERANCE = 3.0
+# The game draws each act a little lighter or darker than this figure reads it (its materials, its fog, the
+# preview's darks): a level's figure times its act's factor is what the gate holds to the in-game target (brief
+# p15). Each factor is the act's in-game figures (lamp off, seed 1, the preview's cameras, mean Rec.709 luma
+# over the 4:3 centre, level 1 = 100 at 0.3477) over the gate's seed-1 figures of the same builds, summed
+# over every level of the act measured both ways:
+#   Act I   (p10: 1, 2, 3 of p9's builds; p11: 4; p13: 5): game 100 70.2 63.0 38.0 53.8, gate 98.3 70.7 59.6 40.5 49.9
+#   Act II  (p11: 6, 8; p10: 7, 9 of p9's builds; p13: 10): game 30.0 28.8 26.0 22.8 24.0, gate 35.9 28.5 24.0 22.5 24.9
+#   Act III (p14: 11-14, its final rounds; p13: 15):        game 12.8 12.4 9.0 8.5 4.5, gate 16.8 13.8 12.9 10.9 7.1
+# Act I 324.9 / 319.0, Act II 131.6 / 135.8, Act III 47.3 / 61.5. Act III's own spread is 0.64 (15) to
+# 0.90 (12); the tolerance is the targets' (a level's figure still moves about 0.9 a seed's mean).
+CALIBRATION = {1: 1.019, 2: 0.969, 3: 0.769}
+
+
+def act_of(depth):
+    """The act a depth is in: 1 to 5 the mine, 6 to 10 the breakthrough, 11 to 15 below (plan section 7)."""
+    return 1 if depth <= 5 else 2 if depth <= 10 else 3
+VIEW_LABEL_ROWS = 14  # a tile's top rows the preview's label is drawn over (BitmapFont 7 + 2, at 2)
+FIGURE_COLOUR = (255, 128, 0)  # the preview's scale figure (map tools Annotator.FigureColour), left out of a view
 CLIPPED_MAX = 0.02
 VIEW_CLIPPED_MAX = 0.02  # a room's view: the share of its rendered pixels at white
 ENTITY_BUDGET = 1536
@@ -146,36 +197,112 @@ def view_verdict(depth, seed, index):
     return failures
 
 
-def brightness_verdict(results):
-    """results: {depth: [(seed, mean, clipped), ...]}. Returns (failures, table lines)."""
+def srgb_to_linear(c):
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+
+def gamma_lut():
+    """An 8-bit sRGB value to the value the game's LDR path writes for the same light: the pure 2.2 power of its linear."""
+    return [round(255 * srgb_to_linear(v / 255) ** (1 / 2.2)) for v in range(256)]
+
+
+SHEET_COLUMNS = 3    # the preview's contact sheet (map tools ContactSheet): three columns,
+SHEET_GAP = 4        # tiles 4 apart and 4 from the edge, in camera order, the reach tile after the overview
+
+
+def view_boxes(index, sheet_size):
+    """The room views' boxes (spawn and custom cameras) in a preview's sheet, each tile's label band cut off.
+
+    A sheet whose size is not the tiles' is refused: the layout is not the one this reads."""
+    cams = field(index, 'cameras')
+    if not cams:
+        raise Missing('the preview has no camera')
+    w, h = cams[0].get('size', [512, 384])
+    reach = (index.get('checks') or {}).get('movement') is not None
+    order = []
+    for c in cams:
+        if c.get('size', [w, h]) != [w, h]:
+            raise Missing('the preview\'s cameras are not all one size')
+        order.append(c)
+        if c.get('kind') == 'overview' and reach:
+            order.append(None)
+    rows = (len(order) + SHEET_COLUMNS - 1) // SHEET_COLUMNS
+    want = (SHEET_GAP + min(SHEET_COLUMNS, len(order)) * (w + SHEET_GAP), SHEET_GAP + rows * (h + SHEET_GAP))
+    if tuple(sheet_size) != want:
+        raise Missing('the sheet is %dx%d, not the %dx%d its %d tiles make' % (tuple(sheet_size) + want + (len(order),)))
+    boxes = []
+    for k, c in enumerate(order):
+        if c is None or c.get('kind') not in ('spawn', 'custom'):
+            continue
+        x, y = SHEET_GAP + (k % SHEET_COLUMNS) * (w + SHEET_GAP), SHEET_GAP + (k // SHEET_COLUMNS) * (h + SHEET_GAP)
+        boxes.append((c.get('id'), (x, y + VIEW_LABEL_ROWS, x + w, y + h)))
+    if not boxes:
+        raise Missing('the preview has no room view')
+    return boxes
+
+
+def view_lumas(sheet_path, index):
+    """[(camera id, luma)] of a preview's room views: the mean Rec.709 luma of each tile re-encoded by gamma_lut."""
+    try:
+        from PIL import Image, ImageStat
+    except ImportError:
+        raise Missing('the brightness gate reads the preview\'s sheet with PIL (python3-pil), which is not installed')
+    if not os.path.isfile(sheet_path):
+        raise Missing('no sheet (%s)' % sheet_path)
+    im = Image.open(sheet_path).convert('RGB')
+    return [(cid, tile_luma(im.crop(box))) for cid, box in view_boxes(index, im.size)]
+
+
+def tile_luma(tile):
+    """The mean Rec.709 luma of an RGB view (PIL) re-encoded by gamma_lut, the preview's scale figure (FIGURE_COLOUR) left out."""
+    from PIL import ImageChops, ImageStat
+    r, g, b = tile.split()
+    figure = ImageChops.multiply(ImageChops.multiply(r.point(lambda v: 255 if v == FIGURE_COLOUR[0] else 0),
+                                                     g.point(lambda v: 255 if v == FIGURE_COLOUR[1] else 0)),
+                                 b.point(lambda v: 255 if v == FIGURE_COLOUR[2] else 0))
+    r, g, b = ImageStat.Stat(tile.point(gamma_lut() * 3), mask=ImageChops.invert(figure)).mean
+    return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+
+
+def brightness_verdict(results, level1=None, tolerance=None, targets=None, calibration=None):
+    """results: {depth: [(seed, view figure, lightmap mean, clipped), ...]}. Returns (failures, table lines).
+
+    A depth's figure is its seeds' mean view figure over level 1's, times its act's calibration (CALIBRATION):
+    the in-game figure it predicts, which is held to the target and to the falling order."""
+    level1 = LEVEL1_VIEW if level1 is None else level1
+    tolerance = TOLERANCE if tolerance is None else tolerance
+    targets = TARGET if targets is None else targets
+    calibration = CALIBRATION if calibration is None else calibration
     failures, lines = [], []
     depths = sorted(results)
     if not depths:
         return ['no depth was measured'], lines
+    if level1 <= 0:
+        return ['level 1\'s view figure %.4f is not a brightness to scale by' % level1], lines
     means = {}
     for d in depths:
         rows = results[d]
         if not rows:
             failures.append('depth %d: no seed was measured' % d)
             continue
-        means[d] = sum(r[1] for r in rows) / len(rows)
-        for seed, _, clipped in rows:
+        means[d] = sum(r[1] for r in rows) / len(rows) * calibration.get(act_of(d), 1.0)
+        for seed, _, _, clipped in rows:
             if clipped >= CLIPPED_MAX:
                 failures.append('depth %d seed %d: clipped_fraction %.4f is not under %.2f' % (d, seed, clipped, CLIPPED_MAX))
-    if depths[0] not in means:
-        return failures, lines
-    base = means[depths[0]]
-    if base <= 0:
-        return ['depth %d: mean %.4f is not a brightness to scale by' % (depths[0], base)], lines
-    lines.append('%-6s %-9s %-24s %-7s %-7s %s' % ('depth', 'mean', 'seeds', 'scaled', 'target', 'clipped max'))
+    lines.append('%-6s %-8s %-22s %-7s %-7s %-10s %-9s %s' % ('depth', 'view', 'seeds', 'scaled', 'game', 'target', 'lightmap', 'clipped max'))
     for d in [d for d in depths if d in means]:
         rows = results[d]
-        scaled = 100 * means[d] / base
-        target = TARGET.get(d)
-        target_scaled = '' if target is None else str(round(target * 100 / TARGET[depths[0]]))
-        lines.append('%-6d %-9.4f %-24s %-7.1f %-7s %.4f' % (
-            d, means[d], ' '.join('%.3f' % r[1] for r in rows), scaled, target_scaled, max(r[2] for r in rows)))
-    measured = [d for d in depths if d in means]
+        factor = calibration.get(act_of(d), 1.0)
+        scaled = 100 * means[d] / level1
+        target = targets.get(d)
+        lines.append('%-6d %-8.4f %-22s %-7.1f %-7.1f %-10s %-9.4f %.4f' % (
+            d, means[d] / factor, ' '.join('%.1f' % (100 * r[1] / level1) for r in rows), scaled / factor, scaled,
+            '' if target is None else '%d +-%g' % (target, tolerance), sum(r[2] for r in rows) / len(rows), max(r[3] for r in rows)))
+        if target is not None and abs(scaled - target) > tolerance:
+            failures.append('depth %d reads %.1f, not within %g of its target %d' % (d, scaled, tolerance, target))
+    measured = [d for d in depths if d in means and d not in BOSS]
+    for d in [d for d in depths if d in means and d in BOSS and d not in targets]:
+        failures.append('depth %d is a boss level with no target' % d)
     for a, b in zip(measured, measured[1:]):
         if not means[b] < means[a]:
             failures.append('depth %d (%.4f) is not darker than depth %d (%.4f)' % (b, means[b], a, means[a]))
@@ -360,7 +487,10 @@ def gate(name, depths, seeds, config):
             results[d] = []
             for s in seeds:
                 idx = read_index(config, d, s)
-                results[d].append((s, float(field(idx, 'checks', 'lighting', 'mean')),
+                sheet = os.path.join(depth_dir(config, d), level_name(d, s) + '-preview', 'sheet.png')
+                lumas = view_lumas(sheet, idx)
+                results[d].append((s, sum(v for _, v in lumas) / len(lumas),
+                                   float(field(idx, 'checks', 'lighting', 'mean')),
                                    float(field(idx, 'checks', 'lighting', 'clipped_fraction'))))
                 views += view_verdict(d, s, idx)
         failures, out = brightness_verdict(results)
@@ -426,13 +556,85 @@ def self_test():
         if not cond:
             bad.append(what)
 
-    falling = {1: [(1, 0.30, 0.001)], 2: [(1, 0.25, 0.001)], 3: [(1, 0.21, 0.001)]}
-    expect(not brightness_verdict(falling)[0], 'a falling series fails')
-    expect(brightness_verdict({1: [(1, 0.30, 0.001)], 2: [(1, 0.31, 0.001)]})[0], 'a brighter depth passes')
-    expect(brightness_verdict({1: [(1, 0.30, 0.001)], 2: [(1, 0.30, 0.001)]})[0], 'an equal depth passes')
-    expect(brightness_verdict({1: [(1, 0.30, 0.05)], 2: [(1, 0.20, 0.001)]})[0], 'a clipped level passes')
-    expect(brightness_verdict({})[0], 'no depth passes')
-    expect(brightness_verdict({1: [(1, 0.3, 0)], 2: []})[0], 'a depth with no seed passes')
+    tg = {1: 100, 2: 70, 3: 55}
+
+    def bv(results, tol=3):
+        return brightness_verdict(results, level1=0.30, tolerance=tol, targets=tg, calibration={})[0]
+    falling = {1: [(1, 0.30, 0.2, 0.001)], 2: [(1, 0.21, 0.1, 0.001)], 3: [(1, 0.165, 0.1, 0.001)]}
+    expect(not bv(falling), 'a falling series on its targets fails')
+    expect(bv({1: [(1, 0.30, 0.2, 0.001)], 2: [(1, 0.31, 0.1, 0.001)]}, tol=50), 'a brighter depth passes')
+    expect(bv({1: [(1, 0.30, 0.2, 0.001)], 2: [(1, 0.30, 0.1, 0.001)]}, tol=50), 'an equal depth passes')
+    expect(bv({1: [(1, 0.30, 0.2, 0.05)], 2: [(1, 0.21, 0.1, 0.001)]}), 'a clipped level passes')
+    expect(bv({2: [(1, 0.24, 0.1, 0.001)]}), 'a depth 10 over its target passes')
+    expect(not bv({2: [(1, 0.2172, 0.1, 0.001)]}), 'a depth 2.4 over its target, inside 3, fails')
+    expect(bv({2: [(1, 0.2028, 0.1, 0.001)]}, tol=2), 'a depth 2.4 under its target passes at a tolerance of 2')
+    expect(not bv({4: [(1, 0.12, 0.1, 0.001)]}), 'a depth with no target, alone, fails')
+    tb = {**tg, 4: 40, 5: 52, 6: 32}
+
+    def bvb(results, tol=3):
+        return brightness_verdict(results, level1=0.30, tolerance=tol, targets=tb, calibration={})[0]
+    boss_lit = {4: [(1, 0.12, 0.1, 0.001)], 5: [(1, 0.156, 0.1, 0.001)], 6: [(1, 0.096, 0.1, 0.001)]}
+    expect(not bvb(boss_lit), 'a boss level on its target, brighter than the level above it, fails the falling order')
+    expect(bvb({4: [(1, 0.12, 0.1, 0.001)], 5: [(1, 0.156, 0.1, 0.001)], 6: [(1, 0.13, 0.1, 0.001)]}, tol=50),
+           'a level brighter than the one before the boss level between them passes')
+    expect(bvb({4: [(1, 0.12, 0.1, 0.001)], 5: [(1, 0.12, 0.1, 0.001)], 6: [(1, 0.096, 0.1, 0.001)]}),
+           'a boss level off its target passes')
+    expect(brightness_verdict({5: [(1, 0.156, 0.1, 0.001)]}, level1=0.30, tolerance=3, targets=tg, calibration={})[0],
+           'a boss level with no target passes')
+    # The calibration: an Act III level whose figure is 20.8 predicts 16 in game at 0.769, and is held there.
+    t3 = {9: 20, 11: 16}
+    act3 = {11: [(1, 0.3 * 0.208, 0.1, 0.001)]}
+    expect(not brightness_verdict(act3, level1=0.30, tolerance=3, targets=t3, calibration={3: 0.769})[0],
+           'an Act III level on its target in game by its act\'s factor fails')
+    expect(brightness_verdict(act3, level1=0.30, tolerance=3, targets=t3, calibration={})[0],
+           'an Act III level 4.8 over its target uncalibrated passes')
+    expect(brightness_verdict(act3, level1=0.30, tolerance=3, targets=t3, calibration={3: 1.0})[0],
+           'an act\'s factor of 1 moves the figure')
+    across = {9: [(1, 0.3 * 0.20, 0.1, 0.001)], 11: [(1, 0.3 * 0.208, 0.1, 0.001)]}
+    expect(not brightness_verdict(across, level1=0.30, tolerance=3, targets=t3, calibration={2: 1.0, 3: 0.769})[0],
+           'the falling order is not read from the calibrated figures (9 at 20, 11 at 16 in game)')
+    expect(brightness_verdict(across, level1=0.30, tolerance=50, targets=t3, calibration={})[0],
+           'an uncalibrated level 11 at 20.8 under level 9 at 20 passes the falling order')
+    expect(set(CALIBRATION) == {1, 2, 3} and all(0.5 < f < 1.5 for f in CALIBRATION.values()),
+           'the calibration is not one factor per act')
+    expect([act_of(d) for d in (1, 5, 6, 10, 11, 15)] == [1, 1, 2, 2, 3, 3], 'the acts are not 1-5, 6-10 and 11-15')
+    expect(bv({2: [(1, 0.15, 0.1, 0.001), (2, 0.27, 0.1, 0.001)]}) == [], 'the seeds\' mean is not what is held')
+    expect(bv({}), 'no depth passes')
+    expect(bv({1: [(1, 0.3, 0.2, 0)], 2: []}), 'a depth with no seed passes')
+    expect(brightness_verdict(falling, level1=0, tolerance=3, targets=tg)[0], 'a zero level 1 scales')
+    lut = gamma_lut()
+    expect(lut[0] == 0 and lut[255] == 255, 'the re-encoding moves black or white')
+    expect(lut[1] >= 5 and lut[8] >= 16, 'the re-encoding does not lift the darks (sRGB 1 is 6 at 2.2, 8 is 17)')
+    expect(abs(lut[128] - 128) <= 2, 'the re-encoding moves the midtones (the two curves meet there)')
+    expect(all(a <= b for a, b in zip(lut, lut[1:])), 'the re-encoding is not monotone')
+    try:
+        from PIL import Image
+    except ImportError:
+        Image = None
+        print('descent-gate self-test: PIL is not installed: the view measure (tile_luma) is not tested here')
+    if Image is not None:
+        tile = Image.new('RGB', (4, 4), (0, 0, 0))
+        for x in range(2):
+            for y in range(4):
+                tile.putpixel((x, y), FIGURE_COLOUR)
+        expect(tile_luma(tile) == 0, 'the scale figure\'s pixels count in a view')
+        grey = Image.new('RGB', (4, 4), (128, 128, 128))
+        expect(abs(tile_luma(grey) - lut[128] / 255) < 1e-6, 'a grey view does not read its re-encoded grey')
+    sheet_index = {'cameras': [{'id': 'overview', 'kind': 'overview', 'size': [512, 384]},
+                               {'id': 'iso', 'kind': 'isometric', 'size': [512, 384]},
+                               {'id': 'spawn1', 'kind': 'spawn', 'size': [512, 384]},
+                               {'id': 'cam1', 'kind': 'custom', 'size': [512, 384]}],
+                   'checks': {'movement': {}}}
+    boxes = view_boxes(sheet_index, (4 + 3 * 516, 4 + 2 * 388))
+    expect([b[0] for b in boxes] == ['spawn1', 'cam1'], 'the room views are not the spawn and custom cameras')
+    expect(boxes[0][1] == (4 + 0 * 516, 4 + 388 + VIEW_LABEL_ROWS, 4 + 512, 4 + 388 + 384),
+           'the spawn view is not the fourth tile (after overview, reach, iso), label band cut')
+    expect(boxes[1][1][0] == 4 + 516, 'the first camera is not the fifth tile')
+    try:
+        view_boxes(sheet_index, (4 + 3 * 516, 4 + 1 * 388))
+        bad.append('a sheet of the wrong size reads')
+    except Missing:
+        pass
     lit = {'cameras': [{'id': 'spawn1', 'kind': 'spawn', 'luminance': {'clipped_fraction': 0.004}},
                        {'id': 'cam1', 'kind': 'custom', 'luminance': {'clipped_fraction': 0.01}},
                        {'id': 'overview', 'kind': 'overview'}]}
@@ -445,8 +647,8 @@ def self_test():
         bad.append('a view without luminance reads')
     except Missing:
         pass
-    table = brightness_verdict(falling)[1]
-    expect(any(l.startswith('2 ') and ' 85 ' in l for l in table), 'the table lacks the target row')
+    table = brightness_verdict(falling, level1=0.30, tolerance=3, targets=tg)[1]
+    expect(any(l.startswith('2 ') and ' 70 +-3 ' in l for l in table), 'the table lacks the target column')
     try:
         field({'checks': {'lighting': {}}}, 'checks', 'lighting', 'mean')
         bad.append('a missing field reads')

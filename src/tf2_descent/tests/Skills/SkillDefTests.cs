@@ -62,7 +62,7 @@ public sealed class SkillDefTests
         Assert.Equal((SkillKind.Upgrade, "all"), (m.Kind, m.Scope));
         Assert.Null(m.Family);
         var stats = Assert.Single(m.Effect).Stats.ToDictionary(s => s.Stat, s => s.Amount);
-        Assert.Equal((3.0, 15.0), (stats["damage_weapon_pct"].At(1), stats["damage_weapon_pct"].At(5)));
+        Assert.Equal((5.0, 25.0), (stats["damage_weapon_pct"].At(1), stats["damage_weapon_pct"].At(5)));
         Assert.Equal(-20, stats["spread_pct"].At(5));
     }
 

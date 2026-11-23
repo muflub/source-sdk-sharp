@@ -32,7 +32,7 @@ public sealed partial class TFDecider
         if (!(score > 0f) || branch == Deliver)
             return score;
         (float drive, int number) = Lean(branch);
-        return MathF.Min(score * drive * RoleWeight(branch) * SentryWeight(branch) * ScoreNoise.Factor(_scoreSeed, number, _now, _tick, _p.ScoreNoise), ScoreCeiling);
+        return MathF.Min(score * drive * RoleWeight(branch) * SentryWeight(branch) * ClassWeight(branch) * ScoreNoise.Factor(_scoreSeed, number, _now, _tick, _p.ScoreNoise), ScoreCeiling);
     }
 
     /// <summary>The trait's factor on a branch, and the branch's number for its noise.</summary>
@@ -47,6 +47,10 @@ public sealed partial class TFDecider
         Defend => (_p.HoldDrive, 7),
         Search => (1f, 8),
         Roam => (1f, 9),
+        ClassBranch => (1f, 10),
         _ => (1f, 0),
     };
+
+    /// <summary>The class's say in <paramref name="branch"/> (P7, <see cref="ClassPlay.Weigh"/>): 1 for a class with none, so the general play's scores stand.</summary>
+    private float ClassWeight(string branch) => _classPlay is null ? 1f : _classPlay.Weigh(branch);
 }

@@ -100,36 +100,65 @@ public sealed class LootRewardsTests
     }
 
     [Fact]
-    public async Task The_kills_Australium_is_split_among_the_heroes_near_with_the_remainder_from_the_killer()
+    public async Task The_kills_Australium_is_one_pile_that_every_hero_near_sees()
     {
         var k = Make();
         k.Rig.Party.Members.Add(new LootMember(SlotC, C, new Vector(110, 110, 0)));
-        uint kill = Find(r => r[0].Australium % 3 != 0, seats: 3);
+        uint kill = Find(r => r[0].Australium > 0, seats: 3);
         long total = R.Loot.PerSeat(Seed, kill, "soldier", Depth, 3, R.Salt)[0].Australium;
 
         var reward = await k.Rewards.Reward(kill, "soldier", InRoom(0), SlotB, ownTable: false);
 
-        Assert.Equal(LootRules.Split(total, 3), reward!.Shares);
-        Assert.Equal(total, reward.Shares.Sum());
+        Assert.Equal(total, reward!.Pile!.Australium);
+        Assert.Equal(reward.Pile, Assert.Single(k.Rig.Memory.Piles));
         var drop = reward.Drops[0];
-        // Members are the killer (B) first, then A, then C: the remainder's first unit is B's.
-        Assert.Equal(reward.Shares[0], drop.SeatOf(SlotB)!.Australium);
-        Assert.Equal(reward.Shares[1], drop.SeatOf(SlotA)?.Australium ?? 0);
-        Assert.Equal(reward.Shares[2], drop.SeatOf(SlotC)?.Australium ?? 0);
-        Assert.True(reward.Shares[0] > reward.Shares[2], "the stimulus: the split leaves a remainder");
+        Assert.Equal(reward.Pile.Id, drop.Pile!.Id);
+        Assert.All([SlotA, SlotB, SlotC], s => Assert.Equal(total, drop.SeatOf(s)!.Shown));
+        Assert.All(drop.Seats, s => Assert.Equal(0, s.Australium));
+        Assert.All(reward.Drops.Skip(1), d => Assert.Null(d.Pile));
     }
 
     [Fact]
-    public async Task Hosted_no_Australium_goes_on_the_floor()
+    public async Task A_kill_with_no_Australium_lays_no_pile()
     {
-        var held = new HeldLedger { Kind = LedgerKind.Hosted, Drops = kill => DropResult.Nothing };
-        var k = Make(held.Proxy);
-        uint kill = Find(r => r[0].Australium > 0 && !r[0].Item && !r[1].Item);
+        var k = Make();
+        uint kill = Find(r => r[0].Australium == 0 && r[0].Item);
 
         var reward = await k.Rewards.Reward(kill, "soldier", InRoom(0), SlotA, ownTable: false);
 
-        Assert.All(reward!.Shares, s => Assert.Equal(0, s));
-        Assert.Empty(reward.Drops);
+        Assert.Null(reward!.Pile);
+        Assert.Null(reward.Drops[0].Pile);
+        Assert.Empty(k.Rig.Memory.Piles);
+    }
+
+    [Fact]
+    public async Task A_kill_with_Australium_and_no_item_still_lays_its_pile()
+    {
+        // The 2.7 hosted path paid nothing for a kill without an item; the pile is asked for every kill with Australium.
+        var held = new HeldLedger { Kind = LedgerKind.Hosted, Drops = kill => DropResult.Nothing };
+        var k = Make(held.Proxy);
+        uint kill = Find(r => r[0].Australium > 0 && !r[0].Item && !r[1].Item && r[0].Potion is null && r[1].Potion is null);
+
+        var reward = await k.Rewards.Reward(kill, "soldier", InRoom(0), SlotA, ownTable: false);
+
+        var asked = Assert.Single(held.KillPiles);
+        Assert.Equal((A, R.Loot.KillSeq(kill, 0), "soldier", 2), (asked.Killer, asked.KillSeq, asked.Robot, asked.PartySize));
+        var drop = Assert.Single(reward!.Drops);
+        Assert.Null(drop.SeatOf(SlotA)!.Item);
+        Assert.True(drop.SeatOf(SlotA)!.Shown > 0 && drop.SeatOf(SlotB)!.Shown > 0);
+    }
+
+    [Fact]
+    public async Task Hosted_the_pile_is_the_hosts_answer()
+    {
+        var held = new HeldLedger { Kind = LedgerKind.Hosted, Drops = kill => DropResult.Nothing,
+                                    PileAnswer = p => new PileAnswer(true, null, new AustraliumPile(77, 12_345, p.Killer)) };
+        var k = Make(held.Proxy);
+        uint kill = Find(r => r[0].Australium > 0);
+
+        var reward = await k.Rewards.Reward(kill, "soldier", InRoom(0), SlotA, ownTable: false);
+
+        Assert.Equal((77L, 12_345L), (reward!.Pile!.Id, reward.Drops[0].Pile!.Australium));
     }
 
     [Fact]

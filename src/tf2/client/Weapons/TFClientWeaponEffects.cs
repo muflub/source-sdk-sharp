@@ -10,6 +10,7 @@ using SourceSharp.Shared;
 
 using TF2.Client.Player;
 using TF2.Shared;
+using TF2.Shared.Movement;
 
 namespace TF2.Client.Weapons;
 
@@ -57,13 +58,15 @@ public sealed class TFClientWeaponEffects(TFPlayerPrediction players) : ITFWeapo
 
     public void SelectLast(in WeaponAttackContext attack, TFWeaponScript script) { }
 
-    /// <summary>The smack rides the arms: the swing's own reach and the script's
-    /// two hit sounds, the pair stock's <c>OnSwingHit</c> picks between
+    /// <summary>The smack rides the arms: the swing's own reach and scaled hull
+    /// bounds, and the script's two hit sounds, the pair stock's
+    /// <c>OnSwingHit</c> picks between
     /// (<c>shared/tf/tf_weaponbase_melee.cpp:686-689</c>).</summary>
     public void Melee(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, in SwingTrace trace)
     {
         var type = attack.Type;
-        attack.Arms.MeleeSwing(in type, trace.Range,
+        var hull = new MeleeHull(trace.Hull, TFViewVectors.Params.DuckHullMin, TFViewVectors.Params.DuckHullMax);
+        attack.Arms.MeleeSwing(in type, trace.Range, in hull,
                                script.Sound(WeaponScriptSound.MeleeHitWorld),
                                script.Sound(WeaponScriptSound.MeleeHit));
     }

@@ -96,7 +96,7 @@ public interface IControlPointRules
 [SideService(Side.Server, As = [typeof(IControlPointRules)])]
 public sealed class ControlPointRules(ITeamRoundState round, IObjectiveResource objectives,
                                       IObjectiveSettings settings, IObjectiveEntities entities,
-                                      IKothRoundState koth) : IControlPointRules
+                                      IKothRoundState koth, ITFRoundSetup setup) : IControlPointRules
 {
     private readonly bool[,] _controlSpawnsPerTeam = new bool[ObjectiveLimits.Teams, ObjectiveLimits.MaxControlPoints];
 
@@ -104,8 +104,9 @@ public sealed class ControlPointRules(ITeamRoundState round, IObjectiveResource 
     {
         get
         {
-            // CTFGameRules: no capture in setup (stock asks GetActiveRoundTimer() && InSetup()).
-            if (round.InSetup)
+            // CTFGameRules::PointsMayBeCaptured (tf_gamerules.cpp): no capture in
+            // setup while a round timer is active, GetActiveRoundTimer() && InSetup().
+            if (setup.InSetupWithRoundTimer)
                 return false;
 
             return (round.State == RoundState.RoundRunning || round.State == RoundState.Stalemate)

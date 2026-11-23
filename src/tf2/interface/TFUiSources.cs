@@ -849,6 +849,10 @@ public interface ITFDeathScreen
     /// <summary>Whether the killer still lives (<c>pKiller-&gt;IsAlive()</c>):
     /// the <c>_Dead</c> label arm (:383-401).</summary>
     bool KillerAlive { get; }
+
+    /// <summary>The screenshot hint is due: <c>ShowSnapshotPanelIn( 1.25 )</c>
+    /// from <c>freezecam_started</c>, the freeze frame's start (:253-256, :938-948).</summary>
+    bool SnapshotHintDue { get; }
 }
 
 /// <summary>
@@ -1627,6 +1631,46 @@ public interface ITFMainMenuArt
     /// or null when the background takes none (two of Halloween's) or the
     /// script names nothing usable.</summary>
     string? Character { get; }
+}
+
+/// <summary>
+/// A game built on TF2 that names itself on TF2's main menu: its own mark
+/// under TF2's logo, its own backdrop at the menu, and the menu's buttons it
+/// has no use for left off. Optional: TF2 itself registers none, and its menu
+/// keeps the logo alone, the holiday art and every button.
+/// </summary>
+public interface ITFMainMenuBrand
+{
+    /// <summary>The game's mark, a material under materials/ drawn under TF2's
+    /// logo at about its width (the picture's own aspect); null draws none.</summary>
+    string? Mark { get; }
+
+    /// <summary>The backdrop at the menu, a material under materials/ drawn to
+    /// cover the screen in place of the holiday background and the character
+    /// art; null keeps TF2's.</summary>
+    string? Background { get; }
+
+    /// <summary>The menu's buttons the game leaves off, on the top bar and the taskbar.</summary>
+    TFMainMenuButtons Hidden { get; }
+}
+
+/// <summary>The TF2 main menu's buttons a <see cref="ITFMainMenuBrand"/> may leave off.</summary>
+[Flags]
+public enum TFMainMenuButtons
+{
+    None = 0,
+    /// <summary>FIND A GAME, on the top bar (the server browser).</summary>
+    FindAGame = 1 << 0,
+    /// <summary>ITEMS, on the taskbar (TF2's loadout).</summary>
+    Items = 1 << 1,
+    /// <summary>REPORT PLAYER, on the taskbar in a level.</summary>
+    ReportPlayer = 1 << 2,
+    /// <summary>CALL VOTE, on the taskbar in a level.</summary>
+    CallVote = 1 << 3,
+    /// <summary>MUTE PLAYERS, on the taskbar in a level.</summary>
+    MutePlayers = 1 << 4,
+    /// <summary>REQUEST COACH, on the taskbar in a level.</summary>
+    RequestCoach = 1 << 5,
 }
 
 /// <summary>

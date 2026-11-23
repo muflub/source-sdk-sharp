@@ -293,6 +293,16 @@ public:
 	// the standing one's name back.
 	virtual int32_t ScreenOverlaySet(const char* pszName) = 0;
 	virtual int32_t ScreenOverlayGet(char* pOutName, int32_t nNameBytes) = 0;
+	// The client's solid partition, which the shells are not in: every solid,
+	// non-dormant shell, as six words (index, handle, solid type, solid flags,
+	// collision group, model type) and its world box (mins, maxs). Answers how
+	// many there are; writes no more than nCapacity.
+	virtual int32_t ClientSolidEntities(int32_t* pOutWords, float* pOutBounds, int32_t nCapacity) = 0;
+	// A movement hull clipped against the named entities only (no world): the
+	// nearest stop as a movement trace, and the index stopped on, or -1.
+	virtual int32_t ClientClipHullToEntities(const float* pStartXYZ, const float* pEndXYZ, const float* pMinsXYZ,
+											 const float* pMaxsXYZ, int32_t nMask, const int32_t* pEntityIndices,
+											 int32_t nEntities, SourceSharpMoveTraceResult* pOut) = 0;
 };
 
 // User messages: managed reads the payload and decides; the rest carry out stock hooks.

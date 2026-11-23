@@ -112,9 +112,15 @@ public sealed class TFSpyComponent(
     private float _feignDeathEndStamp;
 
     // The swing just made backstabbed, until the next one; the victim it named
-    // (stock's m_hBackstabVictim, read by DisguiseOnKill).
+    // (stock's m_hBackstabVictim, read by DisguiseOnKill), where the hit
+    // dispatches and from which way, the swing-time health that seeds the
+    // heal (:210), and the one-deal mark of the smack half.
     private bool _backstabbed;
     private EntityHandle _backstabVictim = EntityHandle.None;
+    private Vector _backstabPosition;
+    private Vector _backstabForward;
+    private int _backstabHealBase;
+    private bool _smackDealt;
 
     // The Spy-cicle's melt (stock's m_flKnifeMeltTimestamp, m_flKnifeRegenerateDuration :523).
     private float _knifeMeltStamp;
@@ -699,16 +705,19 @@ public sealed class TFSpyComponent(
     /// melee range, as the core arm's) and, when it names a living enemy
     /// player standing behind the spy and facing them
     /// (<c>IsBehindAndFacingTarget</c>, tf_weapon_knife.cpp:447-482), the
-    /// backstab: the victim's current health doubled
-    /// (<c>GetMeleeDamage</c>, :391-395), flagged, through the layer as
-    /// <see cref="TFDamageCustom.Backstab"/>. Stock applies it at the smack
-    /// 0.1 s later; the hit goes out here (docs/plans/tf2/deferred.tsv).
+    /// latch of the victim — stock's <c>m_hBackstabVictim</c> (:209-211):
+    /// judged here, dealt by the smack's <see cref="Smack"/>, where stock's
+    /// <c>GetMeleeDamage</c> (:348-394) reads the victim's health then. The
+    /// swing-time health is captured here as the heal's seed (:210), and the
+    /// trace's end and aim ride along for the smack's dispatch. Answers
+    /// whether it judged a backstab; the roll reads the latch whole through
+    /// <see cref="Backstabbed"/> (<c>CalcIsAttackCriticalHelper</c>, :487-500).
     /// </summary>
     public bool Swing(float range)
     {
         _backstabbed = false;
-        _backstabVictim = EntityHandle.None;   // stock's m_hBackstabVictim, rewriten with each swing
-        _backstabVictim = EntityHandle.None;
+        _backstabVictim = EntityHandle.None;   // stock's m_hBackstabVictim, rewritten with each swing (:186)
+        _smackDealt = false;
 
         // The knife's session (tf_weapon_knife.cpp:192, :225): the swing's
         // trace and the behind-and-facing check see the other players where
@@ -756,70 +765,9 @@ public sealed class TFSpyComponent(
             {
                 _backstabbed = true;
                 _backstabVictim = trace.Entity;   // stock's m_hBackstabVictim = hHit (tf_weapon_knife.cpp:210)
-
-                // Razorback's block (stock's CTFPlayer::CheckBlockBackstab, tf_player.cpp:10072-10116,
-                // applied at tf_gamerules.cpp:6827): the victim's first item holding
-                // set_blockbackstab_once zeroes this one backstab and then hides itself, so the
-                // next one lands plain.
-                var blockManager = owners.ManagerOf(trace.Entity.EntryIndex);
-                int victimHealth = entities.GetHealth(trace.Entity);   // the heal's base, read before the hit (:210)
-                float backstab = victimHealth * 2f;
-                if (hooks.Int(0, "set_blockbackstab_once", blockManager) != 0)
-                {
-                    backstab = 0f;
-                    if (blockManager is AttributeContainer holder)
-                        ConsumeOnce(holder);
-                }
-                using (hitGroups.Push(HitGroup.Generic, critical: true))
-                using (scopes.Push(TFDamageCustom.Backstab, TFWeaponId.Knife, TFKnifeHook.KnifeScript))
-                    // The trace's end, as the core's MeleeSwing dispatches
-                    // (tf_weaponbase_melee.cpp:820-880, Arsenal's trace.End); the
-                    // plain swing trace names no hitbox, so the group is Generic.
-                    damage.ApplyAt(trace.Entity, _player, backstab, DamageType.Club,
-                                   DamageForceRules.MeleeForce(aim.Forward, backstab),
-                                   trace.End);
-
-                // sanguisuge (Conniver's Kunai), stock's CTFKnife::PrimaryAttack
-                // heal arm (tf_weapon_knife.cpp:267-289): when the backstab just
-                // killed the victim, the spy takes health up to three times the
-                // class maximum, the victim's health before the hit as the base
-                // (at least 75). The rune bonus and the reflect-rune zero that
-                // share stock's arm are deferred (docs/plans/tf2/deferred.tsv).
-                if (!enginePlayers.IsAlive(trace.Entity)
-                    && hooks.Int(0, "sanguisuge", owners.ItemOf(_index, TFKnifeHook.KnifeScript)) > 0)
-                {
-                    int spyHealth = entities.GetHealth(_player);
-                    int newHealth = Math.Min(spyHealth + Math.Max(victimHealth, 75),
-                                             resupply.MaxHealth(_player) * 3);
-                    int gained = newHealth - spyHealth;
-                    if (gained > 0)
-                        resupply.TakeHealth(_player, gained, ignoreMaxHealth: true);
-                }
-
-                // The kill arms (stock's CTFPlayer::OnKilledOther_Effects, tf_player.cpp:11509-11572),
-                // fired once the victim is down: the spy's cloak-on-kill (:11513-11521) puts the held
-                // item's add_cloak_on_kill straight on the cloak meter — forced, so the regen hooks
-                // are skipped, clamped to 0..100 as AddToSpyCloakMeter does (tf_player_shared.cpp:9731,
-                // :9753-9755) — and the weapon's speed_boost_on_kill rides TF_COND_SPEED_BOOST for
-                // the attribute's seconds (:11567-11572). Stock's restore-to-percentage arm
-                // (:11527-11543) is the heal lane's and stays deferred (docs/plans/tf2/deferred.tsv).
-                if (!enginePlayers.IsAlive(trace.Entity))
-                {
-                    var killItem = owners.ItemOf(_index, TFKnifeHook.KnifeScript);
-
-                    int cloakOnKill = hooks.Int(0, "add_cloak_on_kill", killItem);       // :11516
-                    if (cloakOnKill > 0                                                   // :11517
-                        && _players.Predicted(_index) is { } cloak
-                        && (TFClass)cloak.PlayerClass == TFClass.Spy)                     // :11513
-                    {
-                        cloak.CloakMeter = Math.Clamp(cloak.CloakMeter + cloakOnKill, 0f, 100f);   // :9755
-                    }
-
-                    int boostSeconds = hooks.Int(0, "speed_boost_on_kill", killItem);     // :11568
-                    if (boostSeconds != 0)                                                 // :11569
-                        conditions.Add(_player, TFCond.SpeedBoost, boostSeconds, _player); // :11571
-                }
-
+                _backstabPosition = trace.End;    // the smack dispatches at the trace's end (tf_weaponbase_melee.cpp:820-880)
+                _backstabForward = aim.Forward;
+                _backstabHealBase = entities.GetHealth(trace.Entity);   // the heal's seed, taken at the swing (:210)
                 return true;
             }
 
@@ -831,7 +779,108 @@ public sealed class TFSpyComponent(
         }
     }
 
-    /// <summary>Whether the swing just made backstabbed: its smack lands nothing.</summary>
+    /// <summary>
+    /// The smack half, called at the smack's time by the chain's damage read:
+    /// stock's <c>Smack</c> → <c>OnSwingHit</c> → <c>DoMeleeDamage</c> →
+    /// <c>GetMeleeDamage</c> (<c>tf_weapon_knife.cpp</c>: the base's
+    /// <c>tf_weaponbase_melee.cpp:702-790</c>, the knife's damage half
+    /// :348-394). The latched victim takes the hit — his health then doubled
+    /// (:377), flagged <see cref="TFDamageCustom.Backstab"/> (:381), crit
+    /// (<c>CalcIsAttackCriticalHelper</c> answers the latch whole, :490) — at
+    /// the swing's trace end, and Razorback's block zeroes the blow on the hit
+    /// (<c>tf_player.cpp:10072-10116</c>, applied at :6827). Behind it the
+    /// kill's tails: the heal of :267-289 on the dead answer with the swing's
+    /// health seed (:210), the cloak-on-kill and speed boost of
+    /// <c>OnKilledOther_Effects</c> (<c>tf_player.cpp:11513-11572</c>), and the
+    /// disguise tail of :243-264 — the successful kill with
+    /// <c>set_disguise_on_backstab</c> disguises (:315-330), everything else
+    /// takes the plain <see cref="RemoveDisguise"/> (:263). Deals once; the
+    /// answer rides until the next <see cref="Swing"/>.
+    /// </summary>
+    public bool Smack(float now)
+    {
+        if (!_backstabbed)
+            return false;
+
+        EntityHandle victim = _backstabVictim;
+        if (!_smackDealt)
+        {
+            _smackDealt = true;
+
+            // Razorback's block (stock's CTFPlayer::CheckBlockBackstab, tf_player.cpp:10072-10116,
+            // applied at tf_gamerules.cpp:6827): the victim's first item holding
+            // set_blockbackstab_once zeroes this one backstab and then hides itself, so the
+            // next one lands plain.
+            var blockManager = owners.ManagerOf(victim.EntryIndex);
+            int victimHealth = entities.GetHealth(victim);              // his health then (GetMeleeDamage :377)
+            float backstab = victimHealth * 2f;
+            if (hooks.Int(0, "set_blockbackstab_once", blockManager) != 0)
+            {
+                backstab = 0f;
+                if (blockManager is AttributeContainer holder)
+                    ConsumeOnce(holder);
+            }
+
+            using (hitGroups.Push(HitGroup.Generic, critical: true))
+            using (scopes.Push(TFDamageCustom.Backstab, TFWeaponId.Knife, TFKnifeHook.KnifeScript))
+                // The swing's trace end (the plain melee's dispatch,
+                // tf_weaponbase_melee.cpp:820-880); the plain swing trace names
+                // no hitbox, so the group is Generic.
+                damage.ApplyAt(victim, _player, backstab, DamageType.Club,
+                               DamageForceRules.MeleeForce(_backstabForward, backstab),
+                               _backstabPosition);
+
+            if (!enginePlayers.IsAlive(victim))
+            {
+                // sanguisuge (Conniver's Kunai), stock's heal arm (:267-289): the
+                // spy takes the swing's health seed on top of his own, past the
+                // class maximum but capped at three times it (the rune bonus and
+                // the reflect-rune zero of :278-281 stay deferred,
+                // docs/plans/tf2/deferred.tsv).
+                if (hooks.Int(0, "sanguisuge", owners.ItemOf(_index, TFKnifeHook.KnifeScript)) > 0)
+                {
+                    int spyHealth = entities.GetHealth(_player);
+                    int newHealth = Math.Min(spyHealth + Math.Max(_backstabHealBase, 75),
+                                             resupply.MaxHealth(_player) * 3);
+                    int gained = newHealth - spyHealth;
+                    if (gained > 0)
+                        resupply.TakeHealth(_player, gained, ignoreMaxHealth: true);
+                }
+
+                // The kill arms (stock's OnKilledOther_Effects, tf_player.cpp:11509-11572):
+                // the cloak-on-kill (:11513-11521) puts the held item's add_cloak_on_kill
+                // straight on the cloak meter — forced, clamped to 0..100 as AddToSpyCloakMeter
+                // does (tf_player_shared.cpp:9731, :9753-9755) — and speed_boost_on_kill rides
+                // TF_COND_SPEED_BOOST for its seconds (:11567-11572). The restore-to-percentage
+                // arm (:11527-11543) stays deferred (docs/plans/tf2/deferred.tsv).
+                var killItem = owners.ItemOf(_index, TFKnifeHook.KnifeScript);
+
+                int cloakOnKill = hooks.Int(0, "add_cloak_on_kill", killItem);       // :11516
+                if (cloakOnKill > 0                                                   // :11517
+                    && _players.Predicted(_index) is { } cloak
+                    && (TFClass)cloak.PlayerClass == TFClass.Spy)                     // :11513
+                {
+                    cloak.CloakMeter = Math.Clamp(cloak.CloakMeter + cloakOnKill, 0f, 100f);   // :9755
+                }
+
+                int boostSeconds = hooks.Int(0, "speed_boost_on_kill", killItem);     // :11568
+                if (boostSeconds != 0)                                                 // :11569
+                    conditions.Add(_player, TFCond.SpeedBoost, boostSeconds, _player); // :11571
+            }
+
+            // The tail, behind the smack that made the kill check (:243-264): a
+            // dead victim and the knife's set_disguise_on_backstab wear the
+            // disguise (:315-330); everything else takes the plain removal (:263).
+            if (ShouldDisguiseOnBackstab() && DisguiseOnKill(now))
+                return true;
+            RemoveDisguise();
+        }
+
+        return true;
+    }
+
+    /// <summary>Whether the swing in the air judged a backstab: the roll's whole
+    /// answer and the chain's zero beside the smack's seam hit.</summary>
     public bool Backstabbed => _backstabbed;
 
     /// <summary><c>CTFKnife::ShouldDisguiseOnBackstab</c>
@@ -1013,7 +1062,9 @@ public sealed class TFSpy(ITFPlayerData players, ITFPlayerConditions conditions,
 
     public bool Swing(int ownerIndex, float range) => Of(ownerIndex)?.Swing(range) ?? false;
 
-    public bool Smack(int ownerIndex) => Of(ownerIndex)?.Backstabbed ?? false;
+    public bool Smack(int ownerIndex) => Of(ownerIndex)?.Smack(clock.Now) ?? false;
+
+    public bool IsBackstab(int ownerIndex) => Of(ownerIndex)?.Backstabbed ?? false;
 
     public bool ShouldDisguiseOnBackstab(int ownerIndex) => Of(ownerIndex)?.ShouldDisguiseOnBackstab() ?? false;
 

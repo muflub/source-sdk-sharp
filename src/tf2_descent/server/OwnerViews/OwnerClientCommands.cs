@@ -27,7 +27,9 @@ namespace TF2.Descent.Server.OwnerViews;
 /// unless one is named, through <see cref="HeroEquipment.Equip"/>.</item>
 /// <item><c>tf2_descent_item_unequip &lt;equipment slot&gt;</c>: back into the backpack.</item>
 /// <item><c>tf2_descent_item_move &lt;from&gt; &lt;to&gt;</c>: a backpack item to
-/// another backpack cell (an occupied one swaps).</item>
+/// another backpack cell (an occupied one swaps); a belt slot is written <c>belt1</c> to
+/// <c>belt4</c>, so <c>5 belt2</c> puts the potion in backpack 5 on belt slot 2 (merging onto
+/// the same potion) and <c>belt2 7</c> takes belt slot 2 off into backpack cell 7.</item>
 /// <item><c>tf2_descent_item_drop &lt;backpack index&gt;</c>: onto the floor at the hero's feet.</item>
 /// </list>
 /// A refusal is told to the hero as a notice (<c>#Descent_Refused_&lt;reason&gt;</c>,
@@ -62,7 +64,7 @@ public sealed class OwnerClientCommands(
         InventoryRefusals.BackpackFull, InventoryRefusals.StashFull, InventoryRefusals.WithdrawOnly, InventoryRefusals.NoItem,
         InventoryRefusals.NoSuchSlot, InventoryRefusals.WrongSlot, InventoryRefusals.WrongClass, InventoryRefusals.Level,
         InventoryRefusals.Requirement, InventoryRefusals.Unidentified, InventoryRefusals.Unusable, InventoryRefusals.Occupied,
-        InventoryRefusals.NotStackable, LedgerRefusals.NoHero,
+        InventoryRefusals.NotStackable, InventoryRefusals.NotAPotion, LedgerRefusals.NoHero,
         nameof(SpendRefusal.NoPoints), nameof(SpendRefusal.AtCap), nameof(SpendRefusal.UnknownAttribute), nameof(SpendRefusal.BadCount),
     ];
 
@@ -92,6 +94,16 @@ public sealed class OwnerClientCommands(
             case Move when args.Length >= 2 && Int(args[0]) is int from && Int(args[1]) is int to:
                 _ = keys.Of(index) is { } key
                     ? Answer(index, Move, $"{from} {to}", ledger.Move(key, from, to), NameAt(index, from))
+                    : Task.CompletedTask;
+                break;
+            case Move when args.Length >= 2 && Int(args[0]) is int from && BeltSlot(args[1]) is int onto:
+                _ = keys.Of(index) is { } belter
+                    ? Answer(index, Move, $"{from} {args[1]}", ledger.ToBelt(belter, from, onto), NameAt(index, from))
+                    : Task.CompletedTask;
+                break;
+            case Move when args.Length >= 2 && BeltSlot(args[0]) is int off && Int(args[1]) is int into:
+                _ = keys.Of(index) is { } unbelter
+                    ? Answer(index, Move, $"{args[0]} {into}", OffBelt(unbelter, off, into), NameOnBelt(index, off))
                     : Task.CompletedTask;
                 break;
             case Drop when args.Length >= 1 && Int(args[0]) is int slot:
@@ -181,4 +193,28 @@ public sealed class OwnerClientCommands(
 
     private static int? Int(string text) =>
         int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int v) ? v : null;
+
+    /// <summary>The verb's word for a belt slot: <c>belt1</c> to <c>belt4</c>, as the belt keys count; answered 0-based.</summary>
+    public const string BeltWord = "belt";
+
+    private static int? BeltSlot(string text) =>
+        text.StartsWith(BeltWord, StringComparison.Ordinal)
+        && int.TryParse(text.AsSpan(BeltWord.Length), NumberStyles.None, CultureInfo.InvariantCulture, out int n) && n >= 1
+            ? n - 1
+            : null;
+
+    /// <summary>A potion off the belt into the backpack, then into the cell asked for when it landed elsewhere and that cell is free.</summary>
+    private async Task<LedgerResult> OffBelt(string key, int beltSlot, int cell)
+    {
+        long id = ledger.Find(key)?.Inventory.Belt.GetValueOrDefault(beltSlot)?.Id ?? 0;
+        var off = await ledger.FromBelt(key, beltSlot);
+        if (!off.Ok || off.Hero is not { } h || h.Inventory.Backpack.ContainsKey(cell)
+            || h.Inventory.Backpack.FirstOrDefault(p => p.Value.Id == id) is not { Value: not null } landed)
+            return off;
+        var moved = await ledger.Move(key, landed.Key, cell);
+        return moved.Ok ? moved : off;   // off the belt already: a cell past capacity leaves it where it landed
+    }
+
+    private string NameOnBelt(int index, int beltSlot) =>
+        keys.Of(index) is { } key && ledger.Find(key)?.Inventory.Belt.GetValueOrDefault(beltSlot) is { } held ? NameOf(held.Item) : "";
 }

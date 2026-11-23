@@ -76,6 +76,15 @@ public sealed class TFLoadoutProvider(IHooks<ITFItemSource> sources,
     public IReadOnlyDictionary<string, LoadoutItem> KitOf(int entIndex)
         => _kits.TryGetValue(entIndex, out var kit) ? kit : new Dictionary<string, LoadoutItem>();
 
+    private readonly Dictionary<int, List<LoadoutItem>> _worn = new();
+    private readonly Dictionary<int, int> _kitVersion = new();
+
+    /// <summary>The worn items in weapon slots of the kit <see cref="Weapons"/> last handed the player (a shield, Gunboats, the Razorback): empty before a first kit.</summary>
+    public IReadOnlyList<LoadoutItem> WornOf(int entIndex) => _worn.TryGetValue(entIndex, out var worn) ? worn : [];
+
+    /// <summary>How many kits <see cref="Weapons"/> has handed the player: a new number, a new kit.</summary>
+    public int KitVersion(int entIndex) => _kitVersion.GetValueOrDefault(entIndex);
+
     /// <summary>
     /// The weapon column: each weapon slot's item class as the class's own
     /// weapon entity (<see cref="TFItemClassTranslation"/>, stock's
@@ -105,6 +114,9 @@ public sealed class TFLoadoutProvider(IHooks<ITFItemSource> sources,
         var granted = new List<(string Weapon, AttributeContainer Container)>();
         var kit = new Dictionary<string, LoadoutItem>(StringComparer.Ordinal);
         _kits[player.EntryIndex] = kit;
+        var worn = new List<LoadoutItem>();
+        _worn[player.EntryIndex] = worn;
+        _kitVersion[player.EntryIndex] = _kitVersion.GetValueOrDefault(player.EntryIndex) + 1;
         foreach (var entry in Loadout(player.EntryIndex, cls))
         {
             // The wearables are the spawn's own entities (the wearable arm
@@ -114,7 +126,11 @@ public sealed class TFLoadoutProvider(IHooks<ITFItemSource> sources,
             if (TFItemStrings.IsWearableSlot((int)entry.Slot)
                 || TFItemStrings.IsWearableClass(entry.Item.Definition.ItemClass)
                 || entry.Item.Definition.ItemClass is not { Length: > 0 } itemClass)
+            {
+                if (!TFItemStrings.IsWearableSlot((int)entry.Slot))
+                    worn.Add(entry); // a worn item in a weapon slot (a shield, Gunboats): part of the kit its holder knows
                 continue;
+            }
 
             string weapon = TFItemClassTranslation.Translate(itemClass, table[cls]);
             var equipped = entry.Item;

@@ -166,6 +166,8 @@ public:
 	// A custom-draw entity's batch entry, asking managed once per batch; -1 when it has none,
 	// kDrawBatchInPlace when managed drew it in place.
 	static const int32_t kDrawBatchInPlace = -2;
+	// A custom draw's answer that hands the draw on to the entity's model (ClientStandaloneEntity.DrawsModel).
+	static const int32_t kDrawOwnModel = -3;
 	bool DrawBatchResult(const C_StandaloneEntity* pEntity, int32_t* pOutResult);
 
 	// The two client systems rows: the tiers' registration, and the per-frame policy and pose.

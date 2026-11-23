@@ -7,7 +7,7 @@
   tools/ai-tf-jump sim [--config debug|release]   the simulator against the recording: its gaps and its speed
   tools/ai-tf-jump links [--tries 10] [--others] [--reload] [--think-log] [--config debug] [--out FILE.json] [--keep]
   tools/ai-tf-jump trust --db FILE.db [--tries 10] [--config debug] [--out FILE.json]
-  tools/ai-tf-jump course [--runs 5] [--reload] [--db FILE.db] [--config debug] [--out FILE.json] [--think-log] [--map ss_ai_tf_double|ss_ai_tf_wall|ss_ai_tf_ends]
+  tools/ai-tf-jump course [--runs 5] [--reload] [--db FILE.db] [--config debug] [--out FILE.json] [--think-log] [--map ss_ai_tf_double|ss_ai_tf_wall|ss_ai_tf_ends|ss_ai_tf_pack]
   tools/ai-tf-jump --self-test
 
 Starts a headless tf2 game on the map (tools/ai-scenario's Game: its own
@@ -870,6 +870,10 @@ COURSES = {COURSE_MAP: (COURSE_STAGES, COURSE_BAYS),
            "ss_ai_tf_double": ([(448, 520, 704, 776, 656), (448, 904, 704, 1160, 848), (1120, 904, 1376, 1160, 1424)], [None, None, None])}
 # Lane G7c: the wall jump's course, ss_ai_tf_wall (TFAiTestMaps.Wall: ss_ai_tf_double's stages, a wall beside the second jump, no beam).
 COURSES["ss_ai_tf_wall"] = COURSES["ss_ai_tf_double"]
+# Lane G9: the pack course, ss_ai_tf_pack (TFAiTestMaps.PackStages: four +350 jumps, a small pack by the third's landing, a
+# cabinet bay on S3 away from it, no cabinet on S1 and S2).
+COURSES["ss_ai_tf_pack"] = ([(64, 176, 320, 432, 336), (448, 208, 704, 528, 686), (832, 336, 1088, 592, 1036), (1216, 32, 1600, 1000, 1386),
+                             (1216, 1128, 1472, 1384, 1736)], [None, None, None, (1600, 872), None])
 BAY_SIZE = 128
 FALL_UNITS = 100.0
 RUN_TICKS = 12000

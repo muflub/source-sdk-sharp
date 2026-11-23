@@ -36,7 +36,7 @@ namespace TF2.Shared;
 [SideService(Side.Client)]
 public sealed class TFAttributeWeaponHook(AttributeHooks attributes,
                                           IEngineEntities? entities = null, TFClassTable? classes = null,
-                                          ITFPlayerData? players = null) : ITFWeaponHook
+                                          ITFPlayerData? players = null, IEnginePlayers? enginePlayers = null) : ITFWeaponHook
 {
     /// <summary>TF2's weapon band, +200..+299 (the rules own +100..+199: TeamRoundOrders).</summary>
     public const int Order = 1_000_000 - 1_000 + 200;
@@ -153,10 +153,14 @@ public sealed class TFAttributeWeaponHook(AttributeHooks attributes,
     /// fraction full so the remap lands on the top end — no scale.</summary>
     private float HealthFraction(int ownerIndex)
     {
-        if (classes is null || entities is null || players?.Predicted(ownerIndex) is not { } state)
+        if (classes is null || entities is null || enginePlayers is null
+            || players?.Predicted(ownerIndex) is not { } state)
             return 1f;
         int maxHealth = classes[state.Class()].MaxHealth;
-        float health = entities.GetHealth(new EntityHandle((uint)ownerIndex));
+        // The real handle, serial and all: after a changelevel the slot's
+        // handle carries one and a bare index reads another slot through the
+        // engine's handle table, so the panic cone would take the wrong band.
+        float health = entities.GetHealth(enginePlayers.GetHandle(ownerIndex));
         return maxHealth > 0 ? health / maxHealth : 1f;
     }
 

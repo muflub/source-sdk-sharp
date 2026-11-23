@@ -80,7 +80,8 @@ public sealed class ConVarAttribute : Attribute
 /// One name, one declaration — this never adds a second convar. It replaces
 /// the DEFAULT of the declaration the same walk carries, so the bound instance,
 /// the engine registration and the command-line policy all take the game's
-/// number, and the flags and help stay the declaring side's. The name must be
+/// number; the flags stay the declaring side's unless the row names its own,
+/// and the help and range always do. The name must be
 /// one the walk declares; a row for a name nothing declares is refused at the
 /// foot of the walk, beside the duplicate declarations, and two rows naming
 /// one name with different numbers with them.
@@ -95,11 +96,26 @@ public sealed class ConVarDefaultAttribute : Attribute
         DefaultValue = defaultValue;
     }
 
+    /// <summary>
+    /// A game's default and flags: stock's redeclaration of one name with
+    /// other flags (view.cpp:110-114: TF's viewmodel_fov is FCVAR_ARCHIVE, the
+    /// other games' FCVAR_CHEAT). The flags replace the declaration's whole;
+    /// the help, range and bound class stay the declaring side's.
+    /// </summary>
+    public ConVarDefaultAttribute(string name, string defaultValue, ConVarFlags flags)
+        : this(name, defaultValue)
+    {
+        Flags = flags;
+    }
+
     /// <summary>The console name of the declaration being redefaulted.</summary>
     public string Name { get; }
 
     /// <summary>What the game declares instead of the carried default.</summary>
     public string DefaultValue { get; }
+
+    /// <summary>What the game declares instead of the carried flags, or null to keep them.</summary>
+    public ConVarFlags? Flags { get; }
 }
 
 /// <summary>
@@ -676,14 +692,14 @@ public sealed class ConVarRegistry
         // name resolve by the walk's own order — assembly name, then
         // declaration token — which is fixed, so the winner is too. A name
         // nothing declares is refused at the foot of the walk.
-        var overridden = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var overridden = new Dictionary<string, ConVarDefaultAttribute>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var type in types)
         {
             if (type.GetCustomAttribute<ConVarDefaultAttribute>() is not { } default_)
                 continue;
 
-            overridden[default_.Name] = default_.DefaultValue;
+            overridden[default_.Name] = default_;
         }
 
         foreach (var type in types)
@@ -724,11 +740,12 @@ public sealed class ConVarRegistry
 
             // The walk's default, not the attribute's: a ConVarDefault above
             // replaces it, for the engine registration, the bound instance and
-            // the command-line policy alike. The flags and help stay the
-            // declaring side's, as stock's redeclaration's do.
-            string defaultValue = overridden.TryGetValue(attr.Name, out string? gameDefault)
-                ? gameDefault
-                : attr.DefaultValue;
+            // the command-line policy alike, and so do its flags when it names
+            // them (stock redeclared a name with other flags under a game's
+            // #ifdef). The help and range stay the declaring side's.
+            overridden.TryGetValue(attr.Name, out ConVarDefaultAttribute? gameRow);
+            string defaultValue = gameRow?.DefaultValue ?? attr.DefaultValue;
+            ConVarFlags flags = gameRow?.Flags ?? attr.Flags;
 
             if (Activator.CreateInstance(type) is not ConVarBase instance)
             {
@@ -756,7 +773,7 @@ public sealed class ConVarRegistry
             // declaration would take the unknown-name path -- which is the one
             // path that looks like working code.
             _policies[attr.Name] = new ConVarCommandLinePolicy(
-                attr.Name, defaultValue, attr.Flags);
+                attr.Name, defaultValue, flags);
 
             // A NAME THE ENGINE OWNS IS REFUSED, NOT ALIASED (the user's rule,
             // 2026-09-29), decided here since plan_server_native_v2 T4e: native
@@ -773,7 +790,7 @@ public sealed class ConVarRegistry
             }
 
             int id = _backend.Register(attr.Name, defaultValue, attr.Help,
-                                       unchecked((int)attr.Flags), min, max);
+                                       unchecked((int)flags), min, max);
 
             // A refused ConVar is still bound, to its declared default and an id
             // of -1. Dropping it would leave nothing to publish for the class
@@ -796,7 +813,7 @@ public sealed class ConVarRegistry
             // One FindVar per declaration at startup, and only for the ones the
             // engine accepted. A refused convar (id < 0) has nothing to read.
             instance.Backend = _backend;
-            instance.Bind(id, attr.Name, defaultValue, attr.Help, attr.Flags, min, max,
+            instance.Bind(id, attr.Name, defaultValue, attr.Help, flags, min, max,
                           id >= 0 ? _backend.ValueOf(attr.Name) : null, attr.Tag);
             Adopt(instance);
             count++;

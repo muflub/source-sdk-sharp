@@ -497,6 +497,7 @@ public sealed class RecordingEngine :
     void IEnginePrecache.PrecacheMaterial(string material) => RecordVoid("Precache.PrecacheMaterial", material);
     void IEnginePrecache.PrecacheParticleSystem(string name) => RecordVoid("Precache.PrecacheParticleSystem", name);
     int IEnginePrecache.ParticleSystemIndex(string name) => Record<int>("Precache.ParticleSystemIndex", name);
+    int IEnginePrecache.ParticleSystemRoom() => Record<int>("Precache.ParticleSystemRoom");
     int IEnginePrecache.PrecacheModel(string model) => Record<int>("Precache.PrecacheModel", model);
     int IEnginePrecache.ModelFrameCount(int modelIndex) => Record<int>("Precache.ModelFrameCount", modelIndex);
 
@@ -1057,6 +1058,7 @@ public sealed class RecordingEngine :
     int IEngineWorldQuery.GetArea(Vector origin) => Record<int>("WorldQuery.GetArea", origin);
     HullResult IEngineWorldQuery.TraceHull(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore) => Record<HullResult>("WorldQuery.TraceHull", start, end, mins, maxs, mask, ignore);
     SurfaceTraceResult IEngineWorldQuery.TraceBox(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore) => Record<SurfaceTraceResult>("WorldQuery.TraceBox", start, end, mins, maxs, mask, ignore);
+    SurfaceTraceResult IEngineWorldQuery.TraceBoxInGroup(Vector start, Vector end, Vector mins, Vector maxs, uint contentsMask, EntityHandle ignore, int collisionGroup) => Record<SurfaceTraceResult>("WorldQuery.TraceBoxInGroup", start, end, mins, maxs, contentsMask, ignore, collisionGroup);
     EntityHullTrace IEngineWorldQuery.EntityTraceHull(EntityHandle entity, Vector start, Vector end, Vector mins, Vector maxs, uint mask, int collisionGroup) => Record<EntityHullTrace>("WorldQuery.EntityTraceHull", entity, start, end, mins, maxs, mask, collisionGroup);
     TraceResult IEngineWorldQuery.TraceLine(Vector start, Vector end, TraceMask mask, EntityHandle ignore) => Record<TraceResult>("WorldQuery.TraceLine", start, end, mask, ignore);
     SurfaceTraceResult IEngineWorldQuery.TraceLineSurface(Vector start, Vector end, TraceMask mask, EntityHandle ignore) => Record<SurfaceTraceResult>("WorldQuery.TraceLineSurface", start, end, mask, ignore);
@@ -1068,6 +1070,22 @@ public sealed class RecordingEngine :
     ClientTraceResult IEngineWorldQuery.ClientTraceLine(Vector start, Vector end, TraceMask mask, TraceFilter filter, int passEntityIndex) => Record<ClientTraceResult>("WorldQuery.ClientTraceLine", start, end, mask, filter, passEntityIndex);
     // The list is copied: the caller's span is a scratch buffer it refills.
     ClientTraceResult IEngineWorldQuery.ClientClipRayToEntities(Vector start, Vector end, TraceMask mask, ReadOnlySpan<int> entityIndices) => Record<ClientTraceResult>("WorldQuery.ClientClipRayToEntities", start, end, mask, entityIndices.ToArray());
+    // The partition is stubbed as the whole list (an array); the answer is its
+    // length, and what fits is copied, as native writes what fits.
+    int IEngineWorldQuery.ClientSolidEntities(Span<ClientSolidEntity> into)
+    {
+        ClientSolidEntity[] all = Record<ClientSolidEntity[]?>("WorldQuery.ClientSolidEntities", into.Length) ?? [];
+        all.AsSpan(0, Math.Min(all.Length, into.Length)).CopyTo(into);
+        return all.Length;
+    }
+    // Stubbed as (index, trace). Unstubbed is a miss (-1 and a clear trace),
+    // never "stopped on entity 0".
+    int IEngineWorldQuery.ClientClipHullToEntities(Vector start, Vector end, Vector mins, Vector maxs, uint mask, ReadOnlySpan<int> entityIndices, out MoveTrace trace)
+    {
+        (int Hit, MoveTrace Trace)? answer = Record<(int, MoveTrace)?>("WorldQuery.ClientClipHullToEntities", start, end, mins, maxs, mask, entityIndices.ToArray());
+        trace = answer?.Trace ?? MoveTrace.Clear(end);
+        return answer?.Hit ?? -1;
+    }
     ClientBoxTrace IEngineWorldQuery.ClientTraceHullEntities(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, int passEntityIndex, ReadOnlySpan<int> entityIndices) => Record<ClientBoxTrace>("WorldQuery.ClientTraceHullEntities", start, end, mins, maxs, mask, passEntityIndex, entityIndices.ToArray());
     // C-Phase 3 lane DECALS. STRICT, deliberately: this is the question
     // C_BaseEntity::AddDecal's switch is made from, and a double that answered

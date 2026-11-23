@@ -20,7 +20,8 @@ public sealed class PlayerService(
     ClientMessages messages,
     IFrameScheduler scheduler,
     ILog log,
-    HeroSheets sheets) : IClientLifecycle, IHostBootHook, ILeaseHook, IHostConnectionHook, IOrderedHook
+    HeroSheets sheets,
+    IHooks<IHeroJoinHook> joins) : IClientLifecycle, IHostBootHook, ILeaseHook, IHostConnectionHook, IOrderedHook
 {
     /// <summary>A joined player: who they are to the engine and to the service.
     /// <paramref name="Name"/> is the character's name as the join answered it —
@@ -94,6 +95,18 @@ public sealed class PlayerService(
         if (peer is null)
             return;    // a bot: not a player of the service
 
+        // Held through a level change on the same instance (an operator's
+        // changelevel: the engine keeps the client, so nobody left): his lease
+        // is this instance's still, and a second join would lease it again.
+        // One being re-leased (suspended) is held too: his re-join is under way.
+        if (_byEntity.ContainsKey(entIndex))
+        {
+            messages.Instance(entIndex, boot.InstanceKind, boot.Depth);
+            return;
+        }
+        if (_suspended.Values.Any(e => e.EntIndex == entIndex))
+            return;
+
         // The engine's SteamID is only a fallback for a peer the host does not
         // know (local mode): hosted, the engine runs with sv_lan 1 and no
         // Steam, so it reports a LAN or invalid id, 0 included, for players the
@@ -136,20 +149,26 @@ public sealed class PlayerService(
         link.Players(_byEntity.Count);
         messages.Instance(entIndex, boot.InstanceKind, boot.Depth);
         log.Msg($"[TF2Descent] {steamId} ({outcome.ClientAddr ?? "address unknown"}) joined as {outcome.Name} ({outcome.ClassName}), reached depth {outcome.ReachedDepth}\n");
+        joins.Each(nameof(IHeroJoinHook.OnHeroJoined), h => h.OnHeroJoined(entIndex, steamId));
     }
 
     /// <summary>
     /// This level's Booting answered. Whoever was here before belongs to the
     /// level this process left, and the hop already released them, so they are
     /// forgotten without a second leave; the clients waiting for the boot join
-    /// now, as the instance the process has become.
+    /// now, as the instance the process has become. A level that kept the
+    /// boot before it (<see cref="HostService.SameInstance"/>) is no hop:
+    /// everyone held is held still.
     /// </summary>
     public void OnBooted(BootInfo info)
     {
-        _byEntity.Clear();
-        _suspended.Clear();
-        sheets.ForgetHosted();
-        link.Players(0);
+        if (!host.SameInstance)
+        {
+            _byEntity.Clear();
+            _suspended.Clear();
+            sheets.ForgetHosted();
+            link.Players(0);
+        }
 
         var waiting = _waitingForBoot.ToList();
         _waitingForBoot.Clear();

@@ -15,6 +15,9 @@ public static class DepthPickerSamples
         s.Add(descent);
         s.Add(actions);
         s.Add(party);
+        // A window now (L8): its placement store, as the other town windows' samples give theirs.
+        if (!s.Has<IUiWindowStore>())
+            s.Add<IUiWindowStore>(new MemoryWindowStore());
         return s.Create<DepthPicker>();
     }
 

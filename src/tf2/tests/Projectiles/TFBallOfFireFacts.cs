@@ -33,11 +33,11 @@ public sealed class TFBallOfFireFacts
     private static WeaponAttackContext Attack(int owner) => new(default!, null!, null!, 1f, true,
         null!, new WeaponCommand(1, 5, owner));
 
-    /// <summary>Teams asked in the order the touch asks them: the victim's, then the shooter's.</summary>
+    /// <summary>The victim's team and everyone else's (the shooter's), by the handle asked.</summary>
     private static void Teams(ProjectileRig rig, int victimTeam, int shooterTeam)
     {
-        var answers = new Queue<int>([victimTeam, shooterTeam]);
-        rig.Engine.ReturnsEachCall("Players.GetTeam", () => answers.Dequeue());
+        rig.Engine.ReturnsEachCall("Players.GetTeam",
+            () => rig.Engine.Calls[^1].ArgAs<EntityHandle>(0) == ProjectileRig.Victim ? victimTeam : shooterTeam);
     }
 
     /// <summary>The victim is a player; nothing else the touch names is.</summary>

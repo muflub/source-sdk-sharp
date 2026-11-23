@@ -62,5 +62,11 @@
       "tiers": [ { "rarity": "vintage", "weight": 55 }, { "rarity": "strange", "weight": 35 }, { "rarity": "unusual", "weight": 8 }, { "rarity": "australium", "weight": 2 } ] },
     { "id": "captain_punch", "items": 4, "potions": 3, "potion": "health_large", "australium": 3000,
       "tiers": [ { "rarity": "vintage", "weight": 40 }, { "rarity": "strange", "weight": 40 }, { "rarity": "unusual", "weight": 15 }, { "rarity": "australium", "weight": 5 } ] }
+  ],
+  "ammo": [
+    { "size": "runt", "pack": "small", "chancePct": 10 },
+    { "size": "ordinary", "pack": "small", "chancePct": 20 },
+    { "size": "giant", "pack": "medium", "chancePct": 100 },
+    { "size": "boss", "pack": "full", "chancePct": 100 }
   ]
 }

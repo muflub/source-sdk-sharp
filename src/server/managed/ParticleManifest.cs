@@ -278,6 +278,11 @@ public sealed class ParticleManifest
     public const string GameManifest = ParticleManifestFiles.GameManifest;
     public const int MaxMapEntries = ParticleManifestFiles.MaxMapEntries;
 
+    /// <summary>ParticleEffectNames' capacity, as shell_stringtables.cpp creates it: stock's
+    /// MAX_PARTICLESYSTEMS_STRINGS (networkstringtable_gamedll.h:31-32), the 0x2000 live TF2's
+    /// server.so passes too.</summary>
+    public const int MaxParticleSystemStrings = 1 << 13;
+
     private readonly ILevelFiles _level;
 
     // Name -> always-precache, in first-definition order.
@@ -304,6 +309,55 @@ public sealed class ParticleManifest
         foreach (string n in _order)
             if (_always[n]) list.Add(n);
         return list;
+    }
+
+    /// <summary>
+    /// <c>PrecacheStandardParticleSystems</c>' loop over <paramref name="names"/>, adding only
+    /// while ParticleEffectNames has room: the table ends holding what stock's does, and a
+    /// name past its capacity is left out rather than handed to the engine to refuse.
+    ///
+    /// <para>
+    /// <b>WHY.</b> Stock's table is 8192 (MAX_PARTICLESYSTEMS_STRINGS; live TF2's
+    /// server.so creates it with 0x2000) and TF2's manifest marks 105 of its 107 files
+    /// always-precache: 9,199 names, so stock's engine refuses the last ~1,008 (the
+    /// unusual_* and utaunt_* systems, which TF2's client creates by name) with one
+    /// "Table ParticleEffectNames is full" line each, every load. Handing them over
+    /// changes nothing in the table and floods the log, so they are counted instead.
+    /// </para>
+    ///
+    /// <para>
+    /// Room is asked once and counted down per add; when it reaches zero it is asked again,
+    /// since a name the table already held took none. <paramref name="each"/> hears every
+    /// name, added or not. Answers how many were added, and how many were left out that
+    /// the table does not hold.
+    /// </para>
+    /// </summary>
+    public static (int Added, int LeftOut) PrecacheWithinRoom(IEnginePrecache precache, IReadOnlyList<string> names,
+                                                             Action<string>? each = null)
+    {
+        int room = precache.ParticleSystemRoom();
+        bool full = room <= 0;
+        int added = 0, leftOut = 0;
+        foreach (string name in names)
+        {
+            if (!full && room == 0)
+            {
+                room = precache.ParticleSystemRoom();
+                full = room <= 0;
+            }
+            if (!full)
+            {
+                precache.PrecacheParticleSystem(name);
+                room--;
+                added++;
+            }
+            else if (precache.ParticleSystemIndex(name) == 0)
+            {
+                leftOut++;
+            }
+            each?.Invoke(name);
+        }
+        return (added, leftOut);
     }
 
     /// <summary>Level shutdown: stock uncached the manager's definitions.</summary>

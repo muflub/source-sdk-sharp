@@ -73,16 +73,19 @@ public sealed class HeroGearFacts
     }
 
     [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
-    public void A_hosted_ledger_claims_no_hero()
+    public async Task A_hosted_ledger_claims_its_hero_and_his_kit_is_what_the_host_has_him_wear()
     {
-        // The host's SDK has no equip yet: a hosted hero keeps TF2's own kit.
-        var rig = new EquipmentRig(join: false);
-        var hosted = new HostedItemLedger(rig.Rules, new TF2.Descent.Tests.Hero.HeroRig.ListHooks<IItemLedgerHook>([]),
-                                          new FakeHostItems(rig.Rules), new RecordingLog());
+        // SDK 2.7 equips: a hosted hero's TF kit is his worn items, as an unhosted hero's is.
+        var rig = new EquipmentRig();
+        var host = new FakeHostItems(rig.Rules);
+        host.AddCharacter(EquipmentRig.Key, rig.Rules.Heroes.New("soldier", "a"));
+        host.Carry(EquipmentRig.Key, EquipmentRig.Item("rocket_launcher"), SourceSharp.Host.Sdk.HostContainer.Equipped, 0);
+        var hosted = new HostedItemLedger(rig.Rules, new TF2.Descent.Tests.Hero.HeroRig.ListHooks<IItemLedgerHook>([]), host, new RecordingLog());
         var equipment = new HeroEquipment(hosted, rig.Keys, rig.Hero.Sheets, rig.Rules, rig.Schema, new On(), rig.BotList, rig.Hero.Engine, rig.Log);
-        Assert.Equal(LedgerKind.Hosted, hosted.Kind);
+        Assert.True((await hosted.Load(EquipmentRig.Key)).Ok);
 
-        Assert.False(equipment.KitAnswer(EquipmentRig.Index, TFClass.Soldier, TFLoadoutSlot.Primary).HasOpinion);
+        Assert.Equal(EquipmentRig.Key, equipment.HeroOf(EquipmentRig.Index));
+        Assert.True(equipment.KitAnswer(EquipmentRig.Index, TFClass.Soldier, TFLoadoutSlot.Primary).HasOpinion);
     }
 
     private sealed class On : TF2.Descent.Server.Mode.IDescentModeState

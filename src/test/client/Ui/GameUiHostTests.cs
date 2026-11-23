@@ -355,6 +355,73 @@ public class GameUiHostTests
         finally { Done(dir); }
     }
 
+    /// <summary>
+    /// A map from the command line loads without the progress dialog, under the main
+    /// menu the GameUI's activation opened: the menu layer paints through the load
+    /// (161 frames of ctf_2fort's), and drew the menu in each. Stock's GameUI hid its
+    /// menus for any load (CBasePanel's BACKGROUND_LOADING, SetMenuAlpha(0)).
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void The_main_menu_is_not_drawn_while_a_level_loads(bool dialog)
+    {
+        var (ui, host, _, _, dir) = Composed();
+        try
+        {
+            host.OnGameUIActivated();
+            Paint(ui);
+            Assert.True(Drew(ui, "QUIT"));                 // the stimulus: the menu is up and drawn
+
+            host.OnLevelLoadingStarted(dialog);
+            Paint(ui);
+            Assert.True(ui.Menu.IsOpen("mainmenu"));
+            Assert.False(Drew(ui, "QUIT"));
+
+            host.OnLevelLoadingFinished(false, null, null);
+            host.OnGameUIActivated();
+            Paint(ui);
+            Assert.True(Drew(ui, "QUIT"));
+        }
+        finally { Done(dir); }
+    }
+
+    /// <summary>
+    /// A map from the command line (no dialog asked for) shows the progress screen and
+    /// asks the engine to repaint as it moves, as a Create Server load does: the user's
+    /// ruling of 2026-11-15, past stock, which showed no bar for it.
+    /// </summary>
+    [Fact]
+    public void The_progress_screen_is_up_during_a_load_without_the_dialog()
+    {
+        var (ui, host, _, _, dir) = Composed();
+        try
+        {
+            host.OnGameUIActivated();
+            Paint(ui);
+            Assert.False(Drew(ui, "LOADING..."));
+
+            host.OnLevelLoadingStarted(false);
+            Assert.True(host.UpdateProgressBar(0.5f, null));
+            Paint(ui);
+            Assert.True(Drew(ui, "LOADING..."));
+
+            host.OnLevelLoadingFinished(false, null, null);
+            Paint(ui);
+            Assert.False(Drew(ui, "LOADING..."));
+        }
+        finally { Done(dir); }
+    }
+
+    /// <summary>Whether the menu layer's last frame drew <paramref name="text"/>.</summary>
+    private static bool Drew(UiHost ui, string text)
+    {
+        for (int i = 0; i < ui.MenuLedger.Count; i++)
+            if (ui.MenuLedger.TextOf(ui.MenuLedger[i]).SequenceEqual(text))
+                return true;
+        return false;
+    }
+
     [Fact]
     public void A_window_opened_during_a_load_stays_unseen_too()
     {

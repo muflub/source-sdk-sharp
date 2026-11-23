@@ -179,6 +179,14 @@ public sealed class TFBlastApplier
                 if (selfRadius > 0f && victim == attacker)
                     continue;
 
+                // An entity that stands for many things across the map (a mod's one owner of a
+                // level's props) takes the blast itself: its box's centre is nothing to trace to.
+                if (Directory.Get(victim) is ITFBlastReceiver receiver)
+                {
+                    receiver.TakeBlast(source, active, attacker, inflictor);
+                    continue;
+                }
+
                 Vector center = Entities.GetWorldSpaceCenter(victim);
                 Vector victimOrigin = Entities.GetOrigin(victim);
 
@@ -245,7 +253,14 @@ public sealed class TFBlastApplier
                 // The push belongs to the hit: stock's ApplyPushFromDamage
                 // runs inside OnTakeDamage_Alive, so a damage the victim
                 // refuses (a zero answer) pushes nobody. A self blast the
-                // arms zeroed is no refusal (below).
+                // arms zeroed is no refusal (below). The übered victim's
+                // held-health answer (stock's DAMAGE_EVENTS_ONLY) is neither:
+                // the health stays whole but the hit ran, and its push lands
+                // with the hit's force (tf_gamerules.cpp:6366-6391, then the
+                // ApplyPushFromDamage inside OnTakeDamage_Alive). Held health
+                // alone cannot tell that zero from a refusal, so the gate
+                // asks the decision the managed side answered — it rides on
+                // the player this hit made (SsPlayer.LastHitDecision).
                 int answered = victimDamage > 0f
                     ? Deliver(victim, attacker, victimDamage, active.Bits, weapon, weaponName, critical,
                               inflictor, origin, custom, item)
@@ -255,9 +270,10 @@ public sealed class TFBlastApplier
                     Push(victim, source, active, forceDamage, self: true, pyroFlareJump: flareJump,
                          selfPushMult: selfPushMult);
                 }
-                else if (answered > 0)
+                else if (answered > 0
+                         || Directory.Get(victim) is SsPlayer { LastHitDecision: Decision.EventsOnly })
                 {
-                    if (Entities.IsPlayer(victim) && attacker != EntityHandle.None
+                    if (answered > 0 && Entities.IsPlayer(victim) && attacker != EntityHandle.None
                         && Players.GetTeam(victim) != Players.GetTeam(attacker))
                     {
                         damageDealt += answered;
@@ -325,9 +341,15 @@ public sealed class TFBlastApplier
                     }
                     else
                     {
-                        bool hit = selfDamage <= 0f
-                                   || Deliver(attacker, attacker, selfDamage, selfBlast.Bits, weapon, weaponName, critical,
-                                              inflictor, origin, custom, item) > 0;
+                        // A held-health answer (the über's DAMAGE_EVENTS_ONLY)
+                        // delivered the hit with zero taken: the push still
+                        // ran in stock, so the self blast throws too. Read the
+                        // decision, not the zero (tf_gamerules.cpp:6366-6391).
+                        bool delivered = selfDamage <= 0f
+                                         || Deliver(attacker, attacker, selfDamage, selfBlast.Bits, weapon, weaponName,
+                                                    critical, inflictor, origin, custom, item) > 0;
+                        bool hit = delivered
+                                   || Directory.Get(attacker) is SsPlayer { LastHitDecision: Decision.EventsOnly };
                         if (hit && forceDamage > 0f)
                             Push(attacker, source, selfBlast, forceDamage, self: true, pyroFlareJump: flareJump,
                                  selfPushMult: selfPushMult);
@@ -466,10 +488,19 @@ public sealed class TFBlastApplier
                         DamageType bits, TFWeaponId weapon, string weaponName, bool critical,
                         EntityHandle inflictor, Vector origin, TFDamageCustom custom, IAttributeProvider? item)
     {
+        // Stock's dir and force centre (:5846-5847, 5859): the normalized
+        // line away from the lifted blast centre to the victim's centre, and
+        // that centre itself. The native side manufactures the magnitude from
+        // them (CalculateExplosiveDamageForce) — clamp and the random fudge
+        // included — which is what knocks a stuck sticky loose and shoves a
+        // physics prop; a player's push stays this file's Push, so the hit
+        // pushing him once is unchanged.
+        Vector source = origin + new Vector(0f, 0f, GroundLift);
+        Vector direction = (Entities.GetWorldSpaceCenter(victim) - source).Normalized;
         using (HitGroups.Push(HitGroup.Generic, critical))
         using (Scopes.Push(custom, weapon, weaponName, item))
         using (Inflictors.Push(inflictor, origin))
-            return Damage.TakeDamageAnswered(victim, attacker, victimDamage, bits);
+            return Damage.TakeDamageAnswered(victim, attacker, victimDamage, bits, direction, source);
     }
 
     /// <summary>

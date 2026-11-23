@@ -67,8 +67,13 @@ public sealed partial class TFDecider
 
     internal int RoleDeals { get; private set; }
 
-    /// <summary>The role as the tree's utilities read it: a defender, or an attacker (an escort is an attacker told to go with the carrier).</summary>
-    internal TFTeamRole RoleRead => Dealt == TeamRole.Defend ? TFTeamRole.Defend : TFTeamRole.Attack;
+    /// <summary>
+    /// The role as the tree's utilities read it: a defender, or an attacker (an escort is an attacker told to go with the
+    /// carrier). The class has its say over the dealt role (P7, <see cref="ClassPlay.Role"/>): by default it plays the one dealt.
+    /// </summary>
+    internal TFTeamRole RoleRead => ClassRole(Dealt == TeamRole.Defend ? TFTeamRole.Defend : TFTeamRole.Attack);
+
+    private TFTeamRole ClassRole(TFTeamRole dealt) => _classPlay is null ? dealt : _classPlay.Role(dealt);
 
     /// <summary>The role of a bot that knows of no teammate: what the policy makes of a team of one (the CTF policy's has no defender), not its slot's remainder.</summary>
     private TeamRole StartRole => _split(1).Defend > 0 ? TeamRole.Defend : TeamRole.Attack;

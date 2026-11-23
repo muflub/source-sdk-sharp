@@ -7,9 +7,12 @@
     tools/test-tiers legs fast|slow
                                   the leg names `make test-fast` / `make
                                   test-slow` run, one per line
-    tools/test-tiers run <leg>-fast|<leg>-slow
+    tools/test-tiers legs mapgen  a leg the tiers do not split (OWN_JOB): its
+                                  own name, for CI's job of its own
+    tools/test-tiers run <leg>-fast|<leg>-slow|mapgen
                                   run one leg's tier, then report any fast test
-                                  that has grown past the threshold
+                                  that has grown past the threshold; or an
+                                  own-job leg whole
     tools/test-tiers filter <leg> fast|slow
                                   the `dotnet test --filter` for a managed leg
     tools/test-tiers --self-test  check this script's own logic
@@ -78,9 +81,16 @@ MANAGED = collections.OrderedDict([
     ('tf2_descent', 'tf2_descent-tests/TF2.Descent.Tests.dll'),
     ('tf2', 'tf2-tests/TF2.Tests.dll'),
     ('ai', 'ai-tests/SourceSharp.Ai.Tests.dll'),
+    ('mapgen', 'tests-mapgen/SourceSharp.MapGen.Tests.dll'),
 ])
+# Legs the tiers do not split: each runs whole, in CI in a job of its own
+# (`legs mapgen`, `run mapgen`; make managed-legs-mapgen). The map generator's
+# facts dress every Descent depth, most of the managed tests' CPU (PR #43), so
+# they have a job of their own beside the fast and slow tiers. Locally `make
+# test-slow` runs them, so the two tiers together are still `make test`.
+OWN_JOB = ('mapgen',)
 NATIVE = 'native'
-LEGS = list(MANAGED) + [NATIVE]
+LEGS = [leg for leg in MANAGED if leg not in OWN_JOB] + [NATIVE]
 KINDS = {'fact', 'class', 'gtest-binaries', 'must-not-compile'}
 TIERS = ('fast', 'slow')
 
@@ -159,6 +169,8 @@ def classify(managed, native):
     seconds) per binary. The slow tier, as entries."""
     methods = collections.defaultdict(lambda: [0.0, 0])
     for leg, name, secs in managed:
+        if leg in OWN_JOB:
+            continue  # run whole in its own job: the tiers never split it
         m = methods[(leg, method_of(name))]
         m[0] += secs
         m[1] += 1
@@ -299,7 +311,16 @@ def dotnet():
     return os.environ.get('DOTNET') or os.path.expanduser('~/.dotnet/dotnet')
 
 
+def run_whole(leg):
+    """An own-job leg (OWN_JOB): its whole assembly, no filter."""
+    os.chdir(ROOT)
+    dll = os.path.join(ROOT, 'bin', 'debug', MANAGED[leg])
+    return subprocess.call([dotnet(), 'test', dll, '--nologo'] + os.environ.get('SS_DOTNET_TEST_ARGS', '').split())
+
+
 def run(leg_tier):
+    if leg_tier in OWN_JOB:
+        return run_whole(leg_tier)
     leg, tier = split_leg(leg_tier)
     rows = load()
     os.chdir(ROOT)
@@ -341,6 +362,16 @@ def run(leg_tier):
 
 # --- measuring --------------------------------------------------------------
 
+def writable(rows):
+    """A list CI can run: its native-slow job (make cpp-test-slow) runs the
+    native leg's slow tier, so the list must name one. A warm build compiles
+    the must-not-compile checks in under a second (PR #43's first re-measure
+    dropped all seven, and the job failed with no such leg)."""
+    if not entries(rows, NATIVE):
+        raise TierError('no native test reached %.1f s, so CI\'s native-slow job would have no leg: '
+                        'measure after a cold native build, or pass its --ctest-cost' % THRESHOLD)
+
+
 def measure(argv):
     write = '--write' in argv
     trx_dir = _opt(argv, '--trx-dir')
@@ -365,6 +396,8 @@ def measure(argv):
         cost = os.path.join('farm', config, 'build', 'Testing', 'Temporary', 'CTestCostData.txt')
     native = read_ctest_cost(cost, native_roster())
     rows = classify(managed, native)
+    if write:
+        writable(rows)
     total = sum(s for _l, _n, s in managed) + sum(s for _u, _n, s in native)
     slow = sum(r.seconds for r in rows)
     header = ['threshold %.1f s per fact or binary, %.1f s per class; %d managed cases and %d native '
@@ -459,6 +492,13 @@ def self_test():
     ck('only legs with entries have a slow run',
        legs_for(rows, 'slow') == ['managed-server-slow', 'managed-client-slow', 'native-slow'])
     ck('a tier leg names its leg and tier', split_leg('managed-server-slow') == ('managed-server', 'slow'))
+    ck('an own-job leg is in neither tier',
+       not any(l.startswith('mapgen') for l in legs_for(rows, 'fast') + legs_for(rows, 'slow')))
+    ck('an own-job leg has no tier legs', refuses(lambda: split_leg('mapgen-fast')))
+    ck('a timing run puts no own-job fact in the slow tier', classify([('mapgen', 'A.B.Slow', 99.0)], []) == [])
+    ck('the list refuses an own-job leg', refuses(lambda: parse('fact\tmapgen\tA.B.Slow\t9.0\t1')))
+    ck('a list with no native slow entry is not written', refuses(lambda: writable([r for r in rows if r.leg != NATIVE])))
+    ck('a list with one is', not refuses(lambda: writable(rows)))
     ck('a leg that is no tier is refused', refuses(lambda: split_leg('managed')))
 
     seen = [('managed-server', 'A.B.Slow', 9.0), ('managed-server', 'A.B.New', 2.1),
@@ -513,6 +553,9 @@ def main(argv):
             return measure(argv[1:])
         if argv[:1] == ['legs'] and len(argv) == 2 and argv[1] in TIERS:
             print('\n'.join(legs_for(load(), argv[1])))
+            return 0
+        if argv[:1] == ['legs'] and len(argv) == 2 and argv[1] in OWN_JOB:
+            print(argv[1])
             return 0
         if argv[:1] == ['run'] and len(argv) == 2:
             return run(argv[1])

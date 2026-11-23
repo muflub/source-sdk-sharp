@@ -61,6 +61,9 @@ internal sealed class BeltRig
     /// <summary>Puts an item in the backpack through the floor; answers its slot.</summary>
     public int Give(ItemInstance item) => Gear.Give(item);
 
+    /// <summary>A potion (or anything) carried in the backpack: planted there, not picked up (a pickup belts a potion).</summary>
+    public int Carry(ItemInstance item) => Gear.Carry(item);
+
     public static ItemInstance Carried(string baseId, int count = 1) =>
         TF2.Descent.Tests.Items.ItemFixtures.Item(baseId, 0, 1) with { Count = count, Durability = 0, MaxDurability = 0 };
 

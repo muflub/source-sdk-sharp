@@ -4,8 +4,9 @@ name: CI
 # to main, every pull request and every tag, split into jobs that run side by
 # side, so the slowest one sets the time rather than the sum:
 #
-#   linux-managed     the managed test legs, one job per tier
-#                     (make managed-legs-fast, make managed-legs-slow)
+#   linux-managed     the managed test legs, one job per tier, and the map
+#                     generator's leg in a job of its own (make
+#                     managed-legs-fast, -slow, -mapgen)
 #   linux-check       the repo's gate, `make check` (a full debug build, which
 #                     the native tests are written against, and every test
 #                     leg but the managed ones; the native leg's fast tier)
@@ -16,14 +17,16 @@ name: CI
 #                     linux-check builds and runs them), packaged with
 #                     linux-sniper's libraries, which it waits for only at
 #                     the package step
-#   windows-managed   the managed test projects, one job per tier
+#   windows-managed   the managed test projects, one job per tier, and the
+#                     map generator's in a job of its own
 #   windows           the MSVC Release build, the native gtests, the package
 #
 # The tests are split in two tiers (tools/test-tiers.tsv lists the slow ones:
 # a managed fact or native test of 2 s or more, a class whose facts add up to
 # 20 s), and each tier runs in a job of its own, so the slow facts no longer
-# set the time of the jobs that run the many fast ones. Between them the jobs
-# still run every test.
+# set the time of the jobs that run the many fast ones. The map generator's
+# facts (src/test/mapgen) dress every Descent depth and run whole in a third
+# job (tools/test-tiers OWN_JOB). Between them the jobs still run every test.
 #
 # A tag also attaches both platforms' archives to the GitHub release (the
 # release job), once every job is green.
@@ -90,7 +93,7 @@ jobs:
       # slow one, or its failures would go unseen until the next run.
       fail-fast: false
       matrix:
-        tier: [fast, slow]
+        tier: [fast, slow, mapgen]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -501,7 +504,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tier: [fast, slow]
+        tier: [fast, slow, mapgen]
     defaults:
       run:
         shell: bash
@@ -619,10 +622,12 @@ jobs:
       # step would otherwise sit silent until the job's timeout (one did, for
       # 20 minutes, with nothing in the log; the slowest fact takes about
       # 30 s). Python writes CRLF to a pipe on Windows, hence the tr.
-      - name: "Test (managed, server, client, tf2_descent, tf2, ai: ${{ matrix.tier }} tier)"
+      - name: "Test (managed, server, client, tf2_descent, tf2, ai, mapgen: ${{ matrix.tier }})"
         env:
           DOTNET: dotnet
-          SS_DOTNET_TEST_ARGS: --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type none
+          # The mapgen job's facts wait on a Descent depth's dressing (150 s at
+          # most on a 32-core box, PR #43), so a hang there is 15 minutes.
+          SS_DOTNET_TEST_ARGS: --blame-hang --blame-hang-timeout ${{ matrix.tier == 'mapgen' && '15m' || '5m' }} --blame-hang-dump-type none
         run: |
           legs="$(python tools/test-tiers legs ${{ matrix.tier }} | tr -d '\r' | grep -v '^native-')"
           [[ -n "$legs" ]] || { echo "::error::tools/test-tiers named no managed legs"; exit 1; }

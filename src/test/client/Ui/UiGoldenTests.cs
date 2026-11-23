@@ -43,6 +43,9 @@ public class UiGoldenTests
         // The descent HUD joins the exemplars (docs/plans/descent_ui.md §6
         // step 3): its twin-orbs state is the reference picture of the lane.
         { "descenthud", "healthy-party-of-two-map-revealed" },
+        // The Tab map overlay over the view: the hero mid-crypt, the map round
+        // him on every side, cut at the screen's margins.
+        { "mapoverlay", "hero-in-the-crypt" },
         // The TF2 HUD (docs/plans/tf2/stage3_client.md Phase 3.1), one state per
         // panel: the cross with the max beside it and the ammo row, the cross's
         // dying state, and the clock in setup.
@@ -145,6 +148,11 @@ public class UiGoldenTests
         // of the core's create-server window at its defaults, and with custom
         // bots (a saved one, one the server names, Expert's full spend)
         // beside two Easy preset bots.
+        // The toolkit's dropdown open (2026-11-15, the user's map picker): the
+        // map list as a bounded, scrolling box under its field with the chosen
+        // map in view, and filtered by what was typed into the field.
+        { "createserver", "map-list-open" },
+        { "createserver", "map-list-filtered" },
         { "createserver-botspage", "default" },
         { "createserver-botspage", "with-custom-bots" },
         // The bot editor: mid-edit with points left, the whole pool spent

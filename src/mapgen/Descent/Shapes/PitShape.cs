@@ -45,7 +45,8 @@ public static class PitShape
             .Terrace(new Rect(208, room.Y1 - bank, 816, room.Y1)).Terrace(new Rect(208, room.Y0, 816, room.Y0 + bank))
             .StairsUp(new Rect(208, room.Y1 - bank - 128, 336, room.Y1 - bank), Compass.North, Depth)
             .StairsUp(new Rect(688, room.Y0 + bank, 816, room.Y0 + bank + 128), Compass.South, Depth);
-        b.Pillars([(560, room.Y1 - bank - 72)], rng);
+        // West of the middle: at 560 it stood 80 from the south flight, less than a giant's box (brief p7).
+        b.Pillars([(448, room.Y1 - bank - 72)], rng);
         b.LampsFromDoors(new Point(m, m, kit.Sill), 288, above, lamp).LampAt(m, room.Y1 - bank / 2, above, lamp).LampAt(m, room.Y0 + bank / 2, above, lamp)
             .LampAt(256, room.Y1 - bank / 2, above, lamp).LampAt(768, room.Y0 + bank / 2, above, lamp)
             .Pack(400, m).Mark(MarkerKind.PackSpawn, 640, room.Y0 + bank / 2, above: Depth).Mark(MarkerKind.PackSpawn, 400, room.Y1 - bank / 2, above: Depth)

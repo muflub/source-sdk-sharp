@@ -49,8 +49,12 @@ public sealed class PhysicsEventRouter
     /// <summary>The entity solvers for stuck debris (A9), for cs_sv_physics_events.</summary>
     public PhysicsEntitySolver Solver => _solver;
 
-    /// <summary>A level ends: what lives per level goes with it.</summary>
-    public void LevelShutdown() => _solver.Clear();
+    /// <summary>A level ends: what lives per level goes with it (the solvers, and the scrapes: CCollisionEvent::LevelShutdown).</summary>
+    public void LevelShutdown()
+    {
+        _solver.Clear();
+        _friction.LevelShutdown();
+    }
 
     /// <summary>The players' shadow reconciles (B7), for cs_sv_physics_events.</summary>
     public PlayerShadowRecovery Shadows => _shadows;

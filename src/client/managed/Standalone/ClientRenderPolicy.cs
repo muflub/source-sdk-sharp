@@ -198,6 +198,33 @@ public interface IRenderPolicyWishes
     /// pass.
     /// </summary>
     void WantOwnerSeen(EntityHandle entity, bool ownerSeen);
+
+    /// <summary>
+    /// The player this client watches in-eye, or 0: stock's
+    /// <c>C_BasePlayer::InFirstPersonView</c> answers true for it as for the
+    /// local player, so its body, and what it carries and wears, are drawn
+    /// only while a third-person camera sees them, never from inside its eyes.
+    /// </summary>
+    int InEyeTarget { get; }
+
+    /// <summary>
+    /// Watch <paramref name="index"/> in-eye (0: nobody), the observer
+    /// camera's word each frame. Its body is decided again on the next pass;
+    /// what it carries asks <see cref="InEyeTarget"/> through
+    /// <see cref="IFirstPersonGated"/>.
+    /// </summary>
+    void WatchInEye(int index);
+}
+
+/// <summary>
+/// A carried or worn entity whose owner-seen wish follows its owner being
+/// in first person (the local player, or <see cref="IRenderPolicyWishes.InEyeTarget"/>),
+/// asked again when the in-eye target changes.
+/// </summary>
+public interface IFirstPersonGated
+{
+    /// <summary>Make the owner-seen wish again.</summary>
+    void ReconsiderFirstPerson();
 }
 
 /// <summary>No render policy to ask: a class built on its own (a test's).</summary>
@@ -208,6 +235,10 @@ public sealed class NoRenderPolicyWishes : IRenderPolicyWishes
     public void WantTransparent(EntityHandle entity, bool transparent) { }
 
     public void WantOwnerSeen(EntityHandle entity, bool ownerSeen) { }
+
+    public int InEyeTarget => 0;
+
+    public void WatchInEye(int index) { }
 }
 
 /// <summary>
@@ -757,6 +788,26 @@ public sealed class ClientRenderPolicy : IRenderPolicyWishes
             _handles[index] = NoHandle;
     }
 
+    /// <inheritdoc/>
+    public int InEyeTarget { get; private set; }
+
+    /// <inheritdoc/>
+    public void WatchInEye(int index)
+    {
+        if (index == InEyeTarget)
+            return;
+
+        // Both bodies decided again on the next pass: the old target drawn,
+        // the new one first person.
+        int old = InEyeTarget;
+        InEyeTarget = index;
+        foreach (int i in new[] { old, index })
+        {
+            if (i > 0 && (uint)i < MaxEntities)
+                _handles[i] = NoHandle;
+        }
+    }
+
     /// <summary>The entry-index bits of a <c>CBaseHandle</c>.</summary>
     private const uint EntryMask = (1u << 12) - 1u;
 
@@ -832,6 +883,8 @@ public sealed class ClientRenderPolicy : IRenderPolicyWishes
 
             localPlayer ??= _localPlayer();
             ClientRenderFacts facts = ReadFacts(block, _models(), localPlayer.Value);
+            // The in-eye target is in first person as the viewer's own body is.
+            facts.LocalPlayer |= InEyeTarget > 0 && index == InEyeTarget;
             facts.TwoPass = _twoPass.Contains(handle);
             facts.WantsTransparent = _transparent.Contains(handle);
             facts.OwnerSeenWish = _ownerSeen.Contains(handle);
@@ -861,6 +914,7 @@ public sealed class ClientRenderPolicy : IRenderPolicyWishes
         _twoPass.Clear();
         _transparent.Clear();
         _ownerSeen.Clear();
+        InEyeTarget = 0;
         LastSeen = 0;
         LastDecided = 0;
     }

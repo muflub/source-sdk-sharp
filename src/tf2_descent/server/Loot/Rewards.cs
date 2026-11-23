@@ -11,9 +11,9 @@ using TF2.Descent.Server.Level;
 
 namespace TF2.Descent.Server.Loot;
 
-/// <summary>What one kill's loot came to: the drops put on the floor (several when a hero got more than one item).</summary>
+/// <summary>What one kill's loot came to: the kill's Australium pile (null for none), the drops put on the floor (several when a hero got more than one item).</summary>
 public sealed record LootReward(uint Sequence, IReadOnlyList<LootMember> Members, IReadOnlyList<KillLoot> Rolls,
-                                IReadOnlyList<long> Shares, IReadOnlyList<FloorDrop> Drops);
+                                AustraliumPile? Pile, IReadOnlyList<FloorDrop> Drops);
 
 /// <summary>
 /// Kill to reward (plan_descent_logic HO10; plan_tf2_rpg 2c, 5e, R4): on
@@ -34,11 +34,13 @@ public sealed record LootReward(uint Sequence, IReadOnlyList<LootMember> Members
 /// (<see cref="IItemLedger.PotionDrop"/>). A champion or the boss adds its own
 /// table for every member (<see cref="IItemLedger.BossDrop"/>).</item>
 /// <item><b>Australium.</b> Seat 0's roll carries the kill's (plus the
-/// boss's own, <see cref="LootRules.BossAustralium"/>), split among the
-/// members by <see cref="LootRules.Split"/>, the remainder one apiece from
-/// the killer on: each share on its owner's seat. Hosted, no Australium is
-/// put on the floor: the host books a kill's Australium at the reveal, and has
-/// no call that credits a pick-up.</item>
+/// boss's own unhosted, <see cref="LootRules.BossAustralium"/>): ONE pile on
+/// the drop (the user's ruling L24, SDK 2.8), asked of the ledger
+/// (<see cref="IItemLedger.KillAustralium"/>: hosted the host replays seat 0's
+/// roll under the first member's lease). Every seat shows it; whoever of the
+/// killer's party takes it first takes it for all, each member credited his
+/// share (the rules' <c>AustraliumShares</c>: the split from the killer on and
+/// each one's found share) at once.</item>
 /// <item><b>Where.</b> On the floor under the robot (<see cref="ILootGround"/>);
 /// a robot that died over a pit (no floor within reach below) drops at the
 /// feet of the first member, so nothing lies where no one can reach it. A
@@ -106,8 +108,13 @@ public sealed class LootRewards(TF2DescentRules rules, ILevelData level, ILootPa
                     rolls[s] = rolls[s] with { Outcome = LootOutcome.Item, Tier = forceTier, Potion = null };
             }
 
-            long total = rolls[0].Australium + (ownTable ? rules.Loot.BossAustralium(LootKey.Parse(robotKey).Template) : 0);
-            var shares = ledger.Kind == LedgerKind.Hosted ? new long[size] : [.. LootRules.Split(total, size)];
+            // The kill's Australium, one pile (L24): hosted the host replays seat 0's roll and its pile is the roll's
+            // alone (KillRoll has no boss table); unhosted the game's roll and the boss's own.
+            bool hosted = ledger.Kind == LedgerKind.Hosted;
+            long total = rolls[0].Australium + (ownTable && !hosted ? rules.Loot.BossAustralium(LootKey.Parse(robotKey).Template) : 0);
+            var pileAsked = total > 0
+                ? ledger.KillAustralium(new KillPile(members[0].Hero, rules.Loot.KillSeq(sequence, 0), robotKey, size, total, place))
+                : null;
 
             var asked = new List<(int Seat, Task<DropResult> Task)>();
             for (int s = 0; s < size; s++)
@@ -146,20 +153,33 @@ public sealed class LootRewards(TF2DescentRules rules, ILevelData level, ILootPa
                 }
             }
 
+            AustraliumPile? pile = null;
+            if (pileAsked is not null)
+            {
+                var answer = await pileAsked;
+                if (floor.Level != levelAt)
+                    return null;
+                if (answer.Ok)
+                    pile = answer.Pile;
+                else
+                    log.Warning($"[TF2Descent/Loot] kill {sequence}: the ledger refused the Australium pile: {answer.Refusal}\n");
+            }
+
             int rounds = Math.Max(1, items.Max(i => i.Count));
             var drops = new List<FloorDrop>();
             for (int r = 0; r < rounds; r++)
             {
                 var shareList = new List<LootShare>();
                 for (int s = 0; s < size; s++)
-                    shareList.Add(new LootShare(members[s].Hero, members[s].Player, r < items[s].Count ? items[s][r] : null, r == 0 ? shares[s] : 0));
-                if (floor.Place(place + new Vector(r * RoundSpacing, 0f, 0f), shareList) is { } drop)
+                    shareList.Add(new LootShare(members[s].Hero, members[s].Player, r < items[s].Count ? items[s][r] : null, 0));
+                if (floor.Place(place + new Vector(r * RoundSpacing, 0f, 0f), shareList, r == 0 ? pile : null) is { } drop)
                     drops.Add(drop);
             }
 
             log.Msg(string.Create(CultureInfo.InvariantCulture,
-                $"[TF2Descent/Loot] kill {sequence} ({robotKey}, depth {depth}): {size} heroes, rolls [{string.Join(", ", rolls.Select(Say))}], Australium {total} as [{string.Join(", ", shares)}], {drops.Count} drops\n"));
-            return new LootReward(sequence, members, rolls, shares, drops);
+                $"[TF2Descent/Loot] kill {sequence} ({robotKey}, depth {depth}): {size} heroes, rolls [{string.Join(", ", rolls.Select(Say))}], " +
+                $"Australium {total}{(pile is { } p ? $" in one pile of {p.Australium} (#{p.Id})" : total > 0 ? " (no pile)" : "")}, {drops.Count} drops\n"));
+            return new LootReward(sequence, members, rolls, pile, drops);
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {

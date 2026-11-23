@@ -29,8 +29,11 @@ public sealed class GameViewTests
         public Func<EntityHandle, ThingFacts, ThingFacts?> DrawThing { get; set; } = (_, f) => f;
         public List<ThingRead> All { get; } = new();
         public ObjectiveKnowledge? Objectives { get; set; }
+        public GameHud? GameHudRead { get; set; }
 
         public SelfState Hud(EntityHandle bot, in SelfState read) => read;
+
+        public GameHud? HudOf(EntityHandle bot) => GameHudRead;
 
         public bool Render(EntityHandle viewer, EntityHandle them, ref ActorFacts facts)
         {
@@ -132,6 +135,26 @@ public sealed class GameViewTests
         var flags = new ObjectiveKnowledge([new Objective(5, ObjectiveKind.Carry, 2, 1 << 3, ObjectiveState.Home, new AiVector(1, 2, 3))], 9);
         _view.Objectives = flags;
         Assert.Same(flags, Build().Objectives);
+    }
+
+    private sealed class SomeHud : GameHud
+    {
+        public override byte[] Recorded() => [];
+    }
+
+    /// <summary>The game's own HUD read (plan_bots_teams_tf2 P7) reaches the bot's view as the game made it, and a step's copy keeps it.</summary>
+    [Fact]
+    public void TheGamesHudReachesTheViewAndItsCopy()
+    {
+        var hud = new SomeHud();
+        _view.GameHudRead = hud;
+        PerceivedView built = Build();
+        var copy = new PerceivedView(8);
+        copy.CopyFrom(built);
+        Assert.Same(hud, built.GameHud);
+        Assert.Same(hud, copy.GameHud);
+        copy.Reset(built.Bot, built.Tick, built.Self);
+        Assert.Null(copy.GameHud);
     }
 
     [Fact]

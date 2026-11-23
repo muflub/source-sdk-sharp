@@ -152,12 +152,12 @@ public class TFBotSetupTests
         Assert.Equal((TFSkillCurves.Path, TFGameFileBotNames.Path), (tf2.SkillCurvesPath, tf2.BotNamesPath));
     }
 
-    /// <summary>The page offers exactly the class the server's bots pick (TFBotClassPick), lit: no class that does not play.</summary>
+    /// <summary>The page offers exactly the classes the server's bots field (each class file's ready flag, P7): no class that does not play.</summary>
     [Fact]
-    public void ThePageShowsTheClassTheServersBotsPick()
+    public void ThePageShowsTheClassesTheServersBotsField()
     {
         var classes = new TFBotClasses();
-        Assert.Equal([TFClassNames.Raw(TFBotClassPick.Class)], classes.Playable.Select(c => c.Raw));
+        Assert.Equal(SourceSharp.Ai.TF2.Trees.TFClassSpecs.All().Where(s => s.Ready).Select(s => TFClassNames.Raw(s.Class)), classes.Playable.Select(c => c.Raw));
         Assert.Equal((1, "#TF_Class_Name_Soldier", 0), (classes.ClassCount, classes.ClassToken(0), classes.ChosenClass));
     }
 

@@ -408,11 +408,13 @@ public class MaterialProxyFactsTests
         public Vector? Angles;
         public readonly Dictionary<int, int> Teams = [];
         public readonly Dictionary<int, float> Speeds = [];
+        public readonly Dictionary<int, Vector> Offsets = [];
 
         public ClientSsPlayer? LocalPlayer() => Player;
         public Vector? LocalAngles() => Angles;
         public int TeamNumber(int entityIndex) => Teams.GetValueOrDefault(entityIndex);
         public float? EntitySpeed(int entityIndex) => Speeds.TryGetValue(entityIndex, out float speed) ? speed : null;
+        public Vector? CentreOffset(int entityIndex) => Offsets.TryGetValue(entityIndex, out Vector offset) ? offset : null;
     }
 
     /// <summary>The local player the eyes answer, positioned and moving as named.</summary>
@@ -439,6 +441,26 @@ public class MaterialProxyFactsTests
 
         // :56-60: delta.Length() * 0.002 = 100 * 0.002.
         Assert.Equal(["0 float 0.2"], bind.Ops);
+    }
+
+    /// <summary>
+    /// :57 measures from the bound entity's WorldSpaceCenter: a brush whose
+    /// origin sits 800 units off its box (cp_badlands' red spawn visualizers)
+    /// is measured from the box, 200 units away, not from the origin.
+    /// </summary>
+    [Fact]
+    public void TheProximityMeasuresFromTheBoundEntitysCentreNotItsOrigin()
+    {
+        var eyes = new FakeEyes { Player = Local(Vector.Zero) };
+        eyes.Offsets[AnEntity.EntIndex] = new Vector(-800, 0, 0);
+        var proxy = new PlayerProximityProxy(eyes);
+        Assert.True(proxy.Init(new FakeInit(Str("resultVar", "$r"))));
+
+        var bind = new FakeBind { Arg = 1, Ent = AnEntity with { Origin = new Vector(1000, 0, 0) } };
+        proxy.Bind(bind);
+
+        // (1000 - 800) * 0.002.
+        Assert.Equal(["0 float 0.4"], bind.Ops);
     }
 
     [Fact]
@@ -529,6 +551,25 @@ public class MaterialProxyFactsTests
         // :156: DotProduct(forward, delta) * 2 — default scale.
         Assert.Equal(["0 float 2"], ahead.Ops);
         Assert.Equal(["0 float -2"], behind.Ops);
+    }
+
+    /// <summary>
+    /// :149, as PlayerProximity's :57: the delta runs to the bound entity's
+    /// WorldSpaceCenter. An origin behind the eye whose box sits ahead of it
+    /// is looked at squarely.
+    /// </summary>
+    [Fact]
+    public void TheViewLooksAtTheBoundEntitysCentreNotItsOrigin()
+    {
+        var eyes = new FakeEyes { Player = Local(Vector.Zero), Angles = new Vector(0, 0, 0) };
+        eyes.Offsets[AnEntity.EntIndex] = new Vector(200, 0, 0);
+        var proxy = new PlayerViewProxy(eyes);
+        Assert.True(proxy.Init(new FakeInit(Str("resultVar", "$r"))));
+
+        var bind = new FakeBind { Arg = 1, Ent = AnEntity with { Origin = new Vector(-100, 0, 0) } };
+        proxy.Bind(bind);
+
+        Assert.Equal(["0 float 2"], bind.Ops);
     }
 
     [Fact]

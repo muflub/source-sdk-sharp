@@ -359,6 +359,11 @@ public sealed class AiBots : IFrameLifecycle
     /// <summary>How long a follower may make no progress before it says it is stuck.</summary>
     public const int StuckTicks = BrainDriver.StuckTicks;
 
+    private readonly int[] _stuckLines = new int[SourceSharp.Ai.Server.Senses.VisionPass.Slots];
+
+    /// <summary>The stuck lines said of the bot in <paramref name="slot"/> since this service was made (the A/B harness's count, not a log scrape).</summary>
+    public int StuckLines(int slot) => (uint)slot < (uint)_stuckLines.Length ? _stuckLines[slot] : 0;
+
     public void OnPreThink(float frameTime)
     {
         long start = System.Diagnostics.Stopwatch.GetTimestamp();
@@ -470,7 +475,10 @@ public sealed class AiBots : IFrameLifecycle
             if (step.Unreachable is { } goal && _ai.Session.World is { } world)
                 ForgetPickupsAt(bot.Id, goal, tick, world);
             if (step.StuckLine is { } stuck)
+            {
                 _log.Msg($"[SourceSharp/Ai] bot {bot.Id.Serial} ({bot.Name}) {stuck}, tick {tick.Value}\n");
+                _stuckLines[bot.Id.Slot]++;
+            }
             if (_ai.Session.LastDoing(bot.Id.Slot) is { } doing)
             {
                 if (LogThink)

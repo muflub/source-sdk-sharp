@@ -1000,22 +1000,24 @@ internal sealed unsafe partial class EngineEntityRender : IEngineEntityRender
 
     public string StudioName(EntityHandle entity)
         => Skeletons?.StudioName(entity) ?? string.Empty;
+    // The pose parameters are both sides' skeletons' (plan_descent_logic
+    // CR11): the server's poses its hitboxes from them, as stock's does.
     public int PoseParameterCount(EntityHandle entity)
-        => Client?.PoseParameterCount(entity) ?? 0;
+        => Skeletons?.PoseParameterCount(entity) ?? 0;
     public int LookupPoseParameter(EntityHandle entity, string name)
-        => Client?.LookupPoseParameter(entity, name) ?? -1;
+        => Skeletons?.LookupPoseParameter(entity, name) ?? -1;
     public string PoseParameterName(EntityHandle entity, int parameter)
-        => Client?.PoseParameterName(entity, parameter) ?? string.Empty;
+        => Skeletons?.PoseParameterName(entity, parameter) ?? string.Empty;
     public bool PoseParameterRange(EntityHandle entity, int parameter, out float start, out float end)
     {
         start = 0f;
         end = 0f;
-        return Client is { } client && client.PoseParameterRange(entity, parameter, out start, out end);
+        return Skeletons is { } skeletons && skeletons.PoseParameterRange(entity, parameter, out start, out end);
     }
     public float SetPoseParameter(EntityHandle entity, int parameter, float value)
-        => Client?.SetPoseParameter(entity, parameter, value) ?? 0f;
+        => Skeletons?.SetPoseParameter(entity, parameter, value) ?? 0f;
     public float GetPoseParameter(EntityHandle entity, int parameter)
-        => Client?.GetPoseParameter(entity, parameter) ?? 0f;
+        => Skeletons?.GetPoseParameter(entity, parameter) ?? 0f;
     /// <summary>
     /// Whether the engine has stopped sending this entity — from the mirror the
     /// engine pushes into, not from a poll. plan_crossings.md Phase X3.

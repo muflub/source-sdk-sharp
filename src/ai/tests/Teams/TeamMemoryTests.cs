@@ -118,8 +118,9 @@ public sealed class TeamMemoryTests
         var bytes = new MemoryStream();
         using (var w = new BinaryWriter(bytes, System.Text.Encoding.UTF8, leaveOpen: true))
             AiRecordFormat.Write(w, s);
-        // The team tail is the self's byte and one per sighted actor: cut it.
-        byte[] old = bytes.ToArray()[..^2];
+        // The team tail is the self's byte and one per sighted actor; format 10's after it is the self's class, conditions
+        // and metal (6 bytes), the sighted actor's class, conditions, name and facing (11) and the HUD byte (1): cut both.
+        byte[] old = bytes.ToArray()[..^20];
         AiSnapshot read = AiRecordFormat.ReadSnapshot(new BinaryReader(new MemoryStream(old)), new SnapshotRing(2, 8, 8));
         PerceivedView back = read.ViewFor(Bot.Slot)!;
         Assert.Equal((0, 0), (back.Self.Team, back.Sighted[0].Team));

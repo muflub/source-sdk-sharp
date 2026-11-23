@@ -45,6 +45,9 @@ namespace TF2.Descent.Server.Horde;
 [Precache(PrecacheKind.Model, RobotLooks.SentryBusterModel)]
 [Precache(PrecacheKind.Model, RobotLooks.TankModel)]
 [Precache(PrecacheKind.Model, Attacks.EngineRobotAttackWorld.LaserSprite)]
+[Precache(PrecacheKind.Model, "models/items/ammopack_small.mdl")]   // a robot's ammo drop (Loot.EngineAmmoPackWorld.Model):
+[Precache(PrecacheKind.Model, "models/items/ammopack_medium.mdl")]  // tf_ammo_pack precaches only the medium, and a level
+[Precache(PrecacheKind.Model, "models/items/ammopack_large.mdl")]   // need hold no map pack of the others
 [Precache(PrecacheKind.Sound, Attacks.RobotAttacks.MinigunWindUp)]
 [Precache(PrecacheKind.Sound, Attacks.RobotAttacks.BusterSpin)]
 [Precache(PrecacheKind.Sound, Attacks.RobotAttacks.BusterExplode)]
@@ -59,13 +62,17 @@ namespace TF2.Descent.Server.Horde;
 [Precache(PrecacheKind.ParticleSystem, Champions.ChampionTeleports.Out)]
 [Precache(PrecacheKind.ParticleSystem, Champions.ChampionTeleports.In)]
 [Precache(PrecacheKind.Material, RobotDrawing.UberMaterial)]
-public sealed class RobotBody(IEngineEntityRender render) : ScriptedEntity
+public sealed class RobotBody(IEngineEntityRender render, IServerSkins skins) : ScriptedEntity
 {
     [NetState] public RobotNetState State = new();
 
     private RobotBodies? _pool;
     private string _model = "";
     private int _health;
+
+    // The server skeleton's four dials (CR11), indexed as Dial's: move_x,
+    // move_y, body_yaw, body_pitch; looked up again after a model change (-2).
+    private readonly int[] _dials = [-2, -1, -1, -1];
 
     /// <summary>The body's index in the pool, 1 to the pool's last body (the AI session's slot).</summary>
     public int Index { get; private set; }
@@ -87,6 +94,9 @@ public sealed class RobotBody(IEngineEntityRender render) : ScriptedEntity
 
     public float Scale { get; private set; } = 1f;
 
+    /// <summary>The skin the body is drawn in (<see cref="RobotLooks.BodySkin"/>), set at each lend.</summary>
+    public int Skin { get; private set; }
+
     /// <summary>The clip the robot started with: -1, a full one (no robot fires yet).</summary>
     public int Clip { get; private set; } = -1;
 
@@ -99,6 +109,14 @@ public sealed class RobotBody(IEngineEntityRender render) : ScriptedEntity
     public bool Running { get; private set; }
 
     public override bool RunsDamageRules => true;
+
+    /// <summary>A lent, living body is lag compensated (CR7): a hero with latency hits it where he drew it.</summary>
+    public override bool LagCompensated => !Parked && _health > 0;
+
+    /// <summary>The robot's top speed (<see cref="Paces"/>), for the lag compensation's reach.</summary>
+    public override float LagCompensationMaxSpeed => _topSpeed;
+
+    private float _topSpeed;
 
     public override bool TakesDamage => !Parked;
 
@@ -132,6 +150,8 @@ public sealed class RobotBody(IEngineEntityRender render) : ScriptedEntity
     internal void Lend(BodyLease lease, RobotId robot, string model, float scale, AiVector at, float yaw, double life,
                        double lifeMax, byte template, byte level, RobotFlags flags, byte statuses)
     {
+        // Another robot now: no shot is rewound into the last one's past.
+        RestartLagHistory();
         Lease = lease;
         Robot = robot;
         Clip = -1;
@@ -139,7 +159,12 @@ public sealed class RobotBody(IEngineEntityRender render) : ScriptedEntity
         {
             SetModel(model);
             _model = model;
+            _dials[0] = -2;
         }
+
+        // BLU, at every lend: the pool hands a body to robot after robot.
+        Skin = RobotLooks.BodySkin(model);
+        skins.SetSkin(Handle, Skin);
 
         Scale = scale;
         render.SetModelScale(Handle, scale);
@@ -161,9 +186,14 @@ public sealed class RobotBody(IEngineEntityRender render) : ScriptedEntity
         State.MoveY = 0f;
         State.BodyPitch = 0f;
         State.BodyYaw = 0f;
+        for (int d = 0; d < 4; d++)
+            Dial(d, 0f);
         State.Gesture = -1;
         SetLife(life, lifeMax);
     }
+
+    /// <summary>The robot's top speed, which the lag compensation's reach reads.</summary>
+    internal void Paces(float topSpeed) => _topSpeed = topSpeed;
 
     /// <summary>Lays <paramref name="sequence"/> over the gait on the clients from its start (an attack, HO7); -1 takes it off.</summary>
     internal void Gesture(int sequence)
@@ -175,6 +205,7 @@ public sealed class RobotBody(IEngineEntityRender render) : ScriptedEntity
     /// <summary>Back into the pool: not drawn, not solid, no robot.</summary>
     internal void Park()
     {
+        RestartLagHistory();
         SetSolidity(SolidType.None, SolidFlags.None);
         SetVisible(false);
         Parked = true;
@@ -203,33 +234,80 @@ public sealed class RobotBody(IEngineEntityRender render) : ScriptedEntity
         render.PlaySequence(Handle, sequence, 1f, true);
         State.Sequence = (short)sequence;
         State.SequenceSerial++;
-        State.MoveX = running ? 1f : 0f;
+        float moveX = running ? 1f : 0f;
+        if (State.MoveX != moveX)
+        {
+            State.MoveX = moveX;
+            Dial(0, moveX);
+        }
     }
 
-    /// <summary>The four pose dials the client blends on (move_x, move_y, body_yaw, body_pitch), each written only when it changed (HO3).</summary>
+    /// <summary>
+    /// The four pose dials the client blends on (move_x, move_y, body_yaw,
+    /// body_pitch), each written only when it changed (HO3): into the net
+    /// state for the clients, and onto the server's skeleton, so a shot is
+    /// tested against the hitboxes the pose puts where the client draws them
+    /// (CR11).
+    /// </summary>
     internal void Pose(float moveX, float moveY, float bodyYaw, float bodyPitch)
     {
         if (State.MoveX != moveX)
+        {
             State.MoveX = moveX;
+            Dial(0, moveX);
+        }
+
         if (State.MoveY != moveY)
+        {
             State.MoveY = moveY;
+            Dial(1, moveY);
+        }
+
         if (State.BodyYaw != bodyYaw)
+        {
             State.BodyYaw = bodyYaw;
+            Dial(2, bodyYaw);
+        }
+
         if (State.BodyPitch != bodyPitch)
+        {
             State.BodyPitch = bodyPitch;
+            Dial(3, bodyPitch);
+        }
+    }
+
+    /// <summary>One dial onto the server's skeleton, in the model's units (the value the client draws it at); a model without it is skipped.</summary>
+    private void Dial(int dial, float value)
+    {
+        if (_dials[0] == -2)
+        {
+            _dials[0] = render.LookupPoseParameter(Handle, "move_x");
+            _dials[1] = render.LookupPoseParameter(Handle, "move_y");
+            _dials[2] = render.LookupPoseParameter(Handle, "body_yaw");
+            _dials[3] = render.LookupPoseParameter(Handle, "body_pitch");
+        }
+
+        if (_dials[dial] >= 0)
+            render.SetPoseParameter(Handle, _dials[dial], value);
     }
 
     /// <summary>The health bar's fraction, 0 to 255.</summary>
     internal void SetLife(double life, double lifeMax) =>
         State.Life = (byte)Math.Clamp((int)Math.Ceiling(255 * (lifeMax > 0 ? life / lifeMax : 0)), 0, 255);
 
-    /// <summary>The robot died: it stops blocking at once; the pool parks it at the next decision.</summary>
+    /// <summary>
+    /// The robot died: it stops blocking and stops being drawn at once (its
+    /// ragdoll, a separate entity, falls in its place: <see cref="RobotRagdolls"/>),
+    /// and its weapon with it; the pool parks it at the next decision.
+    /// </summary>
     internal void Died()
     {
         _health = 0;
         State.Flags = (byte)((RobotFlags)State.Flags | RobotFlags.Dead);
         State.Life = 0;
         SetSolidity(SolidType.None, SolidFlags.None);
+        SetVisible(false);
+        Weapon?.Hide();
     }
 
     internal void SetStatuses(byte statuses) => State.Statuses = statuses;
@@ -297,7 +375,7 @@ public sealed class RobotBody(IEngineEntityRender render) : ScriptedEntity
 [Precache(PrecacheKind.Model, RobotLooks.SyringeGun)]
 [Precache(PrecacheKind.Model, RobotLooks.SniperRifle)]
 [Precache(PrecacheKind.Model, RobotLooks.Knife)]
-public sealed class RobotWeapon(IEngineEntityRender render) : ScriptedEntity
+public sealed class RobotWeapon(IEngineEntityRender render, IServerSkins skins) : ScriptedEntity
 {
     [NetState] public RobotWeaponNetState State = new();
 
@@ -339,6 +417,8 @@ public sealed class RobotWeapon(IEngineEntityRender render) : ScriptedEntity
             _model = model;
         }
 
+        // BLU as its robot (a skin change writes only when it differs).
+        skins.SetSkin(Handle, RobotLooks.BluSkin);
         SetVisible(true);
         Shown = true;
     }

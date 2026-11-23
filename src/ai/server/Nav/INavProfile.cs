@@ -42,6 +42,14 @@ public interface INavProfile
     /// for a game that keeps no experience, which every HL2MP player is.
     /// </summary>
     NavHazardAllowance HazardFor(EntityHandle player, int team) => default;
+
+    /// <summary>
+    /// What <paramref name="player"/>'s searches over <paramref name="graph"/> (the level's) mind, its
+    /// <paramref name="obstacles"/> otherwise filled (its reach, links and team's cells): its team's hazard
+    /// (<see cref="HazardFor(EntityHandle, int)"/>), or a field of the player's own composed with it (TF2's varied
+    /// routes, lane Groutes). The navigation asks this one.
+    /// </summary>
+    NavHazardAllowance HazardFor(EntityHandle player, int team, NavGraph graph, NavObstacleState obstacles) => HazardFor(player, team);
 }
 
 /// <summary>A side's hazard over the level's cells, null for none, and how much a player minds it (<see cref="NavObstacleState.HazardWeight"/>).</summary>

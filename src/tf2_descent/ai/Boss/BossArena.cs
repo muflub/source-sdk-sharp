@@ -48,16 +48,62 @@ public readonly record struct BossArena(int Room, AiVector Min, AiVector Max)
     }
 }
 
+/// <summary>A point of the Tank's route: where, its station's number along the track (1-based; 0 for a point it rolls through), and whether it is the final station (the roof).</summary>
+public readonly record struct TankStop(AiVector Position, int Station, bool Final);
+
 /// <summary>
-/// The Tank's track (mine plan D11, M14): the level ships no path for it (its arena carries pack
-/// markers and no <c>path_track</c>; the ask for one is the map session's), so the track is the
-/// arena's own markers in a loop round its middle, from the marker after the one nearest the
+/// The Tank's track (mine plan D11, M14): the arena's layout's track when the level ships one (the
+/// ARNA contract of 2026-11-16, <see cref="Route"/>); a level that ships none (its arena carries
+/// pack markers and no track) has a track of the arena's own markers in a loop round its middle, from the marker after the one nearest the
 /// Tank's start, then a last station short of the middle by the roof pillar's room
 /// (<c>centreClearUnits</c>): the pillar it brings down. An arena with no markers loops its four
 /// quarter points. Pure: the same level and start give the same track on the server and in a replay.
 /// </summary>
 public static class TankTrack
 {
+    /// <summary>
+    /// The Tank's route. When the level ships its arena's track (the ARNA contract,
+    /// <see cref="HordeBoss.Layout"/>): its points in the file's order (the loop closes back to point
+    /// 0), the stations those flagged so, numbered 1, 2, ... along the file (a point flagged final
+    /// counts as a station whatever its station bit), the final the first point flagged final, or the
+    /// last station when none is (the last point when no point is a station). Otherwise the arena's
+    /// markers (<see cref="Of"/>), every point a station numbered in order, the last the final. Pure.
+    /// </summary>
+    public static TankStop[] Route(HordeLevel level, BossArena arena, AiVector start, float centreClear)
+    {
+        ArgumentNullException.ThrowIfNull(level);
+        if (level.Boss?.Layout is { Track.Length: > 0 } layout)
+        {
+            var track = layout.Track;
+            int final = -1, lastStation = -1;
+            for (int k = 0; k < track.Length; k++)
+            {
+                if (track[k].Final && final < 0)
+                    final = k;
+                if (track[k].Station || track[k].Final)
+                    lastStation = k;
+            }
+
+            if (final < 0)
+                final = lastStation >= 0 ? lastStation : track.Length - 1;
+            var shipped = new TankStop[track.Length];
+            int number = 0;
+            for (int k = 0; k < track.Length; k++)
+            {
+                bool station = track[k].Station || k == final;
+                shipped[k] = new TankStop(track[k].Position, station ? ++number : 0, k == final);
+            }
+
+            return shipped;
+        }
+
+        var points = Of(level, arena, start, centreClear);
+        var route = new TankStop[points.Length];
+        for (int k = 0; k < points.Length; k++)
+            route[k] = new TankStop(points[k], k + 1, k == points.Length - 1);
+        return route;
+    }
+
     public static AiVector[] Of(HordeLevel level, BossArena arena, AiVector start, float centreClear)
     {
         ArgumentNullException.ThrowIfNull(level);

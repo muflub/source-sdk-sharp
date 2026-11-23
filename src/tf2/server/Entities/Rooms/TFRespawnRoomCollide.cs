@@ -11,6 +11,7 @@ using SourceSharp.Shared;
 
 using TF2.Server.Rules;
 using TF2.Shared;
+using TF2.Shared.Rooms;
 using TF2.Shared.Rules;
 
 namespace TF2.Server.Entities.Rooms;
@@ -31,9 +32,6 @@ namespace TF2.Server.Entities.Rooms;
 [SideService(Side.Server)]
 public sealed class TFRespawnRoomCollide(IEntityDirectory entities, ITeamRoundState rounds) : IEntityCollideRule, IOrderedHook
 {
-    /// <summary>The trace group the arm narrows: stock's <c>COLLISION_GROUP_PLAYER_MOVEMENT</c>.</summary>
-    private const CollisionGroup PlayerMovement = (CollisionGroup)EngineCollisionGroup.PlayerMovement;
-
     /// <summary>Behind the core's teammates rule (-1000) and TFTeamCollide (0):
     /// registered under its own type, so the <see cref="IHooks{T}"/> chain of
     /// <see cref="IEntityCollideRule"/> collects it by assignability and every
@@ -49,23 +47,6 @@ public sealed class TFRespawnRoomCollide(IEntityDirectory entities, ITeamRoundSt
         if (entities.Get(entity) is not FuncRespawnRoomVisualizer visualizer)
             return true;
 
-        // Respawn rooms are open in win state.
-        if (rounds.State == RoundState.TeamWin)
-            return false;
-
-        if (visualizer.Team == (int)TFTeam.Unassigned)
-            return false;
-
-        if (group == PlayerMovement)
-        {
-            return visualizer.Team switch
-            {
-                (int)TFTeam.Blue => (contentsMask & TFContents.BlueTeam) != 0,
-                (int)TFTeam.Red => (contentsMask & TFContents.RedTeam) != 0,
-                _ => true,
-            };
-        }
-
-        return false;
+        return TFRespawnRoomCollision.Collides(rounds.State == RoundState.TeamWin, visualizer.Team, group, contentsMask);
     }
 }

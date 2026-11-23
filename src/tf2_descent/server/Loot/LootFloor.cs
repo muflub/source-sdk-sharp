@@ -33,15 +33,48 @@ public sealed class LootSeatState
     /// <summary>The item, as the ledger has it on its floor; null once taken (or for Australium alone).</summary>
     public FloorItem? Item { get; internal set; }
 
-    /// <summary>His share of the Australium; 0 once taken.</summary>
+    /// <summary>His own share of the Australium (a container's or a breakable's, unhosted); 0 once taken.</summary>
     public long Australium { get; internal set; }
+
+    /// <summary>The drop's kill pile, which every seat shows and any of them may take for all (L24); null for none.</summary>
+    public LootPile? Pile { get; internal set; }
+
+    /// <summary>The Australium his seat shows: his own and the pile's while it lies there.</summary>
+    public long Shown => Australium + (Pile is { Australium: > 0 } p ? p.Australium : 0);
 
     /// <summary>A take in flight: another waits for it.</summary>
     internal bool Taking { get; set; }
 
-    public bool Empty => Item is null && Australium <= 0;
+    public bool Empty => Item is null && Shown <= 0;
 
-    public LootHolds Holds => (Item is null ? LootHolds.None : LootHolds.Item) | (Australium > 0 ? LootHolds.Australium : LootHolds.None);
+    public LootHolds Holds => (Item is null ? LootHolds.None : LootHolds.Item) | (Shown > 0 ? LootHolds.Australium : LootHolds.None);
+}
+
+/// <summary>
+/// A kill's Australium pile on a drop (the user's ruling L24; SDK 2.8): one per kill, shown on every
+/// seat of the drop, taken whole by whichever of the killer's party takes it first, every member
+/// credited his share at once by the ledger.
+/// </summary>
+public sealed class LootPile
+{
+    internal LootPile(long id, long australium, string killer)
+    {
+        Id = id;
+        Australium = australium;
+        Killer = killer;
+    }
+
+    /// <summary>The ledger's id for the pile (<see cref="AustraliumPile.Id"/>).</summary>
+    public long Id { get; }
+
+    /// <summary>What lies there; 0 once taken.</summary>
+    public long Australium { get; internal set; }
+
+    /// <summary>Whose kill it was, as the ledger names him.</summary>
+    public string Killer { get; }
+
+    /// <summary>A take in flight: another seat's waits for it.</summary>
+    internal bool Taking { get; set; }
 }
 
 /// <summary>
@@ -74,6 +107,9 @@ public sealed class FloorDrop
     internal LootSeatState[] SeatList { get; }
 
     public IReadOnlyList<LootSeatState> Seats => SeatList;
+
+    /// <summary>The kill's Australium pile, shared by its seats; null for none.</summary>
+    public LootPile? Pile { get; internal set; }
 
     /// <summary>The entity it stands on; null while it is data.</summary>
     public LootEntity? Entity { get; internal set; }
@@ -139,10 +175,13 @@ public enum TakeOutcome
 /// same place with the same seats.</item>
 /// <item><b>Taking.</b> A hero's use takes his seat: the item through the
 /// ledger's <see cref="IItemLedger.Claim"/> (refused when his backpack is
-/// full: the item stays and he is told) and the Australium through
-/// <see cref="IItemLedger.CollectAustralium"/>. His touch takes the Australium
-/// alone. A seat emptied is taken away from his client; a drop whose seats
-/// are all empty leaves the floor and its entity parks.</item>
+/// full: the item stays and he is told), his own Australium through
+/// <see cref="IItemLedger.CollectAustralium"/>, and a kill's pile, which every
+/// seat shows, through <see cref="IItemLedger.ClaimAustralium"/>: whoever of
+/// the killer's party takes it first takes it for all, each member credited
+/// his share at once (L24). His touch takes the Australium alone. A seat
+/// emptied is taken away from his client; a drop whose seats are all empty
+/// leaves the floor and its entity parks.</item>
 /// </list>
 /// </summary>
 [SideService(Side.Server)]
@@ -349,20 +388,23 @@ public sealed class LootFloor(IDescentModeState mode, ILootSpawner spawner, IRoo
 
     /// <summary>
     /// A new drop at <paramref name="at"/> with a seat for each share that holds
-    /// something (at most <see cref="Seats"/>). On an entity at once when its
-    /// room is awake and the pool lends one (folding the oldest drop on an
-    /// entity when none is free), else data. Null when no share holds anything.
+    /// something (at most <see cref="Seats"/>), and with a kill's
+    /// <paramref name="pile"/> every share holds a seat, each showing the pile.
+    /// On an entity at once when its room is awake and the pool lends one
+    /// (folding the oldest drop on an entity when none is free), else data.
+    /// Null when no share holds anything.
     /// </summary>
-    public FloorDrop? Place(Vector at, IReadOnlyList<LootShare> shares)
+    public FloorDrop? Place(Vector at, IReadOnlyList<LootShare> shares, AustraliumPile? pile = null)
     {
-        var seats = shares.Where(s => s.Item is not null || s.Australium > 0).Take(Seats)
-            .Select(s => new LootSeatState(s.Hero, s.Player, s.Item, Math.Max(0, s.Australium))).ToArray();
+        var shared = pile is { Australium: > 0 } p ? new LootPile(p.Id, p.Australium, p.Killer) : null;
+        var seats = shares.Where(s => s.Item is not null || s.Australium > 0 || shared is not null).Take(Seats)
+            .Select(s => new LootSeatState(s.Hero, s.Player, s.Item, Math.Max(0, s.Australium)) { Pile = shared }).ToArray();
         if (seats.Length == 0)
             return null;
 
         if (++_nextNumber == 0)
             _nextNumber = 1;
-        var drop = new FloorDrop(_nextNumber, at, rooms.RoomAt(at), ++_made, seats);
+        var drop = new FloorDrop(_nextNumber, at, rooms.RoomAt(at), ++_made, seats) { Pile = shared };
         _drops.Add(drop);
         if (Ready && rooms.Awake(drop.Room))
         {
@@ -471,7 +513,7 @@ public sealed class LootFloor(IDescentModeState mode, ILootSpawner spawner, IRoo
             payload.Unique = item.Identified ? item.Unique ?? "" : "";
         }
 
-        payload.Australium = (int)Math.Clamp(seat.Australium, 0, int.MaxValue);
+        payload.Australium = (int)Math.Clamp(seat.Shown, 0, int.MaxValue);
         return payload;
     }
 
@@ -497,7 +539,7 @@ public sealed class LootFloor(IDescentModeState mode, ILootSpawner spawner, IRoo
     internal void Touch(LootEntity e, EntityHandle toucher)
     {
         if (_onEntity.GetValueOrDefault(e) is { } drop && PlayerOf(toucher) is int player and > 0
-            && drop.SeatOf(player) is { Australium: > 0, Taking: false })
+            && drop.SeatOf(player) is { Shown: > 0, Taking: false } seat && seat.Pile is not { Taking: true })
             _ = Take(drop, player, touch: true);
     }
 
@@ -520,13 +562,14 @@ public sealed class LootFloor(IDescentModeState mode, ILootSpawner spawner, IRoo
             return TakeOutcome.NotThere;
         if (drop.SeatOf(player) is not { Empty: false } seat)
             return TakeOutcome.NotYours;
-        if (touch && seat.Australium <= 0)
+        if (touch && seat.Shown <= 0)
             return TakeOutcome.Nothing;
         if (seat.Taking)
             return TakeOutcome.Busy;
 
         int level = Level;
         string? refusal = null;
+        bool pileTaken = false;
         seat.Taking = true;
         try
         {
@@ -559,6 +602,33 @@ public sealed class LootFloor(IDescentModeState mode, ILootSpawner spawner, IRoo
                     refusal ??= r.Refusal;
                 }
             }
+
+            if (seat.Pile is { Australium: > 0, Taking: false } pile)
+            {
+                pile.Taking = true;
+                try
+                {
+                    var r = await ledger.ClaimAustralium(seat.Hero, pile.Id, party.PileMembers(pile.Killer, seat.Hero));
+                    if (level != Level)
+                        return TakeOutcome.LevelEnded;
+                    if (r.Ok || r.Refusal == LedgerRefusals.NotOnFloor)
+                    {
+                        log.Msg(string.Create(CultureInfo.InvariantCulture,
+                            $"[TF2Descent/Loot] player {player} took the {pile.Australium} Australium pile of drop {drop.Number} (kill of {pile.Killer}): " +
+                            $"{(r.Ok ? "[" + string.Join(", ", r.Credits.Select(c => $"{c.Hero} {c.Amount}")) + "]" : "gone already")}\n"));
+                        pile.Australium = 0;
+                        pileTaken = true;
+                    }
+                    else
+                    {
+                        refusal ??= r.Refusal;
+                    }
+                }
+                finally
+                {
+                    pile.Taking = false;
+                }
+            }
         }
         finally
         {
@@ -574,17 +644,21 @@ public sealed class LootFloor(IDescentModeState mode, ILootSpawner spawner, IRoo
                 messages.Notice(player, RefusedToken, refusal);
         }
 
-        Settle(drop, seat);
+        Settle(drop, seat, everySeat: pileTaken);
         return refusal is null ? TakeOutcome.Taken : TakeOutcome.Refused;
     }
 
-    /// <summary>After a take: the seat's owner is told what is left of it; an empty drop leaves the floor and parks its entity.</summary>
-    private void Settle(FloorDrop drop, LootSeatState seat)
+    /// <summary>
+    /// After a take: the seat's owner is told what is left of it (every seat's owner, when the shared
+    /// pile went); an empty drop leaves the floor and parks its entity.
+    /// </summary>
+    private void Settle(FloorDrop drop, LootSeatState seat, bool everySeat = false)
     {
         if (!_drops.Contains(drop))
             return;
 
-        SendSeat(drop, seat);
+        foreach (var s in everySeat ? drop.SeatList : [seat])
+            SendSeat(drop, s);
         UpdateViewers(drop);
         if (!drop.Empty)
             return;
@@ -644,8 +718,10 @@ public sealed class LootFloor(IDescentModeState mode, ILootSpawner spawner, IRoo
     private static string Describe(FloorDrop d) =>
         string.Join(", ", d.SeatList.Select(s =>
             $"{s.Hero}{(s.Player > 0 ? "@" + s.Player.ToString(CultureInfo.InvariantCulture) : "")} " +
-            (s.Empty ? "empty" : $"{(s.Item is { } i ? $"{i.Item.BaseId} r{i.Item.Rarity} #{i.Id}{(i.Item.Identified ? "" : " unidentified")}" : "")}" +
-                                 $"{(s.Item is not null && s.Australium > 0 ? " + " : "")}{(s.Australium > 0 ? s.Australium.ToString(CultureInfo.InvariantCulture) + " Australium" : "")}")));
+            (s.Item is null && s.Australium <= 0 ? (s.Empty ? "empty" : "the pile")
+                : $"{(s.Item is { } i ? $"{i.Item.BaseId} r{i.Item.Rarity} #{i.Id}{(i.Item.Identified ? "" : " unidentified")}" : "")}" +
+                  $"{(s.Item is not null && s.Australium > 0 ? " + " : "")}{(s.Australium > 0 ? s.Australium.ToString(CultureInfo.InvariantCulture) + " Australium" : "")}")))
+        + (d.Pile is { } p ? string.Create(CultureInfo.InvariantCulture, $"; pile #{p.Id} of {p.Killer}'s kill: {(p.Australium > 0 ? p.Australium + " Australium" : "taken")}") : "");
 
     internal static double Distance(Vector a, Vector b)
     {

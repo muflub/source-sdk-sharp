@@ -223,6 +223,27 @@ public class PropDynamicAnimationTests
         Assert.Equal((Opening, -1f, 0.999f, 11.1f, 3), (s.Sequence, s.PlaybackRate, s.StartCycle, s.StartTime, s.Starts));
     }
 
+    /// <summary>
+    /// The SetModel input puts the skeleton on sequence 0 with the cycle the
+    /// old sequence had (stock's SetModel's SetSequence( 0 )); the client is
+    /// sent the same, as stock's networked m_nSequence carries it, and keeps
+    /// the rate.
+    /// </summary>
+    [Fact]
+    public void A_model_set_while_a_sequence_plays_sends_the_client_sequence_zero_from_the_cycle_it_had()
+    {
+        var rig = Spawned(("DefaultAnim", "idle_open"));
+        rig.Now = 10.5f;
+
+        // The skeleton's answer once the render binding has reset it.
+        rig.Engine.Returns("EntityRender.SequenceState.sequence", IdleClosed)
+                  .Returns("EntityRender.SequenceState.cycle", 0.5f);
+        rig.Registry.Input(Prop, "SetModel", "models/door.mdl", 0f, EntityHandle.None);
+
+        var s = rig.Entity.State;
+        Assert.Equal((IdleClosed, 1f, 0.5f, 10.5f, 2), (s.Sequence, s.PlaybackRate, s.StartCycle, s.StartTime, s.Starts));
+    }
+
     [Fact]
     public void A_goal_two_nodes_away_is_walked_to_one_transition_at_a_time()
     {

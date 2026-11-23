@@ -115,13 +115,13 @@ public sealed class RobotStatsTests
     //-------------------------------------------------------------------------
 
     [Fact]
-    public void Each_monster_level_adds_12_percent_life_and_6_percent_damage_compounding()
+    public void Each_monster_level_adds_2_percent_life_and_1_percent_damage_compounding()
     {
         var l1 = At("pyro", 1, level: 1);
         var l5 = At("pyro", 1, level: 5);
 
-        Assert.Equal(l1.Life * Math.Pow(1.12, 4), l5.Life, 9);
-        Assert.Equal(l1.Damage * Math.Pow(1.06, 4), l5.Damage, 9);
+        Assert.Equal(l1.Life * Math.Pow(1.02, 4), l5.Life, 9);
+        Assert.Equal(l1.Damage * Math.Pow(1.01, 4), l5.Damage, 9);
     }
 
     [Theory]

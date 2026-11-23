@@ -49,7 +49,14 @@ public sealed class TFDeathCamTests
 
             Observers = new Observers(new RecordingLog(), registry, Engine, Engine, Engine, Engine, Engine,
                                       Engine, Engine, DeclaredConVars.Fresh<ForceCameraConVar>(), DeclaredConVars.Fresh<AllowSpectatorsConVar>());
-            DeathCam = new TFDeathCam(registry, Observers, new RecordingLog());
+            DeathCam = new TFDeathCam(registry, Observers, new RecordingLog(), new StoppedClock(),
+                                      DeclaredConVars.Holding<SpecFreezeTimeConVar>("4.0"),
+                                      DeclaredConVars.Holding<SpecFreezeTravelTimeConVar>("0.4"));
+        }
+
+        private sealed class StoppedClock : IGameClock
+        {
+            public float Now => 0f;
         }
 
         public PlayerDeath Died(EntityHandle body) => new(Watcher, 3, EntityHandle.None, default(Vector), body);

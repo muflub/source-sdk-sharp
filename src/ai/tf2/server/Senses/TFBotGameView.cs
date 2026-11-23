@@ -49,10 +49,13 @@ public enum TFThingType
 [SideService(Side.Server)]
 public sealed class TFBotGameView(ITFActorFacts actors, ITFPlayerData players, IEngineEntities entities, IEntityDirectory directory,
                                   TFDisguiseWeapons disguises, WeaponCatalog weapons, TFObjectiveFeed objectives,
-                                  ITFRoundStateView rounds, TFPlayerMovementRestartFreezeConVar restartFreeze) : IBotGameView
+                                  ITFRoundStateView rounds, TFPlayerMovementRestartFreezeConVar restartFreeze, TFHudReader hud) : IBotGameView
 {
     /// <summary>How invisible a cloaked Spy is when a client draws nothing of him.</summary>
     public const float CloakHidden = 0.75f;
+
+    /// <summary>The least of a cloaked Spy a cue shows (flames, Jarate, a blink, blood): as much as a cloak just under hiding him.</summary>
+    public const float CueShows = 1f - CloakHidden;
 
     /// <summary>How far a projectile's body reaches round its origin, and a building's (its middle is half that over its feet).</summary>
     public const float ProjectileReach = 8f, BuildingReach = 48f;
@@ -82,6 +85,9 @@ public sealed class TFBotGameView(ITFActorFacts actors, ITFPlayerData players, I
     /// </summary>
     public bool Frozen(EntityHandle bot) => rounds.State == RoundState.Preround && restartFreeze.Value;
 
+    /// <summary>The bot's kit, meters and the teammates' health its HUD shows (<see cref="TFHudReader"/>, plan_bots_teams_tf2 P7).</summary>
+    public GameHud? HudOf(EntityHandle bot) => hud.Read(bot);
+
     public bool Render(EntityHandle viewer, EntityHandle them, ref ActorFacts facts)
     {
         if (!actors.TryRead(them.EntryIndex, out TFActorFacts drawn))
@@ -99,12 +105,19 @@ public sealed class TFBotGameView(ITFActorFacts actors, ITFPlayerData players, I
     /// </summary>
     public static bool Draw(int viewerTeam, in TFActorFacts them, int dressWeapon, ref ActorFacts facts)
     {
-        if (them.PercentInvisible >= CloakHidden)
+        // A cloak hides past 75 % unless something on the body shows it: flames, Jarate, a blink where it was struck, blood
+        // (stock's tf_bot_vision.cpp:264-271 notices them whatever the cloak, as a player does).
+        bool cue = them.Burning || them.Jarated || them.Blinking || them.Bleeding;
+        if (them.PercentInvisible >= CloakHidden && !cue)
             return false;
         bool sameTeam = viewerTeam != 0 && viewerTeam == (int)them.Team;
+        // A cue shows the body however deep the cloak: never less of it than CueShows (review-p7f F5: a fully cloaked burning Spy read 0).
+        float shown = 1f - them.PercentInvisible;
+        if (cue && them.Cloaked)
+            shown = MathF.Max(shown, CueShows);
         facts = facts with
         {
-            VisibleFraction = facts.VisibleFraction * (1f - them.PercentInvisible),
+            VisibleFraction = facts.VisibleFraction * shown,
             Conditions = Conditions(in them, disguiseShown: sameTeam),
         };
         if (them.Disguised && !sameTeam)

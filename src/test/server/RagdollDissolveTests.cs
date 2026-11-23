@@ -85,6 +85,29 @@ public class RagdollDissolveTests
         Assert.Equal(1, registry.Removal.FreeNow());
     }
 
+    /// <summary>A body no player left, with a lifetime, books its own end that far ahead (Corpses.Leave).</summary>
+    [Fact]
+    public void A_left_body_with_a_lifetime_books_its_end()
+    {
+        var (corpses, _, _, registry) = Rig();
+        Assert.False(registry.Directory.Think.IsScheduled(Body, null));
+
+        corpses.Leave(new CorpseShot("models/combine_soldier.mdl", default, default) { Lifetime = 20f });
+
+        Assert.Equal(30f, registry.Directory.Think.NextThinkTime(Body, null), 3);
+    }
+
+    /// <summary>A body left with no lifetime books nothing: the cap and the level end alone retire it.</summary>
+    [Fact]
+    public void A_left_body_with_no_lifetime_books_nothing()
+    {
+        var (corpses, _, _, registry) = Rig();
+
+        corpses.Leave(new CorpseShot("models/combine_soldier.mdl", default, default));
+
+        Assert.False(registry.Directory.Think.IsScheduled(Body, null));
+    }
+
     [Theory]
     [InlineData(0f, 0f)]
     [InlineData(0.5f, 0.5f)]

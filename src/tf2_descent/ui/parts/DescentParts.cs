@@ -236,9 +236,11 @@ public sealed class OrbPair : UiPanel
 /// number row aligns across slots; the name takes the rest of the top row.
 /// Two columns of two (2 x 112 + 8 du): beside the orbs in the HUD's corner,
 /// as tall as they are, and inside the narrow column's fixed width, where one
-/// row of four hung 224 du past the panel.
+/// row of four hung 224 du past the panel. With <see cref="BeltStripProps.OnSlot"/> (the
+/// inventory's move mode) every slot is a click target wearing the accent, and the picked one
+/// a heavier frame.
 /// </summary>
-public sealed class BeltStrip : UiPanel
+public sealed class BeltStrip : UiPanel<BeltStripProps>
 {
     public const float SlotDu = 112;
 
@@ -247,14 +249,17 @@ public sealed class BeltStrip : UiPanel
 
     public BeltStrip(IDescentBelt belt) => _belt = belt;
 
-    public override void Describe(ref UiFrame ui)
+    public override void Describe(ref UiFrame ui, in BeltStripProps p)
     {
         using (ui.Grid(_pair, Space.S, Space.S).Key("belt"))
         {
             for (int i = 0; i < _belt.SlotCount; i++)
             {
-                using (ui.Box().Size(Size.Du(SlotDu), Size.Du(48)).Fill(Tone.SurfaceRaised).Round(Radius.M)
-                         .Border(_belt.SlotReady ? Tone.Accent : Tone.Line, 1).Key(i))
+                bool armed = p.OnSlot is not null;
+                var cell = ui.Box().Size(Size.Du(SlotDu), Size.Du(48)).Fill(Tone.SurfaceRaised).Round(Radius.M)
+                             .Border(armed || _belt.SlotReady ? Tone.Accent : Tone.Line, armed && p.Picked == i ? 2 : 1).Key(i);
+                var hit = armed ? ui.Interact(cell) : default;
+                using (cell)
                 {
                     if (!_belt.SlotReady)
                         ui.Rect(Tone.Scrim, Size.Fill, Size.Fill).Layered();   // the shared-cooldown wipe
@@ -273,10 +278,19 @@ public sealed class BeltStrip : UiPanel
                                 ui.Number(_belt.SlotCountOf(i), Text.Label);
                     }
                 }
+                if (hit.Clicked)
+                    p.OnSlot?.Invoke(i);
             }
         }
     }
 }
+
+/// <summary>
+/// What a <see cref="BeltStrip"/> does: with <see cref="OnSlot"/> a click on a slot reports it
+/// (0-based) and <see cref="Picked"/> is framed; without, it only shows (the HUD; a
+/// <c>default</c> props reads Picked 0, which only an armed strip frames).
+/// </summary>
+public readonly record struct BeltStripProps(Action<int>? OnSlot = null, int Picked = -1);
 
 /// <summary>
 /// What a <see cref="SkillSlotsStrip"/> does: when <see cref="Armed"/> (a learned skill is

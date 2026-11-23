@@ -341,6 +341,35 @@ public sealed class CrateSource(ITownView town, IItemViews items, ItemViewNames 
 }
 
 /// <summary>Opening a crate (<see cref="IDescentCrateActions"/>): <c>tf2_descent_town_crate</c>; the server pays for the Scout's first crate and opens it.</summary>
+/// <summary>
+/// A town window closed on the client tells the server (<c>tf2_descent_town_close &lt;screen&gt;</c>),
+/// which ends its session at once (the whole run's F27: it waited for the hero to walk 160 u away).
+/// Only for the town window last opened; a close the server itself sent (a walk away, a
+/// descent) is told too and finds no session there, so it changes nothing.
+/// </summary>
+[SideService(Side.Client, As = [typeof(IDescentTownClose)])]
+public sealed class TownCloseSender(ITownView town, IDescentCommandLine line) : IDescentTownClose
+{
+    public const string Verb = "tf2_descent_town_close";
+
+    public void Closed(string screen)
+    {
+        if (town.Window is { } open && ScreenOf(open.Screen) == screen)
+            line.Send($"{Verb} {screen}");
+    }
+
+    /// <summary>The client screen a town window shows on.</summary>
+    public static string ScreenOf(TownScreen screen) => screen switch
+    {
+        TownScreen.Vendor => "vendor",
+        TownScreen.Stash => "stash",
+        TownScreen.Craft => "craftbench",
+        TownScreen.Crate => "crate",
+        TownScreen.Depth => "depthpicker",
+        _ => "",
+    };
+}
+
 [SideService(Side.Client, As = [typeof(IDescentCrateActions)])]
 public sealed class CrateActions(ITownView town, IDescentCommandLine line) : IDescentCrateActions
 {

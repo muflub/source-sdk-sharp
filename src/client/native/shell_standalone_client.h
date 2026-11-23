@@ -354,7 +354,8 @@ public:
 
 	virtual IClientUnknown* GetIClientUnknown() const { return NULL; }
 
-	virtual int GetCollisionGroup() const OVERRIDE { return COLLISION_GROUP_NONE; }
+	// Networked from the server's head (m_CollisionGroup).
+	virtual int GetCollisionGroup() const OVERRIDE { return Block().Head.CollisionGroup; }
 
 	virtual void WorldSpaceSurroundingBounds(Vector* pMins, Vector* pMaxs) OVERRIDE;
 

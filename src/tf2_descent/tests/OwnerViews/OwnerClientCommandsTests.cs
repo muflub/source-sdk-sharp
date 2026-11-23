@@ -114,6 +114,46 @@ public sealed class OwnerClientCommandsTests
     }
 
     [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public void Moving_a_backpack_potion_to_a_belt_slot_through_the_verb_belts_it()
+    {
+        var rig = new OwnerRig();
+        int cell = rig.Gear.Carry(TF2.Descent.Tests.Hero.BeltRig.Carried("health_medium"));
+        long id = rig.Gear.Held.Inventory.Backpack[cell].Id;
+
+        rig.Command(OwnerClientCommands.Move, cell.ToString(System.Globalization.CultureInfo.InvariantCulture), "belt4");
+
+        Assert.Equal(id, rig.Gear.Held.Inventory.Belt[3].Id);
+        Assert.False(rig.Gear.Held.Inventory.Backpack.ContainsKey(cell));
+        Assert.Empty(rig.Told);
+    }
+
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public void Moving_a_belt_slot_to_a_backpack_cell_through_the_verb_takes_it_off_the_belt_into_that_cell()
+    {
+        var rig = new OwnerRig();
+        long id = rig.Gear.Held.Inventory.Belt[0].Id;
+
+        rig.Command(OwnerClientCommands.Move, "belt1", "9");
+
+        Assert.False(rig.Gear.Held.Inventory.Belt.ContainsKey(0));
+        Assert.Equal(id, rig.Gear.Held.Inventory.Backpack[9].Id);
+        Assert.Empty(rig.Told);
+    }
+
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public void Moving_gear_to_the_belt_is_refused_with_the_reason_and_changes_nothing()
+    {
+        var rig = new OwnerRig();
+        int cell = rig.Gear.Give(EquipmentRig.Item("shotgun"));
+
+        rig.Command(OwnerClientCommands.Move, cell.ToString(System.Globalization.CultureInfo.InvariantCulture), "belt4");
+
+        Assert.True(rig.Gear.Held.Inventory.Backpack.ContainsKey(cell));
+        Assert.False(rig.Gear.Held.Inventory.Belt.ContainsKey(3));
+        Assert.Equal(("#Descent_Refused_not_a_potion", "Shotgun"), rig.Told.Single());
+    }
+
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Dropping_a_backpack_item_through_the_verb_puts_it_on_the_floor()
     {
         var rig = new OwnerRig();

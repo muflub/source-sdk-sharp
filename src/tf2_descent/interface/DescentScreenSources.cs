@@ -20,6 +20,15 @@ public interface IDescentCraftShortage
 }
 
 /// <summary>
+/// A town window closed on the client (Esc, its x; the whole run's F27): the window tells the
+/// server, which ends its session at once rather than when the hero walks away.
+/// </summary>
+public interface IDescentTownClose
+{
+    void Closed(string screen);                   // the screen's name: "vendor", "stash", ...
+}
+
+/// <summary>
 /// A town window's status line (plan_descent_logic UI4): the answer to the hero's last verb at
 /// this window, as the server told it (a refusal's reason, or what a buy, a repair or a craft
 /// did), drawn inside the window because a HUD notice hides under an open one. An empty token

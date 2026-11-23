@@ -15,6 +15,7 @@ props_gameplay/door_grate003_floorplate	static	door-sill	covers the doorway's fl
 props_manor/wall_candelabra_01	static	lamp	a two-candle sconce on the walls (the plan's candelabra): candle orange in black; 18 maps
 props_manor/chandelier_01	static	cover-lamp	a chandelier under the vault where the sconces leave the floor dark
 props_halloween/candle_cluster	static	companion	burnt-down candles by the tombs (the plan's candles); 53 maps
+props_halloween/candle_cluster	static	route-lamp	candle clusters burning on the floor by the walls in pools along each room's route and round the naves (brief p9: level 9 lit in pools, not by a fill)
 props_medieval/brazier	static	work-lamp	a brazier in each large room, the act's darkest level's one strong fire; 9 maps
 props_manor/chandelier_01	static	pendant	a chandelier on a chain in the tall naves: overhead interest; 17 maps
 props_island/gantry_support_cable_128	static	pendant-cord	the chain the chandelier hangs from

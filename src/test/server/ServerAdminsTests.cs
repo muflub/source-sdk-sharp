@@ -346,6 +346,60 @@ public class ServerAdminsTests
         Assert.Equal(0, _ran);
     }
 
+    /// <summary>A connected human: an address, and the engine's user id for every slot.</summary>
+    private sealed class Human(int id) : IConnectedClients
+    {
+        public float? AvgLatency(int entIndex) => null;
+        public ulong SteamId64(int entIndex) => 0;
+        public string? Address(int entIndex) => "198.51.100.9:27005";
+        public string? ClientConVar(int entIndex, string name) => null;
+        public int UserId(int entIndex) => id;
+        public void Kick(int entIndex, string reason) { }
+        public void ClientCommand(int entIndex, string command) { }
+        public void Reconnect(int entIndex) { }
+    }
+
+    /// <summary>The admins as the clients' driver calls them, over one human in <see cref="Player"/> (user 12).</summary>
+    private (ServerAdmins Admins, ClientLifecycleDriver Driver) Driven()
+    {
+        var admins = Admins();
+        var services = new ServiceContainer();
+        services.AddInstance(admins);
+        var driver = new ClientLifecycleDriver(services, _log, new Human(12));
+        driver.PutInServer(Player);
+        driver.Active(Player);
+        return (admins, driver);
+    }
+
+    [Fact]
+    public void An_admin_keeps_their_rights_across_a_level_change()
+    {
+        var (admins, driver) = Driven();
+        From(admins, Player, Proof(Challenge(admins, Player)));
+
+        // The engine's changelevel: the client goes out of the game and comes back on the new level.
+        driver.LevelShutdown();
+        driver.PutInServer(Player);
+        driver.Active(Player);
+        From(admins, Player, AdminWire.WriteRun("do:it"));
+
+        Assert.True(admins.IsAdmin(Player));
+        Assert.Equal(1, _ran);
+    }
+
+    [Fact]
+    public void An_admin_who_leaves_loses_their_rights_through_the_driver()
+    {
+        var (admins, driver) = Driven();
+        From(admins, Player, Proof(Challenge(admins, Player)));
+
+        driver.Disconnected(12);
+        From(admins, Player, AdminWire.WriteRun("do:it"));
+
+        Assert.False(admins.IsAdmin(Player));
+        Assert.Equal(0, _ran);
+    }
+
     [Fact]
     public void A_key_taken_off_the_list_cannot_run_anything_more()
     {

@@ -349,6 +349,34 @@ public sealed class TFWeaponBehaviourTests
     }
 
     /// <summary>
+    /// The panic cone's health read goes through the owner's REAL handle,
+    /// serial and all: a hover after a changelevel leaves the slot's handle
+    /// carrying one, and a bare index crosses the handle table as another
+    /// slot, so the cone would take the full-health band.
+    /// </summary>
+    [Fact]
+    public void AHurtOwnersPanicAttackReadsTheHealthThroughTheSerialHandle()
+    {
+        var world = new TFWeaponWorld(new FakePredictedData { Carrier = HealthCarrier(TFClass.Scout) });
+
+        // The serial handle for the slot, and the health only that handle reads.
+        var serial = new EntityHandle(0x0001_0000u | (uint)TFWeaponWorld.Owner);
+        world.Engine.ReturnsEachCall("Players.GetHandle",
+            () => new EntityHandle(0x0001_0000u | (uint)world.Engine.Calls[^1].ArgAs<int>(0)));
+        world.Engine.ReturnsEachCall("Entities.GetHealth",
+            () => world.Engine.Calls[^1].ArgAs<EntityHandle>(0) == serial ? 25 : 125);
+
+        world.Owners.Items[TFWeaponWorld.Owner] = PercentageItem(9107, "panic_attack_negative", 0.4f);
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+
+        world.Run(w, vm, Attack, now: 10f, seed: TFWeaponWorld.GunSeed(200, 10000));
+
+        // 25/125 is the band's bottom, so the sine is the plain cone's times 0.4.
+        var shot = Assert.Single(world.Arms.Bullets);
+        Assert.Equal(TFWeaponTypes.SpreadDegrees(0.027f), shot.Spread, 4);
+    }
+
+    /// <summary>
     /// The same arm at the band's top (<c>:870</c>'s clamp): a scout at 113 of
     /// its 125 sits past the 90 percent end, so the remap answers one and the
     /// cone stays the plain script cone the row was dressed with.

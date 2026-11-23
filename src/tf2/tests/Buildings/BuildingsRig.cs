@@ -230,6 +230,17 @@ internal sealed partial class BuildingsRig
             EntityHandle who = (Engine.Last("Entities.GetHealth") ?? default).ArgAs<EntityHandle>(0);
             return Healths.GetValueOrDefault(who);
         });
+        // The playing sequence's clock, which a buildable's activity reads
+        // (DetermineAnimation's STARTUP arm, TFBaseObject.IsActivityFinished).
+        // A one-shot that has already played out, so a finished object moves on
+        // to its running activity on the next think; a fact that wants the
+        // startup still playing arms these again with a shorter cycle.
+        Engine.Returns("EntityRender.SequenceState", true)
+              .Returns("EntityRender.SequenceState.sequence", 0)
+              .Returns("EntityRender.SequenceState.cycle", 1.0f)
+              .Returns("EntityRender.SequenceState.duration", 1.0f)
+              .Returns("EntityRender.SequenceState.looping", false)
+              .Returns("EntityRender.SequenceState.starts", 0);
 
         Services.AddInstance<IEntityDirectory>(Registry);
         Services.AddInstance<ITFMapPlayers>(Players);

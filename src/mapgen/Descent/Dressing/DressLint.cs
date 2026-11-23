@@ -23,6 +23,9 @@ public static class DressLint
     public const string LampLight = "dress_lamp_light";
     public const string CutOff = "dress_cut_off";
     public const string CellFace = "dress_cell_face";
+    public const string Breakable = "dress_breakable";
+    public const string KeepClear = "dress_keep_clear";
+    public const string LampSite = "dress_lamp_site";
 
     /// <summary>How far a lamp's light may stand from its fixture.</summary>
     public const int LightReach = 100;
@@ -50,8 +53,8 @@ public static class DressLint
         return (lo, hi);
     }
 
-    /// <summary>Every finding for the dressed room, rule by rule.</summary>
-    public static IReadOnlyList<LintFinding> Check(Room built, Room dressed, RoomTheme theme)
+    /// <summary>Every finding for the dressed room, rule by rule; at most <paramref name="breakableCap"/> breakables (<see cref="Breakables"/>).</summary>
+    public static IReadOnlyList<LintFinding> Check(Room built, Room dressed, RoomTheme theme, int breakableCap = Breakables.RoomCap)
     {
         var findings = new List<LintFinding>();
         var models = Models(theme);
@@ -71,6 +74,10 @@ public static class DressLint
             return !RoomLint.CheckJumpClearAir(walls, new RoomColumns(walls)).Any();
         });
 
+        // A shape's set piece that is not solid (a boss arena's steel headframe) takes no one's way, air or track:
+        // it is held to standing in the cell, on something, out of the brushes, never to the clearances.
+        bool Frame(Piece p) => !p.Solid && p.Entity?.Origin is { } o && built.SetPieces.Any(sp => !sp.Model.Solid && sp.Model.Model == p.Entity.Key("model")
+                                                                                         && Math.Abs(sp.Origin.X - o.X) < 0.5f && Math.Abs(sp.Origin.Y - o.Y) < 0.5f);
         foreach (Piece p in pieces)
         {
             // Track is flat and not solid: it runs on its door's axis up to the doorway, so it lines up from room to
@@ -78,16 +85,18 @@ public static class DressLint
             bool flat = p.Role == RoomDresser.Role.Rail && !p.Solid && p.Box.Maxs.Z <= sill + RoomDresser.RailStopHeight;
             // A brush skin no thicker than paint (a hazard stripe along a ledge's edge) takes no one's air or room.
             bool skin = p.Role == RoomDresser.Role.Set && Math.Min(p.Box.Maxs.X - p.Box.Mins.X, p.Box.Maxs.Y - p.Box.Mins.Y) <= 2;
-            flat |= skin;
+            flat |= skin || Frame(p);
             // A brush piece over a door's head (the Mill's hazard stripe) stands above the passage.
             bool overHead = p.Role == RoomDresser.Role.Set && p.Box.Mins.Z >= kit.Head;
             foreach (var d in doors.Where(d => !flat && !overHead && d.Box.DistanceTo(p.Box) < RoomDresser.DoorClear))
                 Add(DoorClear, $"{p.What} is {d.Box.DistanceTo(p.Box):0.#} from its {d.Name} door's opening; dressing keeps {RoomDresser.DoorClear} clear");
-            foreach (var m in markers.Where(m => !flat && p.Box.Mins.Z < m.At.Z + RoomLint.HullHeight && p.Box.Maxs.Z > m.At.Z - 1 && p.Box.LevelDistanceTo(m.At.X, m.At.Y) < RoomDresser.MarkerClear))
+            // A breakable the shape stood on its own marker (level 5's maze cells, brief p18) is that marker, not a piece beside it.
+            bool Own((string? Type, Point At) m) => p.Entity is { } pe && Breakables.Is(pe) && pe.Origin == m.At && pe.Key("poi_type") == m.Type;
+            foreach (var m in markers.Where(m => !flat && !Own(m) && p.Box.Mins.Z < m.At.Z + RoomLint.HullHeight && p.Box.Maxs.Z > m.At.Z - 1 && p.Box.LevelDistanceTo(m.At.X, m.At.Y) < RoomDresser.MarkerClear))
                 Add(MarkerClear, $"{p.What} stands {p.Box.LevelDistanceTo(m.At.X, m.At.Y):0.#} from the {m.Type} marker at ({m.At}); dressing keeps {RoomDresser.MarkerClear} clear");
             // A centrepiece stands on a hall's plinth, in the air of no surface a jump needs (T1 at most).
             bool centre = p.Role == RoomDresser.Role.Centre;
-            if (!skin && air.FirstOrDefault(a => a.Overlaps(p.Box) && (!centre || a.Mins.Z > sill + JumpTable.CriticalPathReach)) is { } hit && hit != default)
+            if (!skin && !Frame(p) && air.FirstOrDefault(a => a.Overlaps(p.Box) && (!centre || a.Mins.Z > sill + JumpTable.CriticalPathReach)) is { } hit && hit != default)
                 Add(JumpAir, $"{p.What} stands in the {FloorPlan.LedgeAir} of air over the surface at {hit.Mins.Z - sill} above the floor near ({hit.Centre.X} {hit.Centre.Y})");
             else if (!flat && RoomDresser.JumpAirRefuses(built, plan, p.Box) && !(p.Entity is null && keepsAir.Value))
                 // A set piece of brushes (a hall's headframe) may stand there only while the room keeps the
@@ -97,7 +106,8 @@ public static class DressLint
             if (p.Box.Mins.X < 0 || p.Box.Mins.Y < 0 || p.Box.Mins.Z < 0 || p.Box.Maxs.X > c || p.Box.Maxs.Y > c || p.Box.Maxs.Z > built.Height)
                 Add(InBrush, $"{p.What} ({p.Box.Mins})-({p.Box.Maxs}) leaves the cell");
             // A curve of track is checked along its line by the dresser (its box spans a bend's inner corner).
-            else if (p.Role != RoomDresser.Role.Set && !(flat && p.What.Contains("_arc_", StringComparison.Ordinal))
+            // A hollow frame's box holds what it stands over (the lift's doorway and track); its own feet are in the cell.
+            else if (p.Role != RoomDresser.Role.Set && !Frame(p) && !(flat && p.What.Contains("_arc_", StringComparison.Ordinal))
                      && Inside(p, built) is var (lo, hi) && solids.Blocked(lo, hi))
                 Add(InBrush, $"{p.What} ({p.Box.Mins})-({p.Box.Maxs}) stands in a brush of the room");
             // Held by the room, by a set it hangs from, by a piece it stands on (a lantern on its crate), or by
@@ -110,6 +120,18 @@ public static class DressLint
             if (p.Role == RoomDresser.Role.CeilingRun && p.Box.Mins.Z < sill + RoomDresser.CeilingRunFloor)
                 Add(CeilingRun, $"{p.What}'s underside is {p.Box.Mins.Z - sill} above the floor; a ceiling run hangs above {RoomDresser.CeilingRunFloor}");
         }
+
+        // What a shape keeps clear (the Tank's track) no dressing stands in.
+        foreach (Piece p in pieces.Where(p => !Frame(p)))
+            foreach (var (lo, hi) in built.KeepClear.Where(k => new Box(k.Mins, k.Maxs).Overlaps(p.Box)))
+                Add(KeepClear, $"{p.What} ({p.Box.Mins})-({p.Box.Maxs}) stands in the box ({lo})-({hi}) the room keeps clear");
+
+        // A room that lights itself has every lamp it asked for.
+        if (built.OwnLamps)
+            foreach (var (kind, origin, _) in built.LampSites.Where(s => RoomDresser.SiteOrigin(s.Kind, s.Origin, s.Yaw) is var want
+                                                                        && !pieces.Any(p => p.Role == RoomDresser.Role.Lamp && p.Entity?.Key("model") == s.Kind.Fixture.Model
+                                                                                            && p.Entity.Origin is { } o && Math.Abs(o.X - want.X) < 0.5f && Math.Abs(o.Y - want.Y) < 0.5f)))
+                Add(LampSite, $"the {kind.Fixture.Model} the room asks for at ({origin}) was not hung: it does not fit there");
 
         // A larger room's dressing brushes keep off its internal cell faces, as its shape's do (the tools refuse a face on one).
         foreach (Piece p in pieces.Where(p => p.Entity is null))
@@ -164,10 +186,28 @@ public static class DressLint
         var fixtures = pieces.Where(p => p.Role == RoomDresser.Role.Lamp).ToArray();
         foreach (RoomEntity l in lights.Where(l => !fixtures.Any(f => f.Box.DistanceTo(new Box(l.Origin!.Value, l.Origin!.Value)) <= LightReach)))
             Add(LampLight, $"a {l.ClassName} at ({l.Origin}) has no lamp within {LightReach}");
-        foreach (Piece f in fixtures.Where(f => !lights.Any(l => f.Box.DistanceTo(new Box(l.Origin!.Value, l.Origin!.Value)) <= LightReach)))
+        // A failed lamp (LampKind.Dead, level 11) hangs dark by design: it, and only it, gives no light.
+        foreach (Piece f in fixtures.Where(f => f.Entity?.Key(RoomDresser.DeadKey) != "1" && !lights.Any(l => f.Box.DistanceTo(new Box(l.Origin!.Value, l.Origin!.Value)) <= LightReach)))
             Add(LampLight, $"{f.What} gives no light: no light within {LightReach}");
         if (theme.Lamps is not null && dressed.Entities.Any(e => e.ClassName is "light" or "light_spot" && e.Key(RoomDresser.RoleKey) is null))
             Add(LampLight, "a shape's own light stays in a room the theme lights");
+
+        // Breakables (M34): under the room's cap, turned by yaw alone, and each where the room compile's
+        // standing agent fits at its point (it refuses a point of interest where it does not); every other
+        // rule above holds one as the solid it is until broken.
+        var breakables = Breakables.Of(dressed);
+        if (breakables.Count > breakableCap)
+            Add(Breakable, $"{breakables.Count} breakables, over the room's cap of {breakableCap}");
+        var dressedSolids = new RoomSolids(dressed);
+        var navProps = pieces.Where(p => p.Solid && p.Entity?.ClassName == "prop_static").Select(p => p.Box).ToArray();
+        foreach (RoomEntity b in breakables)
+        {
+            string[] angles = (b.Key("angles") ?? "").Split(' ');
+            if (angles.Length != 3 || angles[0] != "0" || angles[2] != "0")
+                Add(Breakable, $"the {b.Key("poi_type")} at ({b.Origin}) is turned \"{b.Key("angles")}\", not by its yaw alone");
+            if (Breakables.AgentBlocked(Breakables.AgentSweep(b.Origin!.Value), dressedSolids, navProps))
+                Add(Breakable, $"the {b.Key("poi_type")} at ({b.Origin}): the room compile's standing agent ({2 * Breakables.AgentHalfWidth} by {Breakables.AgentHeight}) does not fit in its voxel, so it refuses the point");
+        }
 
         return findings;
     }
@@ -230,18 +270,18 @@ public static class DressLint
     public static IReadOnlyDictionary<string, PropModel> Models(RoomTheme theme)
     {
         var all = new Dictionary<string, PropModel>(StringComparer.Ordinal);
-        foreach (RoomTheme? t in (RoomTheme?[])[theme, theme.Arrival])
+        foreach (RoomTheme? t in (RoomTheme?[])[theme, theme.Arrival, theme.Caves])
         {
             if (t is null)
                 continue;
-            foreach (LampKind? k in (LampKind?[])[t.Lamps, t.TallLamps, t.CoverLamps, t.WorkLamps?.Kind, t.Pendants])
+            foreach (LampKind? k in (LampKind?[])[t.Lamps, t.TallLamps, t.CoverLamps, t.WorkLamps?.Kind, t.Pendants, t.RoutePools, .. t.ArenaLamps])
                 foreach (PropModel? m in (PropModel?[])[k?.Fixture, k?.Stand, .. k?.Cords ?? []])
                     if (m is not null)
                         all.TryAdd(m.Model, m);
             foreach (PropModel? m in (PropModel?[])[t.Gantry?.Hook, t.Gantry?.Cable])
                 if (m is not null)
                     all.TryAdd(m.Model, m);
-            foreach (PropModel m in t.Props.Models)
+            foreach (PropModel m in t.Props.Models.Concat(t.SetPieces))
                 all.TryAdd(m.Model, m);
         }
 
@@ -270,6 +310,13 @@ public static class DressLint
             RoomDresser.Role? role = Enum.TryParse(e.Key(RoomDresser.RoleKey), out RoomDresser.Role r) ? r : null;
             bool solid = e.ClassName == "prop_static" && e.Key("solid") != "0";
             pieces.Add(new Piece($"{e.ClassName} {model} at ({o})", new Box(o + mins, o + maxs), role, solid, e));
+        }
+
+        // A breakable is the server's crate or barrel, solid until broken.
+        foreach (RoomEntity e in dressed.Entities.Where(Breakables.Is))
+        {
+            RoomDresser.Role? role = Enum.TryParse(e.Key(RoomDresser.RoleKey), out RoomDresser.Role r) ? r : null;
+            pieces.Add(new Piece($"{e.Key("poi_type")} at ({e.Origin})", Breakables.BoxOf(e), role, true, e));
         }
 
         return pieces;

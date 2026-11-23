@@ -2,6 +2,7 @@ using SourceSharp.Abi;
 using SourceSharp.Client;
 using SourceSharp.Client.Standalone;
 using SourceSharp.Shared;
+using System.Runtime.InteropServices;
 using Xunit;
 
 using static SourceSharp.Tests.TestServices;
@@ -60,11 +61,24 @@ public class ClientArsenalDeployAdoptTests
         public readonly ClientArsenal Arsenal;
         public readonly EntityHandle Player = new(0x0001_0000u | LocalPlayer);
 
+        /// <summary>A globals block with the one field the command clock reads: the tick's interval.</summary>
+        private static nint TickGlobals()
+        {
+            nint block = Marshal.AllocHGlobal(Marshal.SizeOf<CGlobalVarsRaw>());
+            for (int i = 0; i < Marshal.SizeOf<CGlobalVarsRaw>(); i++)
+                Marshal.WriteByte(block, i, 0);
+            Marshal.WriteInt32(block,
+                (int)Marshal.OffsetOf<CGlobalVarsRaw>(nameof(CGlobalVarsRaw.interval_per_tick)),
+                BitConverter.SingleToInt32Bits(0.015f));
+            return block;
+        }
+
         public Rig(int pistol, int clip = 18, ILocalAmmoPools? pools = null, ILocalWeaponClips? clips = null,
                    ViewmodelSkin? skin = null, WeaponBehaviours? behaviours = null)
         {
             Engine.Returns("Hud.LocalPlayerIndex", LocalPlayer);
             Engine.Returns("Clock.Now", 5000f);
+            Engine.Returns("Environment.Globals", new Globals(TickGlobals()));
             Engine.Returns("EntityRender.LookupSequenceByActivity", 0);
 
             Weapon = new ClientSsWeapon(Engine) { Handle = new EntityHandle(0x0100_0041u) };
@@ -91,7 +105,8 @@ public class ClientArsenalDeployAdoptTests
                                         behaviours: behaviours,
                                         localAmmoPools: pools,
                                         localWeaponClips: clips,
-                                        viewmodelSkin: skin);
+                                        viewmodelSkin: skin,
+                                        environment: Engine);
         }
 
         /// <summary>The server's word arriving: decode, then a fresh OnDataChanged.</summary>
@@ -569,6 +584,110 @@ public class ClientArsenalDeployAdoptTests
         rig.Arsenal.OnPlayerCommand(rig.Player, in cmd, 1, true, commandTime: 10f);
 
         Assert.Equal(30, rig.Arsenal.WorkingWeapon.Clip);
+    }
+
+    /// <summary>
+    /// The first prediction's timers ride the TICK-BASE clock, not the frame's
+    /// and not the engine tick the command carries (spy/pyro/sniper's
+    /// ItemMeterTime miss of the plain-life boots): stock's prediction sets
+    /// the command's curtime from the predicted player's tick base times the
+    /// tick's interval (<c>CPrediction::RunCommand</c>, prediction.cpp:894),
+    /// and the server runs the same command on its own tick base times the
+    /// same interval — the clock the movement already takes as CurTime
+    /// (<c>_working.TickBase * tick</c>, ClientPlayerPrediction.cs:573). A
+    /// command whose creation tick (<see cref="UserCmd.TickCount"/>) differs
+    /// from the tick base must NOT move the stamp: the pair below holds that
+    /// directly. Observable here through the idle settle (WeaponLogic.Step,
+    /// buttons==0): the machine arms <see cref="WeaponNetState.TimeWeaponIdle"/>
+    /// at the command's now plus the repeat; the frame's clock (the rig's
+    /// stubbed 5000) lands the settle a whole clock-correction away, the miss
+    /// itself. With no working base behind the ask (every other rig here) the
+    /// frame's clock stands, as it did before the command carried the clock.
+    /// </summary>
+    [Fact]
+    public void TheFirstPredictionSetsTheIdleSettleOnTheCommandsTickClock()
+    {
+        int pistol = WeaponCatalog.Stock().IndexOf(EntityNames.WeaponPistol);
+        var rig = new Rig(pistol);
+        rig.Weapon.State.TimeWeaponIdle = 0f;           // due at once: every idle command re-sends idle
+
+        // The working player carries the tick base the replay runs on — the
+        // same object the movement's replay holds (ClientModule's hand-over).
+        // The rig's engine carries the tick's interval (Rig.TickGlobals); the
+        // first-prediction crossing reads it through the injected environment.
+        var working = new PlayerNetState();
+        working.BindLocal();
+        working.TickBase = 2010;
+        rig.Arsenal.WorkingPlayer = working;
+
+        var basis = new UserCmd { CommandNumber = 10 };
+        rig.Arsenal.OnPlayerCommand(rig.Player, in basis, 2, false);
+
+        // The crossing the game's first prediction takes (ClientModule's
+        // OnStandalonePlayerCommand): the 4-argument form, the command its
+        // own clock on. The command's creation tick (2000) deliberately
+        // differs from the tick base (2010): the stamp must follow the base.
+        var cmd = new UserCmd { CommandNumber = 11, TickCount = 2000 };
+        rig.Arsenal.OnPlayerCommand(rig.Player, in cmd, 1, firstTime: true);
+
+        // The command's now is the tick BASE's ticks of the interval; the
+        // settle the machine arms on it is the repeat's 5 on top
+        // (WeaponLogic.IdleRepeat). The creation tick (2000 -> 35) is the
+        // wrong clock: it answers 35, the base answers 35.15+.
+        Assert.Equal(2010 * 0.015f + 5f, rig.Arsenal.WorkingWeapon.TimeWeaponIdle, 4);
+    }
+
+    /// <summary>The selection command and entity sounds the hud press travels through.</summary>
+    private sealed class Press : IWeaponSelectionCommand, SourceSharp.Client.Sounds.IClientEntitySounds
+    {
+        public readonly List<string> Lines = [];
+
+        public void SendSelection(string line) => Lines.Add(line);
+        public void Escape() { }
+        public void EmitFrom(EntityHandle entity, string soundName, Vector? origin = null) { }
+        public void StopFrom(EntityHandle entity, string soundName) { }
+    }
+
+    /// <summary>
+    /// The HUD's slot press (the cs_key the plain-life boots send) is answered
+    /// INSIDE the next replayed command, on that command's tick clock: the
+    /// server reads the press's <c>ss_use</c> within the command's own run and
+    /// stamps the deploy's meters there (<c>ItemMeterTime=40.32</c>, the
+    /// pyro/heavy miss), while the press itself lands between commands, where
+    /// the frame clock is behind the server's write by the ack batch (the
+    /// <c>40.275</c> those boots answered with). So the press holds its pick
+    /// for the replay, whose tick base — 2010 times the interval — carries the
+    /// stamp. The rig's frame clock (stubbed 5000) is the wrong answer; no
+    /// prediction at all leaves the stamp at zero.
+    /// </summary>
+    [Fact]
+    public void AHudSlotPressDeploysInsideTheNextReplayedCommand()
+    {
+        var catalog = WeaponCatalog.Stock();
+        int pistol = catalog.IndexOf(EntityNames.WeaponPistol);
+        int crowbar = catalog.IndexOf(EntityNames.WeaponCrowbar);
+
+        var rig = new Rig(pistol);
+
+        var working = new PlayerNetState();
+        working.BindLocal();
+        working.TickBase = 2010;
+        rig.Arsenal.WorkingPlayer = working;
+
+        var basis = new UserCmd { CommandNumber = 10 };
+        rig.Arsenal.OnPlayerCommand(rig.Player, in basis, 2, false);
+
+        // The real press path: the hud's Select — the console string out to
+        // the server, the pick held for the replay by this side's arsenal.
+        var hud = new LocalWeaponSelection(rig.Engine, rig.Standalones, rig.Arsenal, catalog,
+                                           new Press(), new Press());
+        hud.Select(crowbar);
+
+        var cmd = new UserCmd { CommandNumber = 11 };
+        rig.Arsenal.OnPlayerCommand(rig.Player, in cmd, 1, firstTime: true);
+
+        Assert.Equal(crowbar, rig.Arsenal.WorkingWeapon.WeaponTypeId);
+        Assert.Equal(2010 * 0.015f, rig.Arsenal.WorkingWeapon.LastDeployTime, 4);
     }
 
     /// <summary>A side that publishes one weapon row's carried clip, the carrier's word.</summary>

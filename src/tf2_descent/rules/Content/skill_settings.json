@@ -4,7 +4,7 @@
   "sharedClass": "mercenary",
   "sharedMaxRank": 7,
   "bonusRankCap": 3,
-  "damage": { "perHeroLevel": 0.04, "attributeDivisor": 50 },
+  "damage": { "perHeroLevel": 0, "attributeDivisor": 175 },
   "manaCostStat": "mana_cost_pct",
   "orders": { "durationStat": "order_duration_pct", "radiusStat": "order_radius_pct", "cooldownStat": "order_cooldown_pct" },
   "spells": { "maxRank": 5, "scrollStack": 10, "attribute": "smarts" },

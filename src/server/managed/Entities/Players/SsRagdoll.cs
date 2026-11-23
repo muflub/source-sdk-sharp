@@ -71,8 +71,8 @@ public sealed class SsRagdoll : AnimatingEntity
     public override void OnSpawn() => _physics.SetNotSolid(Handle, true);
 
     /// <summary>
-    /// THE DISSOLVE'S END. The one think a body books is its dissolve's
-    /// (<see cref="Dissolve"/>), and it fires only there: stock's server
+    /// THE DISSOLVE'S END, or a left body's lifetime (<see cref="Expire"/>).
+    /// A player's body books only its dissolve's (<see cref="Dissolve"/>): stock's server
     /// ragdoll has no lifetime of its own — it goes when the player's next
     /// death replaces it (<c>CTFPlayer::CreateRagdollEntity</c>'s m_hRagdoll
     /// destroy, tf_player.cpp:15659-15666) or a round reset sweeps it. The
@@ -80,6 +80,18 @@ public sealed class SsRagdoll : AnimatingEntity
     /// client half's to carry.
     /// </summary>
     public override void OnThink() => Remove();
+
+    /// <summary>
+    /// A body with a lifetime of its own: gone <paramref name="seconds"/> from
+    /// now (the same think its dissolve books). For a body no player's next
+    /// death will replace (<see cref="Corpses.Leave"/>); a dissolve booked
+    /// later takes the think over, and ends the body sooner.
+    /// </summary>
+    internal void Expire(float seconds)
+    {
+        if (!Dissolving && seconds > 0f)
+            SetNextThink(seconds);
+    }
 
     /// <summary>Whether this body is dissolving: stock's GetEffectEntity, for what sweeps bodies.</summary>
     internal bool Dissolving => State.DissolveStart > 0f;

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """tools/descent-preview-spawns -- one spawn view in a Descent level's preview.
 
-    tools/descent-preview-spawns <preview.bsp>      keep the first info_player_start
+    tools/descent-preview-spawns <preview.bsp>      keep the first info_player_start, stand the breakables
     tools/descent-preview-spawns --self-test
 
 `make descent-level` links a level a second time for `ssmap preview`, without
@@ -17,15 +17,38 @@ from the one spawn that is left, which stands in the same room as the others.
 
 The entity lump is written at the end of the file and the header points at it,
 so no other lump moves. A map with no info_player_start is refused.
+
+It then stands the level's breakable crates and barrels in the same preview
+map (ruling M34, brief p12): the rooms write each as a point the server's
+breakable manager draws, so neither linked map holds a prop there, and the
+preview would show (and its walker cross) open floor. tools/descent-breakables
+reads the points from the .nav3d the preview's link wrote beside the map, as
+the server reads them, and adds the server's model at each as a solid static
+prop casting no shadow (the lightmaps were baked without them, as the game's
+are). It is built against the map tools' assemblies: MAPTOOLS_DIR, else the
+checkout maptools.lock.local names, else ../source-sdk-map-tools (the
+Makefile's default). A map without its .nav3d is refused. The props are
+in the map's checksum, which the .map2d beside it records (the map tools'
+Map2dReader refuses a stale one), so the .map2d is rebound to the new map as
+tools/descent-face-sides rebinds it, and one made for another map is refused.
 """
+import importlib.machinery
+import importlib.util
 import os
 import re
 import struct
+import subprocess
 import sys
 import tempfile
 
 ENTITIES = 0
 HEADER_LUMPS = 64
+
+HERE = os.path.dirname(os.path.abspath(os.path.realpath(__file__)))
+ROOT = os.path.abspath(os.path.join(HERE, '..'))
+DOTNET = os.path.expanduser('~/.dotnet/dotnet')
+BREAKABLES_PROJECT = os.path.join(ROOT, 'tools', 'descent-breakables')
+BREAKABLES_BIN = os.path.join(ROOT, 'bin', 'descent-breakables', 'bin', 'Release', 'net10.0', 'descent-breakables')
 
 
 def entity_blocks(text):
@@ -70,6 +93,57 @@ def rewrite(path):
     return dropped
 
 
+def maptools_dir():
+    """The map tools checkout, as the Makefile finds it."""
+    if os.environ.get('MAPTOOLS_DIR'):
+        return os.environ['MAPTOOLS_DIR']
+    local = os.path.join(ROOT, 'maptools.lock.local')
+    if os.path.isfile(local):
+        with open(local) as f:
+            line = f.read().strip()
+        if line:
+            return line
+    return os.path.join(ROOT, '..', 'source-sdk-map-tools')
+
+
+def face_sides():
+    """tools/descent-face-sides as a module: its map checksum and .map2d binding are this rewrite's too."""
+    loader = importlib.machinery.SourceFileLoader('descent_face_sides', os.path.join(HERE, 'descent-face-sides'))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+def stand_breakables(path):
+    """The server's crates and barrels as static props in the preview map at `path`; returns the tool's line."""
+    nav = os.path.splitext(path)[0] + '.nav3d'
+    if not os.path.isfile(nav):
+        raise ValueError('no %s beside the map: the breakables are read from it' % nav)
+    sides = face_sides()
+    map2d = sides.map2d_of(path)
+    with open(path, 'rb') as f:
+        before = sides.map_checksum(f.read())
+    if os.path.exists(map2d) and sides.recorded_checksum(map2d) != before:
+        raise ValueError('%s records map checksum %08x, not %08x (this map before the breakables): it was made for '
+                         'another map; link the level again' % (map2d, sides.recorded_checksum(map2d), before))
+    build = subprocess.run([DOTNET, 'build', BREAKABLES_PROJECT, '-c', 'Release', '-nologo', '-v', 'q',
+                            '-p:MapToolsDir=' + maptools_dir()], cwd=ROOT, capture_output=True, text=True)
+    if build.returncode != 0:
+        raise ValueError('tools/descent-breakables did not build (exit %d): %s' % (build.returncode, (build.stdout + build.stderr)[-800:]))
+    out = subprocess.run([BREAKABLES_BIN, 'preview', path, nav], cwd=ROOT, capture_output=True, text=True)
+    if out.returncode != 0:
+        raise ValueError('tools/descent-breakables preview failed (exit %d): %s' % (out.returncode, (out.stdout + out.stderr)[-800:]))
+    if os.path.exists(map2d):
+        with open(path, 'rb') as f:
+            after = sides.map_checksum(f.read())
+        with open(map2d, 'rb') as f:
+            side = bytearray(f.read())
+        struct.pack_into('<I', side, sides.MAP2D_CHECKSUM_AT, after)
+        sides.write_atomic(map2d, side)
+    return out.stdout.strip()
+
+
 def self_test():
     bad = []
     text = ('{\n"classname" "worldspawn"\n}\n{\n"classname" "info_player_start"\n"origin" "1 2 3"\n}\n'
@@ -112,10 +186,11 @@ def main(argv):
         return 2
     try:
         dropped = rewrite(argv[0])
+        print('descent-preview-spawns: kept the arrival, dropped %d spawn(s) from %s' % (dropped, argv[0]))
+        print(stand_breakables(argv[0]))
     except (OSError, ValueError) as e:
         print('descent-preview-spawns: %s' % e, file=sys.stderr)
         return 1
-    print('descent-preview-spawns: kept the arrival, dropped %d spawn(s) from %s' % (dropped, argv[0]))
     return 0
 
 

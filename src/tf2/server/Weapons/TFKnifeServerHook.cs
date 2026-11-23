@@ -26,7 +26,7 @@ public sealed class TFKnifeServerHook(ITFSpyState spies) : TFKnifeHook, TF2.Shar
     /// answered whole, so no melee roll runs and the bucket is untouched.
     /// </summary>
     public TFCritResult? CritAnswer(in TFWeaponHookContext weapon) =>
-        IsKnife(in weapon) ? new TFCritResult(spies.Smack(weapon.OwnerIndex)) : null;
+        IsKnife(in weapon) ? new TFCritResult(spies.IsBackstab(weapon.OwnerIndex)) : null;
 
     public bool BeforeFire(in TFWeaponHookContext weapon, in WeaponAttackContext attack)
     {
@@ -64,10 +64,12 @@ public sealed class TFKnifeServerHook(ITFSpyState spies) : TFKnifeHook, TF2.Shar
     }
 
     /// <summary>
-    /// The smack's half of the backstab: <see cref="TF2.Shared.TFMeleeBehaviour"/>'s
+    /// The smack's half: <see cref="TF2.Shared.TFMeleeBehaviour"/>'s
     /// <c>ItemPostFrame</c> asks the chain for the hit's damage at the smack
-    /// time (and the roll asks at the swing), and a backstab answers zero so
-    /// the swing's own arm hits for nothing.
+    /// time — the ask calls the slice's smack half, which deals the latch's hit
+    /// through the seam (stock's <c>GetMeleeDamage</c> inside the smack,
+    /// tf_weapon_knife.cpp:348-394) — and the chain's own arm answers zero
+    /// beside it, so the melee records nothing beyond the seam's hit.
     /// </summary>
     public float ModifyDamage(in TFWeaponHookContext weapon, float damage) =>
         IsKnife(in weapon) && weapon.OwnerIndex > 0 && spies.Smack(weapon.OwnerIndex)
@@ -81,14 +83,15 @@ public sealed class TFKnifeServerHook(ITFSpyState spies) : TFKnifeHook, TF2.Shar
 
         spies.RemoveInvisibility(attack.Command.OwnerIndex);
 
-        // The knife's tail (tf_weapon_knife.cpp:243-264): a successful backstab by a knife holding
-        // set_disguise_on_backstab disguises as the victim instead of the plain RemoveDisguise every
-        // other attack takes (stock's ShouldRemoveDisguiseOnPrimaryAttack: tf_weaponbase_gun.cpp:136,
-        // 210, tf_weapon_knife.cpp:224, 263). Stock's HasTheFlag half of the gate (:246) rides inside
-        // DisguiseOnKill, beside the slice's own ctf read.
-        if (IsKnife(in weapon) && spies.Smack(attack.Command.OwnerIndex)
-            && spies.ShouldDisguiseOnBackstab(attack.Command.OwnerIndex)
-            && spies.DisguiseOnKill(attack.Command.OwnerIndex))
+        // The knife's tail (tf_weapon_knife.cpp:243-264) rides behind the smack's deal,
+        // where the kill check finds the victim after the hit: a latched swing carries
+        // its tail in the slice's Smack — the disguise of :246-260 on the dead answer,
+        // the plain removal otherwise (stock's HasTheFlag half of :246 lives inside
+        // DisguiseOnKill, beside the slice's own ctf read). Every other attack, and a
+        // front swing, takes the plain RemoveDisguise here: stock's
+        // ShouldRemoveDisguiseOnPrimaryAttack answers it to the press itself
+        // (tf_weaponbase_gun.cpp:136, 210, tf_weapon_knife.cpp:224, 263).
+        if (IsKnife(in weapon) && spies.IsBackstab(attack.Command.OwnerIndex))
             return;
 
         spies.RemoveDisguise(attack.Command.OwnerIndex);

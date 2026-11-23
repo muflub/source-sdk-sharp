@@ -128,11 +128,21 @@ public sealed class NavLinks
     /// <paramref name="costs"/>, in the order given (the order is a link's index). A link whose
     /// cell is not the graph's is refused.
     /// </summary>
-    public static NavLinks Build(NavGraph graph, IReadOnlyList<NavLink> links, NavLinkCosts costs)
+    public static NavLinks Build(NavGraph graph, IReadOnlyList<NavLink> links, NavLinkCosts costs) => Build(graph, links, costs, null);
+
+    /// <summary>
+    /// <see cref="Build(NavGraph, IReadOnlyList{NavLink}, NavLinkCosts)"/>, each link weighed at the health
+    /// <paramref name="weighed"/> gives for it (index for index) in place of its own <see cref="NavLink.Health"/>, which
+    /// stays what a search spends on it (lane G9: TF2's link that lands by a health pack spends less of the bot's budget
+    /// than its blast costs, and weighs what its blast costs). Null: each at its own health.
+    /// </summary>
+    public static NavLinks Build(NavGraph graph, IReadOnlyList<NavLink> links, NavLinkCosts costs, IReadOnlyList<float>? weighed)
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(links);
         ArgumentNullException.ThrowIfNull(costs);
+        if (weighed is not null && weighed.Count != links.Count)
+            throw new ArgumentException($"{weighed.Count} weights for {links.Count} links", nameof(weighed));
         var copy = new NavLink[links.Count];
         var cost = new float[links.Count];
         float scale = 1f;
@@ -142,7 +152,7 @@ public sealed class NavLinks
             if ((uint)l.From >= (uint)graph.CellCount || (uint)l.To >= (uint)graph.CellCount)
                 throw new ArgumentException($"link {i} joins cells {l.From} and {l.To} of a graph of {graph.CellCount}", nameof(links));
             copy[i] = l;
-            cost[i] = costs.Cost(l);
+            cost[i] = costs.Cost(weighed is null ? l : l with { Health = weighed[i] });
             if (!(cost[i] >= 0f))
                 throw new ArgumentException($"link {i} costs {cost[i]}", nameof(links));
             float straight = graph.Cell(l.From).Centre.DistanceTo(graph.Cell(l.To).Centre);

@@ -334,13 +334,14 @@ public sealed class HeroComponentTests
     }
 
     [Fact]
-    public void The_hero_state_is_48_bytes_after_the_engine_block()
+    public void The_hero_state_is_52_bytes_after_the_engine_block()
     {
         // 488 bytes of engine block, then four ints and four packed words
         // (measured live: tools/debug-api payload, layoutBytes 520),
         // WO6's three revive and downed ticks (the reviver rides a packed word),
-        // and HE10's lamp, its pitch and the hazard stood in: one more packed word.
-        Assert.Equal(536, HeroNetState.NetLayout.Size);
+        // and HE10's lamp, its pitch and the hazard stood in: one more packed word;
+        // the lamp's range (13 bits) and brightness (9 bits): one more.
+        Assert.Equal(540, HeroNetState.NetLayout.Size);
     }
 
     [Fact]

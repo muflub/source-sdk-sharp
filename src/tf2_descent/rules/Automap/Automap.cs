@@ -149,6 +149,24 @@ public static class AutomapRules
     }
 
     /// <summary>
+    /// The rooms the map has discovered and not entered (user 2026-11-15, Diablo's edge of what
+    /// lies past a door): each joined by a door to a room entered, in the level's order. A client
+    /// may draw such a room's outline and doors, fainter, and nothing in it; a room two doors from
+    /// every entered room is not among them.
+    /// </summary>
+    public static IReadOnlyList<MapRoom> Discovered(Automap map, AutomapLevel level)
+    {
+        var beyond = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var d in level.Doors)
+        {
+            bool a = map.Seen(d.RoomA), b = map.Seen(d.RoomB);
+            if (a != b)
+                beyond.Add(a ? d.RoomB : d.RoomA);
+        }
+        return [.. level.Rooms.Where(r => beyond.Contains(r.Id)).Select(r => new MapRoom(r.Id, r.Storey))];
+    }
+
+    /// <summary>
     /// The view's bytes, as sent: canonical JSON (fields in a fixed order, no whitespace), so
     /// the same view is always the same bytes and a fact can read what left the server.
     /// </summary>

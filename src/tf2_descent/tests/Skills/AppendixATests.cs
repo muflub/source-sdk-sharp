@@ -36,14 +36,14 @@ public sealed class AppendixATests
     {
         // A.2 Ordnance
         ["patriot_missile"] = new(5, [C("mana", 4), C("cooldown", 0), N("projectile.damage", 20, 60), C("projectile.radius", 110)]),
-        ["marksmanship"] = new(5, [N("stat:damage_weapon_pct", 3, 15), N("stat:spread_pct", -4, -20), N("stat:projectile_speed_pct", 3, 15)]),
+        ["marksmanship"] = new(5, [N("stat:damage_weapon_pct", 5, 25), N("stat:spread_pct", -4, -20), N("stat:projectile_speed_pct", 3, 15)]),
         ["salvo"] = new(5, [C("cooldown", 6), N("charge.stages", 3, 5), C("charge.manaPerStage", 3), C("charge.releaseTime", 0.6), C("projectile.spreadDeg", 3)]),
         ["field_dressing"] = new(5, [N("triggered.heal", 1, 3), C("triggered.maxTargets", 3), C("triggered.perSecondCap", 10)]),
         ["emp_charge"] = new(5, [C("mana", 15), C("cooldown", 8), C("charge.time", 2), N("projectile.damage", 45, 110), N("debuff.duration", 1, 2)]),
-        ["rocket_specialist"] = new(5, [N("stat:reload_speed_pct", 5, 25), N("stat:blast_radius_pct", 3, 15), N("stat:projectile_speed_pct", 3, 15),
+        ["rocket_specialist"] = new(5, [N("stat:reload_speed_pct", 10, 50), N("stat:blast_radius_pct", 3, 15), N("stat:projectile_speed_pct", 3, 15),
             N("stat:clip_size", 0, 2), N("triggered.duration", 0, 0.5)]),
         ["rain_of_freedom"] = new(5, [C("mana", 18), C("cooldown", 12), N("projectile.count", 6, 10), N("projectile.damage", 12, 30), C("projectile.duration", 1.5)]),
-        ["killer_instinct"] = new(5, [N("stat:crit_chance_pct", 2, 10), N("stat:crit_damage_pct", 5, 25)]),
+        ["killer_instinct"] = new(5, [N("stat:crit_chance_pct", 2, 10), N("stat:crit_damage_pct", 10, 50)]),
         ["fire_mission"] = new(5, [C("mana", 30), C("cooldown", 25), N("area_burst.damage", 60, 140), C("area_burst.delay", 3), C("area_burst.count", 5), C("area_burst.area", 400)]),
         ["screamin_eagle"] = new(1, [C("mana", 50), C("cooldown", 90), C("buff.duration", 8), C("stat:mana_cost_pct", -50)]),
         // A.3 Airborne
@@ -58,7 +58,7 @@ public sealed class AppendixATests
         ["rocket_leap"] = new(5, [C("mana", 12), N("cooldown", 10, 6), N("area_burst.damage", 25, 70)]),
         ["human_rocket"] = new(1, [C("mana", 40), C("cooldown", 45), C("area_burst.damage", 200)]),
         // A.4 Command
-        ["battle_orders"] = new(5, [C("mana", 20), C("cooldown", 30), N("aura.duration", 8, 12), C("aura.radius", 450), N("stat:damage_all_pct", 15, 35)]),
+        ["battle_orders"] = new(5, [C("mana", 20), C("cooldown", 30), N("aura.duration", 8, 12), C("aura.radius", 450), N("stat:damage_all_pct", 30, 60)]),
         ["basic_training"] = new(5, [N("stat:max_life_pct", 3, 15), N("stat:resist_all_pct", 2, 10)]),
         ["dig_in"] = new(5, [C("mana", 20), C("cooldown", 30), N("aura.duration", 8, 12), N("stat:damage_taken_pct", -15, -35)]),
         ["maggots"] = new(5, [C("mana", 8), C("cooldown", 12), C("threat.radius", 600), C("threat.duration", 4), N("stat:damage_all_pct", -10, -30)]),
@@ -79,6 +79,8 @@ public sealed class AppendixATests
         ["scavenger"] = new(5, [N("floor", 3, 15), N("stat:item_drop_pct", 6, 30), N("stat:australium_find_pct", 4, 20)]),
         ["haggler"] = new(5, [N("floor", 3, 15), N("stat:price_buy_pct", -4, -20), N("stat:price_sell_pct", 4, 20)]),
         ["field_rations"] = new(5, [N("floor", 3, 15), N("stat:potion_restore_pct", 8, 40), N("stat:potion_cooldown_pct", -6, -30)]),
+        // Not in Appendix A: the miner's lamp's skill (the user, 2026-11-13; provisional numbers).
+        ["lamplighter"] = new(5, [N("floor", 3, 15), N("stat:lamp_radius_pct", 15, 75), N("stat:lamp_brightness_pct", 15, 75)]),
     };
 
     /// <summary>Appendix A's "needs" column and synergy lines, as edges.</summary>
@@ -118,8 +120,8 @@ public sealed class AppendixATests
         "death_from_above +10 bonusDamagePct per rank of trench_fighter",
         "stomp +8 radius_pct per rank of jump_training",
         "human_rocket +5 damage_pct per rank of rocket_leap",
-        "battle_orders +3 potency_pct per rank of dig_in",
-        "battle_orders +3 potency_pct per rank of forward_march",
+        "battle_orders +6 potency_pct per rank of dig_in",
+        "battle_orders +6 potency_pct per rank of forward_march",
         "dig_in +3 potency_pct per rank of battle_orders",
         "dig_in +3 potency_pct per rank of forward_march",
         "forward_march +3 potency_pct per rank of battle_orders",
@@ -198,7 +200,7 @@ public sealed class AppendixATests
     {
         var rows = Content.Skills.Rows.Select(s => s.Id).Order().ToList();
 
-        Assert.Equal(39, rows.Count);
+        Assert.Equal(40, rows.Count);   // Appendix A's 39 and the lamp's Lamplighter
         Assert.Equal(Expected.Keys.Order(), rows);
     }
 

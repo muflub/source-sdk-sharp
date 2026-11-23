@@ -14,7 +14,8 @@ Entries by owner (the file keeps its order; this is the index):
 - **The live gate** (tools/live-gate, tools/daily-gate): live-gate's
   fault check across a hot reload; chat's second
   client exits during connect; no step covers screen shakes and fades; a
-  rename cannot be driven on a Steam client.
+  rename cannot be driven on a Steam client; gib-ragdoll's budget and the
+  fan debris' friction crossings.
 - **The server lane** (plan_server_native_v2): player-movement controls and
   entity fields; player weapon and score questions; managed decisions whose
   native caller went in T2; the sound emit path (T4a); temp entities and
@@ -42,6 +43,30 @@ Entries by owner (the file keeps its order; this is the index):
   mod found and this mod still does differently.
 - **Not open work**: the rulings and divergences kept only here, and the
   closed entries still cited, in the last two sections.
+
+## Depth 13 at seed 1 does not lint clean (2026-11-22)
+
+`MapGen descent-rooms <dir> --seed 1 --depth 13` refuses its library:
+`stope_b-ew-h-j.b1` dresses a nature/underworld_rockwall001 set brush
+(950 882 16)-(1034 958 22) past the cell's east edge (`inside_cell`,
+`dress_in_brush`). Found comparing every depth at seeds 0 and 1 before and
+after the dresser speedup (PR #43): the old code refuses it identically, and
+every other depth at both seeds lints clean. The facts dress seed 0, so
+nothing holds seed 1. Owner: the Descent map work.
+
+## The client prediction still walks through box-solid entities (2026-11-15)
+
+`PredictionEntityClip` (src/client/managed/PredictionEntityClip.cs, lane
+cpbob at 492f1c760) clips the props and brush entities the client's engine
+trace misses (SOLID_BSP and SOLID_VPHYSICS), so standing on a control point
+no longer mispredicts (cp_granary middle point: 119 of 119 compares to 0).
+Box-solid entities are left out: TF2's buildings (an Engineer standing on
+his dispenser), NPCs and projectiles. The server's filter passes a mover's
+own projectiles and its owner (`TraceFilterRules`' owner clause), and no
+owner is on the standalone wire, so the client cannot decide them as the
+server does. Next step: put the owner handle on the wire (stock sends
+m_hOwnerEntity in DT_BaseEntity), then widen the clip to SOLID_BBOX with the
+owner clause. Owner: the client port.
 
 ## ModImageTests races another leg for bin/debug/bin/linux64 (2026-11-09)
 
@@ -786,6 +811,22 @@ ported in `Observers`' remarks:
 - **spec_player by SteamID.** UTIL_PlayerByCommandArg's SteamID forms are
   not handled; `#userid`, a unique partial name and a bare userid are.
 - **spec_goto** (fixed / roaming, five arguments) is not ported.
+- **The watched player's viewmodel in in-eye** (added 2026-11-15, lane spec).
+  Stock's in-eye observer draws the target's viewmodel and reads its
+  weapon (C_BasePlayer::GetViewModel and GetActiveWeapon's in-eye arms,
+  c_baseplayer.cpp:2203-2235); ours draws no
+  viewmodel in in-eye, only the target's body is hidden (4c9d31fdb). The
+  client's viewmodel entity is the local player's own, so this needs the
+  target's weapon state on the observer's client: a piece of its own.
+- **HL2MP's eye angles** (added 2026-11-15, lane spec). TF2's in-eye view
+  follows `m_angEyeAngles` (TFEyeAngles, TF's 8/10 bits on the TF carrier);
+  the test mod's in-eye still takes the body's facing. CHL2MP_Player sends
+  them as two 11-bit angles (hl2mp_player.cpp) on a core field it would need.
+- **TF2's freeze-cam leftovers** (added 2026-11-15, lane spec). A killer that
+  is no player (a sentry, a boss) is not watched (the observer target holds
+  players only), so such a death keeps the death cam; the freeze panel's
+  callouts (`ShowCalloutsIn( 1.0 )`), the freeze-cam sound mixer and the
+  `TFPlayer.FreezeCam` sound are not ported.
 
 **Owner:** the server lane (HL2MP gameplay). **Next:** the rate limit is the
 smallest; the rest have no order.
@@ -1399,11 +1440,24 @@ Not resolved: `ServiceContainer.Resolve` builds `Add<T>()` services on first ask
 
 Worth adding: the crash fix's material thread marks are proven only live, with no live-gate step (`MaterialConfigConVars`).
 
-## AI nav: a hull wider than the game's cannot climb stairs (2026-11-11)
+## AI nav: a wide hull on a step whose top is inside a voxel (2026-11-15) — done
 
-Found by the Descent CR3 lane (`docs/plans/tf2_descent/plan_descent_logic.md`). `NavGraphFromNav3d` raises an extra hull (`NavNumbers.ExtraHulls`) by one step only, so a box that reaches the step two up is admitted on no step: on `ctf_2fort` at map-tools 3551fa8 a 49 by 83 hull has 0 of 4 spawn-to-flag ways and an 86 by 145 hull 0 of 4, where the game's own 48 by 82 has 4 of 4. The fixture is `src/ai/tests/ServerNav/NavExtraHullStairTests.cs`, which pins today's answer and is the red-to-green fact for the fix.
+`NavGraphFromNav3d` stands an extra hull (`NavNumbers.ExtraHulls`) on the highest step under its box, each rise within `StepHeight` (the coordinator's 2026-11-11 ruling), and since the user's ruling of 2026-11-15 asks the fit there of the first voxel at or above the feet (`INavSource.FitsAbove`, as `CrossedAbove` does), so a step whose top lies inside a voxel is stood on (`ExtraHullRevision` 3, branch `descent-sill`; `Revision` stays 5). Measured at map-tools 3551fa8: on `ctf_2fort` (.nav3d 7ee026d58b2a, TF2's numbers) a 49 by 83 hull went from 0 to 4 of the 4 spawn-to-flag ways (29,259 to 30,484 cells reached from a flag; the one-unit sill at the blue spawn's door, -1608 -1440, top 257, was the block); 86 by 145 stays at 0 of 4 (31 to 43 cells). The graphs with no extra hulls keep their hashes (ctf_2fort a1f2a50f0b6c2307, dm_lockdown 14e7fae89d549dfd). On Descent's committed depth 1 seed 1 fixture (rails solid) the x1.75 and x1.90 classes now reach 18 of 18 rooms (15 before); depth 8 seed 1 stays 37 of 37 for every class. The facts that refuse a hull its floor cannot carry moved to a level of their own (`CutFloorLevel`, a corridor narrower than a giant, every face on a voxel boundary); the depth 1 facts now state 18 of 18.
 
-The fix, as the AI coordinator ruled it on 2026-11-11: stand the hull on the highest step under its footprint, with each rise within `StepHeight`. It is a Descent lane's, for when Descent needs giants on stairs, based on main after the coordinator's lane p6e (which is in `NavGraphFromNav3d` for the 2fort traps) has landed. Existing numbers stay byte-identical: the checks CR3 ran (`NumbersKey`, cache names, the dm_lockdown and ctf_2fort graph hashes, the HL2MP replays).
+The rule's known false yes (`NavExtraHullStairTests.AHullIsStoodOnASillBesideAPostThatIsNoFloorWhenThePostTopsOutInsideTheVoxel`): a solid that is no floor (not walkable) and tops out inside the voxel over the feet, within the hull's box, is not asked. A sweep of the cells the new fit admits and the old one did not, looking for such a solid in the box (offline, same tip): ctf_2fort 7 of 1,073 such cells for 49 by 83 and 77 of 9,943 for 86 by 145 (45 to 94 for Descent's four hull sizes), overlaps of 0.2 to 10 units, mostly the slopes by the blue base (-3048 -3700); dm_lockdown 13 to 18 per hull size (e.g. -2920 1384, -4088 3176); none on Descent's levels (depth 1 to 5 seed 1 as built in the main checkout's pool, and the depth 1 fixture). Not fixed: a robot pressed against such a slope is what the movement steps over or slides off. **Owner:** the AI coordinator, if a bot is seen stuck at one.
+
+Found on the way: a depth 9 seed 1 built at this tip has no pool room, so `HordeNavDataTests.Every_class_reaches_every_room_of_depth_9_seed_1_pools_included` fails its premise in a tree that builds it (it skips elsewhere); every class reaches its 37 rooms. `SpawnDirectorTests`' comment on `A_robot_is_never_posted_where_its_hulls_floor_does_not_join_the_arrivals` still says depth 1 cuts rooms 6, 16 and 17 off. **Owner:** the Descent lane.
+
+Two more things follow from the fix. The game's own wide hull keeps the one-step rule, so a hull of the game's own size (48 by 82) is admitted in 160,775 cells on ctf_2fort, 9 more than the 160,766 the game stands in. Giving the body the same rule would change TF2's graph hashes and cache names: that needs a ruling. Descent's `DirectorSettings.FloorBoundSizes` (plan 4.7) was written for giants that cannot climb stairs, and the Descent lane should check whether it still holds.
+
+## TF2 bots: stacked teammates at a later rally (2026-11-21)
+
+Lane Groutes (landed `d28eb8f8a`): two bots standing within 12 u of each other
+(one on the other's head, or pressed together in a doorway) do not count each
+other at a rally after the round's opening, so a rally can wait for a bot that is
+already there. Seen on cp_granary in the spread runs; not measured on its own.
+Start from the rally's teammate count in `TFDecider.Rally.cs` and a fact with two
+bots 8 u apart.
 
 ## TF2 bots on ctf_2fort: what P6 left (2026-11-11)
 
@@ -1416,3 +1470,22 @@ From lane p6e (main after `694f4f618`). Its runs and notes were in that lane's `
 ## Descent: make descent-install then any build is refused as stale (2026-11-11)
 
 Found by the Descent horde spike (`docs/plans/tf2_descent/plan_descent_logic.md` 3.11). `make descent-install` links a linked level into the mod's `pool/maps`; the setup check that `make debug` and `make headless` run then calls those links stale and stops ("remove stale ..."). The spike copied the three files (`.bsp`, `.nav3d`, `.map2d`) into `bin/<config>/mods/tf2_descent/pool/maps/` instead. Either the install copies, or the setup check knows the pool. The map session owns both.
+
+## gib-ragdoll's budget: the fan debris' friction crossings (2026-11-13)
+
+At dbb6bb8fc (debug, full two-pass live gate) gib-ragdoll's checks all pass
+and its crossing budget reads 29.056 and 25.500 per frame against a ceiling
+of 28.728, recorded at 11.5-12.5 (tools/live-gate-budget.tsv row
+gib-ragdoll). The excess is ServerPhysicsCollisionFriction, 1,433-1,647 per
+step (about 14 per frame): IPhysicsCollisionEvent::Friction crosses into
+managed once per report (PhysicsCollisionEventBinding.Friction). The
+reports are the fan room's fan_debris: the trigger step drops the player
+into dm_lockdown's fan room, the wind blows them into the pile at the
+spinning fan, and five unbreakable debris (buckets, shoe, cinder block,
+plank) wake there and rub, pressed by fan_wind, for the rest of the level;
+every step after trigger pays for them. Night runs from 2026-11-03 read
+30.5-37.5 (red). Not a ceiling to raise (CLAUDE.md: a blown budget is a
+boundary-design task). **Owner:** the live gate / the physics boundary.
+**Next:** check in stock whether those debris settle against the fan (the
+A/B probe technique); if they rub there too, batch Friction natively into
+the event ring rather than one crossing per report.

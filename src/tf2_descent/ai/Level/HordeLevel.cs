@@ -27,10 +27,12 @@ public readonly record struct MarkerClearance(float West, float East, float Sout
 public readonly record struct PackMarker(AiVector Position, float Yaw, MarkerClearance? Clearance = null);
 
 /// <summary>
-/// A room as the horde sees it: its id (its index in the level), its bounds, and its pack
-/// markers in the order robots take them.
+/// A room as the horde sees it: its id (its index in the level), its bounds, its pack
+/// markers in the order robots take them, and its light as the level carries it (level 1 =
+/// 100 on the brightness gate's scale; null when the level does not say) and whether it is
+/// dark by design (no light of its own).
 /// </summary>
-public sealed record HordeRoom(int Id, AiVector Min, AiVector Max, ImmutableArray<PackMarker> Markers)
+public sealed record HordeRoom(int Id, AiVector Min, AiVector Max, ImmutableArray<PackMarker> Markers, float? Light = null, bool DarkByDesign = false)
 {
     public bool Contains(AiVector p) =>
         p.X >= Min.X && p.X <= Max.X && p.Y >= Min.Y && p.Y <= Max.Y && p.Z >= Min.Z && p.Z <= Max.Z;
@@ -50,8 +52,21 @@ public sealed record HordeDoor(int RoomA, int RoomB, AiVector Position, AiVector
     public AiVector Into(int from) => from == RoomA ? Normal : -Normal;
 }
 
-/// <summary>A level's boss: its template, the room that is its arena, and where it stands.</summary>
-public sealed record HordeBoss(string Template, int ArenaRoom, PackMarker Spot);
+/// <summary>A point of the Tank's track as the level ships it: where, whether the Tank stops and drills there, and whether it is the final station (the roof).</summary>
+public readonly record struct TankTrackPoint(AiVector Position, bool Station, bool Final);
+
+/// <summary>A mouth a boss's adds come out of: where, the way it faces (degrees), and the phase that opens it (1-based; leg 1 is open from the start).</summary>
+public readonly record struct AddMouth(AiVector Position, float Yaw, int Leg);
+
+/// <summary>
+/// A boss arena's layout as the level ships it (the ARNA contract): the Tank's track in its order
+/// (the loop closes back to point 0) and the mouths its adds come out of. Either may be empty: the
+/// arena's markers stand in for an empty one.
+/// </summary>
+public sealed record HordeArenaLayout(ImmutableArray<TankTrackPoint> Track, ImmutableArray<AddMouth> Mouths);
+
+/// <summary>A level's boss: its template, the room that is its arena, where it stands, and its arena's layout when the level ships one.</summary>
+public sealed record HordeBoss(string Template, int ArenaRoom, PackMarker Spot, HordeArenaLayout? Layout = null);
 
 /// <summary>
 /// The level as the horde sees it (plan_descent_logic 3.3 to 3.5): rooms, doors, the room

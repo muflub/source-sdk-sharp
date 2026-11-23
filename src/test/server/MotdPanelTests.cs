@@ -24,6 +24,31 @@ public class MotdPanelTests
         return (new MotdPanel(engine, DeclaredConVars.Holding<HostnameConVar>(hostname), convars.Declared<MotdUnloadOnDismissalConVar>()), engine, convars);
     }
 
+    /// <summary>The rig with <paramref name="gates"/> registered as the message's vetoes.</summary>
+    private static (MotdPanel Panel, RecordingEngine Engine) Gated(params IMotdGate[] gates)
+    {
+        var engine = Fake();
+        var convars = ConVarRegistry.For(UnattachedConsole());
+        convars.RegisterAll(typeof(GameRules).Assembly);
+        return (new MotdPanel(engine, DeclaredConVars.Holding<HostnameConVar>("x"), convars.Declared<MotdUnloadOnDismissalConVar>(),
+                              new LagHooks<IMotdGate>(gates)), engine);
+    }
+
+    /// <summary>A gate with a fixed answer that counts who it was asked about.</summary>
+    private sealed class Gate(bool shows) : IMotdGate
+    {
+        public List<int> Asked { get; } = [];
+
+        public bool ShowsMotd(int entIndex)
+        {
+            Asked.Add(entIndex);
+            return shows;
+        }
+    }
+
+    private static int InfoPanels(RecordingEngine engine) =>
+        engine.AllOf("UserMessages.Send").Count(c => (string)c.Args[0]! == "VGUIMenu");
+
     private static (VguiMenu Menu, int Slot, bool Reliable) Sent(RecordingEngine engine)
     {
         var send = Assert.Single(engine.AllOf("UserMessages.Send"), c => (string)c.Args[0]! == "VGUIMenu");
@@ -59,5 +84,39 @@ public class MotdPanelTests
         convars.All.Single(c => c.Name == "sv_motd_unload_on_dismissal").Bind(-1, "sv_motd_unload_on_dismissal", "1");
         panel.OnClientActive(2);
         Assert.Equal("1", Sent(engine).Menu.Values[3]);
+    }
+
+    [Fact]
+    public void A_gate_that_refuses_keeps_the_motd_from_the_player()
+    {
+        var (panel, engine) = Gated(new Gate(shows: true), new Gate(shows: false));
+
+        panel.OnClientActive(3);
+
+        Assert.Equal(0, InfoPanels(engine));
+        Assert.Equal(0, panel.Sent);
+    }
+
+    [Fact]
+    public void Gates_that_all_allow_show_the_motd()
+    {
+        var (panel, engine) = Gated(new Gate(shows: true), new Gate(shows: true));
+
+        panel.OnClientActive(3);
+
+        Assert.Equal(("info", 3), (Sent(engine).Menu.Name, Sent(engine).Slot));
+    }
+
+    [Fact]
+    public void Every_gate_is_asked_about_each_activation_even_after_a_refusal()
+    {
+        var refuses = new Gate(shows: false);
+        var counts = new Gate(shows: true);
+        var (panel, _) = Gated(refuses, counts);
+
+        panel.OnClientActive(3);
+        panel.OnClientActive(3);
+
+        Assert.Equal(new[] { 3, 3 }, counts.Asked);
     }
 }

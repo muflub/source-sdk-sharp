@@ -86,6 +86,8 @@ public static class TFKnowledge
     {
         TFProjectile.Rocket or TFProjectile.SentryRocket => TFProjectileDefs.RocketSpeed,
         TFProjectile.Pipebomb or TFProjectile.PipebombPractice => TFProjectileDefs.PipeSpeed,
+        // A sticky leaves at the launcher's least charge's speed (TF_PIPEBOMB_MIN_CHARGE_VEL), more the longer it is held.
+        TFProjectile.PipebombRemote => TFProjectileDefs.StickyMinChargeSpeed,
         TFProjectile.Syringe => TFProjectileDefs.SyringeSpeed,
         TFProjectile.Flare => TFProjectileDefs.FlareSpeed,
         TFProjectile.Arrow or TFProjectile.FestiveArrow => TFProjectileDefs.ArrowSpeed(TFProjectileDefs.ArrowChargeTime),

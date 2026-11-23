@@ -17,9 +17,9 @@ namespace TF2.Descent.Tests.Hero;
 public sealed class HeroAttributesTests
 {
     [Theory]
-    [InlineData(Sheet.Level1, 247)]      // 200 + 2 a level + 3 a point of Grit 15
-    [InlineData(Sheet.Level10, 325)]     // 200 + 2 x 10 + 3 x Grit 35
-    [InlineData(Sheet.Level10Contributions, 325)]
+    [InlineData(Sheet.Level1, 263)]      // 200 + 18 a level (RU14: 2 was) + 3 a point of Grit 15
+    [InlineData(Sheet.Level10, 485)]     // 200 + 18 x 10 + 3 x Grit 35
+    [InlineData(Sheet.Level10Contributions, 485)]
     public void TFs_maximum_health_is_the_sheets_maximum_life(Sheet sheet, int life)
     {
         var rig = new HeroStatsRig(sheet);
@@ -52,13 +52,13 @@ public sealed class HeroAttributesTests
     {
         var rig = new HeroStatsRig();
         var container = rig.Attributes.AttributesOf(rig.Player);
-        Assert.Equal(247, rig.TFNumbers().MaxHealth);
+        Assert.Equal(263, rig.TFNumbers().MaxHealth);
 
         Assert.True(rig.Hero.Apply(s => rig.Rig.AtLevel(s, 2)).Ok);
 
         // The same container, a new value: no rebuild, no respawn.
         Assert.Same(container, rig.Attributes.AttributesOf(rig.Player));
-        Assert.Equal(249, rig.TFNumbers().MaxHealth);
+        Assert.Equal(281, rig.TFNumbers().MaxHealth);
         Assert.DoesNotContain(rig.Rig.Engine.Calls, c => c.Member == "Entities.SetHealth");
     }
 
@@ -70,12 +70,12 @@ public sealed class HeroAttributesTests
         var manager = new TF2.Shared.Econ.AttributeContainer();
         rig.Attributes.AttributesOf(rig.Player)!.ProvideTo(manager);
         var hooks = new TF2.Shared.Econ.AttributeHooks();
-        Assert.Equal(247, hooks.Int(HeroStatsRig.SoldierHealth, HeroAttributes.MaxHealthClass, manager));
+        Assert.Equal(263, hooks.Int(HeroStatsRig.SoldierHealth, HeroAttributes.MaxHealthClass, manager));
 
         rig.Dev.Add(HeroRig.Index, "max_life", 30);
         rig.Hero.Recompute();
 
-        Assert.Equal(277, hooks.Int(HeroStatsRig.SoldierHealth, HeroAttributes.MaxHealthClass, manager));
+        Assert.Equal(293, hooks.Int(HeroStatsRig.SoldierHealth, HeroAttributes.MaxHealthClass, manager));
     }
 
     [Theory]

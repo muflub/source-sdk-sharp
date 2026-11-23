@@ -228,6 +228,8 @@ internal sealed class FakeWorld : IRoundWorld
         return 1;
     }
 
+    public void PreviousRoundEnd() => Calls.Add("previous_round_end");
+
     public void SetupControlPointSpawns() => Calls.Add("cp_spawns");
 
     public void RemoveProjectilesAndBuildings()
@@ -467,7 +469,8 @@ internal sealed class RoundRig
     public RoundRig(TF2.Server.Entities.ITeamResource? table = null, TF2.Server.Player.TFPlayerCarriers? carriers = null,
                     TF2.Server.Econ.ITFPlayerClasses? classes = null, ILevelInfo? level = null,
                     TF2.Server.Entities.IObjectiveEntities? objectives = null,
-                    TF2.Server.Player.ITFPlayerStats? stats = null, int seed = 1234)
+                    TF2.Server.Player.ITFPlayerStats? stats = null, int seed = 1234,
+                    SpecFreezeTimeConVar? freezeTime = null, SpecFreezeTravelTimeConVar? travelTime = null)
     {
         Scores = new TFTeamScores(table ?? new TF2.Server.Entities.TeamResource());
         Roster = new FakeRoster(Clock);
@@ -485,7 +488,10 @@ internal sealed class RoundRig
                                  new RandomSeeds(seed), Engine,
                                  new ListHooks<ITeamRoundListener>(Listener), new ListHooks<ITimerExpiryVeto>(Veto),
                                  carriers ?? new TF2.Server.Player.TFPlayerCarriers(), WinPanel, level ?? new FakeLevel(),
-                                 heldObjectives, stats ?? new NoScores(), new ListHooks<IMatchResetHook>(MatchResets));
+                                 heldObjectives, stats ?? new NoScores(), new ListHooks<IMatchResetHook>(MatchResets),
+                                 // The two freeze-cam convars at their declared defaults, as the side's registrations hold them.
+                                 freezeTime ?? DeclaredConVars.Holding<SpecFreezeTimeConVar>("4.0"),
+                                 travelTime ?? DeclaredConVars.Holding<SpecFreezeTravelTimeConVar>("0.4"));
     }
 
     /// <summary>Moves the clock by <paramref name="seconds"/> and thinks once.</summary>

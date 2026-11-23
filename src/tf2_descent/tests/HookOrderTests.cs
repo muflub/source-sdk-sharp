@@ -113,6 +113,8 @@ public sealed partial class HookOrderTests
             (typeof(IEntityCollideRule), true),
             // WO6: the robot that killed a hero names him in TF2's death notice; TF2 registers no namer of its own.
             (typeof(TF2.Server.Combat.ITFKillerNames), false),
+            // The welcome on a hero's first level only: the core and TF2 register no motd gate of their own.
+            (typeof(IMotdGate), false),
         ];
         var descent = typeof(TF2.Descent.Server.Mode.DescentMode).Assembly;
         Assembly[] others =
@@ -146,7 +148,8 @@ public sealed partial class HookOrderTests
     public void Client_hook_implementations_have_distinct_orders()
     {
         // The registrar's hooks, and the core's client hook the mod implements.
-        var hooks = ClientHooksOf(new ClientRegistrar()).Append(typeof(IClientLevelHook)).ToList();
+        var hooks = ClientHooksOf(new ClientRegistrar()).Append(typeof(IClientLevelHook))
+            .Append(typeof(client::SourceSharp.Client.TempEnts.IBreakPieceGroupRule)).ToList();
         Assert.True(hooks.Count >= 4, $"only {hooks.Count} client hook type(s) found");
 
         ClientAssertDistinct(typeof(ClientRegistrar).Assembly, Side.Client, hooks);

@@ -346,7 +346,8 @@ public sealed class BackpackSource(IItemViews items, ItemViewNames names) : IDes
 /// <c>-1 - slot</c>. Using a backpack item equips it
 /// (<c>tf2_descent_item_equip &lt;cell&gt;</c>, the slot its base takes); using a
 /// doll slot takes its item off (<c>tf2_descent_item_unequip &lt;slot&gt;</c>);
-/// a move within the backpack is <c>tf2_descent_item_move</c>. The server
+/// a move within the backpack is <c>tf2_descent_item_move</c>, and onto or off
+/// the belt the same verb with a belt word (<see cref="ToBelt"/>). The server
 /// decides each and tells a refusal's reason.
 /// </summary>
 [SideService(Side.Client, As = [typeof(IDescentItemActions)])]
@@ -386,6 +387,22 @@ public sealed class ItemActions(IItemViews items, DescentCatalog catalog, IDesce
         line.Send(toCell >= span
             ? string.Create(c, $"tf2_descent_town_stash_in {fromCell}")
             : string.Create(c, $"tf2_descent_item_move {fromCell} {toCell}"));
+    }
+
+    /// <summary>A backpack potion onto a belt slot: <c>tf2_descent_item_move &lt;cell&gt; belt&lt;1-4&gt;</c> (the server decides; a refusal says why).</summary>
+    public void ToBelt(int cell, int beltSlot)
+    {
+        if (cell < 0 || beltSlot < 0 || items.In(ItemContainer.Backpack, cell) is null)
+            return;
+        line.Send(string.Create(CultureInfo.InvariantCulture, $"tf2_descent_item_move {cell} belt{beltSlot + 1}"));
+    }
+
+    /// <summary>A belt slot's potion into a backpack cell: <c>tf2_descent_item_move belt&lt;1-4&gt; &lt;cell&gt;</c>.</summary>
+    public void OffBelt(int beltSlot, int cell)
+    {
+        if (cell < 0 || beltSlot < 0 || items.In(ItemContainer.Belt, beltSlot) is null)
+            return;
+        line.Send(string.Create(CultureInfo.InvariantCulture, $"tf2_descent_item_move belt{beltSlot + 1} {cell}"));
     }
 }
 

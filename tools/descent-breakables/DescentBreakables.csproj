@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>descent-breakables</AssemblyName>
+    <RootNamespace>DescentBreakables</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- The map tools checkout whose bin/Release/ holds the built assemblies. -->
+    <MapToolsBin>$([MSBuild]::EnsureTrailingSlash('$(MapToolsDir)'))bin/Release/</MapToolsBin>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <MapToolsAssembly Include="SourceSharp.MapFormats" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Copy-local: RAR also copies its own dependencies from the same folder. -->
+    <Reference Include="SourceSharp.MapFormats" HintPath="$(MapToolsBin)SourceSharp.MapFormats.dll" Private="true" />
+  </ItemGroup>
+
+  <Target Name="DescentBreakablesCheckMapTools" BeforeTargets="ResolveAssemblyReferences;CoreCompile">
+    <Error Condition="'$(MapToolsDir)' == ''"
+           Text="descent-breakables: set MapToolsDir to the map tools checkout (the checkout at maptools.lock, which make records in maptools.lock.local); its bin/Release/ must hold the built assemblies." />
+    <Error Condition="'$(MapToolsDir)' != '' and !Exists('$(MapToolsBin)%(MapToolsAssembly.Identity).dll')"
+           Text="descent-breakables: $(MapToolsBin)%(MapToolsAssembly.Identity).dll is missing: build the map tools in Release first." />
+  </Target>
+</Project>

@@ -16,10 +16,10 @@
 //
 //   * The studio header is opened FIRST: a model with none refuses before the
 //     mask widens.
-//   * No pose generation (nothing on this side moves a pose parameter) and
-//     no layers, IK, springs, ragdolls or merges: the whole build is
-//     BoneLibrary.BuildBones, the server's autoplay shape (an autoplay IK
-//     context only with one of its own: never, here).
+//   * No layers, IK, springs, ragdolls or merges: the whole build is
+//     BoneLibrary.BuildBones over the entity's pose parameters (keyed by
+//     their generation, as the client's are), the server's autoplay shape
+//     (an autoplay IK context only with one of its own: never, here).
 //   * A refused build CLEARS the cache, so the attachment reads see "no
 //     skeleton" rather than a half-written buffer.
 //   * Attachments are placed at scale 1: the bones carry the scale, and the
@@ -52,7 +52,10 @@ public sealed class ServerBoneDriver
     /// <summary>
     /// <c>StandaloneServer_RefreshModelPoseState</c>: whether the model
     /// animates itself and its pose defaults, once per model. Recorded first
-    /// and unconditionally; a model with no studio data keeps the pose it had.
+    /// and unconditionally; a model with no studio data keeps the pose it had,
+    /// and any other's defaults replace every pose the old one held (SetModel's
+    /// InitBoneControllers), the pose generation moving so no skeleton built on
+    /// the old poses still stands.
     /// </summary>
     public void RefreshModelPoseState(BoneEntityState s, int modelIndex)
     {
@@ -72,6 +75,7 @@ public sealed class ServerBoneDriver
         }
 
         BoneLibrary.ModelFacts(hdr, out s.ModelHasAutoplay, s.PoseParameter);
+        s.PoseGeneration++;
     }
 
     /// <summary>
@@ -103,7 +107,7 @@ public sealed class ServerBoneDriver
         wanted.Cycle = cycle;
         wanted.Origin = pose.AbsOrigin;
         wanted.Angles = new Vector(pose.AbsAngles.Pitch, pose.AbsAngles.Yaw, pose.AbsAngles.Roll);
-        wanted.PoseGeneration = 0;
+        wanted.PoseGeneration = s.PoseGeneration;
         wanted.AutoplayTime = BoneCacheKey.AutoplayClock(s.ModelHasAutoplay, currentTime);
         wanted.ModelScale = s.ModelScale;
 
@@ -266,6 +270,41 @@ public sealed class ServerBoneDriver
         }
 
         s.InvalidateBoneCache();
+    }
+
+    /// <summary>
+    /// <c>CBaseAnimating::SetModel</c>'s <c>SetSequence( 0 )</c>
+    /// (baseanimating.cpp 2685), for the model <paramref name="modelIndex"/>
+    /// just worn, the same one again included: stock has no early out.
+    /// SetSequence writes m_nSequence alone, so the cycle stays where the old
+    /// sequence had it, the rate and the loop flag stay, and from here the
+    /// cycle advances at sequence 0's rate on the new model (StudioFrameAdvance
+    /// reads the rate of the sequence set). A skeleton no sequence was ever
+    /// played on keeps its clock stopped: a stock entity that never advances
+    /// keeps m_flCycle 0.
+    /// </summary>
+    public void ResetSequenceForModel(BoneEntityState s, int modelIndex, float now)
+    {
+        s.InvalidateBoneCache();
+
+        if (!s.ClockStarted)
+        {
+            return;
+        }
+
+        float cycle = s.SequenceCycle(now);
+
+        s.Sequence = 0;
+        s.AnimTime = now;
+        s.StartCycle = cycle;
+        s.SeqDuration = 0.0f;
+
+        StudioHdr? hdr = _models.OpenStudioHdr(modelIndex);
+
+        if (hdr is not null)
+        {
+            BoneLibrary.SequenceFacts(hdr, 0, null, out s.SeqDuration, out _);
+        }
     }
 
     /// <summary><c>PoseCycle</c>: the server clock's cycle (the arithmetic is

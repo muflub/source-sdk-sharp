@@ -164,6 +164,37 @@ internal sealed class RigFurnitureWorld(FurnitureBlastScope scope) : IFurnitureW
     public void Explosion(Vector origin, float radius) => Explosions.Add(origin);
 }
 
+/// <summary>The break world a fact runs: every shatter, mark, cloud and ambush recorded; a mark takes unless a fact refuses it.</summary>
+internal sealed class RigBreakWorld : IFurnitureBreakWorld
+{
+    public sealed record AmbushCall(string[] Templates, Vector At, float Yaw, EntityHandle Hero, ulong Seed, double HuntSeconds);
+
+    public List<string> Precached { get; } = [];
+    public List<(string Model, Vector At, float Yaw, Vector Velocity)> Shattered { get; } = [];
+    public List<(EntityHandle Hero, string Condition, double Seconds, EntityHandle Provider)> Marks { get; } = [];
+    public List<Vector> Clouds { get; } = [];
+    public List<AmbushCall> Ambushes { get; } = [];
+    public bool MarkTakes { get; set; } = true;
+
+    public void Precache(IEnumerable<string> models) => Precached.AddRange(models);
+
+    public void Shatter(string model, Vector origin, float yaw, Vector velocity) => Shattered.Add((model, origin, yaw, velocity));
+
+    public bool Mark(EntityHandle hero, string condition, double seconds, EntityHandle provider)
+    {
+        Marks.Add((hero, condition, seconds, provider));
+        return MarkTakes;
+    }
+
+    public void Cloud(Vector origin) => Clouds.Add(origin);
+
+    public IReadOnlyList<string> Ambush(IReadOnlyList<string> templates, Vector origin, float yaw, EntityHandle hero, ulong seed, double huntSeconds)
+    {
+        Ambushes.Add(new AmbushCall([.. templates], origin, yaw, hero, seed, huntSeconds));
+        return [.. templates.Select(t => t + " woke")];
+    }
+}
+
 internal sealed class RigHazards : IHooks<IFurnitureHazardHook>, IFurnitureHazardHook
 {
     public List<int> Armed { get; } = [];
@@ -194,7 +225,7 @@ internal sealed class FurnitureRig
     public const int SlotA = 1, SlotB = 2;
     public const string A = "hero-a", B = "hero-b";
 
-    public FurnitureRig(ulong seed = 1, bool ready = true, LevelData? level = null)
+    public FurnitureRig(ulong seed = 1, bool ready = true, LevelData? level = null, Func<IItemLedger, IItemLedger>? ledger = null)
     {
         Engine = RecordingEngine.Default();
         Engine.Returns("Entities.IsValid", true);
@@ -218,9 +249,10 @@ internal sealed class FurnitureRig
         Spawner = new RigFurnitureSpawner(Registry);
         LootSpawner = new RigLootSpawner(Registry) { EdictCount = 0 };
         Ledger = new InMemoryItemLedger(Rules, new NoLedgerHooks(), new StartingKit(Rules));
-        Floor = new LootFloor(Mode, LootSpawner, Rooms, Ledger, Party, Engine, Engine, new ClientMessages(Engine), Log);
-        Service = new FurnitureService(Mode, Level, Rules, Spawner, Rooms, World, Heroes, Ledger, Floor, new RigGround(), Buffs, Parking,
-            Hazards, new ClientMessages(Engine), Log, Automap, Parties);
+        var used = ledger?.Invoke(Ledger) ?? Ledger;   // a fact may see what the service asks of the ledger
+        Floor = new LootFloor(Mode, LootSpawner, Rooms, used, Party, Engine, Engine, new ClientMessages(Engine), Log);
+        Service = new FurnitureService(Mode, Level, Rules, Spawner, Rooms, World, Heroes, used, Floor, new RigGround(), Buffs, Parking,
+            Hazards, new ClientMessages(Engine), Log, Automap, Parties, Breaks);
         World.IsParked = Parking.IsParked;
         Heroes.Add(SlotA, A, new Vector(-5000, -5000, 0));
         if (ready)
@@ -245,6 +277,7 @@ internal sealed class FurnitureRig
     public FurnitureBuffs Buffs { get; } = new();
     public FurnitureParking Parking { get; } = new();
     public RigHazards Hazards { get; } = new();
+    public RigBreakWorld Breaks { get; } = new();
     public FurnitureService Service { get; }
 
     public void LevelReady()
@@ -269,6 +302,9 @@ internal sealed class FurnitureRig
 
     /// <summary>Every hero one party (the facts written before WO9), but for the slots named strangers.</summary>
     public TF2.Descent.Tests.Skills.SkillRig.RigParty Parties { get; } = new();
+
+    /// <summary>The rows the pool stands entities on: every one but the crates and barrels, which the breakables' one entity owns.</summary>
+    public IReadOnlyList<FurnitureRow> Pooled => [.. Service.Rows.Where(r => r.Kind != FurnitureKind.Breakable)];
 
     public FurnitureRow First(FurnitureKind kind, string? variant = null) =>
         Service.Rows.FirstOrDefault(r => r.Kind == kind && (variant is null || r.Variant == variant))
@@ -309,11 +345,34 @@ internal sealed class FurnitureRig
         for (ulong seed = 1; seed < 5000; seed++)
         {
             var placed = Rules.Furniture.Placement.Furnish(seed, rooms).Placed;
-            if (pair.All(m => placed.Any(p => p.Marker == m)) && placed.First(p => p.Marker == pair[0]).Variant == "barrel")
+            if (pair.All(m => placed.Any(p => p.Marker == m && p.Kind == FurnitureKind.Explosive)) && placed.First(p => p.Marker == pair[0]).Variant == "barrel")
                 return (level, seed);
         }
 
         throw new InvalidOperationException("no seed below 5000 places the pair");
+    }
+
+    /// <summary>
+    /// Depth 1 seed 1 with the breakable markers a level built today carries: the committed fixture
+    /// predates them (it has container and barrel markers but no <c>descent_mark_breakable_*</c>).
+    /// The room dresser writes each as an <c>info_poi</c> at the model's foot, turned by yaw only, at
+    /// most 8 a room (d51fd6356); here every room holds a pile of two, a crate and a barrel 80 units
+    /// apart on its floor at its middle, appended after the fixture's own markers so theirs keep
+    /// their ids.
+    /// </summary>
+    public static readonly LevelData D1S1Breakables = WithBreakables(D1S1);
+
+    /// <summary><paramref name="level"/> with a crate and a barrel marker on each room's floor (<see cref="D1S1Breakables"/>).</summary>
+    public static LevelData WithBreakables(LevelData level)
+    {
+        var markers = level.Markers.ToBuilder();
+        foreach (var room in level.Rooms)
+        {
+            var floor = room.Centre with { Z = room.Min.Z };
+            markers.Add(new LevelMarker(markers.Count, "descent_mark_breakable_crate", LevelMarkerKind.BreakableCrate, floor - new Vector(40, 0, 0), 90, room.Id, ""));
+            markers.Add(new LevelMarker(markers.Count, "descent_mark_breakable_barrel", LevelMarkerKind.BreakableBarrel, floor + new Vector(40, 0, 0), 0, room.Id, ""));
+        }
+        return level with { Markers = markers.ToImmutable() };
     }
 
     /// <summary>Puts hero <paramref name="slot"/> at <paramref name="row"/>'s place, plus <paramref name="offset"/>.</summary>

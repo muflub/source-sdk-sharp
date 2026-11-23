@@ -82,6 +82,39 @@ public sealed class TeamTrainWatcherTests
     }
 
     [Fact]
+    public void Standing_in_the_push_zone_drives_the_cart_and_leaving_stops_it()
+    {
+        // The stage question for pl_goldrush: does a BLU standing in the cart's
+        // push zone move the cart? Through the real touch chain — OnTouch puts
+        // the player in Inside, the area's think counts it and hands the number
+        // to the watcher (SetNumCappers -> SetNumTrainCappers), and the
+        // watcher's ladder feeds the train's speed input (L304, L1246).
+        var (rig, watcher, train, _, _, _) = Track();
+        _ = rig.Point("cp_a", 0);
+        var area = rig.Area("cp_a");
+        rig.StartRound();
+
+        rig.ParentOf = train.Handle;
+        watcher.WatcherActivate();
+        rig.ParentOf = EntityHandle.None;
+
+        var blue = rig.Players.Add(1, TFTeam.Blue);
+
+        // standing in the zone: the touch counts the player, the next area think
+        // passes one capper and the ladder sets the one-capper speed
+        rig.Registry.Touch(area.Handle, blue);
+        rig.ThinkAt(area, 0.5f);
+        Assert.Equal(TeamTrainWatcher.SpeedOneCapper * train.MaxSpeed, train.CurrentSpeed);
+
+        // leaving the zone: the end-touch drops the player from Inside and the
+        // next think re-counts to zero, so the cart stops (forward, at speed 0 —
+        // the recede only speaks after tf_escort_recede_time)
+        rig.Registry.EndTouch(area.Handle, blue);
+        rig.ThinkAt(area, 0.6f);
+        Assert.Equal(0f, train.CurrentSpeed);
+    }
+
+    [Fact]
     public void The_progress_node_is_the_end_of_the_leg_even_when_the_cart_halts()
     {
         var (rig, watcher, train, _, _, _) = Track();
@@ -830,6 +863,73 @@ public sealed class TeamTrainWatcherTests
     }
 
     [Fact]
+    public void A_capper_beside_the_cart_counts_and_one_far_from_it_does_not()
+    {
+        // goldrush parents the cart's capture area to the train (the map's
+        // trigger_capture_area carries parentname minecart_tracktrain), so the
+        // touch volume rides with the cart: a player standing beside it is
+        // inside the composed volume and counts on the speed ladder, while a
+        // player at the far (-4896,-1578) corner of the zone is outside it and
+        // counts for nothing. Through the parent-binding seam the area's
+        // Inside membership is what the volume's position decides — enter on
+        // the cart's side, leave at the far side.
+        var (rig, watcher, train, _, _, _) = Track();
+        _ = rig.Point("cp_a", 0);
+        var area = rig.Area("cp_a");
+        rig.StartRound(); // the point and the area join the round that already ran
+
+        rig.ParentOf = train.Handle;
+        watcher.WatcherActivate();
+        rig.ParentOf = EntityHandle.None;
+
+        var blue = rig.Players.Add(1, TFTeam.Blue);
+
+        // beside the cart: the volume holds the player and the one-capper
+        // band answers
+        rig.Registry.Touch(area.Handle, blue);
+        rig.ThinkAt(area, 0.5f);
+        Assert.Contains(blue, area.TouchingEntities);
+        Assert.Equal(TeamTrainWatcher.SpeedOneCapper * train.MaxSpeed, train.CurrentSpeed);
+
+        // stepped to the far corner: out of the volume, off the ladder, and
+        // the cart loses its only capper
+        rig.Registry.EndTouch(area.Handle, blue);
+        rig.ThinkAt(area, 0.6f);
+        Assert.DoesNotContain(blue, area.TouchingEntities);
+        Assert.Equal(0f, train.CurrentSpeed);
+    }
+
+    [Fact]
+    public void One_capper_arms_the_leg_to_the_next_node_at_its_band_of_max_speed()
+    {
+        // HandleTrainMovement (team_train_watcher.cpp ~460-640): one capper
+        // asks for 0.55 of max speed through SetSpeedDirAccel. Stock's
+        // CFuncTrackTrain::SetSpeed/Next (server/trains.cpp) scales that
+        // fraction to MaxSpeed units/s and arms the leg to the next path_track,
+        // so the mover seam must see speed 220 toward n2 — a per-think advance
+        // of speed × frameTime, not a tenth of it (the ~10 units in ~10 s a
+        // one-pusher walked at on a 400 u/s cart).
+        var (rig, watcher, train, _, _, _) = Track();
+        var area = rig.Area("cp_a");
+
+        rig.Registry.Input(watcher.Handle, "SetNumTrainCappers", "1", 1f, area.Handle);
+
+        var moves = rig.Engine.AllOf("BrushMovement.MoveToPosition").ToArray();
+
+        // StartOn armed the leg at the map's speed key; the watcher's band
+        // re-aims the move under way, the way SetSpeed does in MoveLinearTests
+        Assert.Equal(100f, moves[0].ArgAs<float>(2));
+        Assert.Equal(2, moves.Length);
+
+        // the leg's end and the band's speed, both on the seam the mover reads
+        Assert.Equal(new Vector(500f, 0f, 0f), moves[^1].ArgAs<Vector>(1));
+        Assert.Equal(TeamTrainWatcher.SpeedOneCapper * train.MaxSpeed, moves[^1].ArgAs<float>(2), 1);
+
+        // the stimulus reached the train: the ladder's own reading matches
+        Assert.Equal(220f, train.CurrentSpeed, 1);
+    }
+
+    [Fact]
     public void A_speed_level_that_neither_halts_nor_reverses_speaks_nothing()
     {
         // WatcherThink :1165-1174: only the halt and the backward arms speak;
@@ -845,4 +945,109 @@ public sealed class TeamTrainWatcherTests
 
         Assert.Empty(rig.ConceptRules.Asked);
     }
+
+    [Fact]
+    public void A_train_handed_a_speed_covers_that_many_units_per_simulated_second()
+    {
+        // The hand-off itself (the capper ladder, CurrentSpeed) has its facts
+        // above; this one holds the step AFTER it: a mover told 220 units a
+        // second toward a node 500 away must have covered closer to 220 units
+        // of that leg than to one frame's worth after one simulated second of
+        // frames — the integrator's step is speed x frametime each frame, as
+        // stock's CFuncTrackTrain::UpdateTrainVelocity (trains.cpp ~:1961)
+        // integrates velocity over frametime. A mover that applied its speed
+        // once per think instead of continuously shows the gap here.
+        var (rig, _, train, _, _, _) = Track();
+
+        // The cart's own frame: the engine answers its origin from the rig's
+        // field, and the integrator writes through the hierarchy world, so the
+        // fact hands what was written back to the field between frames — the
+        // same read-after-write the running game gets from the engine block.
+        rig.EngineOrigin = Vector.Zero;
+        var world = new CartTrackingWorld(Vector.Zero);
+
+        var log = new RecordingLog();
+        // The push sweep names the pusher's index when it stores who moved,
+        // and asks its solid type: a track train is a brush, SOLID_BSP.
+        rig.Engine.Returns("Entities.GetIndex", 413);
+        rig.Engine.Returns("Entities.GetSolidType", SolidType.Bsp);
+        var directory = new EntityDirectory(log);
+        directory.Bind(train.Handle, train);
+        var motion = new EntityMotion(log, rig.Engine, rig.Engine,
+                                       DeclaredConVars.Holding<SvGravityConVar>("600"),
+                                       DeclaredConVars.Fresh<MoversBlockedConVar>(),
+                                       DeclaredConVars.Fresh<MoversPushedConVar>(),
+                                       rig.Engine, directory,
+                                       new PhysicsPushedEntities(
+                                           new EnginePushWorld(rig.Engine, rig.Engine, rig.Engine, directory),
+                                           log))
+        {
+            Parenting = new Hierarchy(world),
+        };
+
+        // n2 sits 500 units along x from the start; 60 frames at fps_max 60.
+        motion.MoveToPosition(train.Handle, new Vector(500f, 0f, 0f), 220f);
+        for (int frame = 0; frame < 60; frame++)
+        {
+            motion.RunFrame(1f / 60f);
+            rig.EngineOrigin = world.Current;
+        }
+
+        Assert.Equal(220.0, (double)world.Current.X, 3);
+        Assert.Equal(0.0, (double)world.Current.Y, 3);
+    }
+}
+
+/// <summary>
+/// The hierarchy world the cart fact drives its integrator over: it stores
+/// what a composed write says and answers it back, which is what the engine
+/// block does between a commit and the next frame's origin read.
+/// </summary>
+internal sealed class CartTrackingWorld : IHierarchyWorld
+{
+    public CartTrackingWorld(Vector origin) => Current = origin;
+
+    public Vector Current { get; private set; }
+
+    public bool IsStandalone(EntityHandle handle) => false;
+
+    public bool IsBase(EntityHandle handle) => false;
+
+    public bool CanPose(EntityHandle handle) => false;
+
+    public bool TryGetEntityFrame(EntityHandle handle, out Transform frame)
+    {
+        frame = default;
+        return false;
+    }
+
+    public bool TryGetAttachmentFrame(EntityHandle handle, int attachment, out Transform frame)
+    {
+        frame = default;
+        return false;
+    }
+
+    public int LookupAttachment(EntityHandle handle, string attachmentName) => 0;
+
+    public bool TryGetAbsolute(EntityHandle handle, out Vector origin, out QAngle angles)
+    {
+        origin = Current;
+        angles = QAngle.Zero;
+        return true;
+    }
+
+    public void WriteComposed(EntityHandle child, Vector origin, QAngle angles, Transform childToWorld)
+        => Current = origin;
+
+    public EntityHandle FindStandaloneByName(string name) => EntityHandle.None;
+
+    public EntityHandle FindBaseByName(string name) => EntityHandle.None;
+
+    public string NameOf(EntityHandle handle) => "cart";
+
+    public void Remove(EntityHandle handle) { }
+
+    public void DetachPhysics(EntityHandle child) { }
+
+    public void Warn(string message) { }
 }

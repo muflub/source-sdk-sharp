@@ -39,7 +39,9 @@ public sealed class Downed(
         if (narrow)
             box.At(UiAnchor.BottomRight).Inset(Space.M, Space.M);
         else
-            box.At(UiAnchor.Bottom).Inset(Space.None, Space.Huge);
+            // Over the HUD's skill strip, where the cast bar rides (a downed hero casts nothing):
+            // at the bottom it covered the skill bar (the whole run's F29).
+            box.At(UiAnchor.Bottom).Inset(Space.None, new UiLength(DescentHud.OverSkillsDu, false));
         using (box)
             using (ui.Column(Space.XS, Align.Centre))
             {

@@ -56,6 +56,18 @@ public static class NavGraphFromNav3d
     /// </summary>
     public const int Revision = 5;
 
+    /// <summary>
+    /// The revision of the rule that admits the extra hulls (<see cref="NavNumbers.ExtraHulls"/>):
+    /// part of the numbers' name in the cache only when they name extra hulls
+    /// (<see cref="NavGraphCache.NumbersKey"/>), so a change to that rule renames the graphs that
+    /// carry the hulls' bits and no other. Raise it with any change to which cells admit an extra
+    /// hull; a change to anything else the derivation yields raises <see cref="Revision"/>.
+    /// 2: a hull stands on the highest step under its footprint (<see cref="HighestStep"/>).
+    /// 3: the fit there is asked of the first voxel at or above the feet (<see cref="FitsInColumn"/>),
+    /// so a step whose top lies inside a voxel is stood on.
+    /// </summary>
+    public const int ExtraHullRevision = 3;
+
     // The most leaves one column, or jump links one leaf, may answer.
     private const int MaxLinks = 512;
 
@@ -72,6 +84,8 @@ public static class NavGraphFromNav3d
         var cellOfLeaf = new int[leaves];
         Array.Fill(cellOfLeaf, -1);
         var leafOfCell = new List<int>();
+        Span<int> buf = new int[Math.Max(MaxLinks, leaves)];
+        var steps = new List<float>();
 
         for (int leaf = 0; leaf < leaves; leaf++)
         {
@@ -102,7 +116,7 @@ public static class NavGraphFromNav3d
             NavCellFlags flags = (l.Water ? NavCellFlags.Water : 0) | (climb[leaf] ? NavCellFlags.Ladder : 0);
             float floor = stand[leaf] ? l.FloorZ : l.BottomZ;
             // The cost is the game's own body's; the extra hulls add their bits and nothing else.
-            cellOfLeaf[leaf] = b.AddCell(new NavCell(l.MinX, l.MinY, l.MaxX, l.MaxY, floor, classes | ExtraHulls(src, leaf, l, n, stand[leaf]), flags,
+            cellOfLeaf[leaf] = b.AddCell(new NavCell(l.MinX, l.MinY, l.MaxX, l.MaxY, floor, classes | ExtraHulls(src, leaf, l, n, stand[leaf], buf, steps), flags,
                                                      MathF.Max(1f, l.CostMultiplier) * (classes == ClearanceClasses.Crouch ? n.CrouchOnlyCost : 1f))).Index;
             leafOfCell.Add(leaf);
         }
@@ -113,7 +127,6 @@ public static class NavGraphFromNav3d
         var obstacleOfLeaf = new int[leaves];
         Array.Fill(obstacleOfLeaf, -1);
         var infos = new NavObstacleInfo[src.ObstacleCount];
-        Span<int> buf = new int[Math.Max(MaxLinks, leaves)];
         for (int o = 0; o < src.ObstacleCount; o++)
         {
             infos[o] = src.Obstacle(o);
@@ -251,11 +264,19 @@ public static class NavGraphFromNav3d
     /// asked for every extra hull, whatever its width, not only one wider than two voxels: on
     /// ctf_2fort a 29 by 50 hull without it had none of the four ways from a spawn to a flag, and
     /// with it all four the game's own hull has (the count without it was taken on the map-tools
-    /// 7cdfe4d nav only; with it, on 3551fa8 as well). One step only: a box that reaches the step
-    /// two up is admitted nowhere on such a stair (NavExtraHullStairTests). Where the body only
-    /// climbs, a hull is admitted when its box climbs there. None with no extra hulls.
+    /// 7cdfe4d nav only; with it, on 3551fa8 as well). A box that reaches further along a stair, to
+    /// the step two or more up, is admitted where it fits standing on the highest step under its
+    /// footprint (<see cref="HighestStep"/>, <see cref="FitsInColumn"/>; ruling 2026-11-11):
+    /// without it, on Descent's depth 8 seed 1 every extra hull reached 20 of the 37 rooms from the
+    /// arrival, cut off by the pool rooms' flights, and with it all 37 (NavExtraHullStairTests holds
+    /// the rule on a fixture stair). The fit on that step is asked from the voxel over the feet, so a
+    /// step whose top lies inside a voxel is stood on (ruling 2026-11-15): without it, on
+    /// ctf_2fort a 49 by 83 hull had none of the four ways, held at a one-unit sill at the blue
+    /// spawn's door, and with it all four. The game's own body keeps the one-step rule,
+    /// so its graphs keep their hashes. Where the body only climbs, a hull is admitted when its box
+    /// climbs there. None with no extra hulls.
     /// </summary>
-    private static ClearanceClasses ExtraHulls(INavSource src, int leaf, in NavLeaf l, NavNumbers n, bool stands)
+    private static ClearanceClasses ExtraHulls(INavSource src, int leaf, in NavLeaf l, NavNumbers n, bool stands, Span<int> into, List<float> steps)
     {
         ClearanceClasses admitted = ClearanceClasses.None;
         for (int i = 0; i < n.ExtraHulls.Count; i++)
@@ -263,12 +284,80 @@ public static class NavGraphFromNav3d
             NavHull h = n.ExtraHulls[i];
             bool fits = stands
                 ? src.Stands(leaf, h.Width, h.Height) || src.FitsAt(leaf, l.FloorZ + n.StepHeight, h.Width, h.Height)
+                  || (HighestStep(src, leaf, l, n.StepHeight, h.Width, into, steps) is { } top && FitsInColumn(src, leaf, top, h))
                 : src.Climbs(leaf, h.Width, h.Height);
             if (fits)
                 admitted |= (ClearanceClasses)(1 << (int)NavHulls.ClassOf(i));
         }
 
         return admitted;
+    }
+
+    /// <summary>
+    /// The floor a box <paramref name="width"/> wide centred on <paramref name="leaf"/>'s column
+    /// stands on, as the game's movement puts it on a stair: the highest walkable floor under its
+    /// footprint (the columns its box overlaps) reached from the leaf's own floor by rises each
+    /// within <paramref name="step"/>; null when no floor under it rises so, as on flat ground.
+    /// A floor beyond a rise greater than a step is a wall's top or a ledge, not a step the box
+    /// stands on. The fit there is the caller's (<see cref="FitsInColumn"/>).
+    /// </summary>
+    private static float? HighestStep(INavSource src, int leaf, in NavLeaf l, float step, float width, Span<int> into, List<float> steps)
+    {
+        float voxel = src.VoxelSize;
+        // The columns a box of half-width r at a column's centre overlaps: |d| voxels over while
+        // |d| v - v/2 < r.
+        int reach = (int)MathF.Ceiling((width * 0.5f + voxel * 0.5f) / voxel - 1e-4f) - 1;
+        if (reach < 1)
+            return null;
+        steps.Clear();
+        for (int dy = -reach; dy <= reach; dy++)
+        {
+            for (int dx = -reach; dx <= reach; dx++)
+            {
+                if (dx == 0 && dy == 0)
+                    continue;
+                int count = src.ColumnLeaves(leaf, dx, dy, into);
+                for (int i = 0; i < count; i++)
+                {
+                    NavLeaf o = src.Leaf(into[i]);
+                    if (o.Walkable && o.FloorZ > l.FloorZ)
+                        steps.Add(o.FloorZ);
+                }
+            }
+        }
+
+        steps.Sort();
+        float top = l.FloorZ;
+        foreach (float floor in steps)
+        {
+            if (floor - top > step)
+                break;
+            top = floor;
+        }
+
+        return top > l.FloorZ ? top : null;
+    }
+
+    /// <summary>
+    /// Whether the hull fits at the centre of <paramref name="leaf"/>'s column with its feet at
+    /// <paramref name="feet"/>, asked of the first voxel at or above the feet
+    /// (<see cref="INavSource.FitsAbove"/>, as <see cref="CrossedAbove"/> asks a step it crosses),
+    /// in the leaf of the column that holds that voxel: a <c>.nav3d</c> ends a leaf where its
+    /// clearance record changes, so the voxels over a step's top are a leaf above the one on the
+    /// floor. A record keeps a solid's bottom, so the voxel that holds a step's top would answer
+    /// the step itself as a wall; asked from the voxel above, a step whose top lies inside a voxel
+    /// is stood on, as ctf_2fort's one-unit sill at a spawn's door (ruling 2026-11-15). What the
+    /// lower voxel holds above the feet is not asked: a solid that is no floor and tops out inside
+    /// it, within the box, is missed (NavExtraHullStairTests holds both).
+    /// </summary>
+    private static bool FitsInColumn(INavSource src, int leaf, float feet, NavHull h)
+    {
+        float voxel = src.VoxelSize, bottom = src.Leaf(leaf).BottomZ;
+        float above = bottom + MathF.Ceiling((feet - bottom) / voxel - 1e-6f) * voxel;
+        int at = leaf;
+        while (at >= 0 && src.Leaf(at).TopZ <= above)
+            at = src.Above(at);
+        return at >= 0 && src.FitsAbove(at, feet, h.Width, h.Height);
     }
 
     private static bool ClimbsThrough(IReadOnlyList<LadderClimb> ladders, in NavLeaf low, float high, float reach)

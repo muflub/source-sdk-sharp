@@ -25,6 +25,7 @@ public sealed class BossKillTests
         public IReadOnlyList<LootMember> Near(Vector at, int killer) => [.. players.Select(p => new LootMember(p, "hero-" + p, at))];
         public string? HeroOf(int player) => "hero-" + player;
         public Vector? Origin(int player) => default(Vector);
+        public IReadOnlyList<string> PileMembers(string killer, string claimer) => [.. players.Select(p => "hero-" + p)];
     }
 
     private sealed class Fixture
@@ -32,7 +33,7 @@ public sealed class BossKillTests
         public Fixture(params int[] paid)
         {
             Boss = new BossRig();
-            Fallen = new BossFallen(new RigRules(), Boss.World, new Party(paid), Hero.Sheets, Boss.Horde.Heroes, new RigHordeCurrent(Boss.Horde), Boss.Horde.Log);
+            Fallen = new BossFallen(new RigRules(), Boss.World, new Party(paid), Hero.Sheets, Boss.Horde.Heroes, new RigHordeCurrent(Boss.Horde), Boss.Arena, Boss.Horde.Log);
         }
 
         public BossRig Boss { get; }
@@ -123,6 +124,43 @@ public sealed class BossKillTests
         Assert.Contains(f.World.Particles, p => p.Name == TheRules.Content.Bosses.Sounds.TankDeathParticle);
         Assert.Equal(1, f.Fallen.Tanks);
         Assert.Empty(f.Hero.Sheets.Of(HeroRig.Index)!.BossKills);
+    }
+
+    [Fact]
+    public void A_boss_s_death_takes_the_brush_off_the_way_down()
+    {
+        var f = new Fixture();
+        f.Boss.ArenaEntities.Full();
+
+        f.Fallen.OnRobotKilled(Kill("sir_nukesalot", boss: true));
+
+        Assert.Equal([(ArenaStage.ExitName, ArenaStage.Disable)], f.Boss.ArenaEntities.Inputs);
+        Assert.Contains("[TF2Descent/Boss] arena: Disable descent_boss_exit (1 entity): the boss is dead", f.Boss.Horde.Log.Text);
+    }
+
+    [Fact]
+    public void The_tank_s_death_leaves_the_way_down_s_brush_standing()
+    {
+        var f = new Fixture();
+        f.Boss.ArenaEntities.Full();
+
+        f.Fallen.OnRobotKilled(Kill("tank", boss: false));
+
+        Assert.Empty(f.Boss.ArenaEntities.Inputs);
+        Assert.Equal(1, f.Fallen.Tanks);   // the stimulus: the Tank's death was taken
+    }
+
+    [Fact]
+    public void A_level_with_no_exit_brush_still_opens_its_way_down()
+    {
+        var f = new Fixture();   // the map holds none of the arena's names
+        f.Boss.Roster.Hurt(f.Boss.Row, f.Boss.Roster.Life(f.Boss.Row));
+
+        f.Fallen.OnRobotKilled(Kill("sir_nukesalot", boss: true));
+
+        Assert.True(f.Boss.Exit.MayLeave(1));
+        Assert.Equal(1, f.Fallen.Opened);
+        Assert.Contains("no descent_boss_exit on this map", f.Boss.Horde.Log.Text);
     }
 
     [Fact]

@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using SourceSharp.Ai;
 using TF2.Descent.Ai.Level;
 using TF2.Descent.Ai.Roster;
+using TF2.Descent.Ai.Senses;
 using TF2.Descent.Rules.Horde;
 
 namespace TF2.Descent.Ai.Far;
@@ -9,9 +10,9 @@ namespace TF2.Descent.Ai.Far;
 /// <summary>
 /// A sound the far simulation hears (plan_descent_logic 3.5, RPG plan B.3): where it was made,
 /// how far it carries (world units, walked through doors), and the hero seat that made it (-1
-/// for none: a barrel, a door).
+/// for none: a barrel, a door), and what it was.
 /// </summary>
-public readonly record struct SoundEvent(int Room, AiVector Position, float Loudness, int Seat);
+public readonly record struct SoundEvent(int Room, AiVector Position, float Loudness, int Seat, SoundKind Kind = SoundKind.Unknown);
 
 /// <summary>
 /// The far simulation (plan_descent_logic 3.5): one tick at horde.json's rate, a pure function
@@ -20,7 +21,8 @@ public readonly record struct SoundEvent(int Room, AiVector Position, float Loud
 ///
 /// <list type="number">
 /// <item><b>Sound</b> reaches a sleeping or far robot when the walk from the sound to it through
-/// doors (<see cref="HordeLevel.PathDistance"/>) is within its loudness. A robot that hears
+/// doors (<see cref="HordeLevel.PathDistance"/>) is within its loudness and its room is within
+/// <see cref="HearingSenses.RoomsFor"/> doors of the sound's. A robot that hears
 /// remembers where and when; its pack is alerted to the sound, and the pack's sleepers wake.
 /// Bodied robots hear through the server's senses, not here.</item>
 /// <item>A pack whose contact is older than <see cref="HordeSettings.AlertMemorySeconds"/> calms.</item>
@@ -42,9 +44,11 @@ public sealed class FarSimulation
     private readonly long _dwellTicks;
     private readonly long _memoryTicks;
     private readonly int[] _queued;   // per door and side, this tick
+    private readonly HordeAlerts? _alerts;
 
-    public FarSimulation(HordeSettings settings, HordeLevel level, float dt, long dwellTicks, long memoryTicks, int[] queued)
+    public FarSimulation(HordeSettings settings, HordeLevel level, float dt, long dwellTicks, long memoryTicks, int[] queued, HordeAlerts? alerts = null)
     {
+        _alerts = alerts;
         _settings = settings;
         _level = level;
         _dt = dt;
@@ -54,11 +58,11 @@ public sealed class FarSimulation
     }
 
     /// <summary>The far simulation for one level, on a server ticking at <paramref name="ticksPerSecond"/>.</summary>
-    public static FarSimulation For(HordeSettings settings, HordeLevel level, double ticksPerSecond) =>
+    public static FarSimulation For(HordeSettings settings, HordeLevel level, double ticksPerSecond, HordeAlerts? alerts = null) =>
         new(settings, level, (float)(1 / settings.FarTickHz),
             (long)Math.Ceiling(settings.PatrolDwellSeconds * ticksPerSecond),
             (long)Math.Ceiling(settings.AlertMemorySeconds * ticksPerSecond),
-            new int[2 * level.Doors.Length]);
+            new int[2 * level.Doors.Length], alerts);
 
     /// <summary>Server ticks between far ticks, for the caller's schedule.</summary>
     public static long Interval(HordeSettings settings, double ticksPerSecond) =>
@@ -89,10 +93,23 @@ public sealed class FarSimulation
         {
             var state = roster.StateAt(i);
             if (state is not (RobotState.Asleep or RobotState.Far)) continue;
+            if (_level.Distance(s.Room, roster.RoomRef(i)) > _settings.Senses.Hearing.RoomsFor(s.Seat)) continue;
             if (_level.PathDistance(s.Room, s.Position, roster.RoomRef(i), roster.PositionRef(i)) > s.Loudness) continue;
             roster.Hear(i, s.Position, now, s.Seat);
             roster.AlertPack(roster.PackAt(i), s.Room, s.Position, now, s.Seat);
+            if (_alerts is not null)
+                Logged(roster, i, s, now);
         }
+    }
+
+    /// <summary>The dev log's view of a far hearing: the hearer, then the rest of its pack, called.</summary>
+    private void Logged(RobotRoster roster, int i, in SoundEvent s, long now)
+    {
+        int pack = roster.PackAt(i);
+        for (int k = roster.PackFirst(pack), end = k + roster.PackSize(pack); k < end; k++)
+            if (roster.StateAt(k) != RobotState.Dead)
+                _alerts!.Add(new AlertRecord(now, k, pack, k == i ? AlertCause.FarSound : AlertCause.PackCall, s.Kind, roster.PositionRef(k),
+                                             roster.RoomRef(k), s.Position, s.Room, s.Seat, roster.Body(k) != 0));
     }
 
     private void Move(RobotRoster roster, IHeroSight sight, int i, long now)

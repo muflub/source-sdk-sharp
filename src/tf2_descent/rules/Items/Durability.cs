@@ -178,6 +178,24 @@ public sealed class Durability
     public WearResult Hit(ItemInstance item, int hits) =>
         _content.ItemBases[item.BaseId].Kind == ItemKinds.Armour ? Wear(item, hits) : new WearResult(item, 0, false);
 
+    /// <summary>
+    /// The events of one item's wear that count for it, as one number (the contract's
+    /// <c>Wear</c> amount): a weapon's uses, armour's hits taken; 0 for anything else.
+    /// </summary>
+    public int Amount(ItemInstance item, int uses, int hits) => _content.ItemBases[item.BaseId].Kind switch
+    {
+        ItemKinds.Weapon => uses,
+        ItemKinds.Armour => hits,
+        _ => 0,
+    };
+
+    /// <summary>
+    /// The item after <paramref name="uses"/> and <paramref name="hits"/> (each counts only where it
+    /// wears the item: <see cref="Use"/>, then <see cref="Hit"/>), so a weapon's wear is
+    /// <c>Worn(item, n, n)</c> as much as <c>Worn(item, n, 0)</c>.
+    /// </summary>
+    public ItemInstance Worn(ItemInstance item, int uses, int hits) => Hit(Use(item, uses).Item, hits).Item;
+
     private WearResult Wear(ItemInstance item, int events)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(events);        int perPoint = PerPoint(item);

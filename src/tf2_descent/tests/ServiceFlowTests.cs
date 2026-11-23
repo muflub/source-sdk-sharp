@@ -162,14 +162,21 @@ public sealed partial class ServiceFlowTests
 
     private sealed record World(FakeLink Link, HostService Host, FakeConsole Console, BootWatcher Watcher, NowScheduler Scheduler, ListLog Log);
 
-    private static World Host(HostingMode mode, int? port = 27016)
+    /// <summary>The same-process hops this process began, by target map.</summary>
+    private sealed class Hops : ISameProcessHop
+    {
+        public HashSet<string> Started { get; } = new(StringComparer.Ordinal);
+        public bool Take(string map) => Started.Remove(map);
+    }
+
+    private static World Host(HostingMode mode, int? port = 27016, ISameProcessHop? hops = null)
     {
         var link = new FakeLink { ModeIs = mode };
         var console = new FakeConsole();
         var watcher = new BootWatcher();
         var scheduler = new NowScheduler();
         var log = new ListLog();
-        var host = new HostService(link, new Port(port), scheduler, console, new Hooks<IHostBootHook>(watcher), log);
+        var host = new HostService(link, new Port(port), scheduler, console, new Hooks<IHostBootHook>(watcher), log, hops);
         return new World(link, host, console, watcher, scheduler, log);
     }
 
@@ -247,6 +254,99 @@ public sealed partial class ServiceFlowTests
     }
 
     [Fact]
+    public void A_level_change_that_is_no_hop_keeps_the_instances_boot_and_goes_live_again()
+    {
+        // The service refuses a second Booting from a live instance (not_booting):
+        // an operator's changelevel leaves the process the instance it was.
+        var w = Host(HostingMode.Hosted, port: 27016);
+        w.Link.BootAnswers.Enqueue(HostResult<BootInfo>.Success(Boot()));
+        w.Host.OnPostInit();
+        w.Host.OnLevelInit("tf2_descent_town");
+        w.Host.OnLevelReady("tf2_descent_town");
+
+        w.Host.OnLevelInit("tf2_descent_town");
+        Assert.False(w.Host.Live);
+        Assert.Single(w.Link.Calls, c => c.StartsWith("booting", StringComparison.Ordinal));
+        Assert.Equal("hub", w.Host.Boot?.InstanceKind);
+
+        // Asked only with the boot kept: MapReady waits for a boot, and this
+        // scheduler's delays are already over, so without one it would spin.
+        w.Host.OnLevelReady("tf2_descent_town");
+
+        Assert.Equal(2, w.Link.Calls.Count(c => c == "mapready 27016 tf2_descent_town"));
+        Assert.True(w.Host.Live);
+        Assert.Empty(w.Console.Calls);
+    }
+
+    [Fact]
+    public void A_same_process_hop_boots_the_level_it_moves_to_as_the_instance_it_becomes()
+    {
+        var hops = new Hops();
+        var w = Host(HostingMode.Hosted, port: 27016, hops);
+        w.Link.BootAnswers.Enqueue(HostResult<BootInfo>.Success(Boot()));
+        w.Host.OnPostInit();
+        w.Host.OnLevelInit("tf2_descent_town");
+        w.Host.OnLevelReady("tf2_descent_town");
+
+        hops.Started.Add("tf2_descent-1-a");
+        w.Link.BootAnswers.Enqueue(HostResult<BootInfo>.Success(Boot("level", 1)));
+        w.Host.OnLevelInit("tf2_descent-1-a");
+
+        Assert.Equal(["start", "booting tf2_descent_town", "mapready 27016 tf2_descent_town", "booting tf2_descent-1-a"], w.Link.Calls);
+        Assert.Equal("level", w.Host.Boot!.InstanceKind);
+        Assert.False(w.Host.SameInstance);
+        Assert.Equal(["booted hub", "live", "booted level"], w.Watcher.Seen);
+    }
+
+    [Fact]
+    public void A_level_change_that_is_no_hop_tells_the_boot_hooks_the_boot_it_kept()
+    {
+        var w = Host(HostingMode.Hosted, port: 27016, new Hops());
+        w.Link.BootAnswers.Enqueue(HostResult<BootInfo>.Success(Boot("level", 2)));
+        w.Host.OnPostInit();
+        w.Host.OnLevelInit("tf2_descent-2-a");
+
+        w.Host.OnLevelInit("tf2_descent-2-a");
+
+        Assert.True(w.Host.SameInstance);
+        Assert.Equal(["booted level", "booted level"], w.Watcher.Seen);
+    }
+
+    [Fact]
+    public void A_boot_refused_for_a_reason_retrying_may_fix_is_said_once_while_it_retries()
+    {
+        var w = Host(HostingMode.Hosted);
+        w.Link.BootAnswers.Enqueue(Refused<BootInfo>(HostError.Rejected));
+        w.Link.BootAnswers.Enqueue(Refused<BootInfo>(HostError.Rejected));
+        w.Link.BootAnswers.Enqueue(HostResult<BootInfo>.Success(Boot("hub")));
+
+        w.Host.OnPostInit();
+        w.Host.OnLevelInit("tf2_descent_town");
+
+        var said = Assert.Single(w.Log.Lines, l => l.Contains("Booting was refused", StringComparison.Ordinal));
+        Assert.Contains("Rejected (reason: detail)", said);
+        Assert.Equal("hub", w.Host.Boot!.InstanceKind);
+    }
+
+    [Fact]
+    public void A_boot_refused_not_booting_while_the_instance_is_still_created_is_retried()
+    {
+        // SDK 2.8.1: the service creates the pod while the instance is Creating and marks it Booting only after
+        // the create returns, so a fast process's first Booting can be answered not_booting (host-67, 2026-11-21).
+        var w = Host(HostingMode.Hosted);
+        w.Link.BootAnswers.Enqueue(Refused<BootInfo>(HostError.NotBooting));
+        w.Link.BootAnswers.Enqueue(HostResult<BootInfo>.Success(Boot("hub")));
+
+        w.Host.OnPostInit();
+        w.Host.OnLevelInit("tf2_descent_town");
+
+        Assert.Empty(w.Console.Calls);
+        Assert.Equal("hub", w.Host.Boot!.InstanceKind);
+        var said = Assert.Single(w.Log.Lines, l => l.Contains("Booting was refused", StringComparison.Ordinal));
+        Assert.Contains("NotBooting", said);
+    }
+
+    [Fact]
     public void An_unknown_bound_port_is_never_guessed()
     {
         var w = Host(HostingMode.Hosted, port: null);
@@ -265,6 +365,11 @@ public sealed partial class ServiceFlowTests
     //-------------------------------------------------------------------------
 
     private static (World W, PlayerService Players, FakeClients Clients, RecordingEngine Net) Players(string kind = "hub", bool booted = true, int levelDepth = 3)
+        => Players(out _, kind, booted, levelDepth);
+
+    /// <param name="sheets">The hero sheets the player service hands each join's sheet to.</param>
+    private static (World W, PlayerService Players, FakeClients Clients, RecordingEngine Net) Players(out TF2.Descent.Server.Hero.HeroSheets sheets, string kind = "hub",
+                                                                                                    bool booted = true, int levelDepth = 3)
     {
         var w = Host(HostingMode.Hosted);
         w.Link.BootAnswers.Enqueue(booted ? HostResult<BootInfo>.Success(Boot(kind, kind == "hub" ? 0 : levelDepth)) : Refused<BootInfo>(HostError.Unreachable));
@@ -273,8 +378,8 @@ public sealed partial class ServiceFlowTests
             w.Host.OnLevelInit("tf2_descent_town");
         var clients = new FakeClients();
         var net = new RecordingEngine();
-        var players = new PlayerService(w.Link, w.Host, clients, new ClientMessages(net), new NeverScheduler(), w.Log,
-                                        new TF2.Descent.Server.Hero.HeroSheets(new TF2.Descent.Rules.TF2DescentRules(), w.Host, clients, w.Log));
+        sheets = new TF2.Descent.Server.Hero.HeroSheets(new TF2.Descent.Rules.TF2DescentRules(), w.Host, clients, w.Log);
+        var players = new PlayerService(w.Link, w.Host, clients, new ClientMessages(net), new NeverScheduler(), w.Log, sheets, new TF2.Descent.Tests.Hero.HeroRig.ListHooks<IHeroJoinHook>([]));
         return (w, players, clients, net);
     }
 
@@ -615,8 +720,14 @@ public sealed partial class ServiceFlowTests
     private static (World W, TravelService Travel, RecordingEngine Net) Travel(
         HostingMode mode = HostingMode.Hosted, int reached = 0, Kills? kills = null, string kind = "hub", int levelDepth = 3,
         TF2.Descent.Server.Party.IPartyTravel? party = null)
+        => Travel(out _, mode, reached, kills, kind, levelDepth, party);
+
+    /// <param name="sheets">The hero sheets the join handed the player's sheet to (the reached record's other half).</param>
+    private static (World W, TravelService Travel, RecordingEngine Net) Travel(out TF2.Descent.Server.Hero.HeroSheets sheets,
+        HostingMode mode = HostingMode.Hosted, int reached = 0, Kills? kills = null, string kind = "hub", int levelDepth = 3,
+        TF2.Descent.Server.Party.IPartyTravel? party = null)
     {
-        var (w, players, clients, net) = Players(kind, levelDepth: levelDepth);
+        var (w, players, clients, net) = Players(out sheets, kind, levelDepth: levelDepth);
         w.Link.JoinAnswer = w.Link.JoinAnswer with { ReachedDepth = reached };
         clients.Slots[3] = (76561197960287930UL, "203.0.113.7:27005");
         players.OnClientActive(3);
@@ -624,7 +735,22 @@ public sealed partial class ServiceFlowTests
         if (mode != HostingMode.Hosted)
             w.Link.ModeIs = mode;
         var host = w.Host;
-        return (w, new TravelService(w.Link, host, players, new ClientMessages(net), kills ?? new Kills(), party ?? new AnyoneTravels(), w.Log), net);
+        var level = new Floor.RigLevel(levelDepth, 1) { Current = null };
+        var reachedDepths = new ReachedDepths(level, new TF2.Descent.Server.Hero.Heroes(), sheets, players, host, w.Log);
+        return (w, new TravelService(w.Link, host, players, new ClientMessages(net), kills ?? new Kills(), party ?? new AnyoneTravels(),
+                                     level, NoPool(), reachedDepths, w.Console, w.Log), net);
+    }
+
+    /// <summary>A pool with nothing installed: the hosted flows never look in it.</summary>
+    private static LevelHop NoPool() => new(new PoolMod(Path.Combine(Path.GetTempPath(), "tf2_descent-nopool-" + Guid.NewGuid().ToString("N"))),
+                                            new FakeConsole(), new ListLog());
+
+    private sealed class PoolMod(string dir) : IModInfo
+    {
+        public string Id => "tf2_descent";
+        public string GameDir => dir;
+        public string ManagedDir => dir;
+        public IReadOnlyList<string> AssembliesFor(Side side) => [];
     }
 
     private static int Notices(RecordingEngine net) => NoticesSent(net).Count;
@@ -651,8 +777,26 @@ public sealed partial class ServiceFlowTests
         => Assert.Equal((TravelCall.StairsDown, 4), HostLink.Route(TravelDirection.Down, Boot("level", 3), 9));
 
     [Fact]
-    public void Up_asks_the_town_portal()
-        => Assert.Equal(TravelCall.TownPortal, HostLink.Route(TravelDirection.Up, Boot("level", 3), 0).Call);
+    public void A_levels_way_up_asks_for_the_level_above()
+        => Assert.Equal((TravelCall.StairsDown, 2), HostLink.Route(TravelDirection.Up, Boot("level", 3), 0));
+
+    [Fact]
+    public void Level_1s_way_up_asks_the_town_portal()
+        => Assert.Equal(TravelCall.TownPortal, HostLink.Route(TravelDirection.Up, Boot("level", 1), 0).Call);
+
+    [Fact]
+    public void The_portal_asks_the_town_portal_from_any_depth()
+        => Assert.Equal(TravelCall.TownPortal, HostLink.Route(TravelDirection.Portal, Boot("level", 3), 0).Call);
+
+    [Fact]
+    public void Hosted_a_levels_way_up_reaches_the_host()
+    {
+        var (w, travel, _) = Travel(kind: "level", levelDepth: 3);
+
+        travel.Request(3, TravelDirection.Up);
+
+        Assert.Contains("travel 76561197960287930 Up level 1", w.Link.Calls);
+    }
 
     [Fact]
     public void A_picked_depth_the_player_has_reached_reaches_the_host_call()
@@ -699,6 +843,17 @@ public sealed partial class ServiceFlowTests
 
         Assert.Equal(offered, AskedTheHost(w));
         Assert.Equal(["c-1"], kills.Asked);   // the requesting player's own character
+    }
+
+    [Fact]
+    public void Hosted_a_depth_on_the_heros_sheet_is_offered_as_the_joins_record_is()
+    {
+        var (w, travel, _) = Travel(out var sheets, reached: 1);
+        Assert.True(sheets.Apply(3, s => s with { ReachedDepth = 3 }).Ok);
+
+        travel.Request(3, TravelDirection.Down, 3);
+
+        Assert.Contains("travel 76561197960287930 Down hub 3", w.Link.Calls);
     }
 
     [Fact]
@@ -770,11 +925,31 @@ public sealed partial class ServiceFlowTests
     }
 
     [Fact]
-    public void Going_up_tells_of_the_way_back_to_town()
+    public void Going_up_from_a_level_tells_of_the_way_to_the_level_above()
     {
-        var (_, travel, net) = Travel(kind: "level");
+        var (_, travel, net) = Travel(kind: "level", levelDepth: 3);
 
         travel.Request(3, TravelDirection.Up);
+
+        Assert.Equal([(TravelService.UpLevelToken, "")], NoticesSent(net));
+    }
+
+    [Fact]
+    public void Going_up_from_level_1_tells_of_the_way_back_to_town()
+    {
+        var (_, travel, net) = Travel(kind: "level", levelDepth: 1);
+
+        travel.Request(3, TravelDirection.Up);
+
+        Assert.Equal([(TravelService.UpToken, "")], NoticesSent(net));
+    }
+
+    [Fact]
+    public void Going_up_through_the_portal_tells_of_the_way_back_to_town()
+    {
+        var (_, travel, net) = Travel(kind: "level", levelDepth: 3);
+
+        travel.Request(3, TravelDirection.Portal);
 
         Assert.Equal([(TravelService.UpToken, "")], NoticesSent(net));
     }
@@ -895,6 +1070,26 @@ public sealed partial class ServiceFlowTests
         Assert.DoesNotContain(w.Link.Calls, c => c.StartsWith("leave", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void A_player_held_through_a_level_change_on_the_same_instance_is_not_joined_again()
+    {
+        var (w, players, clients, _) = Players();
+        clients.Slots[3] = (76561197960287930UL, "203.0.113.7:27005");
+        players.OnClientActive(3);
+        w.Link.Calls.Clear();
+
+        // An operator's changelevel: no hop, no departure (the engine keeps the
+        // client); the instance keeps its boot and the client is active again.
+        w.Host.OnLevelInit("tf2_descent_town");
+        players.OnBooted(w.Host.Boot!);
+        players.OnClientActive(3);
+
+        Assert.DoesNotContain(w.Link.Calls, c => c.StartsWith("join", StringComparison.Ordinal));
+        Assert.DoesNotContain(w.Link.Calls, c => c.StartsWith("leave", StringComparison.Ordinal));
+        Assert.NotNull(players.BySteamId("76561197960287930"));
+        Assert.Equal(1, w.Link.PlayersReported);
+    }
+
     //-------------------------------------------------------------------------
     // A lease lost to an unreachable service (plan_host_sdk P9, criterion 4):
     // a service restart longer than the lease TTL must not drop the player.
@@ -950,7 +1145,7 @@ public sealed partial class ServiceFlowTests
         var clients = new FakeClients();
         var players = new PlayerService(w.Link, w.Host, clients, new ClientMessages(new RecordingEngine()),
                                         new NowScheduler(), w.Log,
-                                        new TF2.Descent.Server.Hero.HeroSheets(new TF2.Descent.Rules.TF2DescentRules(), w.Host, clients, w.Log));
+                                        new TF2.Descent.Server.Hero.HeroSheets(new TF2.Descent.Rules.TF2DescentRules(), w.Host, clients, w.Log), new TF2.Descent.Tests.Hero.HeroRig.ListHooks<IHeroJoinHook>([]));
         clients.Slots[3] = (76561197960287930UL, "203.0.113.7:27005");
         players.OnClientActive(3);
 

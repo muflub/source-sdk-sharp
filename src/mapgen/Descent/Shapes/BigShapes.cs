@@ -143,6 +143,12 @@ public static class BigShapes
             foreach (CellFace wall in (CellFace[])[CellFace.North, CellFace.South, CellFace.East, CellFace.West])
                 foreach (var (lo, hi) in RockSpans(kit, n, wall == CellFace.West ? [(c - 332, c + 332)] : []))
                     CavernShape.RockRun(g, inner, wall, lo, hi, phase + (int)wall);
+            // Over each socket's door too, from above its frame to the roof (brief p9: a grotto's walls stood
+            // flat round every door, floor to roof).
+            foreach (CellFace wall in (CellFace[])[CellFace.North, CellFace.South, CellFace.East, CellFace.West])
+                for (int k = 0; k < n; k++)
+                    if (wall != CellFace.West || Math.Abs(k * c + c / 2 - c) > 332 + c / 2)
+                        CavernShape.RockOverDoor(g, kit, inner, wall, k, phase + 4 * (int)wall + k);
             float roof = Math.Min(e - 2 * t - 256, 1792);
             CavernShape.Roof(g, Rect.Around(e / 2, e / 2, roof, roof), rng, 192);
             CavernShape.Stalactites(g, Rect.Around(e / 2, e / 2, roof, roof), rng, 4 + 2 * n);
@@ -184,7 +190,11 @@ public static class BigShapes
                 .WithEntry(new RoomEntry([], MinDepth: 8, MaxDepth: 14)).WithMapLabel("Flooded gallery");
             // Wading water over the floor between the walls' walks (a Heavy wades it), round a dry island.
             var basin = new Rect(c - 640, c - 640, c + 640, c + 640);
-            f.WithWater(basin, f.Floor, f.Floor + PoolShape.Water, theme.Water ?? PoolShape.WaterMaterial);
+            // Act III's holds its hazard (slime, lava), which the walks along the walls keep off the way between doors.
+            if (theme.HazardFloor is not null)
+                f.HazardFloor(basin);
+            else
+                f.WithWater(basin, f.Floor, f.Floor + PoolShape.Water, theme.Water ?? PoolShape.WaterMaterial);
             f.Block(new Rect(c - island, c - 136, c + 136, c + island), 48);
             f.SteppingPillars(c - 520, c + 420, Compass.East, JumpTier.S2, count: 3);
             Lamps(f, height == 512 ? 384 : 448, 512);

@@ -23,6 +23,7 @@ loadprof	routine	tools/loadprof/lp --self-test
 live-gate	full	tools/live-gate --self-test
 tf2-gate	full	tools/tf2-gate --self-test
 ai-tf-jump	full	tools/ai-tf-jump --self-test
+ai-tf-class	full	tools/ai-tf-class --self-test
 run-checks	full	tools/run-checks --self-test
 debug-api-proxy	full	tools/debug-api-proxy --self-test
 daily-gate	routine	tools/daily-gate --self-test
@@ -50,3 +51,4 @@ convar-typeinfo	routine	tools/convar-typeinfo --self-test && tools/convar-typein
 descent-gate	routine	tools/descent-gate --self-test
 descent-preview-spawns	routine	tools/descent-preview-spawns --self-test
 descent-face-sides	routine	tools/descent-face-sides --self-test
+descent-room-light	routine	tools/descent-room-light --self-test

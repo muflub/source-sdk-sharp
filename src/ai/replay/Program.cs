@@ -163,6 +163,63 @@ if (args.Length >= 2 && args[0] == "threat")
     return 0;
 }
 
+if (args.Length >= 2 && args[0] == "fight")
+{
+    var all = new List<FightMotionRow>();
+    AiDecisionTree? tree = null;
+    foreach (string rec in args.Skip(1))
+    {
+        using FileStream input = File.OpenRead(rec);
+        (List<FightMotionRow> rows, AiDecisionTree? recTree) = AiFightMotion.Read(input);
+        tree ??= recTree;
+        all.AddRange(rows);
+        Console.WriteLine($"ai-replay: fight {Path.GetFileName(rec)}");
+        Console.Write(AiFightMotion.Table(rows, recTree));
+    }
+
+    if (args.Length > 2)
+    {
+        Console.WriteLine($"ai-replay: fight, {args.Length - 1} recordings together");
+        Console.Write(AiFightMotion.Summary(all, tree));
+    }
+
+    return 0;
+}
+
+if (args.Length >= 2 && args[0] == "searches")
+{
+    foreach (string rec in args.Skip(1))
+    {
+        using FileStream input = File.OpenRead(rec);
+        Console.WriteLine($"ai-replay: searches {Path.GetFileName(rec)}");
+        List<SearchStretch> stretches = SearchStretchTool.Read(input);
+        Console.Write(SearchStretchTool.Table(stretches));
+        if (stretches.Count > 0 && stretches[0].Seconds > SearchStretchTool.LongSeconds)
+            Console.Write(SearchStretchTool.Track(stretches[0]));
+    }
+
+    return 0;
+}
+
+if (args.Length >= 5 && args[0] == "fightstill")
+{
+    NavLoadResult stillNav = CostTool.LoadNav(args[1], Path.GetFileNameWithoutExtension(args[2]), args[2], args[3]);
+    if (stillNav.Nav is not { } stillLoaded)
+    {
+        Console.Error.WriteLine($"ai-replay: {stillNav.Refusal}");
+        return 1;
+    }
+
+    foreach (string rec in args.Skip(4))
+    {
+        using FileStream input = File.OpenRead(rec);
+        Console.WriteLine($"ai-replay: fightstill {Path.GetFileName(rec)}");
+        Console.Write(FightStillTool.Table(FightStillTool.Read(input, stillLoaded.Nav.Graph)));
+    }
+
+    return 0;
+}
+
 if (args.Length >= 2 && args[0] == "jank")
 {
     int empty = 0;
@@ -206,6 +263,18 @@ if (args.Length >= 1 && args[0] == "navsize")
 //   navrooms <hl2mp|tf2> <map.navhull> <map.bsp> rooms [largest] | derive <region> [stop=cache] [no-sight]   the map's regions of free space, and what one costs to derive
 if (args.Length >= 1 && args[0] == "navrooms")
     return NavRoomsTool.Run(args[1..], Console.Out, Console.Error);
+
+//   navsplit write <map.navhull> <map.bsp> <out-dir> [counted|all|r,r,..] | check <hl2mp|tf2> <map.navhull> <map.bsp> <region> <part.navhull>   a file per sealed space, and the room index
+if (args.Length >= 1 && args[0] == "navsplit")
+    return NavSplitTool.Run(args[1..], Console.Out, Console.Error);
+
+//   navcells <hl2mp|tf2> <room.navhull> <map.bsp> where | variant <base|tele+reach+k4+nosight..>   where a room's cells are, and what makes its graph smaller
+if (args.Length >= 1 && args[0] == "navcells")
+    return NavCellsTool.Run(args[1..], Console.Out, Console.Error);
+
+//   spread <map.nav3d> <map.bsp> [lives=3] [spacing=1024] [amplitude=0.1]   TF2's planned routes from each team's first spawn room to the point in play, with and without each bot's field (lane Groutes)
+if (args.Length >= 1 && args[0] == "spread")
+    return RouteSpreadTool.Run(args[1..], Console.Out, Console.Error);
 
 //   jumps <map.nav3d> <map.bsp> <soldier.txt> <out.json> <build> <commit> [candidate-limit]   TF2's blast-jump place finder on the map, measured
 if (args.Length >= 1 && args[0] == "jumps")

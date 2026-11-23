@@ -20,26 +20,72 @@ namespace SourceSharp.Ai.Store;
 /// then loads the empty experience and merges nothing, and leaves the file as
 /// it found it. A file another process holds locked past the busy timeout
 /// fails that one call and is no refusal.</para>
+///
+/// <para>Opened for a game (<see cref="OpenRetrying"/>, G.11's ruling of
+/// 2026-11-16: retry, then go on), a file held locked past the busy timeout
+/// as it opens is no refusal either: the store is <see cref="Waiting"/>, answers
+/// as an empty store, and a thread of its own tries the open again every
+/// <see cref="RetryPeriodMs"/> until it attaches (or meets a real refusal);
+/// disposing it stops that thread and joins it. A tool's open
+/// (<see cref="Open(string)"/>) answers at once: a busy file is its refusal.</para>
 /// </summary>
 public sealed class SqliteExperienceStore : IExperienceStore
 {
     private const int Busy = 5, Locked = 6;
 
+    /// <summary>How long a store waiting on a busy file sleeps between tries of the open, in milliseconds.</summary>
+    public const int RetryPeriodMs = 1000;
+
     private readonly Lock _gate = new();
     private SqliteConnection? _connection;
     private string? _refusal;
+    private string? _waiting;
+    private bool _disposed;
+    private Thread? _retry;
+    private ManualResetEventSlim? _stop;
+    private long _retries;
 
-    private SqliteExperienceStore(string path, SqliteConnection? connection, string? refusal)
+    private SqliteExperienceStore(string path, SqliteConnection? connection, string? refusal, string? waiting)
     {
         Path = path;
         _connection = connection;
         _refusal = refusal;
+        _waiting = waiting;
     }
 
-    /// <summary>The store at <paramref name="path"/>, its file and directory created if absent and its schema brought up to this build's.</summary>
+    /// <summary>
+    /// The store at <paramref name="path"/>, its file and directory created if absent and its schema brought up to this
+    /// build's; a file held locked past the busy timeout is refused (a tool's open: it answers now, and is run again).
+    /// </summary>
     public static SqliteExperienceStore Open(string path) => Open(path, SqliteSchema.Migrations, SqliteFile.BusyTimeoutMs);
 
-    internal static SqliteExperienceStore Open(string path, IReadOnlyList<Migration> migrations, int busyTimeoutMs = SqliteFile.BusyTimeoutMs)
+    /// <summary>
+    /// As <see cref="Open(string)"/>, but a file held locked past the busy timeout is retried in the background every
+    /// <see cref="RetryPeriodMs"/> and attached when the lock clears (the game's open: it never waits on the file).
+    /// </summary>
+    public static SqliteExperienceStore OpenRetrying(string path) => Open(path, SqliteSchema.Migrations, SqliteFile.BusyTimeoutMs, RetryPeriodMs);
+
+    /// <summary>The store at <paramref name="path"/>; with a <paramref name="retryPeriodMs"/> above 0, a busy open waits and retries at that period instead of being refused.</summary>
+    internal static SqliteExperienceStore Open(string path, IReadOnlyList<Migration> migrations, int busyTimeoutMs = SqliteFile.BusyTimeoutMs, int retryPeriodMs = 0)
+    {
+        Opened opened = Try(path, migrations, busyTimeoutMs);
+        if (opened.Busy is not { } busy)
+            return new SqliteExperienceStore(path, opened.Connection, opened.Refusal, null);
+        if (retryPeriodMs <= 0)
+            return new SqliteExperienceStore(path, null, $"{path} cannot be used as the experience store: {busy}", null);
+
+        string waiting = string.Create(CultureInfo.InvariantCulture,
+            $"{path} is busy (another process held it locked past {busyTimeoutMs} ms as it opened: {busy}); retrying every {retryPeriodMs} ms");
+        var store = new SqliteExperienceStore(path, null, null, waiting) { _stop = new ManualResetEventSlim() };
+        store._retry = new Thread(() => store.Retry(migrations, busyTimeoutMs, retryPeriodMs)) { IsBackground = true, Name = "ai-experience-retry" };
+        store._retry.Start();
+        return store;
+    }
+
+    /// <summary>What one try of the open came to: a connection, a refusal, or a file held locked (why, as one line).</summary>
+    private readonly record struct Opened(SqliteConnection? Connection, string? Refusal, string? Busy);
+
+    private static Opened Try(string path, IReadOnlyList<Migration> migrations, int busyTimeoutMs)
     {
         SqliteConnection? connection = null;
         try
@@ -49,15 +95,45 @@ public sealed class SqliteExperienceStore : IExperienceStore
             connection = SqliteFile.Open(path, busyTimeoutMs);
             connection.CreateFunction("fade", (long from, long to, double halfLife) => ExperienceDecay.Factor(to - from, halfLife), isDeterministic: true);
             if (SqliteSchema.Migrate(connection, migrations) is not { } refused)
-                return new SqliteExperienceStore(path, connection, null);
+                return new Opened(connection, null, null);
             connection.Dispose();
-            return new SqliteExperienceStore(path, null, $"{path} is not used as the experience store: {refused}");
+            return new Opened(null, $"{path} is not used as the experience store: {refused}", null);
+        }
+        catch (SqliteException e) when (e.SqliteErrorCode is Busy or Locked)
+        {
+            connection?.Dispose();
+            return new Opened(null, null, OneLine(e));
         }
         catch (Exception e) when (e is SqliteException or IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException
                                       or DllNotFoundException or TypeInitializationException or BadImageFormatException)
         {
             connection?.Dispose();
-            return new SqliteExperienceStore(path, null, $"{path} cannot be used as the experience store: {OneLine(e)}");
+            return new Opened(null, $"{path} cannot be used as the experience store: {OneLine(e)}", null);
+        }
+    }
+
+    /// <summary>The retry thread: tries the open every <paramref name="periodMs"/> until it attaches, is refused, or the store is disposed.</summary>
+    private void Retry(IReadOnlyList<Migration> migrations, int busyTimeoutMs, int periodMs)
+    {
+        while (!_stop!.Wait(periodMs))
+        {
+            Opened opened = Try(Path, migrations, busyTimeoutMs);
+            Interlocked.Increment(ref _retries);
+            lock (_gate)
+            {
+                if (_disposed)
+                {
+                    opened.Connection?.Dispose();
+                    return;
+                }
+
+                if (opened.Busy is not null)
+                    continue;
+                _waiting = null;
+                _connection = opened.Connection;
+                _refusal = opened.Refusal;
+                return;
+            }
         }
     }
 
@@ -72,6 +148,18 @@ public sealed class SqliteExperienceStore : IExperienceStore
                 return _refusal;
         }
     }
+
+    public string? Waiting
+    {
+        get
+        {
+            lock (_gate)
+                return _waiting;
+        }
+    }
+
+    /// <summary>Tries of the open the retry thread has made: 0 for a store that never waited.</summary>
+    public long Retries => Interlocked.Read(ref _retries);
 
     /// <summary>Calls that gave up on a file another process held locked.</summary>
     public long BusyFailures { get; private set; }
@@ -175,13 +263,25 @@ public sealed class SqliteExperienceStore : IExperienceStore
         }
     }
 
+    /// <summary>Closes the file; a store still waiting stops its retry and joins it (at most the try in flight: the busy timeout).</summary>
     public void Dispose()
     {
+        Thread? retry;
         lock (_gate)
         {
+            _disposed = true;
+            _waiting = null;
             _connection?.Dispose();
             _connection = null;
+            retry = _retry;
+            _retry = null;
         }
+
+        if (retry is null)
+            return;
+        _stop!.Set();
+        retry.Join();
+        _stop.Dispose();
     }
 
     /// <summary>A failed call: a lock held too long is counted and passes; anything else (a corrupt file, a full disk) refuses the store from here on.</summary>

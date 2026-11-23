@@ -351,7 +351,7 @@ public sealed class HeroRules
         foreach (var (id, value) in now)
             totals[id] = value;   // an attribute's total is its Now
 
-        return new HeroStats(S, baseValues, now, totals);
+        return new HeroStats(S, _content.Lamp, baseValues, now, totals, counting);
     }
 
     /// <summary>

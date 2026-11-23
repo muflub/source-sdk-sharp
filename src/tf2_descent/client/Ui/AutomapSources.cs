@@ -86,6 +86,7 @@ public sealed class AutomapSource(IAutomapRooms rooms, IAutomapWorld world, IGam
 
     private float[] _rx = [], _ry = [], _rw = [], _rh = [];
     private int[] _storey = [];
+    private bool[] _discovered = [];
     private readonly List<(float X, float Y, float W, float H)> _stubs = new();
     private readonly List<DescentMarker> _marks = new();
     private readonly List<Vector> _party = new();
@@ -182,6 +183,7 @@ public sealed class AutomapSource(IAutomapRooms rooms, IAutomapWorld world, IGam
             _rw = new float[list.Count];
             _rh = new float[list.Count];
             _storey = new int[list.Count];
+            _discovered = new bool[list.Count];
         }
         _stubs.Clear();
         _seenDoors.Clear();
@@ -193,6 +195,7 @@ public sealed class AutomapSource(IAutomapRooms rooms, IAutomapWorld world, IGam
             _rw[i] = GridLength(r.MaxX - r.MinX);
             _rh[i] = GridLength(r.MaxY - r.MinY);
             _storey[i] = r.Storey + 1;
+            _discovered[i] = r.Discovered;
             foreach (var d in r.Doors)
             {
                 if (!_seenDoors.Add((d.X, d.Y)))
@@ -210,13 +213,14 @@ public sealed class AutomapSource(IAutomapRooms rooms, IAutomapWorld world, IGam
             foreach (var m in list[i].Marks)
                 _marks.Add(new DescentMarker(KindOf(m.Kind), i, GridX(m.X), GridY(m.Y), list[i].Storey + 1));
 
-        // The party: another hero standing in a revealed room.
+        // The party: another hero standing in a revealed room (an explored one: a discovered
+        // room shows nothing in it).
         world.PartyPositions(_party);
         foreach (var p in _party)
             for (int i = 0; i < list.Count; i++)
             {
                 var r = list[i];
-                if (p.X < r.MinX || p.X > r.MaxX || p.Y < r.MinY || p.Y > r.MaxY)
+                if (r.Discovered || p.X < r.MinX || p.X > r.MaxX || p.Y < r.MinY || p.Y > r.MaxY)
                     continue;
                 _marks.Add(new DescentMarker(DescentMapMarker.Party, i, GridX(p.X), GridY(p.Y), r.Storey + 1));
                 break;
@@ -279,6 +283,12 @@ public sealed class AutomapSource(IAutomapRooms rooms, IAutomapWorld world, IGam
     {
         Build();
         return _storey[room] == _heroStorey;
+    }
+
+    public bool RoomDiscovered(int room)
+    {
+        Build();
+        return _discovered[room];
     }
 
     public int DoorStubCount

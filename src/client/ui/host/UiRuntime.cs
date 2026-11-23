@@ -250,6 +250,11 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
 
         _menu.Hold(ConsoleScreen, _consoleHidden || _menus.Loading is { CoversConsole: true });
         CoverWindows();
+        // A level loading has the screen, the dialog asked for or not: stock's GameUI took its
+        // menus to alpha 0 for the whole load (CBasePanel's BACKGROUND_LOADING). The menu layer
+        // paints through a multiplayer load (V_RenderVGuiOnly), so a main menu left up drew over
+        // the whole load of a map from the command line. The menu comes back with the hide.
+        _menu.Hold(MainMenuScreen, _menus.Loading is { Loading: true });
 
         MenuScreen = ScreenFor(screenWidth, screenHeight);
         _backend.Ledger = MenuLedger;
@@ -283,7 +288,9 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
         // layer's too: the window under the closed one would take the same press as
         // its own Esc next frame and close as well (plan_descent_logic L8: one press,
         // one window). The chat's input line keeps its own Escape.
-        bool hostEscape = e.Kind == UiInputKind.Key && (UiKey)code == UiKey.Escape
+        // An open dropdown list holds the keyboard: its Escape closes the list, not the window.
+        bool popupEscape = e.Kind == UiInputKind.Key && (UiKey)code == UiKey.Escape && _menu.Context.PopupHoldsKeys;
+        bool hostEscape = e.Kind == UiInputKind.Key && (UiKey)code == UiKey.Escape && !popupEscape
                           && !(_menus.Chat is not null && _menu.IsOpen("chatinput"))
                           && Windows.Top is { } topWindow && _menu.IsOpen(topWindow);
         if (!consoleTab && !hostEscape)
@@ -304,6 +311,8 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
         {
             if ((UiKey)code == UiKey.Escape)
             {
+                if (popupEscape)
+                    return;
                 ToggleMenu();
                 return;
             }

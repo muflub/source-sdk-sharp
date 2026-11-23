@@ -21,6 +21,9 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
 {
     // Each corpse's items with where the hero carried them, so a loot puts them back (InventoryRules.Recover).
     private readonly Dictionary<string, (List<CorpseItem> Items, long Australium)> _corpses = new(StringComparer.Ordinal);
+
+    // What the Lost & Found holds of each hero's: his corpses whose levels are gone, merged, places kept.
+    private readonly Dictionary<string, (List<CorpseItem> Items, long Australium)> _lost = new(StringComparer.Ordinal);
     private ulong _rolls;
 
     /// <summary>The class a new hero starts as (HE1's mode spawns heroes as Soldiers).</summary>
@@ -122,12 +125,8 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
             return DropResult.Refused(LedgerRefusals.UnknownBase);
         if (await Ensure(drop.Hero) is not { } h)
             return DropResult.Refused(LedgerRefusals.NoHero);
-        var row = Rules.LevelTable(drop.Depth);
-        var ctx = drop.Tier >= 0
-            ? new ItemRollContext(h.Sheet.ClassId, h.Sheet.Level, drop.Depth, row.ItemLevel, drop.Tier, row.LootTable, "container")
-            : new ItemRollContext(h.Sheet.ClassId, h.Sheet.Level, drop.Depth, row.ItemLevel, 0,
-                Rules.Content.ItemSettings.ForcedBasePrefix + drop.Potion, "container");
-        var item = Rules.ItemRules.Roller.Roll(ctx, drop.Seed);
+        // The rules' item for the roll, the one the host mints for a hosted container (LootRules.ContainerItem).
+        var item = Rules.Loot.ContainerItem(h.Sheet.ClassId, h.Sheet.Level, drop.Depth, drop.Tier, drop.Tier >= 0 ? null : drop.Potion, drop.Seed)!;
         return new DropResult(true, null, [Place(new FloorItem(NextId(), item, drop.Hero, drop.Position))]);
     }
 
@@ -144,6 +143,55 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
                 placed.Add(Place(new FloorItem(NextId(), Rules.ItemRules.Codec.Instance(drop), hero, boss.Position)));
         }
         return new DropResult(true, null, placed);
+    }
+
+    /// <summary>The kill's pile as the game rolled it (L24: one pile a kill, shared on pickup); none for a roll of none.</summary>
+    public override Task<PileAnswer> KillAustralium(KillPile kill) => Task.FromResult(kill.Australium <= 0
+        ? new PileAnswer(false, LedgerRefusals.NoAustralium, null)
+        : new PileAnswer(true, null, PlacePile(new AustraliumPile(NextId(), kill.Australium, kill.Killer))));
+
+    /// <summary>
+    /// The pile picked up, as the host does it: the claimer must be one of <paramref name="members"/>
+    /// (the killer's party on the level); each member is credited the rules' share
+    /// (<c>AustraliumShares</c> over their sheets, in that order) and the pile is gone.
+    /// </summary>
+    public override async Task<PileTake> ClaimAustralium(string hero, long pileId, IReadOnlyList<string> members)
+    {
+        if (PileOf(pileId) is not { } pile)
+            return PileTake.Refused(LedgerRefusals.NotOnFloor);
+        if (!members.Contains(hero, StringComparer.Ordinal))
+            return PileTake.Refused(LedgerRefusals.NotInParty);
+        var here = new List<LedgerHero>();
+        foreach (var m in members.Distinct(StringComparer.Ordinal))
+            if (await Ensure(m) is { } h)
+                here.Add(h);
+        if (PileOf(pileId) is null)
+            return PileTake.Refused(LedgerRefusals.NotOnFloor);   // taken while the members loaded
+        UnplacePile(pileId);
+        var shares = Contract.AustraliumShares(pile.Australium, [.. here.Select(h => Rules.SheetCodec.Write(h.Sheet))]);
+        var credits = new List<PileCredit>();
+        for (int i = 0; i < here.Count && i < shares.Count; i++)
+        {
+            if (shares[i] <= 0)
+                continue;
+            await Credit(here[i].Hero, shares[i], "australium_pile", load: true);
+            credits.Add(new PileCredit(here[i].Hero, shares[i]));
+        }
+        return new PileTake(true, null, credits);
+    }
+
+    /// <summary>A numbered breakable's roll for one hero (the rules' <c>BreakableDrops</c>, as the host replays it): his Australium credited, his items on the floor; once per breakable and hero.</summary>
+    public override async Task<BreakAnswer> Break(BreakDrop drop)
+    {
+        if (await Ensure(drop.Hero) is not { } h)
+            return BreakAnswer.Refused(LedgerRefusals.NoHero);
+        if (!MarkBroken(drop.Seq, drop.Hero))
+            return BreakAnswer.Refused(LedgerRefusals.AlreadyBroken);
+        var roll = Contract.BreakableDrops(drop.InstanceSeed, drop.Seq, drop.Depth, Rules.SheetCodec.Write(h.Sheet));
+        if (roll.Australium > 0)
+            await Credit(drop.Hero, roll.Australium, "breakable_australium", load: true);
+        var items = roll.Items.Select(i => Place(new FloorItem(NextId(), Rules.ItemRules.Codec.Instance(i), drop.Hero, drop.Position))).ToList();
+        return new BreakAnswer(true, null, roll.Australium, items);
     }
 
     /// <summary>Everything carried, and the Australium, onto the hero's corpse (as the host's RecordDeath), each item with where he carried it.</summary>
@@ -184,12 +232,13 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
         if (!_corpses.TryGetValue(hero, out var corpse))
             return new LootAnswer(false, 0, "no corpse");
         var back = Rules.Inventory.Recover(h.Inventory, h.Sheet, corpse.Items);
-        var inventory = back.Hero with { Australium = back.Hero.Australium + corpse.Australium };
+        var stowed = Stowing(h, new InventoryResult(back.Hero, h.Stash, [], null));
+        var inventory = stowed.Hero with { Australium = stowed.Hero.Australium + corpse.Australium };
         if (back.Left.Count == 0)
             _corpses.Remove(hero);
         else
             _corpses[hero] = ([.. back.Left], 0);
-        Commit("loot_corpse", h, h with { Inventory = inventory }, []);
+        Commit("loot_corpse", h, h with { Inventory = inventory }, [.. stowed.Left.Select(l => l.Id)]);
         LastRecovery = back;
         return new LootAnswer(true, back.Recovered, "");
     });
@@ -200,6 +249,74 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
     /// <summary>The hero's corpse: its items in the order a loot takes them, and its Australium; null with none.</summary>
     public override LedgerCorpse? Corpse(string hero) =>
         _corpses.TryGetValue(hero, out var corpse) ? new LedgerCorpse([.. corpse.Items.Select(i => i.Item.Id)], corpse.Australium) : null;
+
+    /// <summary>
+    /// The level every corpse lies on is gone (unhosted, a level change: one process holds one map,
+    /// so the level a corpse belongs to is never loaded again as itself; plan_descent_logic WO4).
+    /// Each corpse goes to the Lost &amp; Found as the rules say (<see cref="global::TF2.Descent.Rules.Death.DeathRules.ToLostAndFound"/>):
+    /// merged onto what it holds of the hero's already, or, for a hardcore hero's (D7), nowhere.
+    /// Answers the heroes whose corpses reached the Lost &amp; Found, in name order.
+    /// </summary>
+    public override IReadOnlyList<string> CorpsesLost()
+    {
+        var moved = new List<string>();
+        foreach (var hero in _corpses.Keys.Order(StringComparer.Ordinal).ToArray())
+        {
+            var corpse = _corpses[hero];
+            _corpses.Remove(hero);
+            var record = new global::TF2.Descent.Rules.Death.Corpse(hero, Find(hero)?.Sheet.Hardcore == true,
+                                                [.. corpse.Items.Select(i => i.Item.Id.ToString(System.Globalization.CultureInfo.InvariantCulture))],
+                                                corpse.Australium);
+            if (global::TF2.Descent.Rules.Death.DeathRules.ToLostAndFound(record) is null)
+                continue;
+            (List<CorpseItem> Items, long Australium) held = _lost.TryGetValue(hero, out var l) ? l : (new List<CorpseItem>(), 0L);
+            held.Items.AddRange(corpse.Items);
+            _lost[hero] = (held.Items, held.Australium + corpse.Australium);
+            moved.Add(hero);
+        }
+
+        return moved;
+    }
+
+    /// <summary>What the Lost &amp; Found holds of the hero's: its items in the order a reclaim takes them, and its Australium; null with none.</summary>
+    public override LedgerCorpse? LostAndFound(string hero) =>
+        _lost.TryGetValue(hero, out var lost) ? new LedgerCorpse([.. lost.Items.Select(i => i.Item.Id)], lost.Australium) : null;
+
+    /// <summary>The fee for everything the Lost &amp; Found holds of the hero's (a reclaim that cannot take all charges for what it takes).</summary>
+    public override long? ReclaimFee(string hero) => _lost.TryGetValue(hero, out var lost) ? Fee(lost.Items) : null;
+
+    /// <summary>D6's fee on items: the rules' share (death.json's 25 %) of what a vendor pays for them.</summary>
+    private long Fee(IEnumerable<CorpseItem> items) =>
+        Rules.Deaths.LostAndFoundFee(items.Sum(i => Rules.Price(Rules.ItemRules.Codec.ToRolled(i.Item.Item), PriceKind.Sell)));
+
+    /// <summary>
+    /// The hero's own from the Lost &amp; Found (<see cref="InventoryRules.Recover"/>, as a corpse is
+    /// looted): its Australium joins his purse, the fee for the items that go back is paid from it,
+    /// and what does not fit stays. Refused, nothing changed, when the purse cannot pay.
+    /// </summary>
+    public override Task<LedgerResult> Reclaim(string hero) => Serial(hero, async () =>
+    {
+        if (await Ensure(hero) is not { } h)
+            return LedgerResult.Refused(LedgerRefusals.NoHero);
+        if (!_lost.TryGetValue(hero, out var lost))
+            return LedgerResult.Refused(LedgerRefusals.NothingLost, h);
+        var back = Rules.Inventory.Recover(h.Inventory, h.Sheet, lost.Items);
+        long fee = Fee(lost.Items.Where(i => !back.Left.Contains(i)));
+        long purse = h.Inventory.Australium + lost.Australium;
+        if (purse < fee)
+            return LedgerResult.Refused(LedgerRefusals.LostAndFoundFee, h);
+        if (back.Left.Count == 0)
+            _lost.Remove(hero);
+        else
+            _lost[hero] = ([.. back.Left], 0);
+        LastRecovery = back;
+        LastReclaimFee = fee;
+        var stowed = Stowing(h, new InventoryResult(back.Hero, h.Stash, [], null));
+        return Commit("reclaim", h, h with { Inventory = stowed.Hero with { Australium = purse - fee } }, [.. stowed.Left.Select(l => l.Id)]);
+    });
+
+    /// <summary>The last reclaim's fee (the log line).</summary>
+    public long LastReclaimFee { get; private set; }
 
     /// <summary>The process keeps every hero for its life: a leave forgets nothing.</summary>
     public override void Forget(string hero)

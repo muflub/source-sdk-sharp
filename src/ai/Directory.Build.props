@@ -14,14 +14,14 @@
     host-sdk-rev-every-drop); bump MapFormatsVersion with the lock.
   -->
   <PropertyGroup>
-    <MapFormatsVersion>1.0.7</MapFormatsVersion>
+    <MapFormatsVersion>1.0.8</MapFormatsVersion>
     <!--
       SourceSharp.MapTools, map-tools' compile passes, from the same feed: the
       server builds a map's .nav3d in its own process when the map has none
       (plan_bots_teams_tf2 Part E). It depends on MapFormats at the version
       above and on SourceSharp.RoomContracts; bump it with the lock too.
     -->
-    <MapToolsVersion>1.0.5</MapToolsVersion>
+    <MapToolsVersion>1.0.6</MapToolsVersion>
   </PropertyGroup>
 
   <!--

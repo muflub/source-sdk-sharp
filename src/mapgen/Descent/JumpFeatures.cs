@@ -119,6 +119,14 @@ public static class JumpFeatures
         b.WithBrush(Span(b, x, y, leap, deck + gap, deck + gap + deck, 0, width, h));
         // The bridge, at the decks' height, along the far side of the gap.
         b.WithBrush(Span(b, x, y, leap, deck, deck + gap, width - bridge, width, h));
+        // The gap's floor holds the depth's hazard where the theme says (level 13's lava): between the decks, short
+        // of the bridge, open on the near side, so whoever falls in walks out.
+        if (b.Theme.HazardFloor is { Chasms: true })
+        {
+            var (g0, g1) = SpanBounds(x, y, leap, deck, deck + gap, 0, width - bridge, b.Floor, b.Floor);
+            b.HazardFloor(new Rect(g0.X, g0.Y, g1.X, g1.Y));
+        }
+
         // The stairs, beside deck A on the near side, rising toward the leap.
         var (mins, maxs) = SpanBounds(x, y, leap, 0, deck, -bridge, 0, b.Floor, b.Floor + h);
         return b.WithBrushes(Brush.Stairs(mins, maxs, leap, steps, b.Theme.Block));

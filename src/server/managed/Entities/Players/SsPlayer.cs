@@ -51,11 +51,6 @@ public sealed class SsPlayer : AnimatingEntity
     /// Being drawn is not <c>Entities</c>' area, so it arrives by constructor —
     /// the base class's rule for every area whose subject is not always this
     /// entity. See <see cref="OnKilled"/> for what this class does with it.
-    /// <para>
-    /// <paramref name="removals"/> turns this entity's removal into a client's
-    /// disconnect (plan_host_sdk §2.3); tests that build a player by hand leave
-    /// it out.
-    /// </para>
     /// </summary>
     // This composition's player command queues (statics to zero), whose entry
     // for this player goes when it does. Null for a player built without one.
@@ -94,7 +89,6 @@ public sealed class SsPlayer : AnimatingEntity
 
     public SsPlayer(IEngineEntityRender render, IEnginePlayers players, PhysicsDamageQueue impacts,
                     FluidTouches fluid, SvInfiniteAuxPowerConVar infiniteAux, PlayerDebugPrintDamageConVar printDamage,
-                    IPlayerRemovals? removals = null,
                     PlayerCommandQueue? commands = null, IUserMessageSender? messages = null,
                     IEngineHost? host = null, DamageInflictors? inflictors = null,
                     IPlayerShadows? shadows = null, IGameRules? rules = null,
@@ -130,7 +124,6 @@ public sealed class SsPlayer : AnimatingEntity
         _render   = render;
         _players  = players;
         _impacts  = impacts;
-        _removals = removals;
         _models   = models;
         _clock    = clock;
         _animLayers = animLayers;
@@ -166,7 +159,6 @@ public sealed class SsPlayer : AnimatingEntity
     private readonly IPlayerShadows? _shadows;
     private readonly PhysicsDamageQueue _impacts;
     private readonly FluidTouches _fluid;
-    private readonly IPlayerRemovals? _removals;
     private readonly IUserMessageSender? _messages;
     private readonly IEngineHost? _host;
     private readonly DamageInflictors? _inflictors;
@@ -399,7 +391,6 @@ public sealed class SsPlayer : AnimatingEntity
     {
         _commands?.Forget(Handle);
         _moves?.Forget(Handle);
-        _removals?.PlayerRemoved(Entities.GetIndex(Handle));
         _wardrobe?.Forget(Handle);
     }
 
@@ -502,9 +493,23 @@ public sealed class SsPlayer : AnimatingEntity
     /// <summary>The type of the last hit taken: what the killing blow was, when one kills.</summary>
     internal DamageType LastHitType { get; private set; }
 
+    /// <summary>
+    /// The damage rules' answer for the hit now landing. A held-health answer
+    /// (<see cref="Decision.EventsOnly"/>, stock's DAMAGE_EVENTS_ONLY for an
+    /// übered victim, tf_gamerules.cpp:6366-6391) is a zero that still ran the
+    /// hit's events and its push; a refusal is a zero that ran nothing. The
+    /// health the shell took cannot tell the two apart, so a caller that pushes
+    /// with the hit (TF's blast applier) reads this instead of guessing from
+    /// held health. Reset every hit, so what it reads is this hit's answer.
+    /// </summary>
+    public Decision LastHitDecision { get; private set; } = Decision.UseStockRule;
+
     private int TakeHit(EntityHandle attacker, float damage, DamageType damageType, HitGroup hitGroup)
     {
         LastHitType = damageType;
+        // The gate reads this hit's answer, not the last hit's: anything that
+        // returns before the rules are asked is a plain zero.
+        LastHitDecision = Decision.UseStockRule;
         // THE ANSWER IS THE WHOLE OF IT. The shell subtracts what this returns
         // from m_iHealth and calls OnKilled if that reaches zero
         // (CStandaloneEntity::TakeDamage), so a class that also wrote health
@@ -533,8 +538,25 @@ public sealed class SsPlayer : AnimatingEntity
         // anything (player.cpp:1147, FPlayerCanTakeDamage): "no" refuses the
         // whole hit. Only a refusal changes the answer; Yes and UseStockRule
         // both land it, the multiplayer rules' own true.
-        if (_rules?.CanTakeDamage(Handle, attacker, damage, (int)damageType, GameTime, hitGroup) == Decision.No)
+        Decision answer = _rules?.CanTakeDamage(Handle, attacker, damage, (int)damageType, GameTime, hitGroup)
+                          ?? Decision.UseStockRule;
+        LastHitDecision = answer;
+        if (answer == Decision.No)
             return 0;
+
+        // Stock's DAMAGE_EVENTS_ONLY answer for an übered victim
+        // (tf_gamerules.cpp:6366-6391): health is held whole, but the hit is
+        // not refused — the modify rules still number it, and its push and
+        // hurt event run as on any allowed hit. The shell sees a zero taken.
+        if (answer == Decision.EventsOnly && _rules is { } eventsRules)
+        {
+            damage = eventsRules.ModifyDamage(Handle, attacker, damage, (int)damageType, hitGroup);
+
+            PushFromDamage(attacker, damage);
+            DamageReport.Took(0, damageType, DamageOrigin(attacker), GameTime);
+            Hurt(attacker, 0, Health, damageType);
+            return 0;
+        }
 
         // The mods' modify rules on the allowed hit (IDamageModifier, tf2
         // stage 2.7): stock's CTFPlayer::OnTakeDamage calls
@@ -1026,10 +1048,15 @@ public sealed class SsPlayer : AnimatingEntity
                     // sequence over on every drive and EntitySetSequence
                     // always restarts: a write per tick would pin the
                     // server's cycle at zero. A new sequence, or the
-                    // machine's own restart (a re-entered one-shot), writes.
+                    // machine's own restart (a re-entered one-shot), writes;
+                    // so does a sequence the skeleton is no longer playing,
+                    // asked as stock's ComputeMainSequence asks
+                    // GetSequence(): a model change puts it back to 0
+                    // (SetModel's SetSequence( 0 )), and the gait goes back on.
                     PlaySequence: (sequence, _, restart) =>
                     {
-                        if (restart || sequence != _skeletonSequence)
+                        _render.SequenceState(Handle, out int playing, out float _, out float _, out bool _, out int _);
+                        if (restart || sequence != _skeletonSequence || sequence != playing)
                             _render.SetSequence(Handle, sequence);
 
                         _skeletonSequence = sequence;

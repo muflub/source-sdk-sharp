@@ -7,9 +7,68 @@ namespace TF2.Descent.Server;
 [SideService(Side.Server)]
 public sealed class ClientMessages(IUserMessageSender messages)
 {
+    private readonly List<(int EntIndex, string Text, string Arg, int Level)> _afterArrival = [];
+    private int _level;
+
+    private readonly Dictionary<int, (string Text, string Arg)> _wayTold = [];
+    private int _way = -1;
+    private bool _sameStay;
+
     /// <summary>A line on the player's HUD: plain text, or a <c>#Token</c> whose <c>%s1</c> the client fills with <paramref name="arg"/>.</summary>
     public void Notice(int entIndex, string text, string arg = "")
-        => messages.Send(new Shared.Notice { Text = text, Arg = arg }, entIndex);
+    {
+        if (entIndex == _way)
+        {
+            if (_sameStay && _wayTold.TryGetValue(entIndex, out var told) && told == (text, arg))
+                return;
+            _wayTold[entIndex] = (text, arg);
+        }
+        messages.Send(new Shared.Notice { Text = text, Arg = arg }, entIndex);
+    }
+
+    /// <summary>
+    /// A way down or up asks for <paramref name="entIndex"/> (<see cref="WayStays"/>): until
+    /// <see cref="EndWay"/>, a notice to him that repeats the last one a way told him in this
+    /// <paramref name="sameStay"/> is not sent again (the levels' cage buttons and walked ways ask
+    /// every 3 seconds while he stands in them); a new stay, or another reason, is told.
+    /// </summary>
+    public void BeginWay(int entIndex, bool sameStay)
+    {
+        _way = entIndex;
+        _sameStay = sameStay;
+    }
+
+    public void EndWay() => _way = -1;
+
+    /// <summary>
+    /// A notice for after the level change this process is about to make (the whole run's F28:
+    /// unhosted, a notice sent just before a <c>changelevel</c> never reached the HUD): held, and
+    /// sent by <see cref="Hero.ArrivalNotices"/> once the player stands on the next level.
+    /// </summary>
+    public void NoticeAfterArrival(int entIndex, string text, string arg = "")
+        => _afterArrival.Add((entIndex, text, arg, _level));
+
+    /// <summary>A level began: the notices held before it are now due on it.</summary>
+    public void LevelBegan() => _level++;
+
+    /// <summary>Whether a notice held for after a level change is due on this level.</summary>
+    public bool ArrivalNoticesDue => _afterArrival.Exists(n => n.Level < _level);
+
+    /// <summary>Sends the player's notices held for after a level change that are due now; answers how many.</summary>
+    public int SendArrivalNotices(int entIndex)
+    {
+        int sent = 0;
+        for (int i = 0; i < _afterArrival.Count; i++)
+        {
+            var n = _afterArrival[i];
+            if (n.EntIndex != entIndex || n.Level >= _level)
+                continue;
+            Notice(n.EntIndex, n.Text, n.Arg);
+            _afterArrival.RemoveAt(i--);
+            sent++;
+        }
+        return sent;
+    }
 
     /// <summary>
     /// Tells clients the next level's map and its download URL; false when it

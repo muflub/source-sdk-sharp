@@ -776,8 +776,8 @@ public partial class NetSchemaTests
         Assert.True(schema.Contains("\"tiersLive\":true")
             && schema.Contains("\"name\":\"DT_SourceSharpStdEnt32\""), "the tier rollup reports what native registered");
 
-        Assert.True(schema.Contains("\"payloadBytes\":32,\"words\":8,\"props\":22,\"live\":true")
-            && schema.Contains("\"payloadBytes\":256,\"words\":64,\"props\":78,\"live\":false"), "a tier reports the props native built, and whether anything is on it");
+        Assert.True(schema.Contains("\"payloadBytes\":32,\"words\":8,\"props\":23,\"live\":true")
+            && schema.Contains("\"payloadBytes\":256,\"words\":64,\"props\":79,\"live\":false"), "a tier reports the props native built, and whether anything is on it");
 
         string one = Body(server, "/nettable/ss_schema_every_kind");
 

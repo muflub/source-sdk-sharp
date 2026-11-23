@@ -181,6 +181,9 @@ internal sealed class ServerHordeRig
         Engine.ReturnsEachCall("Entities.GetIndex", () => (int)(Engine.Last("Entities.GetIndex") ?? default).ArgAs<EntityHandle>(0).EntryIndex);
         Engine.Returns("Entities.SetParent", true);
         Engine.Returns("EntityRender.LookupSequence", 7);
+        // The bodies' pose dials (CR11): a model that declares none, unless a fact says otherwise.
+        Engine.Returns("EntityRender.LookupPoseParameter", -1);
+        Engine.Returns("EntityRender.SetPoseParameter", 0f);
 
         Registry = new ScriptedEntityRegistry(TestEngines.Server());
         Registry.RegisterAll(typeof(RobotBody).Assembly);
@@ -190,6 +193,7 @@ internal sealed class ServerHordeRig
             services.AddInstance(contract, Engine);
         services.AddInstance<IUserMessageSender>(Engine);
         services.AddInstance<ILog>(Log);
+        services.AddInstance<IServerSkins>(Skins);
         services.AddInstance(new ConsoleLines());
         Spawner = new RigSpawner(Registry);
         services.AddInstance<IHordeRules>(new RigRules());
@@ -225,6 +229,9 @@ internal sealed class ServerHordeRig
     public RecordingLog Log { get; } = new();
     public HordeParking Parking { get; } = new();
     public RigHits Hits { get; } = new();
+
+    /// <summary>The skins the bodies and their weapons were drawn in, last by entity.</summary>
+    public TF2.Descent.Tests.Furniture.RigSkins Skins { get; } = new();
 
     /// <summary>The skill hit in flight the bodies read (<see cref="RigSkillHits.Skill"/>).</summary>
     public RigSkillHits SkillHits { get; } = new();

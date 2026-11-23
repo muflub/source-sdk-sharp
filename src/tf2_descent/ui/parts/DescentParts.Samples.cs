@@ -128,7 +128,12 @@ internal static class DescentPartGallery
 
     [UiGallery("BeltStrip", "two potions, one on cooldown")]
     private static UiScreen Belt(UiSampleServices s)
-        => new UiPanelPreview("BeltStrip", new BeltStrip(new FakeBelt { SlotReady = false, Names = ["Healing Buff", "Vitality", "", ""], Counts = [4, 1, 0, 0] }));
+        => new UiPanelPreview<BeltStripProps>("BeltStrip", new BeltStrip(new FakeBelt { SlotReady = false, Names = ["Healing Buff", "Vitality", "", ""], Counts = [4, 1, 0, 0] }), default);
+
+    [UiGallery("BeltStrip", "armed to move a potion, slot 2 picked")]
+    private static UiScreen BeltArmed(UiSampleServices s)
+        => new UiPanelPreview<BeltStripProps>("BeltStrip", new BeltStrip(new FakeBelt { Names = ["Sandvich Bite", "Bonk! Shot", "", ""], Counts = [2, 1, 0, 0] }),
+                                              new BeltStripProps(OnSlot: _ => { }, Picked: 1), layer: UiLayerKind.Menu);
 
     [UiGallery("SkillSlotsStrip", "cooling down, one charging")]
     private static UiScreen SkillSlots(UiSampleServices s)
@@ -457,6 +462,7 @@ file sealed class FakeAutomapFlat : IDescentAutomap
     public float RoomH(int r) => Rooms[r].H;
     public int RoomStorey(int r) => 1;
     public bool RoomCurrentStorey(int r) => true;
+    public bool RoomDiscovered(int r) => false;
 
     public int DoorStubCount => 3;
     public float DoorStubX(int i) => i switch { 0 => 256, 1 => 672, _ => 832 };

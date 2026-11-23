@@ -120,7 +120,17 @@ public sealed record RoomKit(string Name, int Cell, int DoorWidth, int DoorHeigh
     /// voxel (wall 8) packed a 19-room library into 100 MB in 26 s; this kit
     /// packs the same rooms smaller and faster (plan §1.3).
     /// </summary>
-    public static RoomKit Normal { get; } = For("normal", 1024, FrameModel.FarmDoorframe);
+    public static RoomKit Normal { get; } = For("normal", NormalCell, FrameModel.FarmDoorframe);
+
+    /// <summary>The normal kit's cell (E1).</summary>
+    public const int NormalCell = 1024;
+
+    /// <summary>
+    /// Level 5's cell (brief p18, ruling M36): its maze is a 10 by 10 block of 512 cells round a 2 by 2
+    /// arena, so the level's every room is on this kit, the door the normal kit's (208 by 192, framed);
+    /// a room of the normal size covers 2 by 2 of these cells.
+    /// </summary>
+    public const int MazeCell = 512;
 
     /// <summary>The door opening's low edge along its wall, cell-local.</summary>
     public int DoorLow => (Cell - DoorWidth) / 2;
@@ -252,8 +262,9 @@ public sealed record FrameModel(string Model, float MinX, float MaxX, int Width,
 /// only where it is joined (<c>room_needs joined_&lt;socket&gt;</c>), never solid, lining the room's
 /// half of the doorway with two posts and a head standing <see cref="Proud"/> into the room, and on
 /// the wall round the opening a flange (a steel channel), a cap past the posts (a timber set) or a
-/// stripe over the head, and planks across the threshold in the room. Its faces inside the doorway
-/// were in the plug when the room was lit, so it carries a <c>_minlight</c>.
+/// stripe over the head, and planks across the threshold in the room, and a slab over the let-down floor
+/// under the plug. Its faces inside the doorway were in the plug when the room was lit, so it carries a
+/// <c>_minlight</c> (<see cref="MinLight"/>, the theme's).
 /// </summary>
 /// <param name="PostWidth">A post's width across the opening, inside it.</param>
 /// <param name="HeadDepth">The head's depth under the opening's top, inside it.</param>
@@ -293,8 +304,24 @@ public sealed record BrushFrame(Surface Post, Surface Head, int PostWidth, int H
     /// </summary>
     public int Sag { get; init; }
 
-    /// <summary>The light the frame's faces in the doorway get at least.</summary>
-    public const string MinLight = "0.35";
+    /// <summary>
+    /// The light the frame's faces in the doorway get at least (its <c>_minlight</c>): they were in the
+    /// plug when the room was lit, so without a floor they draw black. A theme sets it to its own walls'
+    /// light (brief p9: at 0.35 on every theme a dark level's arches took lightmaps three to eight times
+    /// their walls' and glowed); vrad lights such a face to about half this.
+    /// </summary>
+    public float MinLight { get; init; } = DefaultMinLight;
+
+    /// <summary>The floor Act I's frames keep: its walls are lit to about this, and its arches read as timber and steel at it.</summary>
+    public const float DefaultMinLight = 0.35f;
+
+    /// <summary>
+    /// A slab of the frame's post surface over the doorway's let-down floor under the plug, its top this
+    /// far above the sill (0: none). The let-down floor and the sill plates on it were in the plug when
+    /// the room was lit and draw as a black strip across every joined doorway (plan task H9); the slab
+    /// is the frame's, so it takes the frame's floor of light instead.
+    /// </summary>
+    public float SillSlab { get; init; } = 1;
 }
 
 /// <summary>A flat prop laid across a doorway's floor (<see cref="FrameModel.Sill"/>), its depth along x and its width along y.</summary>

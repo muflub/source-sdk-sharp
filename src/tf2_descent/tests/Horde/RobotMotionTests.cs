@@ -201,6 +201,50 @@ public sealed class RobotMotionTests
         Assert.Equal(track[^50], track[^1]);
     }
 
+    /// <summary>
+    /// Live on depth 10 seed 1 (2026-11-16, at 680ce6e82): the Tank (speed 30) rolled from its track's start
+    /// at the robots' lift at 4.5 units a second and was logged STALLED FOLLOWER at (5779,1496,16): the floor's
+    /// friction (TF's stop speed 100, friction 4) takes 6 u/s a tick off any body slower than 100, and the
+    /// acceleration (10) gives a body whose speed is 30 only 4.5 back, so it could never go faster than that.
+    /// The Tank's first leg moves at its own speed.
+    /// </summary>
+    [Fact]
+    public void The_Tanks_first_leg_moves_at_its_speed_not_the_floors_crawl()
+    {
+        double speed = new TF2.Descent.Rules.TF2DescentRules().Content.Robots.Rows.Single(r => r.Id == "tank").Speed;
+        var rig = new MotionRig();
+        rig.Stand(1, At(5858, 1496), speed: (float)speed);
+        rig.Motion.Order(1, MotionRig.Follow(At(5248, 1496)), LookIntent.AlongPath, long.MaxValue);
+
+        rig.Tick(67);   // a second to come up to speed
+        var from = rig.At(1);
+        rig.Tick(200);  // three seconds at it
+
+        float moved = Flat(from, rig.At(1)) / (200 * Tick);
+        Assert.True(speed < 40, $"the control: the Tank's speed {speed} is under the floor's 40, where the crawl was");
+        Assert.InRange(moved, (float)speed * 0.95f, (float)speed * 1.02f);
+    }
+
+    /// <summary>The Tank at a station: held, it feels the floor's whole friction and stops within a few ticks, not sliding on.</summary>
+    [Fact]
+    public void A_slow_body_told_to_hold_stops_at_once()
+    {
+        var rig = new MotionRig();
+        rig.Stand(1, At(0, 0), speed: 30f);
+        rig.Motion.Order(1, MotionRig.Follow(At(2000, 0)), LookIntent.AlongPath, long.MaxValue);
+        rig.Tick(67);
+        var moving = rig.At(1);
+        rig.Tick(10);
+        Assert.True(Flat(moving, rig.At(1)) > 3f, $"the control: the body was not moving ({moving} to {rig.At(1)})");
+
+        rig.Motion.Hold(1);
+        rig.Tick(10);
+        var held = rig.At(1);
+        rig.Tick(30);
+
+        Assert.True(Flat(held, rig.At(1)) < 0.01f, $"slid on {Flat(held, rig.At(1))} after the hold");
+    }
+
     [Fact]
     public void A_fast_body_comes_to_rest_at_its_last_corner_not_past_it()
     {
@@ -393,6 +437,27 @@ public sealed class RobotMotionTests
         Assert.InRange(landed.AirTicks, 46, 54);
         Assert.InRange(landed.FallSpeed, 270f, 320f);
         Assert.Equal(floor, rig.At(1).Z, 1);
+    }
+
+    /// <summary>
+    /// A body stepping down off a ledge lower than a step (the root of a live stall on depth 1 seed
+    /// 1: bodies on the widedrift room's 8-unit ledge sat still, following, not blocked, for good):
+    /// the movement walks it across and down onto the floor below, and the accept, which swept
+    /// that step as one straight line, struck the ledge it stood on at once (a floor's face, so no
+    /// clip and no block) and kept the body where it was, tick after tick. It walks off now.
+    /// </summary>
+    [Fact]
+    public void A_body_walks_down_off_a_ledge_lower_than_a_step()
+    {
+        var rig = new MotionRig(world: new BoxMotionWorld { FloorZ = 0f }.Put(new Vector(-1024, -1024, 0), new Vector(100, 1024, 8)));
+        rig.Stand(1, At(80, 0, 8));
+        Assert.InRange(rig.At(1).Z, 7.9f, 9.1f);
+
+        rig.Motion.Order(1, MotionRig.Follow(At(400, 0, 0)), LookIntent.AlongPath, long.MaxValue);
+        rig.Tick(66);
+
+        Assert.True(rig.At(1).X > 200f, $"the body stands at {rig.At(1)}: it never stepped down off the ledge");
+        Assert.Equal(0f, rig.At(1).Z, 0.1f);
     }
 
     [Fact]

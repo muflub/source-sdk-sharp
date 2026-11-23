@@ -1,4 +1,5 @@
 using SourceSharp.Abi;
+using SourceSharp.Server;
 
 using TF2.Server.Econ;
 using TF2.Server.Player;
@@ -192,5 +193,66 @@ public sealed class TFItemSourceTests
         Provider(null, broken).Loadout(Seat, TFClass.Soldier);
 
         Assert.Contains(_log.Warnings(), line => line.Contains(nameof(Source)) && line.Contains("no hero"));
+    }
+
+    /// <summary>
+    /// The bot's seeded loadout reads through the slot's REAL handle, serial
+    /// and all: after a changelevel the handle carries a serial, and a bare
+    /// index crosses the engine's handle table as another slot, so the IsBot
+    /// ask would miss the bot and the inventory's kit would answer for it too.
+    /// </summary>
+    [Fact]
+    public void ABotsSeededLoadoutReadsThroughTheSerialHandle()
+    {
+        var serial = new EntityHandle(0x0001_0000u | Seat);
+
+        var engine = new RecordingEngine();
+        engine.Returns("Players.GetHandle", serial);
+        engine.Returns("Players.GetActiveWeapon", string.Empty);
+        engine.Returns("Precache.PrecacheModel", 0);
+
+        var files = new EconTestFiles().With(BotInventory.TablePath,
+            "defindex\tname\titem_class\tslot\tclasses\tfamily\tattributes\tstatus\tevidence\n" +
+            "22\tTF_WEAPON_PISTOL\ttf_weapon_pistol\tsecondary\tscout\t\t\tworks\t\n");
+        var bots = new SerialHandleBots(serial);
+
+        var provider = LoadoutDeps.Loadout(Inventory(), _schema, new Classes(TFClass.Scout),
+                                           botInventory: new BotInventory(_schema, files, bots, _log),
+                                           bots: bots, players: engine, log: _log);
+
+        ItemInstance? secondary = provider.Loadout(Seat, TFClass.Scout)
+            .Where(e => e.Slot == TFLoadoutSlot.Secondary)
+            .Select(e => e.Item)
+            .SingleOrDefault();
+
+        Assert.NotNull(secondary);
+        Assert.Equal(22, secondary!.Defindex);
+
+        // The IsBot ask itself carried the slot's REAL handle, serial and all:
+        // packed value 0x00010003, not the bare entry index 0x00000003.
+        Assert.Equal(0x0001_0003u, bots.Seen);
+    }
+
+    /// <summary>A roster whose <see cref="IsBot"/> answers only for the slot's serial handle, and records what it was asked with.</summary>
+    private sealed class SerialHandleBots(EntityHandle serialHandle) : IBotPlayers
+    {
+        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal, int team = 0)
+        {
+            refusal = "no bots";
+            return EntityHandle.None;
+        }
+
+        /// <summary>The packed handle of the last <see cref="IsBot"/> ask.</summary>
+        public uint Seen { get; private set; }
+
+        public bool IsBot(EntityHandle player)
+        {
+            Seen = player.Value;
+            return player == serialHandle;
+        }
+
+        public bool Kick(EntityHandle bot, string reason) => false;
+
+        public IReadOnlyList<BotPlayer> Bots { get; } = [new BotPlayer(serialHandle, Seat, "Delta")];
     }
 }

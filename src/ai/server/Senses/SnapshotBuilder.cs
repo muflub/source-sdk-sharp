@@ -102,6 +102,7 @@ public sealed class SnapshotBuilder(IEnginePlayers players, WeaponCatalog weapon
                 self = self with { Flags = self.Flags | SelfFlags.Reloading };
             PerceivedView view = snapshot.Add(b.Id, self);
             view.SetObjectives(objectives);
+            view.SetGameHud(game.View.HudOf(b.Player));
             if (vision.ReadOf(b.Id.Slot) is { } me)
                 things.AddSeen(in b, me.Eye, view);
             if (vision.SightOf(b.Id.Slot) is not { } sight)
@@ -112,7 +113,8 @@ public sealed class SnapshotBuilder(IEnginePlayers players, WeaponCatalog weapon
                     continue;
                 int weapon = weapons.IndexOf(players.GetActiveWeapon(them.Player));
                 ActorActivity activity = activityOf(t) | (stances.Ducked(them.Player) ? ActorActivity.Crouched : ActorActivity.None);
-                var facts = new ActorFacts(sight.TargetOf(t), them.Origin, them.Velocity, weapon, activity, sight.FractionOf(t), teams.TeamOf(them.Player));
+                var facts = new ActorFacts(sight.TargetOf(t), them.Origin, them.Velocity, weapon, activity, sight.FractionOf(t), teams.TeamOf(them.Player),
+                                           Facing: them.View);
                 if (game.View.Render(b.Player, them.Player, ref facts))
                     view.AddSighted(in facts);
             }

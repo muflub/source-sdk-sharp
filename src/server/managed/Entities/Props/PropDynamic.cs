@@ -261,6 +261,25 @@ public sealed class PropDynamic : BreakableProp
     }
 
     /// <summary>
+    /// A model set once a sequence plays (the SetModel input): the client is
+    /// told the skeleton's sequence and cycle from now, so it plays sequence
+    /// 0 from the cycle the old one had, as stock's client takes m_nSequence 0
+    /// and keeps its m_flCycle. The spawn's model comes before any start, and
+    /// the client has nothing to restart then.
+    /// </summary>
+    private protected override void OnModelWorn()
+    {
+        if (State.Starts == 0)
+            return;
+
+        Render.SequenceState(Handle, out int sequence, out float cycle, out _, out _, out _);
+        State.Sequence = sequence;
+        State.StartCycle = cycle;
+        State.StartTime = GameTime;
+        State.Starts++;
+    }
+
+    /// <summary>
     /// TurnOn and TurnOff: EF_NODRAW alone. Stock's hidden prop_dynamic is
     /// still solid; DisableCollision is the input that lets things through.
     /// </summary>

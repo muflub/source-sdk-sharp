@@ -144,6 +144,7 @@ public sealed class ServerAiSession(IAiNavigation nav, IBotGame game, IEnginePla
         {
             ExperienceSlot = experience?.Slot ?? new ExperienceSlot(),
         };
+        _navVersion = nav.Version;
         // The level counts its ticks from low again: the last level's snapshots go.
         Session.Snapshots.Reset();
         bool sync = syncConVar.Value;
@@ -161,6 +162,35 @@ public sealed class ServerAiSession(IAiNavigation nav, IBotGame game, IEnginePla
 
     /// <summary>A hot reload came up under a running level: the bots' knowledge and the pool go with the composition.</summary>
     public void OnLevelCarried(string mapName) => OnLevelInitPostEntity(mapName);
+
+    // The navigation's version the brains' world was made over.
+    private int _navVersion;
+
+    /// <summary>The navigation in play's file when the level is in rooms (plan_bots_teams_tf2_part_g R.2), else null.</summary>
+    public string? RoomNav => nav.RoomInPlay >= 0 ? nav.Current?.File.Name : null;
+
+    /// <summary>
+    /// The level's navigation changed under the brains (a room of a level in rooms installed, or a build landed
+    /// mid-level; R.2 item 6): the recording says so (format 9's NavChange) and the brains' world is made again over the
+    /// new graph, sight and chokes, the map's knowledge kept. Answers true when it was: the bots' brains are then made
+    /// again over it by the caller, so what a bot remembered by cell goes with the old graph.
+    /// </summary>
+    public bool FollowNav()
+    {
+        if (nav.Version == _navVersion)
+            return false;
+        _navVersion = nav.Version;
+        if (_session?.World is not { } old || nav.Current is not { } current || ReferenceEquals(old.Graph, current.Nav.Graph))
+            return false;
+        Recording.NavChange(new AiRecordedNavChange(current.Nav.Graph.Hash, current.File.Name));
+        Session.World = old with { Graph = current.Nav.Graph, Sight = nav.Sight, Chokes = nav.Chokes };
+        log.Msg(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"[SourceSharp/Ai] the bots' world is over {current.File.Name} now: {current.Nav.Graph.CellCount} cells, graph {current.Nav.Graph.Hash:x16}; their brains are made again\n"));
+        return true;
+    }
+
+    /// <summary>A level in rooms follows its bots (R.2 item 3); any other ignores it.</summary>
+    public void FollowRooms(ReadOnlySpan<RoomActor> living) => nav.FollowRooms(living);
 
     /// <summary>
     /// An opponent's identity for its habits, as the main thread knew it
@@ -313,6 +343,15 @@ public sealed class AiSenses(AiBots bots, ServerAiSession ai, VisionPass vision,
     public void Sense(Tick tick, float tickSeconds)
     {
         ai.FollowSync();
+        if (ai.FollowNav())
+        {
+            long remake = Stopwatch.GetTimestamp();
+            RemakeBrains();
+            Follow();
+            log.Msg(string.Create(CultureInfo.InvariantCulture,
+                $"[SourceSharp/Ai] {_inSession.Count} bot brain(s) made again over the new world in {Stopwatch.GetElapsedTime(remake).TotalMilliseconds:F1} ms on the game's thread\n"));
+        }
+
         Follow();
         int n = 0;
         foreach (AiBot b in bots.Bots)
@@ -345,6 +384,7 @@ public sealed class AiSenses(AiBots bots, ServerAiSession ai, VisionPass vision,
         }
 
         bots.Players = [.. _nearby];
+        FollowRooms(sensed);
         for (int i = 0; i < _activity.Length; i++)
         {
             if (!vision.ActorIn(i).IsValid)
@@ -474,6 +514,40 @@ public sealed class AiSenses(AiBots bots, ServerAiSession ai, VisionPass vision,
                 ai.Session.Push(AiEvent.Holdings(b.Id, tick, mask));
             }
         }
+    }
+
+    private readonly RoomActor[] _roomActors = new RoomActor[VisionPass.Slots];
+
+    /// <summary>Where the living players are, bots told apart, for a level in rooms to follow its bots.</summary>
+    private void FollowRooms(ReadOnlySpan<SensedBot> sensed)
+    {
+        int n = 0;
+        foreach (NearbyPlayer p in _nearby)
+        {
+            bool bot = false;
+            foreach (ref readonly SensedBot b in sensed)
+                bot |= b.Id.Slot == p.Slot;
+            if (n < _roomActors.Length)
+                _roomActors[n++] = new RoomActor(p.Origin, p.Team, bot);
+        }
+
+        ai.FollowRooms(_roomActors.AsSpan(0, n));
+    }
+
+    /// <summary>
+    /// The brains' world changed (<see cref="ServerAiSession.FollowNav"/>): every bot's brain is made again over it,
+    /// with its seed, skills and habits, as removed and added again (the recording holds both, after the NavChange).
+    /// </summary>
+    private void RemakeBrains()
+    {
+        foreach ((int slot, ActorId id) in _inSession.ToArray())
+        {
+            ai.Session.RemoveBot(id);
+            vision.Remove(slot);
+            _inSession.Remove(slot);
+        }
+
+        _followed = -1;
     }
 
     private ActorId BotIn(int slot)

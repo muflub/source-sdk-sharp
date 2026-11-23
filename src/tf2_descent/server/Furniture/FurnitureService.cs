@@ -46,7 +46,7 @@ public sealed class FurnitureService(IDescentModeState mode, ILevelData level, T
                                      IRoomActivity rooms, IFurnitureWorld world, IFurnitureHeroes heroes, IItemLedger ledger,
                                      LootFloor floor, ILootGround ground, FurnitureBuffs buffs, FurnitureParking parking,
                                      IHooks<IFurnitureHazardHook> hazards, ClientMessages messages, ILog log,
-                                     Automap.IAutomapReveal automap, Party.IPartyRoster roster)
+                                     Automap.IAutomapReveal automap, Party.IPartyRoster roster, IFurnitureBreakWorld breaks)
     : IGameLifecycle, IFrameLifecycle
 {
     /// <summary>The most furniture entities a level has (section 2: furniture in woken rooms, 32).</summary>
@@ -78,6 +78,7 @@ public sealed class FurnitureService(IDescentModeState mode, ILevelData level, T
     private readonly List<FurnitureRow> _rows = [];
     private readonly List<FurnitureEntity> _pool = [];
     private readonly Stack<FurnitureEntity> _free = new();
+    private BreakOutcome? _forced;
     private readonly HashSet<string> _keys = new(StringComparer.Ordinal);
     private readonly Dictionary<(int Row, int Slot), (double Health, double Ammo)> _owed = [];
     private readonly Dictionary<(int Row, int Slot), double> _lastSaid = [];
@@ -110,6 +111,12 @@ public sealed class FurnitureService(IDescentModeState mode, ILevelData level, T
 
     /// <summary>Entities parked now.</summary>
     public int Free => _free.Count;
+
+    /// <summary>Crates and barrels broken this level.</summary>
+    public int Broken { get; private set; }
+
+    /// <summary>The outcome the next break rolls instead of its own (the dev command); null for the roll's own.</summary>
+    public BreakOutcome? ForcedNext => _forced;
 
     /// <summary>The engine's edicts before and after this level's pool was made.</summary>
     public (int Before, int After) PoolEdicts { get; private set; }
@@ -167,7 +174,9 @@ public sealed class FurnitureService(IDescentModeState mode, ILevelData level, T
         }
 
         int before = spawner.Edicts();
-        int size = Math.Min(PoolCeiling, _rows.Count);
+        // The crates and barrels stand on no pool entity: the breakables' one entity owns them all (FurnitureBreakables).
+        int breakables = Count(FurnitureKind.Breakable);
+        int size = Math.Min(PoolCeiling, _rows.Count - breakables);
         for (int i = 0; i < size; i++)
         {
             var e = spawner.Make();
@@ -192,9 +201,14 @@ public sealed class FurnitureService(IDescentModeState mode, ILevelData level, T
             $"[TF2Descent/Furniture] level ready: {_rows.Count} furniture on {data.Markers.Count(m => LevelAdapters.IsFurniture(m.Kind))} markers from seed {seed} depth {Depth} " +
             $"({Count(FurnitureKind.Shrine)} shrines of {data.OfKind(LevelMarkerKind.Shrine).Count()}, {Count(FurnitureKind.Container)} containers of {data.OfKind(LevelMarkerKind.Container).Count()}, " +
             $"{Count(FurnitureKind.Dispenser)} dispensers of {data.OfKind(LevelMarkerKind.Dispenser).Count()}, {Count(FurnitureKind.Explosive)} explosives of {data.OfKind(LevelMarkerKind.Barrel).Count()}, " +
-            $"{Count(FurnitureKind.Trap)} traps of {data.OfKind(LevelMarkerKind.Trap).Count()}), pool of {_pool.Count} (ceiling {PoolCeiling}) made and parked, entities {PoolEdicts.Before} -> {PoolEdicts.After}\n"));
+            $"{Count(FurnitureKind.Trap)} traps of {data.OfKind(LevelMarkerKind.Trap).Count()}, {breakables} crates and barrels), pool of {_pool.Count} (ceiling {PoolCeiling}) made and parked, entities {PoolEdicts.Before} -> {PoolEdicts.After}\n"));
         CheckRooms();
     }
+
+    /// <summary>The crates' and barrels' models and gibs, standing and what each breaks as, precached while the level loads: a break makes them later.</summary>
+    public void OnLevelInitPreEntity(string mapName) =>
+        breaks.Precache(rules.Content.Furniture.Breakables.Kinds.Select(k => FurnitureCatalog.Of(FurnitureCatalog.Number(FurnitureKindId.Breakable, k)))
+            .OfType<FurnitureEntry>().SelectMany(e => new[] { e.Model, e.SpentModel }).Distinct(StringComparer.Ordinal));
 
     private int Count(FurnitureKind kind) => _rows.Count(r => r.Kind == kind);
 
@@ -212,6 +226,8 @@ public sealed class FurnitureService(IDescentModeState mode, ILevelData level, T
         _rows.Clear();
         _pool.Clear();
         _free.Clear();
+        Broken = 0;
+        _forced = null;
         _keys.Clear();
         _owed.Clear();
         _lastSaid.Clear();
@@ -239,6 +255,7 @@ public sealed class FurnitureService(IDescentModeState mode, ILevelData level, T
         }
 
         Explosions(now);
+        Breaks(now);
         Traps(now);
         if (now - _lastDispense >= DispenseEvery)
         {
@@ -264,11 +281,12 @@ public sealed class FurnitureService(IDescentModeState mode, ILevelData level, T
             }
         }
 
+        // A crate or barrel never takes a pool entity: the breakables' one entity stands for them all.
         foreach (var row in _rows)
         {
             if (_free.Count == 0)
                 break;
-            if (row.Entity is null && !row.Went && rooms.Awake(row.Room))
+            if (row.Kind != FurnitureKind.Breakable && row.Entity is null && !row.Went && rooms.Awake(row.Room))
                 Embody(row, _free.Pop());
         }
 
@@ -289,7 +307,7 @@ public sealed class FurnitureService(IDescentModeState mode, ILevelData level, T
     {
         if (row.Entity is not { } e)
             return;
-        bool hazard = Hazard(row) is not null || row.Went;
+        bool hazard = Hazard(row) is not null || (row.Went && row.Kind == FurnitureKind.Explosive);
         row.Entity = null;
         e.Park();
         parking.Park(e.Handle);
@@ -325,9 +343,11 @@ public sealed class FurnitureService(IDescentModeState mode, ILevelData level, T
             case FurnitureKind.Container:
             {
                 var c = row.Container!;
-                var flags = c.Opened ? FurnitureFlags.Opened
-                    : c.KeyId is { } key && !_keys.Contains(key) ? FurnitureFlags.Locked : FurnitureFlags.None;
-                return Make(c.Opened ? spent : standing, 0, solid: true, usable: true, 0, flags, 255);
+                bool locked = !c.Opened && c.KeyId is { } key && !_keys.Contains(key);
+                var flags = c.Opened ? FurnitureFlags.Opened : locked ? FurnitureFlags.Locked : FurnitureFlags.None;
+                // A wooden supply crate breaks open to a hit as well as to +USE; a locked one takes none until its key is found.
+                int health = !c.Opened && !locked && row.BreakAt is null && f.Breaks(c.Kind) ? 1 : 0;
+                return Make(c.Opened ? spent : standing, 0, solid: true, usable: true, health, flags, 255);
             }
             case FurnitureKind.Dispenser:
             {
@@ -486,12 +506,9 @@ public sealed class FurnitureService(IDescentModeState mode, ILevelData level, T
     /// foot, a seat a hero. A locked one needs the key the party found; a trapped one fires its trap
     /// at the opener.
     /// </summary>
-    public async Task<UseOutcome> OpenContainer(FurnitureRow row, FurnitureHero opener)
+    public async Task<UseOutcome> OpenContainer(FurnitureRow row, FurnitureHero opener, bool broken = false)
     {
-        var members = heroes.Living()
-            .Where(h => h.Slot == opener.Slot || rooms.RoomAt(h.Origin) == row.Room)
-            .OrderBy(h => h.Slot != opener.Slot).ThenBy(h => h.Slot)
-            .Take(LootFloor.Seats).ToList();
+        var members = Members(row, opener.Slot);
         int depth = Depth;
         var open = rules.Furniture.Containers.Open(row.Container!, Seed, members.Select(m => m.Key), _keys,
             request => (Request: request, Loot: rules.Loot.Container(request, depth)));
@@ -506,40 +523,77 @@ public sealed class FurnitureService(IDescentModeState mode, ILevelData level, T
         if (open.KeyUsed is { } key)
             _keys.Remove(key);
         if (row.Entity is { } e)
+        {
             world.Sound(e.Handle, FurnitureSounds.ContainerOpen);
+            if (broken)
+            {
+                // TF2's wood break, of the opened body the entity wears from now on (its splinters): the
+                // standing crate's own break holds that body as a piece, which would stand a second one.
+                breaks.Shatter(Look(row).Model, row.Position, row.Yaw, default);
+                world.Sound(e.Handle, FurnitureSounds.CrateBreak);
+            }
+        }
+
         Restyle(row);
         if (open.TrapFired is { } trap)
             Fire(row, rules.Furniture.Traps.Fire(trap), row.Position, row.Entity?.Handle ?? EntityHandle.None, opener);
 
         var place = Foot(row);
+        var drop = await DropShares(row, members, open.Loot.ToDictionary(p => p.Key, p => p.Value), depth, place, (uint)row.Index);
+        if (drop is not { } placed)
+            return UseOutcome.LevelEnded;
+        string rolls = string.Join(", ", open.Loot.Select(p => $"{p.Key} {Say(p.Value.Loot)}"));
+        log.Msg(string.Create(CultureInfo.InvariantCulture,
+            $"[TF2Descent/Furniture] container #{row.Index} ({row.Placed.Marker}, {row.Variant}) {(broken ? "broken open" : "opened")} by player {opener.Slot}: rolls [{rolls}]" +
+            $"{(open.TrapFired is { } t ? ", trap " + t : "")}{(open.KeyUsed is { } k ? ", key " + k : "")}, " +
+            $"{(placed.Drop is { } d ? $"drop {d.Number} at ({place.X:0} {place.Y:0} {place.Z:0})" : "nothing on the floor")}\n"));
+        return UseOutcome.Used;
+    }
+
+    /// <summary>The living heroes a container or a break of <paramref name="row"/> rolls for: the one who did it first, then those in its room, at most the floor's seats.</summary>
+    private List<FurnitureHero> Members(FurnitureRow row, int first) =>
+        heroes.Living()
+            .Where(h => h.Slot == first || rooms.RoomAt(h.Origin) == row.Room)
+            .OrderBy(h => h.Slot != first).ThenBy(h => h.Slot)
+            .Take(LootFloor.Seats).ToList();
+
+    /// <summary>
+    /// Each member's roll asked of the ledger (<see cref="IItemLedger.ContainerDrop"/>: an item of its
+    /// tier, a potion) and the lot put on the loot floor at <paramref name="place"/>, a seat a hero, with
+    /// his own Australium (none when hosted: the ledger pays it). Null when the level ended while the
+    /// ledger answered; else the floor's drop (null when nothing lay on the floor). A container's
+    /// number (<paramref name="seq"/>, its row's index) goes with each ask: hosted, the host rolls each
+    /// member's share itself, once per container and member, even when the game's roll gave nothing.
+    /// </summary>
+    private async Task<Dropped?> DropShares(FurnitureRow row, IReadOnlyList<FurnitureHero> members,
+                                            IReadOnlyDictionary<string, (LootRequest Request, KillLoot Loot)> loot, int depth, Vector place,
+                                            uint? seq = null)
+    {
         int levelAt = Level;
         var asked = new List<(string Hero, Task<DropResult> Task)>();
-        foreach (var (hero, (request, loot)) in open.Loot)
-            asked.Add((hero, ledger.ContainerDrop(new ContainerDrop(hero, row.Placed.Marker, request.Seed, loot.Item ? loot.Tier : -1,
-                loot.Outcome == LootOutcome.Potion ? loot.Potion : null, depth, place))));
+        foreach (var (hero, (request, roll)) in loot)
+            asked.Add((hero, ledger.ContainerDrop(new ContainerDrop(hero, row.Placed.Marker, request.Seed, roll.Item ? roll.Tier : -1,
+                roll.Outcome == LootOutcome.Potion ? roll.Potion : null, depth, place) { Seq = seq })));
 
         var items = new Dictionary<string, FloorItem?>(StringComparer.Ordinal);
         foreach (var (hero, task) in asked)
         {
             var answer = await task;
             if (Level != levelAt)
-                return UseOutcome.LevelEnded;
+                return null;
             if (!answer.Ok)
-                log.Warning($"[TF2Descent/Furniture] container #{row.Index}: the ledger refused {hero}'s drop: {answer.Refusal}\n");
+                log.Warning($"[TF2Descent/Furniture] {row.Kind.ToString().ToLowerInvariant()} #{row.Index}: the ledger refused {hero}'s drop: {answer.Refusal}\n");
             items[hero] = answer.Ok && answer.Items.Count > 0 ? answer.Items[0] : null;
         }
 
         bool hosted = ledger.Kind == LedgerKind.Hosted;
         var shares = members.Select(m => new LootShare(m.Key, m.Slot, items.GetValueOrDefault(m.Key),
-            hosted || !open.Loot.TryGetValue(m.Key, out var l) ? 0 : l.Loot.Australium)).ToList();
-        var drop = floor.Place(place, shares);
-        string rolls = string.Join(", ", open.Loot.Select(p => $"{p.Key} {Say(p.Value.Loot)}"));
-        log.Msg(string.Create(CultureInfo.InvariantCulture,
-            $"[TF2Descent/Furniture] container #{row.Index} ({row.Placed.Marker}, {row.Variant}) opened by player {opener.Slot}: rolls [{rolls}]" +
-            $"{(open.TrapFired is { } t ? ", trap " + t : "")}{(open.KeyUsed is { } k ? ", key " + k : "")}, " +
-            $"{(drop is { } d ? $"drop {d.Number} at ({place.X:0} {place.Y:0} {place.Z:0})" : "nothing on the floor")}\n"));
-        return UseOutcome.Used;
+            hosted || !loot.TryGetValue(m.Key, out var l) ? 0 : l.Loot.Australium)).ToList();
+        return new Dropped(floor.Place(place, shares));
     }
+
+    /// <summary>What a drop put on the floor (null: nothing lay there).</summary>
+    private sealed record Dropped(FloorDrop? Drop);
 
     private static string Say(KillLoot l) => l.Outcome switch
     {
@@ -653,7 +707,16 @@ public sealed class FurnitureService(IDescentModeState mode, ILevelData level, T
     /// </summary>
     internal int Hurt(FurnitureEntity e, EntityHandle attacker, float damage)
     {
-        if (e.Row < 0 || e.Row >= _rows.Count || _rows[e.Row] is not { Kind: FurnitureKind.Explosive } row || row.Entity != e)
+        if (e.Row < 0 || e.Row >= _rows.Count || _rows[e.Row] is not { } struck || struck.Entity != e)
+            return 0;
+        if (struck.Kind == FurnitureKind.Container)
+        {
+            int taken = Strike(struck, heroes.Of(attacker)?.Player ?? EntityHandle.None, damage) ? e.EngineHealth : 0;
+            e.Took(taken);
+            return taken;
+        }
+
+        if (struck is not { Kind: FurnitureKind.Explosive } row)
             return 0;
         int healthAfter = HurtCore(row, heroes.Of(attacker)?.Player ?? EntityHandle.None, damage);
         int answer = Math.Max(0, e.EngineHealth - healthAfter);
@@ -717,6 +780,38 @@ public sealed class FurnitureService(IDescentModeState mode, ILevelData level, T
         EntityHandle self = row.Entity?.Handle ?? EntityHandle.None;
         EntityHandle setter = row.SetOffBy;
 
+        var centre = row.Position + new Vector(0f, 0f, BlastLift);
+        if (self != EntityHandle.None)
+            world.Sound(self, FurnitureSounds.ExplodeOf(row.Variant));
+
+        // Parked first: TF2's blast traces from its centre to each victim passing only the
+        // ignored hero, so a barrel still solid would stop its own blast.
+        bool stood = row.Entity is not null;
+        if (stood)
+            Fold(row);
+
+        var (hit, chain) = GoOff(row, row.Variant, centre, self, setter, now);
+
+        if (!stood)   // the fold told the hazard chain for one that stood
+            hazards.Each(nameof(IFurnitureHazardHook.HazardGone), h => h.HazardGone(row.Index));
+        log.Msg(string.Create(CultureInfo.InvariantCulture,
+            $"[TF2Descent/Furniture] {row.Variant} #{row.Index} ({row.Placed.Marker}) went off at ({centre.X:0} {centre.Y:0} {centre.Z:0}), set off by " +
+            $"{(setter != EntityHandle.None ? "player " + setter.EntryIndex : "no hero")}: blast {x.Damage:0.##} {x.DamageType} over {x.Radius:0}, " +
+            $"heroes [{string.Join(", ", hit)}], chain [{string.Join(", ", chain.Select(c => $"#{c.Index} in {x.ChainDelay:0.##} s"))}]\n"));
+    }
+
+    /// <summary>
+    /// A blast of the explosive row <paramref name="explosive"/> at <paramref name="centre"/>, from
+    /// <paramref name="row"/>: every standing explosive within its chain radius is set off to go its
+    /// chain delay later (by the same hero); its look; TF2's blast on what is not a player, credited to
+    /// <paramref name="setter"/> (else <paramref name="self"/>); and each hero within its radius in sight
+    /// of it takes the rules' damage at his distance, <paramref name="self"/> as attacker. Answers the
+    /// heroes hit and the chain.
+    /// </summary>
+    private (List<string> Heroes, List<FurnitureRow> Chain) GoOff(FurnitureRow row, string explosive, Vector centre, EntityHandle self, EntityHandle setter,
+                                                                  double now)
+    {
+        var x = rules.Content.Furniture.Explosive(explosive);
         var chain = new List<FurnitureRow>();
         foreach (var other in _rows)
         {
@@ -728,17 +823,7 @@ public sealed class FurnitureService(IDescentModeState mode, ILevelData level, T
             chain.Add(other);
         }
 
-        var centre = row.Position + new Vector(0f, 0f, BlastLift);
-        if (self != EntityHandle.None)
-            world.Sound(self, FurnitureSounds.ExplodeOf(row.Variant));
         world.Explosion(centre, (float)x.Radius);
-
-        // Parked first: TF2's blast traces from its centre to each victim passing only the
-        // ignored hero, so a barrel still solid would stop its own blast.
-        bool stood = row.Entity is not null;
-        if (stood)
-            Fold(row);
-
         EntityHandle attacker = setter != EntityHandle.None ? setter : self;
         if (attacker != EntityHandle.None)
             world.Blast(centre, (float)x.Damage, (float)x.Radius, attacker, self != EntityHandle.None ? self : attacker, setter);
@@ -747,19 +832,14 @@ public sealed class FurnitureService(IDescentModeState mode, ILevelData level, T
         foreach (var hero in heroes.Living())
         {
             double d = Distance(centre, hero.Centre);
-            double amount = rules.Furniture.Explosives.DamageAt(row.Variant, d);
+            double amount = rules.Furniture.Explosives.DamageAt(explosive, d);
             if (amount <= 0 || !world.Clear(centre, hero.Centre))
                 continue;
             world.Hurt(hero.Player, self, (float)amount, DamageBits(x.DamageType), centre);
             hit.Add(string.Create(CultureInfo.InvariantCulture, $"player {hero.Slot} {amount:0.##} at {d:0}"));
         }
 
-        if (!stood)   // the fold told the hazard chain for one that stood
-            hazards.Each(nameof(IFurnitureHazardHook.HazardGone), h => h.HazardGone(row.Index));
-        log.Msg(string.Create(CultureInfo.InvariantCulture,
-            $"[TF2Descent/Furniture] {row.Variant} #{row.Index} ({row.Placed.Marker}) went off at ({centre.X:0} {centre.Y:0} {centre.Z:0}), set off by " +
-            $"{(setter != EntityHandle.None ? "player " + setter.EntryIndex : "no hero")}: blast {x.Damage:0.##} {x.DamageType} over {x.Radius:0}, " +
-            $"heroes [{string.Join(", ", hit)}], chain [{string.Join(", ", chain.Select(c => $"#{c.Index} in {x.ChainDelay:0.##} s"))}]\n"));
+        return (hit, chain);
     }
 
     internal static double Distance(Vector a, Vector b)
@@ -776,6 +856,215 @@ public sealed class FurnitureService(IDescentModeState mode, ILevelData level, T
         "shock" => DamageType.Shock,
         _ => DamageType.Bullet,
     };
+
+    //-------------------------------------------------------------------------
+    // Crates and barrels
+    //-------------------------------------------------------------------------
+
+    /// <summary>
+    /// A hit of <paramref name="damage"/> on <paramref name="row"/> by <paramref name="hero"/> (his
+    /// player; none for a robot or the world), standing for it <paramref name="source"/>: a standing
+    /// crate or barrel stops a hit and a step no more at once and breaks at the next think, ONE roll
+    /// however often it is struck; a shut supply crate a hero struck (not locked) breaks open at the
+    /// next think as +USE opens it. <paramref name="force"/> is the hit's push (a damage force), which
+    /// the pieces leave with. Answers whether the hit broke something.
+    /// </summary>
+    public bool Strike(FurnitureRow row, EntityHandle hero, float damage, EntityHandle source = default, Vector force = default)
+    {
+        if (!(damage > 0) || row.Gone)
+            return false;
+        switch (row.Kind)
+        {
+            case FurnitureKind.Breakable:
+                break;
+            case FurnitureKind.Container when row is { OnEntity: true, Container: { Opened: false } c } && rules.Content.Furniture.Breaks(c.Kind)
+                                               && hero != EntityHandle.None && (c.KeyId is not { } key || _keys.Contains(key)):
+                source = row.Entity!.Handle;
+                break;
+            default:
+                return false;
+        }
+
+        row.BreakAt = world.Now;
+        row.BrokenBy = hero;
+        row.BreakSource = source;
+        row.BreakForce = force;
+        return true;
+    }
+
+    /// <summary>The outcome the next break rolls instead of its own (the dev command); null for its own roll.</summary>
+    public void ForceNext(BreakOutcome? outcome) => _forced = outcome;
+
+    /// <summary>Every struck crate, barrel and supply crate whose time has come breaks.</summary>
+    private void Breaks(double now)
+    {
+        for (int i = 0; i < _rows.Count; i++)
+            if (_rows[i] is { BreakAt: { } at } row && at <= now)
+                _ = Break(row);
+    }
+
+    /// <summary>
+    /// <paramref name="row"/>, struck (<see cref="Strike"/>), breaks: a supply crate breaks open for
+    /// its striker as +USE opens it; a crate or barrel plays TF2's wood break and rolls once
+    /// (<see cref="BreakRules.Roll"/>, from the level seed and its marker; the dev command's outcome
+    /// instead when one is set) and carries the outcome out: each player's share on the floor where it
+    /// stood (an Australium pile, a potion of the band, an item: R4), the furniture barrel's blast, the
+    /// cloud's status on each hero in its radius, or an ambush hunting the hero who broke it. Answers
+    /// the outcome (null for a supply crate, or one already broken).
+    /// </summary>
+    public async Task<BreakOutcome?> Break(FurnitureRow row)
+    {
+        if (row.BreakAt is null)
+            return null;
+        row.BreakAt = null;
+        if (row.Kind == FurnitureKind.Container)
+        {
+            if (heroes.Of(row.BrokenBy) is { } opener)
+                await OpenContainer(row, opener, broken: true);
+            else
+                Restyle(row);
+            return null;
+        }
+
+        if (row.Kind != FurnitureKind.Breakable || row.Went)
+            return null;
+        row.Went = true;
+        Broken++;
+        bool forced = _forced is not null;
+        // Hosted, a crate or barrel is numbered by its slot (SDK 2.8 Break) and its outcome keyed on the instance,
+        // that number and the depth, as the host's BreakableDrops keys it; unhosted on the level seed and its marker.
+        uint? hostedSeq = ledger.Kind == LedgerKind.Hosted && row.BreakableSlot is int slot ? (uint)slot : null;
+        var outcome = _forced ?? (hostedSeq is { } seq ? rules.Furniture.Breaks.Hosted(Seed, seq, Depth) : rules.Furniture.Breaks.Roll(Seed, row.Placed.Marker).Outcome);
+        _forced = null;
+        row.Broke = outcome;
+
+        var b = rules.Content.Furniture.Breakables;
+        var by = heroes.Of(row.BrokenBy);
+        var self = row.BreakSource;
+        var centre = row.Position + new Vector(0f, 0f, BlastLift);
+        // What it breaks as (its spent model: the crate's broken body, whose pieces are splinters), where
+        // it stood, the pieces leaving with the hit's push over its mass as a prop_physics' would.
+        var entry = FurnitureCatalog.Of(FurnitureCatalog.Number(FurnitureKindId.Breakable, row.Variant));
+        string standing = entry?.Model ?? FurnitureCatalog.CrateModel;
+        breaks.Shatter(entry?.SpentModel ?? standing, row.Position + new Vector(0f, 0f, FurnitureModels.Of(standing).Lift), row.Yaw,
+                       row.BreakForce * (1f / FurnitureModels.Mass(standing)));
+        if (self != EntityHandle.None)
+            world.Sound(self, FurnitureSounds.BreakOf(row.Variant));
+
+        string what;
+        string? onHost = null;
+        if (hostedSeq is { } numbered)
+        {
+            // R4: every hero in the room breaks it for himself, the breaker first, whatever the outcome (the host's roll).
+            onHost = await BreakOnHost(row, by?.Slot ?? -1, numbered);
+            if (onHost is null)
+                return outcome;
+        }
+
+        switch (outcome)
+        {
+            case BreakOutcome.Australium or BreakOutcome.Potion or BreakOutcome.Item when onHost is not null:
+                what = onHost;
+                break;
+            case BreakOutcome.Australium or BreakOutcome.Potion or BreakOutcome.Item:
+            {
+                var members = Members(row, by?.Slot ?? -1);
+                var loot = new Dictionary<string, (LootRequest Request, KillLoot Loot)>(StringComparer.Ordinal);
+                foreach (var m in members)
+                {
+                    var request = rules.Furniture.Breaks.Request(Seed, row.Placed.Marker, m.Key);
+                    loot[m.Key] = (request, rules.Loot.Breakable(request, outcome, Depth));
+                }
+
+                var place = ground.TryGround(row.Position + new Vector(0f, 0f, 8f), out var g) ? g : row.Position;
+                int levelAt = Level;
+                var drop = await DropShares(row, members, loot, Depth, place);
+                if (drop is null || Level != levelAt)
+                    return outcome;
+                what = $"shares [{string.Join(", ", loot.Select(p => $"{p.Key} {Say(p.Value.Loot)}"))}], " +
+                       (drop.Drop is { } d ? string.Create(CultureInfo.InvariantCulture, $"drop {d.Number} at ({place.X:0} {place.Y:0} {place.Z:0})") : "nothing on the floor");
+                break;
+            }
+            case BreakOutcome.Blast:
+            {
+                if (self != EntityHandle.None)
+                    world.Sound(self, FurnitureSounds.ExplodeOf(b.Blast));
+                var x = rules.Content.Furniture.Explosive(b.Blast);
+                var (hit, chain) = GoOff(row, b.Blast, centre, self, row.BrokenBy, world.Now);
+                what = string.Create(CultureInfo.InvariantCulture,
+                    $"blast {x.Damage:0.##} {x.DamageType} over {x.Radius:0}, heroes [{string.Join(", ", hit)}], chain [{string.Join(", ", chain.Select(c => "#" + c.Index))}]");
+                break;
+            }
+            case BreakOutcome.Cloud:
+            {
+                if (self != EntityHandle.None)
+                    world.Sound(self, EngineFurnitureBreakWorld.CloudSound);
+                breaks.Cloud(centre);
+                var marked = new List<string>();
+                foreach (var hero in heroes.Living())
+                {
+                    if (Distance(centre, hero.Centre) > b.Cloud.Radius || !world.Clear(centre, hero.Centre))
+                        continue;
+                    bool took = breaks.Mark(hero.Player, b.Cloud.Condition, b.Cloud.Seconds, self);
+                    marked.Add($"player {hero.Slot}{(took ? "" : " refused")}");
+                }
+
+                what = string.Create(CultureInfo.InvariantCulture, $"cloud {b.Cloud.Condition} {b.Cloud.Seconds:0.##} s over {b.Cloud.Radius:0}: [{string.Join(", ", marked)}]");
+                break;
+            }
+            case BreakOutcome.Ambush:
+            {
+                var templates = rules.Furniture.Breaks.Ambush(Seed, row.Placed.Marker, Depth);
+                var lines = breaks.Ambush(templates, row.Position, row.Yaw, by?.Player ?? EntityHandle.None,
+                    Seeded.From(Seed, "break_ambush_spawn", row.Placed.Marker).NextULong(), b.Ambush.HuntSeconds);
+                what = $"ambush of {templates.Length} [{string.Join("; ", lines)}]";
+                break;
+            }
+            default:
+                what = "splinters";
+                break;
+        }
+
+        log.Msg(string.Create(CultureInfo.InvariantCulture,
+            $"[TF2Descent/Furniture] {row.Variant} #{row.Index} ({row.Placed.Marker}) broken by {(by is { } h ? "player " + h.Slot : "no hero")} at ({row.Position.X:0} {row.Position.Y:0} {row.Position.Z:0}): " +
+            $"roll {outcome.ToString().ToLowerInvariant()}{(forced ? " (forced)" : "")}: {what}" +
+            $"{(onHost is not null && !BreakableSettings.PerPlayer(outcome) ? "; " + onHost : "")}\n"));
+        return outcome;
+    }
+
+    /// <summary>
+    /// A numbered crate or barrel broken on the host (SDK 2.8 <c>Break</c>): once for each hero
+    /// <see cref="Members"/> names (the breaker first, then the room's), each with his own lease and
+    /// roll; each one's Australium is credited to him at once and his items lie on the floor on his own
+    /// seat. Answers what each got, for the break's line; null when the level ended meanwhile.
+    /// </summary>
+    private async Task<string?> BreakOnHost(FurnitureRow row, int first, uint seq)
+    {
+        int levelAt = Level;
+        var place = ground.TryGround(row.Position + new Vector(0f, 0f, 8f), out var g) ? g : row.Position;
+        var asked = Members(row, first).Select(m => (Hero: m, Answer: ledger.Break(new BreakDrop(m.Key, seq, Seed, Depth, place)))).ToList();
+        var shares = new List<LootShare>();
+        var said = new List<string>();
+        foreach (var (m, task) in asked)
+        {
+            var answer = await task;
+            if (Level != levelAt)
+                return null;
+            if (!answer.Ok)
+            {
+                said.Add($"{m.Key} refused: {answer.Refusal}");
+                continue;
+            }
+            var item = answer.Items.Count > 0 ? answer.Items[0] : null;
+            shares.Add(new LootShare(m.Key, m.Slot, item, 0));
+            said.Add(string.Create(CultureInfo.InvariantCulture,
+                $"{m.Key} {(item is { } i ? i.Item.BaseId : "no item")}{(answer.Australium > 0 ? $", {answer.Australium} Australium credited" : "")}"));
+        }
+
+        var drop = floor.Place(place, shares);
+        return string.Create(CultureInfo.InvariantCulture,
+            $"hosted breakable {seq}, each hero's own [{string.Join("; ", said)}], {(drop is { } d ? $"drop {d.Number} at ({place.X:0} {place.Y:0} {place.Z:0})" : "nothing on the floor")}");
+    }
 
     //-------------------------------------------------------------------------
     // Traps

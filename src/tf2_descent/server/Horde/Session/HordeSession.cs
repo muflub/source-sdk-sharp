@@ -49,8 +49,18 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
     /// <summary>Sounds the taps may queue between two ticks; one more is counted and the gate fails (B.3: never dropped silently).</summary>
     public const int SoundCapacity = 256;
 
-    /// <summary>How far a hero's landing from a blast jump carries, in units of walk.</summary>
-    public const float LandingReach = 1500f;
+    /// <summary>A robot whose brain follows a path, unblocked, and whose body has not moved for this long is a stalled follower (named once a spell).</summary>
+    public const float StallSeconds = 5f;
+
+    private long[] _stallTold = [];
+
+    /// <summary>
+    /// Stalled followers named (one a spell): a brain following a path, its body not blocked by
+    /// anything the motion names, and not moved <see cref="HordeBrains.StuckUnits"/> for
+    /// <see cref="StallSeconds"/>; the next sighting of a robot sitting still while its brain
+    /// says Follow names itself in the log.
+    /// </summary>
+    public long StalledFollowers { get; private set; }
 
     private const int MaxPlayers = 33;
 
@@ -152,8 +162,11 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
 
         _adapters = new Adapters(horde.Bodies!, motion, actions, sightWorld, _heroPlayer, fireLines);
         _brains = HordeBrains.For(horde.Roster!, horde.Pool!, horde.Level!, rules.Rules, _adapters, transport, sink,
-                                  HordeFamilies.Deciders(horde.Level!, rules.Rules, nav.Paths), clock.TicksPerSecond, aim: _adapters, paths: nav.Paths);
+                                  HordeFamilies.Deciders(horde.Level!, rules.Rules, nav.Paths), clock.TicksPerSecond, aim: _adapters, paths: nav.Paths,
+                                  alerts: horde.Alerts);
         _arrivedSeen = new long[horde.Pool!.LastBody + 1];
+        _stallTold = new long[horde.Pool!.LastBody + 1];
+        Array.Fill(_stallTold, -1);
         actions.Begin(horde, now);
         _brains.Session.CpuClock = HordeThreadClock.Micros;
         _queued = 0;
@@ -183,7 +196,7 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
         _gathered = n;
         for (int k = 0; k < n; k++)
             _poses[k] = new HeroPose(_places[k].Seat, _places[k].Position, HordeVectors.ToAi(_eyes[k].Eye), _places[k].Room, _eyes[k].Yaw,
-                                     (float)visibility.SightScale(_eyes[k].Player), VeilOf(_places[k].Seat, now));
+                                     (float)visibility.SightScale(_eyes[k].Player), VeilOf(_places[k].Seat, now), (float)visibility.LampReach(_eyes[k].Player));
         brains.Heroes(now, _poses.AsSpan(0, n));
         for (int k = 0; k < n; k++)
         {
@@ -192,8 +205,10 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
                 _heroPlayer[actor.Slot - HordeSlots.FirstHero] = _eyes[k].Player;
             if (landings.Landed(_eyes[k].Player))
             {
+                // A blast jump's landing: a thud the horde hears as far as horde.json's senses.hearing.landing.
                 Landings++;
-                Queue(SoundKind.Footstep, _places[k].Position, LandingReach, _places[k].Seat);
+                Queue(SoundKind.Physics, _places[k].Position, HordeSoundKinds.Reach(rules.Rules.Content.Horde.Senses.Hearing, SoundKind.Physics),
+                      _places[k].Seat);
             }
         }
 
@@ -243,7 +258,7 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
             _recentNext = (_recentNext + 1) % _recent.Length;
             if (_farCount < _far.Length)
             {
-                _far[_farCount++] = new SoundEvent(room, q.At, q.Reach, seat);
+                _far[_farCount++] = new SoundEvent(room, q.At, q.Reach, seat, q.Kind);
                 FarSounds++;
             }
             else
@@ -255,7 +270,28 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
         _queued = 0;
         brains.Hear(now, _heard.AsSpan(0, heard));
         brains.Publish(now);
+        WatchStalls(brains, now);
         _timer.Leave();
+    }
+
+    /// <summary>Names each stalled follower once a spell (see <see cref="StalledFollowers"/>).</summary>
+    private void WatchStalls(HordeBrains brains, long now)
+    {
+        long stall = (long)Math.Ceiling(StallSeconds * clock.TicksPerSecond);
+        for (int b = 1; b < _stallTold.Length; b++)
+        {
+            long since = brains.FollowingStillSince(b);
+            if (since < 0 || since == _stallTold[b] || now - since < stall || reports.Blocked(b).Blocked)
+                continue;
+            _stallTold[b] = since;
+            StalledFollowers++;
+            int row = brains.RowAt(b);
+            var roster = _horde!.Roster!;
+            var at = roster.Position(row);
+            string order = reports.TryView(b, out var view) && view.Ordered ? $"{view.Move.Kind} corner {view.Corner}/{view.Move.CornerCount}" : "none";
+            log.Warning(string.Create(CultureInfo.InvariantCulture,
+                $"[TF2Descent/Horde] STALLED FOLLOWER: robot {row} ({roster.Template(row)}, {roster.State(row)}) body {b} follows a path, not blocked, and has not moved for {(now - since) / clock.TicksPerSecond:0.0} s at ({at.X:0},{at.Y:0},{at.Z:0}); motion order {order}; tf2_descent_horde_path {row} and tf2_descent_horde_motion {row} say more\n"));
+        }
     }
 
     public ReadOnlySpan<SoundEvent> TakeFarSounds()
@@ -289,12 +325,16 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
         Array.Clear(_dead);
     }
 
-    /// <summary>A sound the taps heard: queued for the next tick; refused and counted when the queue is full.</summary>
+    /// <summary>
+    /// A sound the taps heard: queued for the next tick, carrying as far as the engine carries it or
+    /// horde.json's reach for its kind, the nearer (<see cref="HordeSoundKinds.Reach"/>); refused and
+    /// counted when the queue is full.
+    /// </summary>
     public void Heard(SoundKind kind, Vector at, float reach, int owner)
     {
         if (_brains is null || !HordeSoundKinds.Heard(kind))
             return;
-        Queue(kind, HordeVectors.ToAi(at), reach, owner);
+        Queue(kind, HordeVectors.ToAi(at), MathF.Min(reach, HordeSoundKinds.Reach(rules.Rules.Content.Horde.Senses.Hearing, kind)), owner);
     }
 
     /// <summary>A hit on a robot (the hit chain): damage for its brain, pain for its pack in earshot.</summary>
@@ -456,7 +496,7 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
             + $"events in {c.EventsIn} processed {c.EventsProcessed} waiting {b.EventsWaiting} discarded {b.EventsDiscarded} dropped {c.EventsDropped}; "
             + $"steps run {c.StepsRun} skipped {c.StepsSkipped} faulted {c.StepsFaulted} in flight {c.InFlight} (most {c.InFlightMax}), brain cpu {c.BrainCpuMicrosMean:0.0} us a decide; "
             + $"sight traces {v.Traces} (last tick {v.TracesThisTick}, most {v.MostTraces} of {v.Budget}, candidates {v.CandidatesThisTick}, unserved {v.UnservedThisTick}, longest wait {v.LongestWait} ticks), gained {v.Gains} lost {v.Losses}; "
-            + $"sounds queued {SoundsQueued} overflowed {SoundsOverflowed} heard {b.SoundsHeard} to far {FarSounds}, landings {Landings}, unheard from the dead {DeadSilenced} and the graced {GraceSilenced}; hits {RobotHits}, taunts {Taunts}, hero deaths {HeroDeaths}, stuck {b.Stuck}, arrived told {b.ArrivalsTold}, allies told {b.AlliesTold}; "
+            + $"sounds queued {SoundsQueued} overflowed {SoundsOverflowed} heard {b.SoundsHeard} to far {FarSounds}, landings {Landings}, unheard from the dead {DeadSilenced} and the graced {GraceSilenced}; hits {RobotHits}, taunts {Taunts}, hero deaths {HeroDeaths}, stuck {b.Stuck}, stalled followers {StalledFollowers}, arrived told {b.ArrivalsTold}, allies told {b.AlliesTold}; "
             + $"hero slots {HeroSlotsLine(b)}{(SoundsOverflowed > 0 || FarOverflowed > 0 || c.EventsDropped > 0 ? "; EVENTS LOST" : "")}")
             + (c.StepsFaulted > 0 && c.LastFault is { } fault ? "; LAST FAULT: " + fault : "");
     }

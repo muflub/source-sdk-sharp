@@ -5,7 +5,7 @@ namespace TF2.Descent.Rules.Furniture;
 /// <summary>
 /// The dungeon furniture's rules (plan_tf2_rpg 2l, R24; plan_descent_logic RU11), one per
 /// kind, over furniture.json: placing it at load, shrines, containers, the Dispenser,
-/// explosives and traps.
+/// explosives, traps and the crates and barrels a hit breaks.
 /// </summary>
 public sealed class FurnitureRules
 {
@@ -17,6 +17,7 @@ public sealed class FurnitureRules
         Dispensers = new DispenserRules(content);
         Explosives = new ExplosiveRules(content);
         Traps = new TrapRules(content);
+        Breaks = new BreakRules(content);
     }
 
     public FurnishingRules Placement { get; }
@@ -25,4 +26,5 @@ public sealed class FurnitureRules
     public DispenserRules Dispensers { get; }
     public ExplosiveRules Explosives { get; }
     public TrapRules Traps { get; }
+    public BreakRules Breaks { get; }
 }

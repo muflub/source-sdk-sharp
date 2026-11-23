@@ -379,12 +379,17 @@ public sealed class NavObstacleField
         if (body.Kind == ObstacleBodyKind.Door && !PoseDiffers(origin, angles, body.SpawnOrigin, body.SpawnAngles))
             return new NavFootprint([], [], mins, maxs);
 
+        // A moved door keeps its doorway a way through (lane Gobj): a player opens it, and a sliding door on its way open
+        // (a TF2 spawn door rises as a teammate comes) is still over the doorway; it takes only the cells beyond it.
+        int[]? doorway = body.Kind == ObstacleBodyKind.Door ? body.Doorway ??= DoorwayCells(body) : null;
         var blocked = new List<int>();
         var costly = new List<int>();
         var breakable = new List<int>();
         _graph.CellsNear(mins.X - BodyReach, mins.Y - BodyReach, maxs.X + BodyReach, maxs.Y + BodyReach, _near);
         foreach (int c in _near)
         {
+            if (doorway is not null && Array.BinarySearch(doorway, c) >= 0)
+                continue;
             NavCell cell = _graph.Cell(c);
             AiVector centre = cell.Centre;
             if (centre.X < mins.X - BodyReach || centre.X > maxs.X + BodyReach
@@ -407,8 +412,32 @@ public sealed class NavObstacleField
         return new NavFootprint([.. blocked], [.. costly], mins, maxs) { Breakable = [.. breakable] };
     }
 
+    /// <summary>The cells a door's spawn pose would take (sorted): its doorway, the graph's Door edge.</summary>
+    private int[] DoorwayCells(Body body)
+    {
+        (AiVector mins, AiVector maxs) = _world.Box(body.Entity, body.SpawnOrigin, body.SpawnAngles);
+        var cells = new List<int>();
+        var near = new List<int>();
+        _graph.CellsNear(mins.X - BodyReach, mins.Y - BodyReach, maxs.X + BodyReach, maxs.Y + BodyReach, near);
+        foreach (int c in near)
+        {
+            NavCell cell = _graph.Cell(c);
+            AiVector centre = cell.Centre;
+            if (centre.X < mins.X - BodyReach || centre.X > maxs.X + BodyReach || centre.Y < mins.Y - BodyReach || centre.Y > maxs.Y + BodyReach)
+                continue;
+            if (maxs.Z <= cell.FloorZ + StepHeight || mins.Z >= cell.FloorZ + StandHeight)
+                continue;
+            cells.Add(c);
+        }
+
+        cells.Sort();
+        return [.. cells];
+    }
+
     private sealed class Body(EntityHandle entity, ObstacleBodyKind kind, AiVector origin, AiVector angles)
     {
+        public int[]? Doorway { get; set; }
+
         public EntityHandle Entity { get; } = entity;
         public ObstacleBodyKind Kind { get; } = kind;
         public AiVector SpawnOrigin { get; } = origin;

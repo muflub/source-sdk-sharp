@@ -14,23 +14,28 @@ namespace TF2.Descent.Client.Ui.Screens;
 /// (D8). Rows the party never reached read disabled with the Lock.
 /// <see cref="IDescentDescentActions.Descend"/> takes the selected row's
 /// depth; the leader decides, so a row past the leader's reach cannot be
-/// chosen.
+/// chosen. A window like the other town screens: Esc closes it before the main
+/// menu opens (L8), which a dialog never did.
 /// </summary>
-public sealed class DepthPicker : UiScreen
+public sealed class DepthPicker : UiScreen, IUiWindowed
 {
+    private readonly UiWindows _windows;
     private readonly IDescentDescent _descent;
     private readonly IDescentDescentActions _actions;
     private readonly IDescentParty _party;
     private readonly PartyPill _pill;
     private readonly IDescentTownStatus? _status;
+    private readonly IDescentTownClose? _close;
     private readonly TownStatusLine _statusLine = new();
 
     /// <summary>Pills per party row: two compact pills always fit the dialog body.</summary>
     public const int PillsPerRow = 2;
 
-    public DepthPicker(IDescentDescent descent, IDescentDescentActions actions, IDescentParty party, PartyPill pill,
-                       IDescentTownStatus? status = null)
+    public DepthPicker(UiWindows windows, IDescentDescent descent, IDescentDescentActions actions, IDescentParty party, PartyPill pill,
+                       IDescentTownStatus? status = null, IDescentTownClose? close = null)
     {
+        _close = close;
+        _windows = windows;
         _status = status;
         _descent = descent;
         _actions = actions;
@@ -40,24 +45,36 @@ public sealed class DepthPicker : UiScreen
 
     public override string Name => "depthpicker";
 
+    /// <summary>Closed on the client (Esc, its x): the server ends the window's session (the whole run's F27).</summary>
+    public override void Closed() => _close?.Closed(Name);
+
     /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
 
     public override string? Panel => "descent_depthpicker";
 
-    /// <summary>The dialog's width, du: two window-variant pills (288 du each) plus
+    public string WindowId => "depthpicker";
+
+    /// <summary>The window's width, du: two window-variant pills (288 du each) plus
     /// the body and row padding fit side by side without touching the clip.</summary>
-    public const float WidthDu = 664;
+    public const float WidthDu = 680;
+
+    /// <summary>
+    /// <see cref="WidthDu"/> wide and up to 720 du tall, clamped to the screen; the
+    /// rows scroll past the list's cap, so the floor only keeps a row, the status
+    /// line and Descend legible.
+    /// </summary>
+    public static UiWindowSpec Spec(float screenW, float screenH)
+        => new(MathF.Min(WidthDu, MathF.Round(screenW * 0.92f)), MathF.Min(720, MathF.Round(screenH * 0.92f)),
+               560, 420, screenW, screenH, 560);
 
     /// <summary>The depth column's width, du.</summary>
     public const float DepthDu = 56;
 
     public override void Describe(ref UiFrame ui)
     {
-        // Keep the list inside the screen: past this the rows scroll.
-        // The status line (UI4) takes its own row above the buttons: the list gives it the room.
-        bool status = _status is { StatusToken.Length: > 0 };
-        float listCapDu = MathF.Max(240f, ui.DesignHeight - (status ? 320f : 260f));
-        using (ui.Dialog("depthpicker", "#Descent_Depth_Title", WidthDu))
+        // The rows fill what the window leaves between the leader line and the
+        // status line and buttons (UI4), and scroll past it.
+        using (ui.Window(_windows, WindowId, "#Descent_Depth_Title", Spec(ui.DesignWidth, ui.DesignHeight)))
         {
             // D8: the party follows the leader, so the picker names whose reach the rows show.
             using (ui.Row(Space.S, Align.Centre))
@@ -91,7 +108,7 @@ public sealed class DepthPicker : UiScreen
             }
             int target = known ? sel : fallback;
 
-            using (ui.Scroll("rows", Space.S, ScrollAxes.Vertical).Width(Size.Fill).Height(Size.Du(listCapDu)))
+            using (ui.Scroll("rows", Space.S, ScrollAxes.Vertical).Width(Size.Fill).Height(Size.Fill))
             {
                 for (int i = 0; i < _descent.RowCount; i++)
                 {

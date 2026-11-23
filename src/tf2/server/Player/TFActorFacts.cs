@@ -44,7 +44,15 @@ public readonly record struct TFActorFacts(
     bool Ubered,
     bool Disguised,
     bool Cloaked,
-    bool Taunting);
+    bool Taunting,
+    /// <summary>Drawn yellow: soaked in Jarate (<c>TF_COND_URINE</c>).</summary>
+    bool Jarated = false,
+    /// <summary>A cloak flickering where something struck it (<c>TF_COND_STEALTHED_BLINK</c>).</summary>
+    bool Blinking = false,
+    /// <summary>Bleeding (<c>TF_COND_BLEEDING</c>): the blood every client draws.</summary>
+    bool Bleeding = false,
+    /// <summary>The health a disguised Spy's disguise shows an enemy (stock's <c>m_iDisguiseHealth</c>): 0 when not disguised.</summary>
+    int DisguiseHealth = 0);
 
 /// <summary>What a client renders of one player, by player index.</summary>
 public interface ITFActorFacts
@@ -90,7 +98,11 @@ public sealed class TFServerActorFacts(ITFPlayerData players, ITeamRoundRoster r
             Ubered: state.IsInvulnerable(),
             Disguised: state.InCond(TFCond.Disguised),
             Cloaked: state.InCond(TFCond.Stealthed),
-            Taunting: state.InCond(TFCond.Taunting));
+            Taunting: state.InCond(TFCond.Taunting),
+            Jarated: state.InCond(TFCond.Urine),
+            Blinking: state.InCond(TFCond.StealthedBlink),
+            Bleeding: state.InCond(TFCond.Bleeding),
+            DisguiseHealth: state.InCond(TFCond.Disguised) ? state.DisguiseHealth : 0);
         return true;
     }
 }

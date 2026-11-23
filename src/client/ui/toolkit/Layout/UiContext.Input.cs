@@ -103,6 +103,10 @@ public sealed partial class UiContext
         _buttonCount = 0;
         _wheelTarget = 0;
         _wheelDelta = 0f;
+        _ownedKeyCount = 0;
+        _ownedTypedCount = 0;
+        (_keyOwner, _keyOwnerAll) = (_keyOwnerNext, _keyOwnerAllNext);
+        (_keyOwnerNext, _keyOwnerAllNext) = (0, false);
 
         for (int i = 0; i < _queued; i++)
         {
@@ -148,6 +152,17 @@ public sealed partial class UiContext
                     AddButton(e.Code);
                     Focused = NextFocus(Focused);
                     FocusMovedByKey = true;
+                    break;
+                case UiInputKind.Key when OwnsKey(e.Code):
+                    AddButton(e.Code);
+                    if (_ownedKeyCount == _ownedKeys.Length)
+                        Array.Resize(ref _ownedKeys, _ownedKeys.Length * 2);
+                    _ownedKeys[_ownedKeyCount++] = e.Code;
+                    break;
+                case UiInputKind.Char when _keyOwner != 0 && _keyOwnerAll:
+                    if (_ownedTypedCount == _ownedTyped.Length)
+                        Array.Resize(ref _ownedTyped, _ownedTyped.Length * 2);
+                    _ownedTyped[_ownedTypedCount++] = e.Char;
                     break;
                 case UiInputKind.Key:
                     AddButton(e.Code);
@@ -291,6 +306,68 @@ public sealed partial class UiContext
 
     /// <summary>A mouse button is held on some target now.</summary>
     internal bool Holding => _active != 0;
+
+    // ---- keys a popup holds ----
+
+    // What claimed the keys in the last describe (read at this frame's input),
+    // and what claims them in this one (read at the next).
+    private uint _keyOwner, _keyOwnerNext;
+    private bool _keyOwnerAll, _keyOwnerAllNext;
+    private int[] _ownedKeys = new int[8];
+    private int _ownedKeyCount;
+    private char[] _ownedTyped = new char[16];
+    private int _ownedTypedCount;
+
+    /// <summary>
+    /// <paramref name="owner"/> takes the next frame's keys before anything else
+    /// sees them: with <paramref name="all"/> (an open dropdown list) every key
+    /// but Tab and every typed character, so its window's Escape, an enclosing
+    /// scroll region's arrows and a dialog's Enter never see them; without it (a
+    /// focused, closed dropdown) only the keys that move a choice (Up, Down,
+    /// Page Up, Page Down, Home, End), and only while it holds the focus.
+    /// Claimed again every frame it is described; an open list's claim wins.
+    /// </summary>
+    internal void ClaimKeys(uint owner, bool all)
+    {
+        if (_keyOwnerNext != 0 && _keyOwnerAllNext && !all)
+            return;
+        (_keyOwnerNext, _keyOwnerAllNext) = (owner, all);
+    }
+
+    /// <summary>
+    /// A popup holds the keyboard (claimed in the last describe): an Escape the
+    /// host would spend closing the top window is the popup's to close itself.
+    /// </summary>
+    public bool PopupHoldsKeys => _keyOwnerNext != 0 && _keyOwnerAllNext;
+
+    private bool OwnsKey(int code)
+    {
+        if (_keyOwner == 0 || code == (int)UiKey.Tab)
+            return false;
+        if (_keyOwnerAll)
+            return true;
+        return _keyOwner == Focused && code is (int)UiKey.Up or (int)UiKey.Down or (int)UiKey.PageUp
+                                                  or (int)UiKey.PageDown or (int)UiKey.Home or (int)UiKey.End;
+    }
+
+    /// <summary>Takes a key <paramref name="owner"/> holds (see <see cref="ClaimKeys"/>): false for anyone else.</summary>
+    internal bool ConsumeOwnedKey(uint owner, int code)
+    {
+        if (owner == 0 || owner != _keyOwner)
+            return false;
+        for (int i = 0; i < _ownedKeyCount; i++)
+        {
+            if (_ownedKeys[i] != code)
+                continue;
+            _ownedKeys[i] = _ownedKeys[--_ownedKeyCount];
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>The characters typed for <paramref name="owner"/> while it held every key: empty for anyone else.</summary>
+    internal ReadOnlySpan<char> OwnedTyped(uint owner)
+        => owner != 0 && owner == _keyOwner ? _ownedTyped.AsSpan(0, _ownedTypedCount) : default;
 
     internal bool ConsumeKey(int code)
     {

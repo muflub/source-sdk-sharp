@@ -184,6 +184,39 @@ public sealed class TFJarFacts
         Assert.Empty(rig.Wet.Removed);
     }
 
+    /// <summary>
+    /// Stock's grace ends (tf_weapon_jar.cpp:517-533, <c>CanCollideWithTeammates</c>
+    /// after <see cref="TFProjectileDefs.CollideWithTeammatesDelay"/>): a jar that has
+    /// flown past it shatters on a dry teammate. Review of F242: the jar's own touch
+    /// passed a dry teammate for its whole flight.
+    /// </summary>
+    [Fact]
+    public void Past_the_grace_a_dry_teammate_stops_the_jar()
+    {
+        var (rig, jar) = LandedJar();
+        jar.Handle = ProjectileRig.ProjectileHandle;
+        rig.Directory.Instance = jar;
+        rig.Engine.Returns("Players.GetTeam", 2) // the same side, thrower and touched
+                  .Returns("Entities.GetParent", EntityHandle.None)
+                  .Returns("Entities.GetOrigin", Vector.Zero)
+                  .Returns("Entities.GetAngles", Vector.Zero)
+                  .Returns("WorldQuery.TraceLine", new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None))
+                  .Ignores("Entities.SetOrigin", "Entities.SetVelocity", "Entities.SetAngles");
+        // RunFrame ages only a mover the directory still holds under the very
+        // handle Launch used, and Launch was first asked with none: bind and
+        // re-launch on the projectile handle, as the rocket facts do
+        // (TFProjectileFacts.cs:2218-2227), then one frame flies the age past
+        // the grace.
+        rig.MotionDirectory.Bind(ProjectileRig.ProjectileHandle, jar);
+        jar.FiredBy(ProjectileRig.Player, new Vector(TFProjectileDefs.JarSpeed, 0f, 0f));
+        rig.Motion.RunFrame(0.3f);
+        Assert.True(rig.Motion.SecondsSinceLaunch(jar.Handle) > TFProjectileDefs.CollideWithTeammatesDelay);
+
+        jar.OnTouch(ProjectileRig.Victim);
+
+        Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
+    }
+
     [Fact]
     public void The_dry_teammate_is_flown_through()
     {

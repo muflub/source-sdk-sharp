@@ -12,8 +12,9 @@ namespace TF2.Descent.Server.Horde;
 /// never the town), it asks the level source for the level, measures each pack
 /// marker's clearance (HO9), asks the party present (D11), makes the one
 /// controller, has it roll the roster through the spawn director and make the
-/// pool, logs the census, and starts the level's navigation
-/// (<see cref="Nav.HordeNav"/>, off the game thread).
+/// pool, logs the census. The level's navigation (<see cref="Nav.HordeNav"/>) is derived first, at
+/// level ready (the director plans with each hull's floor: <see cref="Nav.NavHullReach"/>); its
+/// static props are probed a few cells a tick after.
 /// Every server tick it runs the controller's tick (timed while the timer is
 /// on). At level shutdown, while the entities still exist, the controller
 /// drops what it owns and the parking table is cleared; the engine removes the
@@ -74,14 +75,16 @@ public sealed class HordeService(IDescentModeState mode, IHordeLevelSource level
 
         ControllersMade++;
         Current = controller;
-        if (!controller.Begin(level, clock.TicksPerSecond, partySize, clock.Tick))
+
+        // The level's navigation first: the director posts no robot where its hull's floor does not join the level's (HO9).
+        var navData = nav.BeginNow(mapName, level);
+        if (!controller.Begin(level, clock.TicksPerSecond, partySize, clock.Tick, navData is null ? null : new Nav.NavHullReach(navData)))
         {
             Drop();
             return;
         }
 
         census.LevelReady(controller, map);
-        nav.Begin(mapName, level);
     }
 
     public void OnThink(float frameTime)

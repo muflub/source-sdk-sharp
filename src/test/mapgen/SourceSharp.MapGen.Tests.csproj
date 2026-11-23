@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The map generator's Descent facts: the room shapes, the dressing, the lints
+    and every depth's library. Their own project and leg (`mapgen`), and in CI
+    their own job, because dressing all fifteen depths is most of the managed
+    tests' CPU (PR #43): out of the server's project, the server leg and its
+    tiers no longer wait on it. DescentLibraries dresses each depth once per run.
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <OutputPath>$(RepoRoot)bin/$(SourceSharpConfig)/tests-mapgen/</OutputPath>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <!-- The Descent palette facts read the asset database (DESCENT_ASSETDB). -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\mapgen\SourceSharp.MapGen.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\common\AssemblyInfo.cs" Link="common\AssemblyInfo.cs" />
+    <Compile Include="..\common\RepoLayout.cs" Link="common\RepoLayout.cs" />
+  </ItemGroup>
+</Project>

@@ -115,8 +115,8 @@ public sealed record VendorAnswer(bool Ok, string? Refusal, IReadOnlyList<Vendor
 /// <summary>
 /// A kill's drop for one hero (R4: rolled per eligible player). <paramref name="Tier"/> is the
 /// rules' <c>KillRoll</c> tier, -1 for no drop; <paramref name="KillSeq"/> counts kills on this
-/// instance; <paramref name="Party"/> the other heroes near (the host books the kill's
-/// Australium for each).
+/// instance; <paramref name="Party"/> the other heroes near (the reveal's nearby members; since
+/// SDK 2.8 a kill's Australium is its pile's, <see cref="IItemLedger.KillAustralium"/>).
 /// </summary>
 public sealed record KillDrop(string Hero, int Tier, uint KillSeq, string Robot, int Depth, Vector Position,
                               IReadOnlyList<string>? Party = null);
@@ -149,7 +149,52 @@ public enum WornRepair
 /// <c>LootRequest.Seed</c>) at the depth's item level, on the floor at
 /// <paramref name="Position"/> for that hero alone.
 /// </summary>
-public sealed record ContainerDrop(string Hero, string Container, ulong Seed, int Tier, string? Potion, int Depth, Vector Position);
+public sealed record ContainerDrop(string Hero, string Container, ulong Seed, int Tier, string? Potion, int Depth, Vector Position)
+{
+    /// <summary>
+    /// The container's number on the level (a furniture row's index), which a hosted open names to
+    /// the host (SDK 2.7 <c>OpenContainer</c>); null for a drop the host cannot replay (a breakable's).
+    /// </summary>
+    public uint? Seq { get; init; }
+}
+
+/// <summary>
+/// A kill's Australium as one pile (the user's ruling L24, SDK 2.8): <paramref name="Killer"/> the
+/// first hero of the kill's party (whose lease mints it, hosted), <paramref name="KillSeq"/> the
+/// seat-0 kill sequence (<c>LootRules.KillSeq(kill, 0)</c>, the roll that carries the kill's
+/// Australium), <paramref name="PartySize"/> the heroes the kill was rolled for, and
+/// <paramref name="Australium"/> the game's roll of it (unhosted, the pile; hosted the host replays
+/// the roll and its answer is the pile).
+/// </summary>
+public sealed record KillPile(string Killer, uint KillSeq, string Robot, int PartySize, long Australium, Vector Position);
+
+/// <summary>An Australium pile on this level's floor, under the ledger's id: how much, and whose kill it was.</summary>
+public sealed record AustraliumPile(long Id, long Australium, string Killer);
+
+/// <summary>A pile minted, or why there is none.</summary>
+public sealed record PileAnswer(bool Ok, string? Refusal, AustraliumPile? Pile);
+
+/// <summary>One member's share of a pile picked up.</summary>
+public sealed record PileCredit(string Hero, long Amount);
+
+/// <summary>A pile picked up: each member's credit (a member whose share is 0 has none), or why it was refused (nothing changed).</summary>
+public sealed record PileTake(bool Ok, string? Refusal, IReadOnlyList<PileCredit> Credits)
+{
+    public static PileTake Refused(string why) => new(false, why, []);
+}
+
+/// <summary>
+/// A numbered breakable broken by one hero (SDK 2.8 <c>Break</c>): <paramref name="Seq"/> its slot
+/// in the breakables manager, the instance seed and depth its roll replays with (the rules'
+/// <c>BreakableDrops</c>), its items put on the floor at <paramref name="Position"/> for him.
+/// </summary>
+public sealed record BreakDrop(string Hero, uint Seq, ulong InstanceSeed, int Depth, Vector Position);
+
+/// <summary>What one hero got from one breakable: Australium credited to him at once, items on the floor for him; or why nothing.</summary>
+public sealed record BreakAnswer(bool Ok, string? Refusal, long Australium, IReadOnlyList<FloorItem> Items)
+{
+    public static BreakAnswer Refused(string why) => new(false, why, 0, []);
+}
 
 /// <summary>
 /// The ledger's refusals that are not the rules' own (the rules' are
@@ -169,11 +214,26 @@ public static class LedgerRefusals
     /// <summary>No item base of that id.</summary>
     public const string UnknownBase = "unknown_base";
 
+    /// <summary>The Lost &amp; Found holds nothing of the hero's.</summary>
+    public const string NothingLost = "nothing_lost";
+
+    /// <summary>The hero cannot pay the Lost &amp; Found's fee, with what it holds of his Australium counted in.</summary>
+    public const string LostAndFoundFee = "lost_and_found_fee";
+
     /// <summary>An amount of Australium that is not more than nothing.</summary>
     public const string BadAmount = "bad_amount";
 
     /// <summary>No such item in the vendor's stock.</summary>
     public const string NotInStock = "not_in_stock";
+
+    /// <summary>A kill whose roll has no Australium makes no pile (the host's word).</summary>
+    public const string NoAustralium = "no_australium";
+
+    /// <summary>The claimer is not of the killer's party (the host's word).</summary>
+    public const string NotInParty = "not_in_party";
+
+    /// <summary>This hero broke this breakable already (the host's word).</summary>
+    public const string AlreadyBroken = "already_broken";
 
     /// <summary>The hosting service offers no call for this operation yet; nothing was asked.</summary>
     public const string HostUnsupported = "not_supported_by_the_host_yet";
@@ -243,8 +303,10 @@ public interface IItemLedger
 
     /// <summary>
     /// A container's item or potion for its hero (WO3), rolled as the rules said and put on the
-    /// floor for him. Hosted it is refused (<see cref="LedgerRefusals.HostUnsupported"/>): the
-    /// host's <c>IGameRules</c> has no container roll and no call mints a container's drop.
+    /// floor for him. Hosted, the host opens the container numbered <see cref="ContainerDrop.Seq"/>
+    /// for him (SDK 2.7 <c>OpenContainer</c>: it replays the rules' roll, once per container and
+    /// hero) and what it minted lands here; a drop with no number is refused
+    /// (<see cref="LedgerRefusals.HostUnsupported"/>).
     /// </summary>
     Task<DropResult> ContainerDrop(ContainerDrop drop);
 
@@ -252,11 +314,41 @@ public interface IItemLedger
     Task<LedgerResult> Claim(string hero, long floorId);
 
     /// <summary>
-    /// Australium picked up off the floor (WO2) into the hero's purse. Hosted it is refused
-    /// (<see cref="LedgerRefusals.HostUnsupported"/>): the host books a kill's Australium itself
-    /// at the reveal and has no call that credits more.
+    /// Australium picked up off the floor (WO2) into the hero's purse: a container's or a breakable's
+    /// share, each hero's own. Hosted it is refused (<see cref="LedgerRefusals.HostUnsupported"/>):
+    /// the host credits a breakable's Australium itself at the break, and a kill's is a pile
+    /// (<see cref="KillAustralium"/>).
     /// </summary>
     Task<LedgerResult> CollectAustralium(string hero, long amount);
+
+    /// <summary>
+    /// A kill's Australium as one pile on this level's floor (L24; SDK 2.8 <c>KillAustralium</c>, for
+    /// every kill whose roll has Australium, item or not). Hosted, the host replays the kill's roll
+    /// under the killer's lease and its pile is answered; unhosted the pile is the game's roll.
+    /// Refused <see cref="LedgerRefusals.NoAustralium"/> for a roll of none.
+    /// </summary>
+    Task<PileAnswer> KillAustralium(KillPile kill);
+
+    /// <summary>
+    /// The pile picked up by <paramref name="hero"/>: every member of the killer's party on the level
+    /// is credited his share at once (the rules' <c>AustraliumShares</c>: the split and each one's
+    /// found share), and the pile is gone. <paramref name="members"/> is that party as the game sees
+    /// it, the killer first when he is here (unhosted, who is paid; hosted the host decides by its
+    /// own parties and leases). Refused <see cref="LedgerRefusals.NotInParty"/> for a claimer outside
+    /// it, <see cref="LedgerRefusals.NotOnFloor"/> for a pile taken already.
+    /// </summary>
+    Task<PileTake> ClaimAustralium(string hero, long pileId, IReadOnlyList<string> members);
+
+    /// <summary>
+    /// A numbered breakable broken by one hero (SDK 2.8 <c>Break</c>; R4: called once for each hero in
+    /// the room, the breaker first): the rules' <c>BreakableDrops</c> for him, its Australium credited
+    /// to him at once and its items on the floor for him; refused
+    /// <see cref="LedgerRefusals.AlreadyBroken"/> the second time, even when the first gave nothing.
+    /// </summary>
+    Task<BreakAnswer> Break(BreakDrop drop);
+
+    /// <summary>The Australium piles on this level's floor.</summary>
+    IReadOnlyCollection<AustraliumPile> Piles { get; }
 
     /// <summary>Drops the item in a backpack slot onto the floor at <paramref name="position"/>.</summary>
     Task<LedgerResult> Drop(string hero, int slot, Vector position);
@@ -331,21 +423,50 @@ public interface IItemLedger
     /// </summary>
     LedgerCorpse? Corpse(string hero);
 
+    /// <summary>
+    /// The level the heroes' corpses lie on is gone for good (R5; plan_tf2_rpg 7b, Phase 10): each
+    /// corpse goes to the Lost &amp; Found in town, which holds it until its owner reclaims it for
+    /// D6's fee. Hosted, the host does this when it reaps the instance, so nothing moves here.
+    /// Answers the heroes whose corpses moved.
+    /// </summary>
+    IReadOnlyList<string> CorpsesLost();
+
+    /// <summary>What the Lost &amp; Found holds of the hero's (his lost corpses, merged); null for nothing, or when the ledger cannot say (hosted).</summary>
+    LedgerCorpse? LostAndFound(string hero);
+
+    /// <summary>The fee to reclaim what the Lost &amp; Found holds of the hero's (D6: a share of its vendor value); null for nothing to reclaim.</summary>
+    long? ReclaimFee(string hero);
+
+    /// <summary>
+    /// Reclaims what the Lost &amp; Found holds of the hero's: its Australium comes back, the fee is
+    /// paid, and the items go back where he carried them as far as they fit; what does not fit
+    /// stays. Refused (nothing changes) when he cannot pay.
+    /// </summary>
+    Task<LedgerResult> Reclaim(string hero);
+
     //-------------------------------------------------------------------------
     // HE8 and HE9: consumables used, gear worn and repaired where it is worn
     //-------------------------------------------------------------------------
 
-    /// <summary>Uses one of the stack in a backpack slot (a scroll read, a tome learnt); the last one leaves. Hosted: no host call carries it.</summary>
+    /// <summary>Uses one of the stack in a backpack slot (a scroll read, a tome learnt); the last one leaves. Hosted: SDK 2.7 <c>Consume</c>.</summary>
     Task<LedgerResult> Consume(string hero, int slot);
 
     /// <summary>
     /// The wear gear took (HE9), applied by the rules' <c>Durability</c> to each item where it
-    /// is now, one write for all of them; an item no longer held is skipped. Hosted: no host
-    /// call carries it.
+    /// is now, one write for all of them; an item no longer held is skipped. Hosted: SDK 2.7
+    /// <c>Wear</c>, each item's events as the one amount that wears it.
     /// </summary>
     Task<LedgerResult> Wear(string hero, IReadOnlyList<WearEvents> events);
 
-    /// <summary>Repairs the item worn in an equipment slot (HE9, L7); the rules' refusal comes back as is. Hosted: no host call carries it.</summary>
+    /// <summary>
+    /// Repairs the item worn in an equipment slot (HE9, L7); the rules' refusal comes back as is.
+    /// A field repair spends one Repair Kit from the backpack (the lowest slot holding one;
+    /// <c>no_kit</c> without), at the hero's level, on both ledgers: the rules'
+    /// <c>Repair(item, Field, kit, sheet, seed)</c> (contract 1.2). The town's price is waived for a
+    /// hero whose perks total the rules' town_free (<c>TF2DescentRules.TownFree</c>). Hosted: SDK 2.7
+    /// <c>Repair</c> of the kind, the town's in the hub only; the dev command's waiver
+    /// (<see cref="WornRepair.TownUncharged"/>) has no host call unless the hero's sheet waives it.
+    /// </summary>
     Task<LedgerResult> RepairWorn(string hero, string equipSlot, WornRepair how);
 
     /// <summary>A dev mutation (<c>tf2_descent_wear</c>): the worn item's durability and maximum set as given, its wear progress cleared.</summary>

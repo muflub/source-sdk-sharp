@@ -28,6 +28,25 @@
 #include "server_entity_context.h"
 #include "shell_managed_areas.h"
 
+bool CStandaloneEntity::TestCollision(const Ray_t& ray, unsigned int fContentsMask, trace_t& tr)
+{
+	if (ray.m_IsRay && (GetSolidFlags() & FSOLID_CUSTOMRAYTEST))
+	{
+		if (!TestHitboxes(ray, fContentsMask, tr))
+			return true;
+
+		return tr.DidHit();
+	}
+
+	if (!ray.m_IsRay && (GetSolidFlags() & FSOLID_CUSTOMBOXTEST))
+	{
+		TestHitboxes(ray, fContentsMask, tr);
+		return true;
+	}
+
+	return false;
+}
+
 // TestHitboxes returning true means "I have hitboxes and tested them";
 // tr.DidHit() is the hit, as in stock's CBaseAnimating::TestHitboxes. False
 // leaves the trace untouched and the engine falls back to the box.

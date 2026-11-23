@@ -45,6 +45,30 @@ public sealed class TFObjectAnnouncer(ILog log) : ITFObjectAnnouncer
 }
 
 /// <summary>
+/// The buildable activities <c>CBaseObject::DetermineAnimation</c> picks
+/// between (tf_obj.cpp:3125-3164): stock's <c>ACT_OBJ_*</c> values, trimmed to
+/// the four a buildable plays and the <c>ACT_INVALID</c> a model with no such
+/// sequence leaves behind.
+/// </summary>
+public enum TFObjectActivity
+{
+    /// <summary><c>ACT_INVALID</c>: no tagged sequence on the model, or nothing chosen yet.</summary>
+    Invalid,
+
+    /// <summary><c>ACT_OBJ_STARTUP</c>: the one-shot played as the object comes up.</summary>
+    Startup,
+
+    /// <summary><c>ACT_OBJ_ASSEMBLING</c>: construction under way.</summary>
+    Assembling,
+
+    /// <summary><c>ACT_OBJ_UPGRADING</c>: a level climbing.</summary>
+    Upgrading,
+
+    /// <summary><c>ACT_OBJ_RUNNING</c>: built and working — the sequence whose pose blends the sentry's aim.</summary>
+    Running,
+}
+
+/// <summary>
 /// <c>CBaseObject</c> (tf_obj.cpp): what the sentry, the dispenser and
 /// the teleporter share — the builder, the team, the mode, the build-up, the
 /// metal pool, and the ways one ends.
@@ -184,6 +208,9 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     [SaveField] private int _upgradeMetal;
     [SaveField] private bool _upgrading;
     [SaveField] private float _upgradeCompleteTime;
+
+    /// <summary><c>m_Activity</c> (tf_obj.h): which object activity is playing, so every think can see whether the right one is already up (<see cref="DetermineAnimation"/>).</summary>
+    [SaveField] private TFObjectActivity _activity;
     [SaveField] private int _kills;
     [SaveField] private int _assists;
     [SaveField] private bool _miniBuilding;
@@ -615,11 +642,16 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
             // DeterminePlaybackRate (tf_obj.cpp:745): the assembling sequence,
             // at the construction multiplier's half — the anim is authored for
             // one builder. The activity name first, the label its fallback.
+            // The activity is remembered so the per-think DetermineAnimation
+            // leaves this already-correct sequence alone.
             int sequence = Render.LookupSequenceByActivity(Handle, "ACT_OBJ_ASSEMBLING");
             if (sequence < 0)
                 sequence = Render.LookupSequence(Handle, "build");
             if (sequence >= 0)
+            {
+                _activity = TFObjectActivity.Assembling;
                 Render.PlaySequence(Handle, sequence, _buildRate * 0.5f, restart: true);
+            }
         }
 
         Health = _carryDeploy ? _healthOnPickup : ConstructionStartHealthForBuilding;
@@ -648,6 +680,11 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
         if (_dead || _carried)
             return;
 
+        // BaseObjectThink runs this first thing every think (:579) — before
+        // the build's and the upgrade's own arms — so the activity is right
+        // however the object got here.
+        DetermineAnimation();
+
         if (_upgrading)
         {
             if (GameTime >= _upgradeCompleteTime)
@@ -665,6 +702,111 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
         UpdateMetal();
         SetNextThink(BaseObjectThinkDelay);
     }
+
+    /// <summary>
+    /// <c>CBaseObject::DetermineAnimation</c> (tf_obj.cpp:3121-3169): the
+    /// activity this object should be playing this think. A startup plays out
+    /// first and only then gives way (<c>IsActivityFinished</c>, :3158); every
+    /// other state is upgrading, else assembling, else running. Stock's
+    /// <c>IsPlacing</c> arm has its body commented out (:3133-3145), so a placing
+    /// object keeps the activity it has. Nothing moves unless the answer differs from
+    /// what is playing, which is what keeps a per-think call from restarting
+    /// the sequence it is already on.
+    /// </summary>
+    private void DetermineAnimation()
+    {
+        TFObjectActivity desired = _activity;
+
+        switch (_activity)
+        {
+            case TFObjectActivity.Startup:
+                if (IsActivityFinished())
+                    desired = TFObjectActivity.Running;
+                break;
+
+            default:
+                desired = IsUpgrading ? TFObjectActivity.Upgrading
+                        : IsPlacing ? _activity
+                        : IsBuilding ? TFObjectActivity.Assembling
+                        : TFObjectActivity.Running;
+                break;
+        }
+
+        if (desired == _activity)
+            return;
+
+        SetActivity(desired);
+    }
+
+    /// <summary>
+    /// <c>CBaseObject::SetActivity</c> (baseobject_shared.cpp:368-384): the
+    /// sequence the model tags with the activity, played from its start — the
+    /// restart is stock's <c>SetObjectSequence</c> rewinding the clock
+    /// (:401-403) — and the activity remembered so <see cref="DetermineAnimation"/>
+    /// can tell it has arrived. A model with no such sequence leaves stock's
+    /// <c>ACT_INVALID</c> (:382); its <c>!GetModelPtr()</c> early return is the
+    /// same miss here, since a model-less object has no tagged sequence either.
+    /// </summary>
+    private void SetActivity(TFObjectActivity activity, float playbackRate)
+    {
+        int sequence = Render.LookupSequenceByActivity(Handle, ActivityName(activity));
+        if (sequence < 0)
+        {
+            _activity = TFObjectActivity.Invalid;
+            return;
+        }
+
+        _activity = activity;
+        Render.PlaySequence(Handle, sequence, playbackRate, restart: true);
+    }
+
+    /// <summary>Set the activity at the default rate — stock's <c>ResetSequence</c> leaves the rate at 1 for <c>DeterminePlaybackRate</c> to set.</summary>
+    private void SetActivity(TFObjectActivity activity) => SetActivity(activity, 1f);
+
+    /// <summary>
+    /// <c>CBaseObject::PlayStartupAnimation</c> (tf_obj.cpp:3113-3116): the
+    /// object has just come up, so it shows <c>ACT_OBJ_STARTUP</c> once;
+    /// <see cref="DetermineAnimation"/> moves it on when that has run out.
+    /// Stock calls it from the shared <c>OnGoActive</c>
+    /// (baseobject_shared.cpp:425), which every subclass chains to; ours
+    /// override <c>OnGoActive</c> without chaining, so the base plays it where
+    /// every object goes active (<see cref="FinishedBuilding"/>).
+    /// </summary>
+    private void PlayStartupAnimation() => SetActivity(TFObjectActivity.Startup);
+
+    /// <summary>
+    /// <c>CBaseAnimating::IsActivityFinished</c> (baseanimating.h:95): whether
+    /// the playing sequence has run out. Stock reads the flag
+    /// <c>StudioFrameAdvance</c> raises; here the skeleton's own clock answers
+    /// (<see cref="IEngineEntityRender.SequenceState"/>). A one-shot holds its
+    /// last frame at 0.999 rather than reaching 1 (<c>BoneLibraryMath.Cycle</c>),
+    /// so that is the done mark, and a sequence that loops never finishes. An
+    /// object with no skeleton, or a sequence with no length, has nothing left
+    /// to play and counts as finished.
+    /// </summary>
+    private bool IsActivityFinished()
+    {
+        if (!Render.SequenceState(Handle, out _, out float cycle, out float duration, out bool looping, out _))
+            return true;
+
+        if (duration <= 0f)
+            return true;
+
+        if (looping)
+            return false;
+
+        return cycle >= 0.999f;
+    }
+
+    /// <summary>The activity's stock <c>ACT_OBJ_*</c> name, the tag the model's sequence table is looked up by.</summary>
+    private static string ActivityName(TFObjectActivity activity) => activity switch
+    {
+        TFObjectActivity.Startup => "ACT_OBJ_STARTUP",
+        TFObjectActivity.Assembling => "ACT_OBJ_ASSEMBLING",
+        TFObjectActivity.Upgrading => "ACT_OBJ_UPGRADING",
+        TFObjectActivity.Running => "ACT_OBJ_RUNNING",
+        _ => string.Empty,
+    };
 
     /// <summary><c>UpdateMetal</c>: what drains and refills the pool; the dispenser's own.</summary>
     protected virtual void UpdateMetal() { }
@@ -806,6 +948,10 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
         // that climb, not its end — one completion arm for every building.
         Health = MaxHealthForCurrentLevel;
         OnGoActive();
+        // Stock shows the startup animation from OnGoActive (baseobject_shared.cpp:425);
+        // it lands after the finished model is worn so the sequence plays on that
+        // model, and DetermineAnimation follows it to running once it has run out.
+        PlayStartupAnimation();
         Announcer.Built(_builder, Type, _mode);
     }
 
@@ -996,9 +1142,9 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
             if (TFObjectModels.Upgrading(Type, _level) is { } upgrading)
                 Dress(upgrading);
 
-            int sequence = Render.LookupSequenceByActivity(Handle, "ACT_OBJ_UPGRADING");
-            if (sequence >= 0)
-                Render.PlaySequence(Handle, sequence, 1f, restart: true);
+            // Stock's SetActivity( ACT_OBJ_UPGRADING ) (tf_obj.cpp:3042): the
+            // upgrade body is worn first so the sequence plays on it.
+            SetActivity(TFObjectActivity.Upgrading);
         }
     }
 

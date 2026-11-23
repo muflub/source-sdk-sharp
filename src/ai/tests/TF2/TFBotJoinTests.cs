@@ -67,19 +67,8 @@ public sealed class TFBotJoinTests
         Assert.Equal([$"Join({Player},3)"], ((Recorder)(object)teams).Calls);
     }
 
-    [Theory]
-    [InlineData((int)TFTeam.Red)]
-    [InlineData((int)TFTeam.Blue)]
-    public void ABotOnAPlayingTeamWithNoClassAskedForPicksSoldier(int team)
-        => Assert.Equal("joinclass soldier", TFBotClassPick.Word(team, TFClass.Undefined));
-
+    /// <summary>A bot asks for its class with the class menu's own word.</summary>
     [Fact]
-    public void ABotThatHasAskedForAClassAsksNothing()
-        => Assert.Null(TFBotClassPick.Word((int)TFTeam.Red, TFClass.Soldier));
-
-    [Theory]
-    [InlineData((int)TFTeam.Unassigned)]
-    [InlineData((int)TFTeam.Spectator)]
-    public void ABotOnNoPlayingTeamAsksNothing(int team)
-        => Assert.Null(TFBotClassPick.Word(team, TFClass.Undefined));
+    public void ABotAsksForItsClassWithTheMenusWord()
+        => Assert.Equal(("joinclass soldier", "joinclass medic"), (TFBotClassPick.Word(TFClass.Soldier), TFBotClassPick.Word(TFClass.Medic)));
 }

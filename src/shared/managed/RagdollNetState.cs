@@ -266,4 +266,19 @@ public partial class RagdollNetState
     /// </summary>
     public partial bool Gold { get; set; }
 
+    /// <summary>
+    /// The sequence a body that came from no player collapses from, or 0 for
+    /// none.
+    ///
+    /// <para>
+    /// <see cref="PlayerIndex"/> is how a player's body finds its pose (stock's
+    /// <c>m_hPlayer</c> and <c>GetSequence()</c>); a body left by something that
+    /// is not a player has no player to read and says its sequence here, as
+    /// the server last played it. The idle fallback the client otherwise uses
+    /// looks HL2's activities up, and a model with none of them would collapse
+    /// from its reference skeleton: the stretched smear. 0 means none because
+    /// sequence 0 is that reference pose, never one to collapse from.
+    /// </para>
+    /// </summary>
+    public partial short Sequence { get; set; }
 }

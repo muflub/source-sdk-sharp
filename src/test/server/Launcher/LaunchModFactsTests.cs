@@ -73,4 +73,44 @@ public class LaunchModFactsTests
         // expanded recipe must copy from mods/tf2, not the hard-wired mods/test.
         Assert.Contains("/bin/debug/mods/tf2", MakeDryRun("run-snapshot", "tf2"));
     }
+
+    /// <summary>
+    /// The sibling mods each mod's gameinfo.txt mounts (<c>|gameinfo_path|../tf2</c>), read
+    /// from the source tree: mod id (game/mod_&lt;id&gt;) to the names it climbs one level to.
+    /// </summary>
+    private static IEnumerable<(string Mod, string Sibling)> SiblingMounts()
+    {
+        foreach (string dir in Directory.GetDirectories(RepoLayout.Repo("game"), "mod_*"))
+        {
+            string info = Path.Combine(dir, "gameinfo.txt");
+            if (!File.Exists(info))
+                continue;
+            string mod = Path.GetFileName(dir)["mod_".Length..];
+            foreach (System.Text.RegularExpressions.Match m in
+                     System.Text.RegularExpressions.Regex.Matches(File.ReadAllText(info), @"\|gameinfo_path\|\.\./([A-Za-z0-9_]+)\s"))
+                yield return (mod, m.Groups[1].Value);
+        }
+    }
+
+    [Fact]
+    public void Run_snapshot_links_every_sibling_mod_a_gameinfo_mounts()
+    {
+        // make run hands the engine a snapshot directory (tools/.run/<id>/mod) whose
+        // gameinfo.txt is a link, and the engine resolves |gameinfo_path| against the
+        // snapshot, so "../tf2" names tools/.run/<id>/tf2. Without that link
+        // tf2_descent ran without the TF2 mod's files: its main menu drew
+        // #TF2_MainMenu_* tokens (2026-11-15). Positive arm: tf2 mounts ../test.
+        var mounts = SiblingMounts().ToList();
+        Assert.Contains(("tf2", "test"), mounts);
+        Assert.Contains(("tf2_descent", "tf2"), mounts);
+        foreach (var group in mounts.GroupBy(m => m.Mod))
+        {
+            string recipe = MakeDryRun("run-snapshot", group.Key);
+            foreach (var (mod, sibling) in group)
+                Assert.True(
+                    System.Text.RegularExpressions.Regex.IsMatch(recipe,
+                        $@"ln -sfn \S+/mods/{sibling} ""?\S+/tools/\.run/[^/\s]+/{sibling}""?(\s|;|$)", System.Text.RegularExpressions.RegexOptions.Multiline),
+                    $"run-snapshot for {mod} does not link ../{sibling}, which its gameinfo.txt mounts");
+        }
+    }
 }

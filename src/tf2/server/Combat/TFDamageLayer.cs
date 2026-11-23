@@ -1573,7 +1573,11 @@ public sealed class TFDamageRules(ITFPlayerData players, IEngineEntities entitie
         if (!new TFConditionEffects().IsInvulnerable(in conds))
             return Decision.UseStockRule;
 
-        return UberPassthrough(in hit) ? Decision.UseStockRule : Decision.No;
+        // Stock's über answer (tf_gamerules.cpp:6366-6391): with the über on,
+        // the hit is not refused outright — the victim's health is held whole
+        // but the hit's events and push still run, DAMAGE_EVENTS_ONLY. Only
+        // the bAllowDamage passthrough lands the hit in full.
+        return UberPassthrough(in hit) ? Decision.UseStockRule : Decision.EventsOnly;
     }
 
     /// <summary>

@@ -104,12 +104,18 @@ public sealed class GameMovementStep : IMotionStep
     private readonly MovementParams _body;
     private readonly float _tickSeconds;
 
-    private GameMovementStep(GameMovement loop, StepWorld world, MovementParams body, float tickSeconds)
+    private readonly MoveConstants _constants;
+
+    /// <summary>The speed this step's command wishes (the forward and side moves, under its speed cap).</summary>
+    private float _wish;
+
+    private GameMovementStep(GameMovement loop, StepWorld world, MovementParams body, float tickSeconds, MoveConstants constants)
     {
         _loop = loop;
         _world = world;
         _body = body;
         _tickSeconds = tickSeconds;
+        _constants = constants;
     }
 
     /// <summary>A step over <paramref name="world"/> at <paramref name="tickSeconds"/> a command.</summary>
@@ -117,13 +123,38 @@ public sealed class GameMovementStep : IMotionStep
     {
         MovementParams body = TFViewVectors.Params;
         var stepWorld = new StepWorld(world);
-        var loop = new GameMovement(stepWorld, Constants(body, tickSeconds))
+        MoveConstants constants = Constants(body, tickSeconds);
+        var loop = new GameMovement(stepWorld, constants)
         {
-            Rules = MovementRules.Stock with { NoHl2Arms = static () => true },
             JumpHeight = body.JumpHeight,
         };
-        return new GameMovementStep(loop, stepWorld, body, tickSeconds);
+        var step = new GameMovementStep(loop, stepWorld, body, tickSeconds, constants);
+        loop.Rules = MovementRules.Stock with { NoHl2Arms = static () => true, Friction = step.Friction };
+        return step;
     }
+
+    /// <summary>
+    /// The share of the floor's friction a body wishing to go <paramref name="wish"/> feels while it
+    /// is no faster than that, at <paramref name="speed"/>: all of it from twice the floor's crawl
+    /// (<c>friction x stop speed / acceleration</c>, 40 with TF's 4, 100 and 10) up; below, the
+    /// wish's share of twice the crawl. The movement's friction takes at least <c>stop speed x
+    /// friction</c> a second off a body slower than the stop speed, while its acceleration gives
+    /// back only <c>acceleration x wish</c>: a body whose speed is under the crawl (the Tank, 30)
+    /// never went faster than a tenth of it (4.5 u/s, live). A player's speed is never that low;
+    /// a robot's can be. With the share the friction takes half what the acceleration gives, so
+    /// a slow body comes up to its speed, and stops, in about 13 ticks, as a 300-speed one does.
+    /// A body faster than its wish (pushed) or wishing nothing feels the whole friction.
+    /// </summary>
+    public static float FrictionShare(float wish, float speed, in MoveConstants c)
+    {
+        if (wish <= 0f || speed > wish + 1f || c.Accelerate <= 0f)
+            return 1f;
+        float crawl = c.Friction * c.StopSpeed / c.Accelerate;
+        return crawl <= 0f ? 1f : MathF.Min(1f, wish / (2f * crawl));
+    }
+
+    /// <summary>The loop's friction rule: the floor's friction at this step's body's <see cref="FrictionShare"/>.</summary>
+    private float Friction(int body, float friction, float speed, bool ducking, int material) => friction * FrictionShare(_wish, speed, in _constants);
 
     /// <summary>The standing eye of a body at <paramref name="scale"/>.</summary>
     public static Vector EyeOf(float scale) => TFViewVectors.Params.View * scale;
@@ -162,6 +193,7 @@ public sealed class GameMovementStep : IMotionStep
         s.GroundVelocity = Vector.Zero;
         s.BaseVelocity = Vector.Zero;
         s.ConstraintRadius = 0f;
+        _wish = MathF.Min(MathF.Sqrt(input.ForwardMove * input.ForwardMove + input.SideMove * input.SideMove), input.MaxSpeed);
 
         _world.Begin(input.Handle);
         _loop.ProcessMovement(s);

@@ -134,6 +134,39 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
         Assert.Equal(0x22, _moves.For(Player).Move.OldButtons);
     }
 
+    /// <summary>
+    /// The end-of-command ask hears its own command's published ground: asked after
+    /// the publish, so the move's lift is already in the word the ask reads — stock's
+    /// <c>TFPlayerThink</c> landing arm (tf_player.cpp:1441-1483) runs after PhysicsSimulate's
+    /// commands (:978, :1775) and reads OnGround behind the move that handed its flags
+    /// over. Asked any earlier it reads the previous command's grounded word, and a
+    /// blast jump clears on the first airborne command end instead of the landing. The
+    /// rise is the blast's: vz over the shortcut's literal 250 (gamemovement.cpp:4612)
+    /// lifts the player off <c>FL_ONGROUND</c>.
+    /// </summary>
+    [Fact]
+    public void TheEndCommandAskHearsThisCommandsOwnPublishedLift()
+    {
+        int publishesAtAsk = -1;
+        int flagsAtAsk = -1;
+        _commands.Rules = MovementRules.Stock with
+        {
+            EndCommand = _ =>
+            {
+                publishesAtAsk = _published.Calls.Count;
+                flagsAtAsk = _published.Calls.Count > 0 ? _published.Calls[^1].Flags : -1;
+            },
+        };
+        Standing(new Vector(0f, 0f, 300f));                       // the blast's rise, on the record
+        var cmd = new UserCmd { CommandNumber = 1 };
+
+        Assert.Equal(1, Move(in cmd));
+
+        Assert.Equal(1, publishesAtAsk);                          // Publish first, the ask after it
+        Assert.True((flagsAtAsk & GameMovement.FlOnGround) == 0,  // and this command's lift is in its word
+                    $"flags at ask {flagsAtAsk:x}");
+    }
+
     [Fact]
     public void ThePreviouslyPredictedOriginIsWhereTheMoveLeftThem()
     {

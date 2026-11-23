@@ -8,7 +8,6 @@ using Xunit;
 using CI = client::SourceSharp.Client.Interop;
 using Engine = client::SourceSharp.Abi.RecordingEngine;
 using Mirror = client::TF2.Client.Entities.ClientRespawnRoomVisualizer;
-using Dot = client::TF2.Client.Entities.ClientSniperDot;
 using PlayerResource = client::TF2.Client.Player.ClientTFPlayerResource;
 using PlayerResources = client::TF2.Client.Player.TFClientPlayerResources;
 using RoundView = client::TF2.Shared.Rules.ITFRoundStateView;
@@ -21,9 +20,9 @@ namespace TF2.Tests.Client;
 /// The visualizer's client draw (<see cref="Mirror"/>): stock's
 /// <c>C_FuncRespawnRoomVisualizer::DrawModel</c> arms
 /// (client/tf/c_func_respawnroom.cpp:48-64) — nothing in the win state,
-/// nothing for a local player on the wall's own team, the team's translucent
-/// billboard for every other eye, with the null-player arm drawing for
-/// everybody. The shimmer's numbers are the ones the wire carries.
+/// nothing for a local player on the wall's own team, and the brush itself
+/// (<c>BaseClass::DrawModel</c>) for every other eye, with the null-player arm
+/// drawing for everybody.
 /// </summary>
 public sealed class ClientRespawnRoomVisualizerTests
 {
@@ -31,10 +30,11 @@ public sealed class ClientRespawnRoomVisualizerTests
 
     private static readonly EntityHandle Wall = new(0x0004_0031u);
 
-    // The view SniperDot's rig uses: high above looking down −Z, axes the
-    // billboard builder borrows, so the quad comes out axis-aligned.
-    private static readonly CI.CurrentViewState TheView =
-        new(0, new Vector(0f, 0f, 100f), new Vector(0f, 0f, -1f), new Vector(1f, 0f, 0f), new Vector(0f, 1f, 0f));
+    private const int Drawn = client::SourceSharp.Client.Standalone.ClientStandaloneEntity.DrawsModel;
+
+    // The brush's own box, as the client's model reads it (cp_badlands' *53).
+    private static readonly Vector BrushMins = new(-88f, -4f, -56f);
+    private static readonly Vector BrushMaxs = new(88f, 4f, 56f);
 
     private sealed class FakeFx : CI.IFxRender
     {
@@ -85,22 +85,6 @@ public sealed class ClientRespawnRoomVisualizerTests
         public void EjectBrass(Vector origin, QAngle angles, QAngle gunAngles, int type) { }
     }
 
-    private sealed class FakeView(CI.CurrentViewState view) : CI.IPixelVisSlots
-    {
-        public CI.CurrentViewState View() => view;
-
-        public int QueryCreate() => 0;
-
-        public void QueryDestroy(int query) { }
-
-        public void QueryReset(int query) { }
-
-        public void QueryPixels(int visible, int count, out int visiblePixels, out int countPixels)
-            => visiblePixels = countPixels = 0;
-
-        public void Diameters(ReadOnlySpan<float> spheres, Span<float> diameters) { }
-    }
-
     /// <summary>The round state, frozen for the fact.</summary>
     private sealed class FrozenRound(RoundStateId state) : RoundView
     {
@@ -113,26 +97,26 @@ public sealed class ClientRespawnRoomVisualizerTests
     {
         public readonly Engine Engine = new();
         public readonly FakeFx Fx = new();
-        public readonly FakeView View = new(TheView);
         public readonly PlayerResources Resources = new();
 
-        public Rig(RoundStateId round = RoundStateId.RoundRunning)
+        public Rig(RoundStateId round = RoundStateId.RoundRunning, bool modelKnown = true)
         {
-            Engine.Returns("Entities.GetOrigin", Vector.Zero);
+            Engine.Returns("WorldQuery.ClientEntityModelBounds", modelKnown);
+            Engine.Returns("WorldQuery.ClientEntityModelBounds.Mins", BrushMins);
+            Engine.Returns("WorldQuery.ClientEntityModelBounds.Maxs", BrushMaxs);
+            Engine.Returns("WorldQuery.ClientEntityModelBounds.Angles", Vector.Zero);
             Rounds = new FrozenRound(round);
         }
 
         public FrozenRound Rounds { get; }
 
-        /// <summary>A wall the create has run for: the team's sprite picked, the draw asked for.</summary>
-        public Mirror Drawn(byte team, byte localTeam = 0)
+        /// <summary>A wall the create has run for, on a team, with the local player's row on another (0: none).</summary>
+        public Mirror Created(byte team, byte localTeam = 0)
         {
-            var viz = new Mirror(Engine, Fx, View, Rounds, Resources);
+            var viz = new Mirror(Engine, Fx, Engine, Rounds, Resources);
             viz.Handle = Wall;
             viz.State.BindLocal();
             viz.State.Team = team;
-            viz.State.Width = 96f;
-            viz.State.Height = 128f;
             viz.BindEngine(Engine, Engine);
 
             if (localTeam != 0)
@@ -146,110 +130,106 @@ public sealed class ClientRespawnRoomVisualizerTests
             viz.OnDataChanged(default, DataUpdateType.Created);
             return viz;
         }
-
-        /// <summary>The widest x/y offset from the drawn centre the quad reaches.</summary>
-        public (float X, float Y) HalfSpans(CI.FxVertex[] vertices)
-        {
-            float x = 0f, y = 0f;
-            foreach (var v in vertices)
-            {
-                x = MathF.Max(x, MathF.Abs(v.Position.X));
-                y = MathF.Max(y, MathF.Abs(v.Position.Y));
-            }
-            return (x, y);
-        }
     }
 
-    /// <summary>The win state's arm: nothing draws, the rooms stand open.</summary>
+    /// <summary>The win state's arm: nothing draws, the rooms stand open; DrawModel answers stock's 1.</summary>
     [Fact]
     public void NothingDrawsDuringTeamWin()
     {
         var rig = new Rig(RoundStateId.TeamWin);
-        var viz = rig.Drawn((byte)TFTeam.Blue, localTeam: (byte)TFTeam.Red);
+        rig.Fx.LocalPlayerAnswer = Local;
+        var viz = rig.Created((byte)TFTeam.Blue, localTeam: (byte)TFTeam.Red);
 
-        Assert.Equal(0, viz.OnDraw());
+        Assert.Equal(1, viz.OnDraw());
         Assert.Empty(rig.Fx.Draws);
     }
 
     /// <summary>
     /// The own-team arm: a blue player sees through his own room's doorway —
-    /// no quads, the draw answers zero. Same engine, same wall, but the local
-    /// row carries the other team, and the shimmer stands.
+    /// nothing drawn, the draw answers stock's 1. Same wall, but the local row
+    /// carries the other team, and the brush draws.
     /// </summary>
     [Fact]
-    public void ATeammateSeesThroughTheDoorwayAndAnEnemyGetsTheShimmer()
+    public void ATeammateSeesThroughTheDoorwayAndAnEnemyGetsTheBrush()
     {
         var mate = new Rig();
-        mate.Fx.LocalPlayerAnswer = Local; // stock's pLocalPlayer arm needs a local here
-        var wall = mate.Drawn((byte)TFTeam.Blue, localTeam: (byte)TFTeam.Blue);
-        Assert.Equal(0, wall.OnDraw());
-        Assert.Empty(mate.Fx.Draws);
+        mate.Fx.LocalPlayerAnswer = Local;
+        var wall = mate.Created((byte)TFTeam.Blue, localTeam: (byte)TFTeam.Blue);
+        Assert.Equal(1, wall.OnDraw());
 
         var enemy = new Rig();
         enemy.Fx.LocalPlayerAnswer = Local;
-        var other = enemy.Drawn((byte)TFTeam.Blue, localTeam: (byte)TFTeam.Red);
-        Assert.Equal(1, other.OnDraw());
-        Assert.Single(enemy.Fx.Draws);
+        var other = enemy.Created((byte)TFTeam.Blue, localTeam: (byte)TFTeam.Red);
+        Assert.Equal(Drawn, other.OnDraw());
     }
 
-    /// <summary>Stock's null-player arm: with no local player yet, every eye gets the wall.</summary>
+    /// <summary>Stock's null-player arm: with no local player yet, every eye gets the brush.</summary>
     [Fact]
-    public void EveryEyeGetsTheWallWithNoLocalPlayer()
+    public void EveryEyeGetsTheBrushWithNoLocalPlayer()
     {
         var rig = new Rig();
         // Same team as the wall — but nobody is here yet, so the draw answers for everybody.
-        var viz = rig.Drawn((byte)TFTeam.Blue, localTeam: (byte)TFTeam.Blue);
-        Assert.Equal(1, viz.OnDraw());
-        Assert.Single(rig.Fx.Draws);
+        var viz = rig.Created((byte)TFTeam.Blue, localTeam: (byte)TFTeam.Blue);
+        Assert.Equal(Drawn, viz.OnDraw());
     }
 
     /// <summary>
-    /// The drawn arm's numbers: the team's sprite, the shimmer's half-alpha,
-    /// g_aTeamColors (BLUE blue, RED red), and the billboard the wire's box
-    /// says — the rig's 96×128 at the origin, half-spans 48 wide, 64 tall.
+    /// The drawn arm is stock's <c>BaseClass::DrawModel</c>: the map's brush in
+    /// its own material, for either team's wall. The class draws nothing of its
+    /// own over it — no sprite, no billboard in a team colour.
     /// </summary>
     [Fact]
-    public void TheShimmerIsTheTeamsColourAtHalfAlphaAcrossTheBrushBox()
+    public void TheEnemysDrawIsTheBrushAndNothingOfItsOwn()
     {
-        var blue = new Rig();
-        blue.Fx.LocalPlayerAnswer = Local;
-        var blueWall = blue.Drawn((byte)TFTeam.Blue, localTeam: (byte)TFTeam.Red);
-        Assert.Equal(1, blueWall.OnDraw());
-        var blueDraw = Assert.Single(blue.Fx.Draws);
-        Assert.Equal(blue.Fx.Materials[Dot.SpriteBlue], blueDraw.Material);
-        Assert.True(blueDraw.ByteColor);
-        var blueCorner = blueDraw.Vertices[0];
-        Assert.Equal(0f, blueCorner.R);
-        Assert.Equal(0f, blueCorner.G);
-        Assert.Equal(255f, blueCorner.B);
-        Assert.Equal(128f, blueCorner.A);
-        Assert.Equal((48f, 64f), blue.HalfSpans(blueDraw.Vertices));
+        foreach ((byte team, byte local) in new[] { ((byte)TFTeam.Red, (byte)TFTeam.Blue), ((byte)TFTeam.Blue, (byte)TFTeam.Red) })
+        {
+            var rig = new Rig();
+            rig.Fx.LocalPlayerAnswer = Local;
+            var viz = rig.Created(team, localTeam: local);
 
-        var red = new Rig();
-        red.Fx.LocalPlayerAnswer = Local;
-        var redWall = red.Drawn((byte)TFTeam.Red, localTeam: (byte)TFTeam.Blue);
-        Assert.Equal(1, redWall.OnDraw());
-        var redDraw = Assert.Single(red.Fx.Draws);
-        Assert.Equal(red.Fx.Materials[Dot.SpriteRed], redDraw.Material);
-        var redCorner = redDraw.Vertices[0];
-        Assert.Equal(255f, redCorner.R);
-        Assert.Equal(0f, redCorner.G);
-        Assert.Equal(0f, redCorner.B);
-        Assert.Equal(128f, redCorner.A);
+            Assert.Equal(Drawn, viz.OnDraw());
+            Assert.Empty(rig.Fx.Draws);
+            Assert.Empty(rig.Fx.Materials);
+        }
     }
 
-    /// <summary>The create's material is the draw's; taken off, it is released.</summary>
+    /// <summary>
+    /// The create asks for the class's draw hook over the brush's own box (the
+    /// model's bounds, stock's render bounds), in the translucent pass.
+    /// </summary>
     [Fact]
-    public void TheWallReleasesItsSpriteWhenItIsRemoved()
+    public void TheCreateAsksForTheDrawOverTheBrushsBox()
     {
         var rig = new Rig();
-        rig.Fx.LocalPlayerAnswer = Local;
-        var viz = rig.Drawn((byte)TFTeam.Blue, localTeam: (byte)TFTeam.Red);
-        viz.OnDraw();
-        int material = Assert.Single(rig.Fx.Draws).Material;
+        rig.Created((byte)TFTeam.Red);
 
-        viz.OnRemoved();
+        var draw = Assert.Single(rig.Engine.Calls, c => c.Member == "EntityRender.SetCustomDraw");
+        Assert.Equal(new object?[] { Wall, BrushMins, BrushMaxs }, draw.Args);
+        var blend = Assert.Single(rig.Engine.Calls, c => c.Member == "EntityRender.SetBlending");
+        Assert.Equal(true, blend.Args[1]);
+    }
 
-        Assert.Contains(material, rig.Fx.Released);
+    /// <summary>
+    /// With the model's box not known yet the draw hook is not asked for over
+    /// an empty box (which would cull the brush); the next update asks again.
+    /// </summary>
+    [Fact]
+    public void AnUnknownBoxWaitsForTheNextUpdate()
+    {
+        var rig = new Rig(modelKnown: false);
+        var viz = rig.Created((byte)TFTeam.Red);
+        Assert.False(rig.Engine.Called("EntityRender.SetCustomDraw"));
+
+        rig.Engine.Returns("WorldQuery.ClientEntityModelBounds", true);
+        viz.OnDataChanged(default, DataUpdateType.DataTableChanged);
+        Assert.Equal(1, rig.Engine.CountOf("EntityRender.SetCustomDraw"));
+    }
+
+    /// <summary>The brush is drawn at its DrawModel: no prepared form in the view's batch.</summary>
+    [Fact]
+    public void TheDrawIsMadeInPlace()
+    {
+        var viz = new Rig().Created((byte)TFTeam.Red);
+        Assert.Equal(client::SourceSharp.Client.Standalone.ClientStandaloneEntity.DrawsInPlace, viz.OnDrawBatched());
     }
 }

@@ -8,6 +8,7 @@ using TF2.Descent.Ai.Far;
 using TF2.Descent.Ai.Level;
 using TF2.Descent.Ai.Motion;
 using TF2.Descent.Ai.Roster;
+using TF2.Descent.Ai.Senses;
 using TF2.Descent.Rules.Horde;
 using TF2.Descent.Server.Horde.Motion;
 
@@ -78,6 +79,9 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
 
     public HordeSettings? Settings { get; private set; }
 
+    /// <summary>The level's alert log (dev: each robot's first alert of a spell, <c>tf2_descent_horde_alert_log</c>).</summary>
+    public HordeAlerts? Alerts { get; private set; }
+
     /// <summary>Bodies and weapons this controller made: all at <see cref="Begin"/>, never after.</summary>
     public int BodiesMade { get; private set; }
 
@@ -103,7 +107,7 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
     /// <paramref name="level"/> at <paramref name="ticksPerSecond"/>. Answers
     /// false, and makes nothing more, when the engine refuses an entity.
     /// </summary>
-    public bool Begin(HordeLevel level, double ticksPerSecond, int partySize, long now)
+    public bool Begin(HordeLevel level, double ticksPerSecond, int partySize, long now, TF2.Descent.Ai.Director.IHullReach? reach = null)
     {
         if (Begun)
             throw new InvalidOperationException("the horde controller has begun already: one a level");
@@ -114,7 +118,8 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
         Level = level;
         Roster = RobotRoster.Create(r, ticksPerSecond);
         PartySize = partySize;
-        Plan = new SpawnDirector(r).Plan(level, partySize);
+        Reach = reach;
+        Plan = new SpawnDirector(r).Plan(level, partySize, reach);
         Roll = Roster.Load(Plan, level);
         Pool = BodyPool.For(settings);
 
@@ -152,7 +157,8 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
         _embodiment = EmbodimentRules.For(settings, level, ticksPerSecond);
         _orders = HordeOrders.For(settings, level);
         _applier = new HordeOrderApplier(Roster, Pool, Bodies);
-        _far = FarSimulation.For(settings, level, ticksPerSecond);
+        Alerts = HordeAlerts.For(settings.RosterCapacity, settings.AlertMemorySeconds, ticksPerSecond);
+        _far = FarSimulation.For(settings, level, ticksPerSecond, Alerts);
         _decideInterval = Math.Max(1, (long)Math.Round(ticksPerSecond / DecideHz));
         _farInterval = FarSimulation.Interval(settings, ticksPerSecond);
         _nextDecide = now;
@@ -161,6 +167,9 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
         brains.Begin(this, now);
         return true;
     }
+
+    /// <summary>The hulls' floors the roster was planned with (the level's navigation), or none.</summary>
+    public TF2.Descent.Ai.Director.IHullReach? Reach { get; private set; }
 
     /// <summary>Server ticks between decisions.</summary>
     public long DecideInterval => _decideInterval;
@@ -220,6 +229,7 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
         Pool = null;
         Bodies = null;
         Sight = null;
+        Alerts = null;
         _embodiment = null;
         _orders = null;
         _applier = null;

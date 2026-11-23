@@ -2491,7 +2491,7 @@ static void *const s_ShimStandaloneClientSlots[] = {
 static const SSForwarderTable s_ShimStandaloneClientTable = { s_ShimStandaloneClientSlots, 27 };
 
 //-----------------------------------------------------------------------------
-// ShimViewClient: 31 forwarder(s) over IShimViewClient.
+// ShimViewClient: 33 forwarder(s) over IShimViewClient.
 //-----------------------------------------------------------------------------
 // void IShimViewClient::ConNPrintf( void *, int32_t, const char * )
 static void SSFwd_ShimViewClient_ConNPrintf( IShimViewClient *self, void * a0, int32_t a1, const char * a2 ) { self->ConNPrintf( a0, a1, a2 ); }
@@ -2555,6 +2555,10 @@ static int32_t SSFwd_ShimViewClient_ClientTraceHullEntities( IShimViewClient *se
 static int32_t SSFwd_ShimViewClient_ScreenOverlaySet( IShimViewClient *self, const char * a0 ) { return self->ScreenOverlaySet( a0 ); }
 // int32_t IShimViewClient::ScreenOverlayGet( char *, int32_t )
 static int32_t SSFwd_ShimViewClient_ScreenOverlayGet( IShimViewClient *self, char * a0, int32_t a1 ) { return self->ScreenOverlayGet( a0, a1 ); }
+// int32_t IShimViewClient::ClientSolidEntities( int32_t *, float *, int32_t )
+static int32_t SSFwd_ShimViewClient_ClientSolidEntities( IShimViewClient *self, int32_t * a0, float * a1, int32_t a2 ) { return self->ClientSolidEntities( a0, a1, a2 ); }
+// int32_t IShimViewClient::ClientClipHullToEntities( const float *, const float *, const float *, const float *, int32_t, const int32_t *, int32_t, SourceSharpMoveTraceResult * )
+static int32_t SSFwd_ShimViewClient_ClientClipHullToEntities( IShimViewClient *self, const float * a0, const float * a1, const float * a2, const float * a3, int32_t a4, const int32_t * a5, int32_t a6, SourceSharpMoveTraceResult * a7 ) { return self->ClientClipHullToEntities( a0, a1, a2, a3, a4, a5, a6, a7 ); }
 
 static void *const s_ShimViewClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ConNPrintf ),
@@ -2588,9 +2592,11 @@ static void *const s_ShimViewClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ClientTraceHullEntities ),
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ScreenOverlaySet ),
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ScreenOverlayGet ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ClientSolidEntities ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ClientClipHullToEntities ),
 };
 
-static const SSForwarderTable s_ShimViewClientTable = { s_ShimViewClientSlots, 31 };
+static const SSForwarderTable s_ShimViewClientTable = { s_ShimViewClientSlots, 33 };
 
 //-----------------------------------------------------------------------------
 // ShimUserMessagesClient: 2 forwarder(s) over IShimUserMessagesClient.

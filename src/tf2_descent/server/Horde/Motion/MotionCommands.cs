@@ -184,7 +184,7 @@ public sealed class HordeMotionCommand(HordeService horde, RobotMotion motion, R
         var stepper = motion.Stepper;
         double perStep = stepper is { StepsRun: > 0 } s ? s.StepMicros / s.StepsRun : 0;
         log.Msg(FormattableString.Invariant(
-            $"{MotionLines.Tag} stepper {stepper?.GetType().Name}: steps {stepper?.StepsRun} at {perStep:0.0} us cpu each; ticks {motion.Ticks}, orders {motion.OrdersTaken} (dropped {motion.OrdersDropped}), pushes {motion.Pushes} (blasts {blasts.Pushed}, last ({blasts.LastPush.X:0},{blasts.LastPush.Y:0},{blasts.LastPush.Z:0})), clips {motion.Clips}, holds {motion.Holds}\n"));
+            $"{MotionLines.Tag} stepper {stepper?.GetType().Name}: steps {stepper?.StepsRun} at {perStep:0.0} us cpu each; ticks {motion.Ticks}, orders {motion.OrdersTaken} (dropped {motion.OrdersDropped}), pushes {motion.Pushes} (blasts {blasts.Pushed}, last ({blasts.LastPush.X:0},{blasts.LastPush.Y:0},{blasts.LastPush.Z:0})), clips {motion.Clips}, slides {motion.Slides}, holds {motion.Holds}\n"));
 
         if (robot >= 0)
         {

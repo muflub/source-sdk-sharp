@@ -83,9 +83,9 @@ TEST(StandaloneBoundsWire, ThePairFollowsTheAppendedRowsAtTheTail)
 	EXPECT_STREQ("m_vecMins", pFields[STANDALONE_NET_FIELD_MINS].pName);
 	EXPECT_STREQ("m_vecMaxs", pFields[STANDALONE_NET_FIELD_MAXS].pName);
 
-	// The pair really is the tail: nothing after it.
-	EXPECT_EQ(STANDALONE_NET_FIELD_COUNT - 2, STANDALONE_NET_FIELD_MINS);
-	EXPECT_EQ(STANDALONE_NET_FIELD_COUNT - 1, STANDALONE_NET_FIELD_MAXS);
+	// The pair kept its place when m_CollisionGroup was appended behind it.
+	EXPECT_EQ(STANDALONE_NET_FIELD_COUNT - 3, STANDALONE_NET_FIELD_MINS);
+	EXPECT_EQ(STANDALONE_NET_FIELD_COUNT - 2, STANDALONE_NET_FIELD_MAXS);
 }
 
 } // namespace

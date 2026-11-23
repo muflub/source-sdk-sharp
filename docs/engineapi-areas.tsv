@@ -282,6 +282,8 @@ ClientClipRayToEntities	EngineApi	IShimViewClient	client		client	-	CWorldQueryCl
 ClientTraceHullEntities	EngineApi	IShimViewClient	client		client	-	CWorldQueryClient::ClientTraceHullEntities	float*, float*, float*, float*, int, int, int*, int, float*, float*, int*, float*, int	
 ScreenOverlaySet	EngineApi	IShimViewClient	client		client	-	CShellViewRender::ScreenOverlaySet	byte*, int	
 ScreenOverlayGet	EngineApi	IShimViewClient	client		client	-	CShellViewRender::ScreenOverlayGet	byte*, int, int	
+ClientSolidEntities	EngineApi	IShimViewClient	client		client	-	CWorldQueryClient::ClientSolidEntities	int*, float*, int, int	
+ClientClipHullToEntities	EngineApi	IShimViewClient	client		client	-	CWorldQueryClient::ClientClipHullToEntities	float*, float*, float*, float*, int, int*, int, MoveTraceBlob*, int	
 UserMessageSend	EngineApi	IShimUserMessages	server		server	-	CServerUserMessages::UserMessageSend	int, byte*, int, int, int, int	
 ClientViewportQuery	EngineApi	IShimUserMessagesClient	client		client	-	CSourceSharpClientMode::ClientViewportQuery	byte*, int	
 ClientViewportShow	EngineApi	IShimUserMessagesClient	client		client	-	CSourceSharpClientMode::ClientViewportShow	byte*, int, byte*, int, int, void	

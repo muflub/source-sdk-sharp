@@ -113,16 +113,61 @@ public sealed class HeroKitSourceFacts
     }
 
     [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
-    public void An_empty_weapon_slot_is_empty_in_TF2()
+    public void An_empty_secondary_slot_carries_the_classs_stock_secondary()
     {
         var rig = new EquipmentRig();
         Assert.True(rig.Unequip("secondary").Ok);
 
         var answer = rig.Answer(TFLoadoutSlot.Secondary);
 
+        Assert.Equal(SoldierShotgun, answer.Item!.Defindex);
+        Assert.Empty(answer.Item.Attributes);
+        Assert.DoesNotContain(rig.Held.Inventory.Items, h => (ulong)h.Id == answer.Item.Id);
+    }
+
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public void An_empty_primary_slot_carries_the_classs_stock_primary()
+    {
+        var rig = new EquipmentRig();
+        Assert.True(rig.Unequip("primary").Ok);
+
+        var answer = rig.Answer(TFLoadoutSlot.Primary);
+
+        Assert.Equal(RocketLauncher, answer.Item!.Defindex);
+        Assert.Empty(answer.Item.Attributes);
+        Assert.DoesNotContain(rig.Held.Inventory.Items, h => (ulong)h.Id == answer.Item.Id);
+    }
+
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public void A_secondary_equipped_replaces_the_stock_one()
+    {
+        var rig = new EquipmentRig();
+        long id = rig.Held.Inventory.Equipped["secondary"].Id;
+        Assert.True(rig.Unequip("secondary").Ok);
+        var stock = rig.Answer(TFLoadoutSlot.Secondary).Item!;
+        int from = rig.Held.Inventory.Backpack.Single(p => p.Value.Id == id).Key;
+
+        Assert.True(rig.Equip(from, "secondary").Ok);
+
+        var answer = rig.Answer(TFLoadoutSlot.Secondary).Item!;
+        Assert.Equal((ulong)id, answer.Id);
+        Assert.False(answer.SameAs(stock));
+    }
+
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public void An_equipped_weapon_the_class_may_not_use_is_still_empty()
+    {
+        var rig = new EquipmentRig();
+        rig.Plant("primary", EquipmentRig.Item("grenade_launcher"));
+
+        var answer = rig.Answer(TFLoadoutSlot.Primary);
+
         Assert.True(answer.HasOpinion);
         Assert.Null(answer.Item);
     }
+
+    /// <summary>The Soldier's stock shotgun's defindex in TF's schema.</summary>
+    private const int SoldierShotgun = 10;
 
     /// <summary>The stock shovel's defindex in TF's schema.</summary>
     private const int Shovel = 6;
@@ -157,13 +202,15 @@ public sealed class HeroKitSourceFacts
     }
 
     [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
-    public async Task A_hero_stripped_by_a_death_keeps_a_melee_and_nothing_else()
+    public async Task A_hero_stripped_by_a_death_carries_the_classs_three_stock_weapons()
     {
+        // The user, 2026-11-15: "when you die you should be respawned with default weapons".
         var rig = new EquipmentRig();
         Assert.True(await rig.Ledger.RecordDeath(EquipmentRig.Key, default));
+        Assert.Empty(rig.Held.Inventory.Equipped);
 
-        Assert.Null(rig.Answer(TFLoadoutSlot.Primary).Item);
-        Assert.Null(rig.Answer(TFLoadoutSlot.Secondary).Item);
+        Assert.Equal(RocketLauncher, rig.Answer(TFLoadoutSlot.Primary).Item!.Defindex);
+        Assert.Equal(SoldierShotgun, rig.Answer(TFLoadoutSlot.Secondary).Item!.Defindex);
         Assert.Equal(Shovel, rig.Answer(TFLoadoutSlot.Melee).Item!.Defindex);
     }
 

@@ -19,6 +19,9 @@ internal sealed class FakePaths : IHordePaths
     /// <summary>A path of one corner, the goal itself.</summary>
     public bool Short { get; set; }
 
+    /// <summary>The goal is off the class's floor: the answer is <see cref="PathAnswer.Nearest"/>, one corner to this place (none from it).</summary>
+    public AiVector? NearestTo { get; set; }
+
     public List<(AiVector From, AiVector To, ClearanceClass Class)> Asked { get; } = [];
 
     public PathAnswer Find(AiVector from, AiVector to, ClearanceClass cls, int budget, Span<AiVector> corners, Span<NavEdgeType> arrive,
@@ -28,6 +31,18 @@ internal sealed class FakePaths : IHordePaths
         Asked.Add((from, to, cls));
         count = 0;
         truncated = false;
+        if (NearestTo is { } near)
+        {
+            if ((near - from).Length2D > 1f)
+            {
+                corners[0] = near;
+                arrive[0] = NavEdgeType.Walk;
+                count = 1;
+            }
+
+            return PathAnswer.Nearest;
+        }
+
         if (Answer != PathAnswer.Found)
             return Answer;
         if (Short)
@@ -107,6 +122,30 @@ public sealed class HordeRouteTests
         Assert.Equal(1, route.ByRooms);
     }
 
+    // The arena changed (a pillar fell): the paths and the view name a new epoch. The path in hand is
+    // walked until the brain's turn, never dropped for the room route, and planned again then.
+    [Fact]
+    public void A_path_planned_before_the_epoch_changed_is_kept_until_the_brains_turn_and_planned_again_then()
+    {
+        var paths = new FakePaths();
+        var route = new HordeRoute(Row(4, markers: 0), paths);
+        var tick = new Tick(0);
+        while (!HordeRoute.SearchTurn(tick, 0))
+            tick = new Tick(tick.Value + 1);
+        route.Follow(tick, View(77), From, Goal, MoveSpeed.Run);
+        Assert.Equal(1, paths.Searches);   // the control: a path was planned under epoch 77
+
+        paths.Epoch = 78;
+        var between = route.Follow(new Tick(tick.Value + 1), View(78), From, Goal, MoveSpeed.Run);
+        Assert.Equal(MoveKind.Follow, between.Kind);
+        Assert.Equal(From + new AiVector(0f, 200f, 0f), between.Corner(0));
+        Assert.Equal(1, paths.Searches);
+        Assert.Equal(0, route.ByRooms);
+
+        route.Follow(new Tick(tick.Value + HordeRoute.SearchEveryTicks), View(78), From, Goal, MoveSpeed.Run);
+        Assert.Equal(2, paths.Searches);
+    }
+
     [Fact]
     public void With_the_graph_ready_the_move_is_the_paths_corners_for_the_views_class()
     {
@@ -168,6 +207,30 @@ public sealed class HordeRouteTests
         }
 
         Assert.Equal(1, paths.Searches);
+    }
+
+    /// <summary>
+    /// A goal off the robot's floor (a giant hunting a hero into a room its hull cannot enter): it
+    /// walks to the nearest place of its floor and holds there, a hold and not a follow, so it never
+    /// grinds into the door frame on the room route, between its turns too.
+    /// </summary>
+    [Fact]
+    public void A_goal_off_the_robots_floor_walks_to_the_nearest_place_of_its_floor_and_holds_there()
+    {
+        var level = Row(4, markers: 0);
+        var near = Centre(1);
+        var paths = new FakePaths { NearestTo = near };
+        var route = new HordeRoute(level, paths);
+
+        var walk = route.Follow(new Tick(120), View(77, ClearanceClass.Hull4), From, Goal, MoveSpeed.Run);
+        Assert.Equal(MoveKind.Follow, walk.Kind);
+        Assert.Equal(near, walk.Corner(walk.CornerCount - 1));
+
+        var there = route.Follow(new Tick(120 + HordeRoute.SearchEveryTicks), View(77, ClearanceClass.Hull4), near, Goal, MoveSpeed.Run);
+        Assert.Equal(MoveKind.Hold, there.Kind);
+        for (int t = DecideSchedule.Period; t < HordeRoute.SearchEveryTicks; t += DecideSchedule.Period)
+            Assert.Equal(MoveKind.Hold, route.Follow(new Tick(120 + HordeRoute.SearchEveryTicks + t), View(77, ClearanceClass.Hull4), near, Goal, MoveSpeed.Run).Kind);
+        Assert.Equal(2, paths.Searches);
     }
 
     [Fact]

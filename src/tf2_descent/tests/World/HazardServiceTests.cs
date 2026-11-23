@@ -32,6 +32,12 @@ public sealed class HazardServiceTests
         public IReadOnlyList<(string Kind, Vector Min, Vector Max)> MapVolumes(IReadOnlyList<string> kinds) =>
             [.. Map.Where(v => kinds.Contains(v.Kind))];
 
+        /// <summary>The arena's staged volumes the map holds, by phase.</summary>
+        public List<(int Phase, string Kind, Vector Min, Vector Max)> Staged { get; } = [];
+
+        public IReadOnlyList<(int Phase, string Kind, Vector Min, Vector Max)> StagedVolumes(IReadOnlyList<string> kinds, int lastPhase) =>
+            [.. Staged.Where(v => kinds.Contains(v.Kind) && v.Phase >= 2 && v.Phase <= lastPhase)];
+
         public bool IsAlive(EntityHandle player) => !Dead.Contains(player);
 
         public Vector Feet(EntityHandle player) => FeetOf.GetValueOrDefault(player);
@@ -47,6 +53,12 @@ public sealed class HazardServiceTests
         public bool Active => true;
     }
 
+    /// <summary>The boss fight's phase as the arena has reached it.</summary>
+    private sealed class Stage : TF2.Descent.Server.Horde.Boss.IArenaPhase
+    {
+        public int Phase { get; set; } = 1;
+    }
+
     private sealed class Bites : IHazardBiteListener
     {
         public List<(int Player, string Kind)> Told { get; } = [];
@@ -59,6 +71,7 @@ public sealed class HazardServiceTests
     private readonly HeroStatsRig _rig;
     private readonly World _world;
     private readonly Bites _bites = new();
+    private readonly Stage _stage = new();
     private readonly HazardService _hazards;
 
     public HazardServiceTests() : this(StatsSheet.Level10) { }
@@ -69,7 +82,7 @@ public sealed class HazardServiceTests
         _world = new World(_rig);
         _world.Map.Add(("lava", LavaMin, LavaMax));
         _hazards = new HazardService(new ModeOn(), _rig.Rig.Heroes, _rig.Rig.Rules, _world,
-                                     new HeroRig.ListHooks<IHazardBiteListener>([_bites]), _rig.Rig.Log);
+                                     new HeroRig.ListHooks<IHazardBiteListener>([_bites]), _stage, _rig.Rig.Log);
         _hazards.OnLevelReady("hand_made_lava");
         _world.FeetOf[_rig.Player] = InLava;
     }
@@ -293,5 +306,77 @@ public sealed class HazardServiceTests
 
         Assert.Empty(_hazards.Volumes);
         Assert.Empty(_world.Hits);
+    }
+
+    // ------------------------------------------------------------------ a boss arena's staged hazards
+
+    private static readonly Vector StagedMin = new(1000, 0, -16), StagedMax = new(1256, 256, 64);
+    private static readonly Vector InStaged = new(1128, 128, 0);
+
+    /// <summary>The level loaded again with a staged lava volume of <paramref name="phase"/>, the hero standing in it.</summary>
+    private void StagedLava(int phase)
+    {
+        _hazards.OnLevelShutdown();
+        _world.Staged.Add((phase, "lava", StagedMin, StagedMax));
+        _hazards.OnLevelReady("tf2_descent-15-s1");
+        _world.FeetOf[_rig.Player] = InStaged;
+    }
+
+    [Fact]
+    public void A_staged_volume_is_read_at_level_ready_with_its_phase()
+    {
+        StagedLava(3);
+
+        var staged = Assert.Single(_hazards.Volumes, v => v.Phase != 0);
+        Assert.Equal(("lava", "map", 3, StagedMax), (staged.Kind, staged.Source, staged.Phase, staged.Max));
+        Assert.Single(_hazards.Volumes, v => v.Phase == 0);   // the always-on volume beside it
+    }
+
+    [Fact]
+    public void A_staged_volume_bites_nobody_before_its_phase()
+    {
+        StagedLava(2);
+
+        Think(100);
+
+        Assert.Empty(_world.Hits);
+        Assert.Null(_hazards.At(InStaged));
+        Assert.Equal(0, _rig.Hero.State!.Hazard);
+    }
+
+    [Fact]
+    public void A_staged_volume_bites_once_the_fight_enters_its_phase()
+    {
+        StagedLava(2);
+        Think(100);
+
+        _stage.Phase = 2;
+        Think(101);
+
+        var hit = Assert.Single(_world.Hits);
+        Assert.Equal(DamageType.Burn, hit.Bits);
+        Assert.Equal(2, _hazards.At(InStaged)!.Phase);
+    }
+
+    [Fact]
+    public void A_later_phase_s_volume_stays_off_in_an_earlier_phase()
+    {
+        StagedLava(4);
+        _stage.Phase = 3;
+
+        Think(100);
+
+        Assert.Empty(_world.Hits);
+    }
+
+    [Fact]
+    public void A_level_without_staged_volumes_keeps_its_always_on_volumes_whatever_the_phase()
+    {
+        _stage.Phase = 4;
+
+        Think(100);
+
+        Assert.Single(_world.Hits);   // the always-on lava under the hero
+        Assert.All(_hazards.Volumes, v => Assert.Equal(0, v.Phase));
     }
 }

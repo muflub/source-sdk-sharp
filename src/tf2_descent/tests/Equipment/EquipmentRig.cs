@@ -69,7 +69,7 @@ internal sealed class EquipmentRig
         Ledger = new InMemoryItemLedger(Rules, new HeroRig.ListHooks<IItemLedgerHook>(LedgerHooks), new StartingKit(Rules));
         var link = new UnhostedLink();
         var players = new PlayerService(link, Hero.Host, Hero.Players, new ClientMessages(new RecordingEngine()),
-                                        new NeverScheduler(), Log, Hero.Sheets);
+                                        new NeverScheduler(), Log, Hero.Sheets, new HeroRig.ListHooks<TF2.Descent.Server.IHeroJoinHook>([]));
         Keys = new HeroKeys(Hero.Host, players, Hero.Players);
         Equipment = new HeroEquipment(Ledger, Keys, Hero.Sheets, Rules, Schema, new Mode(this), BotList, Hero.Engine, Log);
         Source = new HeroKitSource(Equipment);
@@ -115,6 +115,17 @@ internal sealed class EquipmentRig
         var claimed = Ledger.Claim(Key, floor.Id).Result;
         Assert.True(claimed.Ok, claimed.Refusal);
         return Held.Inventory.Backpack.Single(p => p.Value.Id == floor.Id).Key;
+    }
+
+    /// <summary>
+    /// Plants an item in the first free backpack slot, telling no hook: a potion carried in the
+    /// backpack (a pickup puts one on the belt while it has room).
+    /// </summary>
+    public int Carry(ItemInstance item, long id = 800)
+    {
+        int slot = Enumerable.Range(0, 1000).First(i => !Held.Inventory.Backpack.ContainsKey(i));
+        Ledger.Replace(Held with { Inventory = Held.Inventory with { Backpack = Held.Inventory.Backpack.Add(slot, new Held(id, item)) } });
+        return slot;
     }
 
     /// <summary>Equips a backpack item through the equipment's own path (the ledger told the live sheet).</summary>

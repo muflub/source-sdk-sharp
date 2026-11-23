@@ -54,6 +54,36 @@ public sealed class TFGameInfoTests
         Assert.Equal(["hl2_textures", "hl2_sound_vo_english", "hl2_sound_misc", "hl2_misc"], packs);
     }
 
+    /// <summary>
+    /// The uncommented search paths, in order: (path ids, path).
+    /// </summary>
+    private static List<(string Ids, string Path)> SearchPaths()
+    {
+        string text = File.ReadAllText(RepoLayout.Repo("game", "mod_tf2", "gameinfo.txt"));
+        return Regex.Matches(text, @"^\s*([\w+]+)\s+(\|(?:gameinfo_path|all_source_engine_paths)\|\S*)\s*$", RegexOptions.Multiline)
+                    .Select(m => (m.Groups[1].Value, m.Groups[2].Value))
+                    .ToList();
+    }
+
+    /// <summary>
+    /// Steam keeps the community maps it downloads (jump_academy2_rc9a) in
+    /// tf/download/maps, not tf/maps; stock TF2 mounts tf/download as its
+    /// last game path. Without it "map load failed: jump_academy2_rc9a not
+    /// found or invalid" (the plan's Q-G7). It comes after our own download
+    /// path, which the engine writes a download to.
+    /// </summary>
+    [Fact]
+    public void TheModMountsSteamsDownloadedMapsAfterItsOwnDownloadPath()
+    {
+        var paths = SearchPaths();
+        int steam = paths.FindIndex(p => p.Path == "|gameinfo_path|../../content/tf/download");
+        int own = paths.FindIndex(p => p.Path == "|gameinfo_path|download");
+        Assert.True(steam >= 0, "gameinfo.txt does not mount content/tf/download");
+        Assert.Contains("game", paths[steam].Ids.Split('+'));
+        Assert.True(own >= 0 && own < steam, $"our download path ({own}) must come before Steam's ({steam})");
+        Assert.Equal(paths.Count - 1, steam);
+    }
+
     [Fact]
     public void TheGameInfoNamesNoTitleForGameUIToPaint()
     {

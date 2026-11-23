@@ -47,7 +47,55 @@ public interface IAiNavigation
 
     /// <summary>Where the level's derived graph is cached, and work derived from it beside it (<see cref="NavGraphCache.SidePathFor"/>); null for no cache.</summary>
     string? CacheDirectory => null;
+
+    /// <summary>The room in play of a level in rooms (plan_bots_teams_tf2_part_g R.2 stage A), or -1: a level that is not, or none yet.</summary>
+    int RoomInPlay => -1;
+
+    /// <summary>
+    /// Where a player comes into the room in play (the room table's ways in: its spawns and teleport destinations, and its
+    /// kept teleports' landings), for the work that starts from where players are (the blast link search's seeds); none
+    /// in a level that is not in rooms.
+    /// </summary>
+    IReadOnlyList<AiVector> RoomWaysIn => [];
+
+    /// <summary>
+    /// A level in rooms follows its bots (R.2 item 3): told each tick where the living players are, it makes ready
+    /// the room most bots are in when that is not the room in play. A level not in rooms ignores it.
+    /// </summary>
+    void FollowRooms(ReadOnlySpan<RoomActor> living)
+    {
+    }
 }
+
+/// <summary>
+/// <see cref="IObstacleEyes"/> that finds each obstacle's entity once and answers it again (a level in rooms: every room
+/// names the map's obstacles, and finding one asks the engine over every entity of its class); what an entity is
+/// doing is asked every time.
+/// </summary>
+public sealed class RememberingObstacleEyes(IObstacleEyes eyes) : IObstacleEyes
+{
+    private readonly Dictionary<(string, string, AiVector), EntityHandle> _found = new();
+
+    /// <summary>How many finds the engine was asked: once per obstacle.</summary>
+    public int Asked { get; private set; }
+
+    public EntityHandle Find(string name, string className, AiVector near)
+    {
+        if (_found.TryGetValue((name, className, near), out EntityHandle known))
+            return known;
+        Asked++;
+        return _found[(name, className, near)] = eyes.Find(name, className, near);
+    }
+
+    public bool Alive(EntityHandle entity) => eyes.Alive(entity);
+
+    public AiVector Origin(EntityHandle entity) => eyes.Origin(entity);
+
+    public AiVector Angles(EntityHandle entity) => eyes.Angles(entity);
+}
+
+/// <summary>A living player as a level in rooms follows them: where, on which team, and whether a bot.</summary>
+public readonly record struct RoomActor(AiVector Origin, int Team, bool Bot);
 
 /// <summary>A navigation build as the dev API serves it: its map, what it is doing, how far, how long, on how many threads, and the maps queued after it.</summary>
 public sealed record NavBuildProgress(string Map, string Phase, int Percent, double Seconds, int Threads, int Queued, bool ForTheLevel);
@@ -127,8 +175,8 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
         NavLinkAllowance links = profile.LinksFor(player);
         (state.Links, state.LinkHealth, state.LinksShut) = (links.Links, links.Health, links.Shut);
         int team = players.GetTeam(player);
-        (state.Hazard, state.HazardWeight) = profile.HazardFor(player, team);
         state.TeamCells = _teamBlockers.For(team);
+        (state.Hazard, state.HazardWeight) = Current is { } loaded ? profile.HazardFor(player, team, loaded.Nav.Graph, state) : profile.HazardFor(player, team);
         return state;
     }
 
@@ -150,7 +198,31 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
     /// <summary>The build in flight, or null.</summary>
     public NavBuildJob? Job => _job;
 
-    public bool Building => _job is { } j && j.Map == _level && Current is null;
+    public bool Building => (_job is { } j && j.Map == _level && Current is null) || (_rooms is not null && Current is null && _roomJob is not null);
+
+    // A level in rooms (plan_bots_teams_tf2_part_g R.2 stage A): its rooms, the room job in flight, the rooms that failed this level.
+    private NavRoomsLevel? _rooms;
+    private NavRoomJob? _roomJob;
+    private readonly HashSet<int> _roomFailed = new();
+    private readonly List<int> _roomScratch = new();
+    private readonly Dictionary<int, int> _botsIn = new();
+    private RememberingObstacleEyes? _roomEyes;
+
+    /// <summary>The level's rooms when it is in rooms, else null.</summary>
+    public NavRoomsLevel? Rooms => _rooms;
+
+    public int RoomInPlay { get; private set; } = -1;
+
+    public IReadOnlyList<AiVector> RoomWaysIn
+        => _rooms?.Table.Room(RoomInPlay) is { } room
+            ? [.. room.WaysIn.Concat(room.Kept.Where(k => k.To == room.Region && k.Destination is not null).Select(k => k.Destination!.Value)).Distinct()]
+            : [];
+
+    /// <summary>The room being made ready, or -1.</summary>
+    public int RoomComing => _roomJob?.Region ?? -1;
+
+    /// <summary>The last room installed: its region, what its job took on its threads (open, graph, sight) and what installing it took on the main thread, in milliseconds.</summary>
+    public (int Region, double OpenMs, double GraphMs, double SightMs, double InstallMs, bool FromCache) LastRoom { get; private set; } = (-1, 0, 0, 0, 0, false);
 
     public int Version { get; private set; }
 
@@ -176,7 +248,7 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
                 continue;
             if (builds?.Builds(map) != true)
             {
-                // The game's binding has not asked for its maps to be built (TF2's, until P6): never queued.
+                // The game's binding has not asked for its maps to be built: never queued.
                 refused++;
                 continue;
             }
@@ -227,6 +299,17 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
     {
         StopChokes();
         StopBuild();
+        StopRoomJob();
+    }
+
+    /// <summary>Cancels the room job in flight and joins its threads.</summary>
+    private void StopRoomJob()
+    {
+        if (_roomJob is not { } job)
+            return;
+        _roomJob = null;
+        if (!job.Stop(TimeSpan.FromSeconds(BuildStopSeconds)))
+            log.Warning($"[SourceSharp/Ai] navigation for {_level}: room r{job.Region} took longer than {BuildStopSeconds} s to stop\n");
     }
 
     /// <summary>Cancels the build in flight and joins its threads; no partial file exists, as it writes through a rename.</summary>
@@ -305,6 +388,13 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
     {
         StopChokes();
         StopBuild();
+        StopRoomJob();
+        _rooms = null;
+        _roomEyes = null;
+        _roomFailed.Clear();
+        RoomInPlay = -1;
+        _watch = null;
+        _lastFrame = 0;
         _level = null;
         Chokes = null;
         Current = null;
@@ -317,11 +407,61 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
         MissingFile = null;
     }
 
+    /// <summary>
+    /// The most threads a room is derived on (ai_nav_build_threads, when fewer): every thread allocating at once makes
+    /// the collections that stop the game's thread more and longer. Measured on jump_academy2_rc9a's pogo (debug, a
+    /// shared box): on 16 threads the GC paused the process 1,233 ms in 81 collections and the worst frame gap was
+    /// 502 ms; on 4, 425 ms in 83 and 198 ms, the room 1 s later (6.9 s against 5.9 s).
+    /// </summary>
+    public const int RoomThreads = 4;
+
+    /// <summary>A gap between two frames on the game's thread, around a room made ready, that the room's frames line counts as a hitch.</summary>
+    public const double HitchMs = 50;
+
+    /// <summary>How many frames after a room is in play its frames are still watched: two seconds at 66 a second.</summary>
+    public const int WatchFramesAfter = 132;
+
+    // The last frame's start, and the frames watched around the room being made ready: its region, frames, worst gap, gaps over HitchMs, frames since in play.
+    private long _lastFrame;
+    private (int Region, int Frames, double WorstMs, int Over, int After)? _watch;
+
+    // The process's GC pauses and collections when the watch began: a hitch on the game's thread may be a collection the job's allocations brought on.
+    private (TimeSpan Paused, int Collections) _watchGc;
+
+    /// <summary>The frames on the game's thread from a room's job starting to <see cref="WatchFramesAfter"/> frames after it is in play: the gate's hitch reading.</summary>
+    private void WatchFrames()
+    {
+        long now = System.Diagnostics.Stopwatch.GetTimestamp();
+        if (_watch is { } w && _lastFrame != 0)
+        {
+            double gap = System.Diagnostics.Stopwatch.GetElapsedTime(_lastFrame, now).TotalMilliseconds;
+            w = (w.Region, w.Frames + 1, Math.Max(w.WorstMs, gap), w.Over + (gap > HitchMs ? 1 : 0), w.After + (RoomComing < 0 && RoomInPlay == w.Region ? 1 : 0));
+            if (w.After >= WatchFramesAfter || (RoomComing < 0 && RoomInPlay != w.Region))
+            {
+                double paused = (GC.GetTotalPauseDuration() - _watchGc.Paused).TotalMilliseconds;
+                int collections = GC.CollectionCount(0) - _watchGc.Collections;
+                log.Msg(string.Create(CultureInfo.InvariantCulture,
+                    $"[SourceSharp/Ai] navigation for {_level}: room r{w.Region} frames: {w.Frames} from its job's start to {w.After} frames in play, worst gap {w.WorstMs:F1} ms, {w.Over} over {HitchMs:F0} ms; "
+                    + $"the GC paused the process {paused:F1} ms in {collections} collection(s) meanwhile\n"));
+                _watch = null;
+            }
+            else
+            {
+                _watch = w;
+            }
+        }
+
+        _lastFrame = now;
+    }
+
     public void OnPreThink(float frameTime)
     {
+        WatchFrames();
         if (_obstacles is not null && ++_ticks % ObstacleTicks == 0)
             _obstacles.Update();
         _field?.Tick();
+        if (_roomJob is { Done: true } room)
+            PollRoom(room);
         if (_job is { } job)
             Poll(job);
         else if (_queue.Count > 0)
@@ -341,6 +481,24 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
         OnLevelShutdown();
         _level = mapName;
         var cache = new NavGraphCache(CacheDirectory, NavEdgeCosts.Default);
+        if (NavLoader.Rooms(mapName, files.ReadGameFileBytes, knobs.Settings.MaxLeaves, out string? roomsRefusal) is { } rooms)
+        {
+            // In rooms: the game never opens the whole map's file; the room with the spawns is made ready first, off this thread.
+            _rooms = rooms;
+            NavRoom first = rooms.Table.StartRoom!;
+            Refusal = $"navigation for {mapName}: in rooms, r{first.Region} being made ready";
+            log.Msg(string.Create(CultureInfo.InvariantCulture,
+                $"[SourceSharp/Ai] navigation for {mapName}: in rooms, {rooms.Table.Rooms.Count} rooms of a {rooms.Table.WholeLeaves:N0}-leaf navigation; r{first.Region} first ({first.Spawns.Count} spawns)\n"));
+            StartRoom(first, sight: false);
+            return;
+        }
+
+        if (roomsRefusal is not null)
+        {
+            // Rooms beside the map that cannot be used: said, and the level is loaded as one with none.
+            log.Warning($"[SourceSharp/Ai] {roomsRefusal}; loading {mapName} whole\n");
+        }
+
         NavLoadResult result = NavLoader.Load(mapName, files.ReadGameFileBytes, cache, profile, Store);
         if (result.Nav is not { } nav)
         {
@@ -442,6 +600,100 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
         }
     }
 
+    /// <summary>Reads a room's file here, on the main thread, through the engine's file seam, and starts its job.</summary>
+    private void StartRoom(NavRoom room, bool sight)
+    {
+        if (_rooms is null)
+            return;
+        if (files.ReadGameFileBytes(NavLoader.RoomPath(room.File)) is not { } bytes)
+        {
+            FailRoom(room.Region, $"no {NavLoader.RoomPath(room.File)}");
+            return;
+        }
+
+        int threads = Math.Min(knobs.Settings.Threads, RoomThreads);
+        _roomJob = NavRoomJob.Start(_rooms, room, bytes, sight, new NavGraphCache(CacheDirectory, NavEdgeCosts.Default), profile, threads);
+        _watch = (room.Region, 0, 0d, 0, 0);
+        _watchGc = (GC.GetTotalPauseDuration(), GC.CollectionCount(0));
+        log.Msg(string.Create(CultureInfo.InvariantCulture,
+            $"[SourceSharp/Ai] navigation for {_rooms.Map}: room r{room.Region} being made ready on {threads} thread(s) ({bytes.Length:N0} bytes{(sight ? ", with its sight table" : "")})\n"));
+    }
+
+    private void FailRoom(int region, string why)
+    {
+        _roomFailed.Add(region);
+        if (Current is null)
+            Refusal = $"navigation for {_level}: room r{region} failed: {why}";
+        log.Warning($"[SourceSharp/Ai] navigation for {_level}: room r{region} failed: {why}\n");
+    }
+
+    /// <summary>A room job's outcome, the frame it lands: a ready room is installed as the level's navigation.</summary>
+    private void PollRoom(NavRoomJob job)
+    {
+        _roomJob = null;
+        NavRoomOutcome outcome = job.Outcome;
+        job.Release();
+        switch (outcome)
+        {
+            case NavRoomOutcome.Ready r:
+                long start = System.Diagnostics.Stopwatch.GetTimestamp();
+                // The room is in play before it is installed: what reacts to the install (the link search) asks its ways in.
+                RoomInPlay = r.Region;
+                Install(r.Nav, r.Sight, r.SightMs, new NavGraphCache(CacheDirectory, NavEdgeCosts.Default), built: false);
+                double installMs = System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+                LastRoom = (r.Region, r.OpenMs, r.GraphMs, r.SightMs, installMs, r.Nav.FromCache);
+                log.Msg(string.Create(CultureInfo.InvariantCulture,
+                    $"[SourceSharp/Ai] navigation for {_level}: room r{r.Region} in play: {r.Nav.Nav.Graph.CellCount} cells; open {r.OpenMs:F0} ms, graph {r.GraphMs:F0} ms ({(r.Nav.FromCache ? "the cache" : "derived")}), "
+                    + $"sight {(r.Sight is null ? "none" : $"{r.SightMs:F0} ms")} on the job's threads; installed in {installMs:F1} ms on the game's ({InstallParts})\n"));
+                break;
+            case NavRoomOutcome.Failed f:
+                FailRoom(f.Region, f.Reason);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// The room in play follows the bots (R.2 item 3): the room most of them stand in (the room in play where it ties,
+    /// else the room of the first bot) is made ready when it is not the one in play, one room at a time; its sight table
+    /// only when a player of another team than a bot's is in it with that bot (item 4b). Bots in another room stand
+    /// until it comes to them.
+    /// </summary>
+    public void FollowRooms(ReadOnlySpan<RoomActor> living)
+    {
+        if (_rooms is not { } rooms || _roomJob is not null || Current is null)
+            return;
+        _botsIn.Clear();
+        int first = -1;
+        foreach (RoomActor a in living)
+        {
+            if (!a.Bot)
+                continue;
+            int room = rooms.RoomAt(a.Origin, RoomInPlay, _roomScratch);
+            if (room < 0)
+                continue;
+            _botsIn[room] = _botsIn.GetValueOrDefault(room) + 1;
+            if (first < 0)
+                first = room;
+        }
+
+        if (_botsIn.Count == 0)
+            return;
+        int most = _botsIn.Values.Max();
+        int target = _botsIn.GetValueOrDefault(RoomInPlay) == most ? RoomInPlay : _botsIn[first] == most ? first : _botsIn.First(p => p.Value == most).Key;
+        if (target == RoomInPlay || _roomFailed.Contains(target) || rooms.Table.Room(target) is not { } next)
+            return;
+        bool sight = false;
+        foreach (RoomActor bot in living)
+        {
+            if (!bot.Bot || rooms.RoomAt(bot.Origin, RoomInPlay, _roomScratch) != target)
+                continue;
+            foreach (RoomActor other in living)
+                sight |= other.Team != bot.Team && other.Team >= 2 && rooms.RoomAt(other.Origin, RoomInPlay, _roomScratch) == target;
+        }
+
+        StartRoom(next, sight);
+    }
+
     private void Fail(string map, string key, string reason)
     {
         _failed[key] = reason;
@@ -455,25 +707,44 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
         log.Warning($"[SourceSharp/Ai] {why}\n");
     }
 
-    private void Install(LoadedNav nav, NavSight sight, double sightMs, NavGraphCache cache, bool built)
+    /// <summary>What the last install took on the game's thread, by part: what a room's install line names.</summary>
+    public string InstallParts { get; private set; } = "";
+
+    private void Install(LoadedNav nav, NavSight? sight, double sightMs, NavGraphCache cache, bool built)
     {
         string mapName = nav.Map;
         Sight = sight;
-        _obstacles = new NavObstacles(nav.Nav, new EngineObstacleEyes(entities), propsAreTheField: true);
+        long part = System.Diagnostics.Stopwatch.GetTimestamp();
+        double Lap()
+        {
+            long now = System.Diagnostics.Stopwatch.GetTimestamp();
+            double ms = System.Diagnostics.Stopwatch.GetElapsedTime(part, now).TotalMilliseconds;
+            part = now;
+            return ms;
+        }
+
+        // A level in rooms keeps every room's obstacles the map's, so each is found once a level, not once a room.
+        IObstacleEyes eyes = _rooms is null ? new EngineObstacleEyes(entities) : _roomEyes ??= new RememberingObstacleEyes(new EngineObstacleEyes(entities));
+        _obstacles = new NavObstacles(nav.Nav, eyes, propsAreTheField: true);
         _obstacles.Resolve();
+        double obstaclesMs = Lap();
         _field = new NavObstacleField(nav.Nav.Graph, new EngineObstacleWorld(entities, render is null ? null : render.GetModelName), new EnginePvsSight(players), nav.Nav.Obstacles, _obstacles.State);
         _field.OnLevelStart();
+        double fieldMs = Lap();
         _teamBlockers = NavTeamBlockers.From(nav.Nav.Graph, profile.TeamSolids(nav.Entities), profile.Numbers(nav.File.JumpHeight));
+        double teamMs = Lap();
         Breakables = new EngineBreakableAim(_field, traces);
         StartChokes(nav, cache);
+        InstallParts = string.Create(CultureInfo.InvariantCulture, $"obstacles {obstaclesMs:F1} ms, the field {fieldMs:F1} ms, team solids {teamMs:F1} ms, the rest {Lap():F1} ms");
         Current = nav;
         Refusal = null;
         Version++;
         NavGraph g = nav.Nav.Graph;
+        string sightText = Sight is { } table ? string.Create(CultureInfo.InvariantCulture, $"sight {table.NodeCount} nodes, {table.Pairs} pairs in {sightMs:F0} ms; ") : "no sight table; ";
         log.Msg(string.Create(CultureInfo.InvariantCulture,
             $"[SourceSharp/Ai] navigation for {mapName}: {g.CellCount} cells, {g.EdgeCount} edges, {g.ObstacleCount} obstacles "
             + $"({_obstacles.Matched} matched, {_obstacles.Blocking} blocking){(built ? " (built)" : nav.Built ? " (cached)" : "")}; {(nav.FromCache ? "read from the cache" : "derived")} in {nav.DeriveMs:F0} ms; "
-            + $"sight {Sight.NodeCount} nodes, {Sight.Pairs} pairs in {sightMs:F0} ms; "
+            + $"{sightText}"
             + $"{_field.Bodies} solid entities take {_field.TruthCells.Blocked} cells and cost {_field.TruthCells.Costly}, {_field.BreakableBodies} a gun can break{TeamBlockersText()}; "
             + $"from {nav.File.Name}\n"));
     }

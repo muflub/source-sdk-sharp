@@ -32,6 +32,48 @@ public sealed class ObserverRecord
 
     /// <summary>The dead body came to rest (PlayerDeathThink's MOVETYPE_NONE on the ground).</summary>
     public bool Landed { get; set; }
+
+    /// <summary>
+    /// Watching because the death cam ended (<see cref="Observers.EnterAfterDeath"/>),
+    /// not because the player asked: a dead player, whom only the respawn brings back.
+    /// </summary>
+    public bool AfterDeath { get; set; }
+
+    /// <summary>
+    /// m_bAbortFreezeCam: the player asked out of the freeze cam (a spectator
+    /// key once the camera has arrived), so the dying watches in chase instead.
+    /// </summary>
+    public bool AbortFreezeCam { get; set; }
+}
+
+/// <summary>
+/// A mod's own observer rules, where its player class overrides CBasePlayer's
+/// (CTFPlayer::SetObserverMode and StateEnterOBSERVER, tf_player.cpp:13718,
+/// :13835). At most one is registered; with none, <see cref="Observers"/>
+/// answers as CBasePlayer and CHL2MP_Player do.
+/// </summary>
+public interface IObserverRules
+{
+    /// <summary>
+    /// SetObserverMode's mode filter: the mode <paramref name="player"/> gets
+    /// for asking <paramref name="mode"/>. It replaces CBasePlayer's
+    /// mp_forcecamera arm.
+    /// </summary>
+    ObserverMode Filter(SsPlayer player, ObserverMode mode);
+
+    /// <summary>
+    /// The observer state's entry: the mode a watching session starts in, given
+    /// the one CHL2MP_Player would start (<paramref name="asked"/>). It may set
+    /// the first target and the remembered mode itself (FindInitialObserverTarget).
+    /// </summary>
+    ObserverMode Enter(SsPlayer player, ObserverMode asked, float now);
+
+    /// <summary>
+    /// AttemptToExitFreezeCam: a spectator key pressed in the freeze cam. A
+    /// mod that answers true has handled it (CTFPlayer's: the abort flag once
+    /// the camera has arrived); false is CBasePlayer's, back to the death cam.
+    /// </summary>
+    bool ExitFreezeCam(SsPlayer player, float now);
 }
 
 /// <summary>What a <c>jointeam N</c> did (CHL2MP_Player::HandleCommand_JoinTeam).</summary>
@@ -86,8 +128,11 @@ public sealed class Observers(ILog log, IEntityDirectory directory, IEngineEntit
                               IEnginePlayerMovement movement, IEngineEntityRender render, IEngineDamage damage,
                               IEngineWorldQuery world, IEngineEntityPhysics physics, ForceCameraConVar forceCamera,
                               AllowSpectatorsConVar allowSpectators,
-                              IConnectedClients? clients = null)
+                              IConnectedClients? clients = null, IHooks<IObserverRules>? rules = null)
 {
+    // The mod's rules, asked when used: the mods register after this is built.
+    private IObserverRules? Rules => rules is { All.Count: > 0 } r ? r.All[0] : null;
+
     /// <summary>DEATH_ANIMATION_TIME: a dead player may be watched this long.</summary>
     public const float DeathAnimationTime = 3f;
 
@@ -144,6 +189,25 @@ public sealed class Observers(ILog log, IEntityDirectory directory, IEngineEntit
             mode = (ObserverMode)ideal;
 
         player.Observer.EnterObserver = true;
+        if (Rules is { } r)
+            mode = r.Enter(player, mode, now);
+        return Start(player, mode, now);
+    }
+
+    /// <summary>
+    /// A dead player's move to watching once the death cam is over: the
+    /// observer state's entry, as a mod with <see cref="IObserverRules"/> runs
+    /// it (CTFPlayer::StateThinkDYING's StateTransition( TF_STATE_OBSERVER ),
+    /// tf_player.cpp:14010). Its StartObserverMode has no CHL2MP gate, so the
+    /// seat is taken here; the respawn's <see cref="Stop"/> ends it.
+    /// </summary>
+    public bool EnterAfterDeath(SsPlayer player, float now)
+    {
+        player.Observer.EnterObserver = true;
+        player.Observer.AfterDeath = true;
+        var mode = player.Observer.LastMode;
+        if (Rules is { } r)
+            mode = r.Enter(player, mode, now);
         return Start(player, mode, now);
     }
 
@@ -189,7 +253,7 @@ public sealed class Observers(ILog log, IEntityDirectory directory, IEngineEntit
         if (team == TeamSpectator)
             return Spectate(player, now) ? JoinTeamResult.Spectating : JoinTeamResult.SpectatorsNotAllowed;
 
-        bool cam = ModeOf(player) == ObserverMode.DeathCam;
+        bool cam = ModeOf(player) == ObserverMode.DeathCam || player.Observer.AfterDeath;
         bool was = IsObserver(player) && !cam;
         if (!cam)
             Stop(player);
@@ -328,10 +392,33 @@ public sealed class Observers(ILog log, IEntityDirectory directory, IEngineEntit
         return true;
     }
 
+    /// <summary>
+    /// StartObserverMode( OBS_MODE_FREEZECAM ), as CTFPlayer::StateThinkDYING
+    /// starts it on the killer once the death animation is over
+    /// (tf_player.cpp:13956-13969): no CHL2MP gate (it is asked by no one),
+    /// and SetObserverMode's freeze-cam arm, MOVETYPE_OBSERVER with the target
+    /// kept (:13819-13824). The client flies the camera to frame the target
+    /// and freezes the picture.
+    /// </summary>
+    public bool StartFreezeCam(SsPlayer player)
+    {
+        if (TargetOf(player) is null)
+            return false;
+
+        players.HolsterActiveWeapon(player.Handle);
+        damage.SetTakeDamageMode(player.Handle, TakeDamageMode.No);
+        player.State.ObserverMode = (int)ObserverMode.FreezeCam;
+        players.SetObserverMode(player.Handle, ObserverMode.FreezeCam);
+        movement.SetMoveType(player.Handle, MoveType.Observer);
+        log.Msg($"[SourceSharp/Observer] {player.Handle} freeze cam on {TargetOf(player)!.Handle}\n");
+        return true;
+    }
+
     public void Stop(SsPlayer player)
     {
         player.Observer.EnterObserver = false;   // CHL2MP_Player::StopObserverMode
         player.Observer.Forced = false;
+        player.Observer.AfterDeath = false;
         if (ModeOf(player) == ObserverMode.None)
             return;
 
@@ -350,8 +437,11 @@ public sealed class Observers(ILog log, IEntityDirectory directory, IEngineEntit
         if (mode < ObserverMode.None || mode > ObserverMode.Roaming)
             return false;
 
+        // A mod's own SetObserverMode, in place of CBasePlayer's arm below.
+        if (Rules is { } r)
+            mode = r.Filter(player, mode);
         // mp_forcecamera restricts a player on a team (team > TEAM_SPECTATOR).
-        if (mode > ObserverMode.Fixed && players.GetTeam(player.Handle) > TeamSpectator)
+        else if (mode > ObserverMode.Fixed && players.GetTeam(player.Handle) > TeamSpectator)
         {
             mode = ForceCamera switch
             {
@@ -456,6 +546,15 @@ public sealed class Observers(ILog log, IEntityDirectory directory, IEngineEntit
             if (TargetOf(player) is { } t && ModeOf(player) == ObserverMode.InEye)
                 player.State.ViewOffset = t.State.ViewOffset;
         }
+        else if (ModeOf(player) == ObserverMode.Roaming)
+        {
+            // SetObserverMode's roaming arm, SetViewOffset( vec3_origin ):
+            // "just copy current position without view offset", so the eye is
+            // where the free flight is (and where SetObserverTarget's jump put
+            // it), not a standing player's height above it. Networked each
+            // frame as in-eye's offset is.
+            player.State.ViewOffset = Vector.Zero;
+        }
     }
 
     //-- SetObserverTarget / IsValidObserverTarget / FindNextObserverTarget ----
@@ -557,7 +656,7 @@ public sealed class Observers(ILog log, IEntityDirectory directory, IEngineEntit
     {
         if (ModeOf(player) == ObserverMode.FreezeCam)
         {
-            Start(player, ObserverMode.DeathCam, now);    // AttemptToExitFreezeCam
+            ExitFreezeCam(player, now);
             return;
         }
 
@@ -588,6 +687,14 @@ public sealed class Observers(ILog log, IEntityDirectory directory, IEngineEntit
         }
     }
 
+    /// <summary>AttemptToExitFreezeCam: the mod's, else CBasePlayer's StartObserverMode( OBS_MODE_DEATHCAM ).</summary>
+    private void ExitFreezeCam(SsPlayer player, float now)
+    {
+        if (Rules is { } r && r.ExitFreezeCam(player, now))
+            return;
+        Start(player, ObserverMode.DeathCam, now);
+    }
+
     /// <summary>spec_next / spec_prev.</summary>
     public void SpecNext(SsPlayer player, bool reverse, float now)
     {
@@ -598,7 +705,7 @@ public sealed class Observers(ILog log, IEntityDirectory directory, IEngineEntit
         }
         else if (ModeOf(player) == ObserverMode.FreezeCam)
         {
-            Start(player, ObserverMode.DeathCam, now);
+            ExitFreezeCam(player, now);
         }
     }
 

@@ -15,8 +15,9 @@ namespace SourceSharp.Ai.Tests.ServerNav;
 /// to the box (no width when it reaches into the footprint) and the box's
 /// bottom; dominated corners are dropped. A dynamic obstacle's box gives
 /// dynamic corners and stays open space.</item>
-/// <item>A leaf is grounded and walkable when the voxel under it is solid; its
-/// floor is the highest solid top under it. Ladder and water boxes flag the
+/// <item>A leaf is grounded and walkable when the voxel under it is solid (grounded only
+/// when that voxel holds a <see cref="NoFloor"/> solid); its floor is the highest solid top
+/// under it. Ladder and water boxes flag the
 /// leaves they overlap.</item>
 /// <item>Jump links follow map-tools' linker (LevelNavLinker.FindJumps): two
 /// walkable floors up to six columns apart along an axis, within the jump
@@ -33,6 +34,7 @@ internal sealed class VoxelNavFixture(int cellsX, int cellsY, int heightVoxels)
     private readonly List<(Box Box, string Name, string ClassName, Nav3dObstacleKind Kind)> _obstacles = new();
     private readonly List<Box> _ladders = new();
     private readonly List<Box> _water = new();
+    private readonly List<Box> _noFloors = new();
 
     public readonly record struct Box(float X0, float Y0, float Z0, float X1, float Y1, float Z1)
     {
@@ -47,10 +49,28 @@ internal sealed class VoxelNavFixture(int cellsX, int cellsY, int heightVoxels)
 
     public Nav3dBspBinding? Bsp { get; set; }
 
+    /// <summary>
+    /// Whether a free run is cut into leaves where its voxels' clearance records differ, as
+    /// map-tools' writer keys a run (a maximal stack of voxels with the same key): the voxels over
+    /// a step's top, whose records no longer hold the step, are a leaf of their own above the one
+    /// on the floor. Off, a run is one leaf whose record is its bottom voxel's.
+    /// </summary>
+    public bool SplitByRecord { get; set; }
+
     public VoxelNavFixture Solid(float x0, float y0, float z0, float x1, float y1, float z1)
     {
         _solids.Add(new Box(x0, y0, z0, x1, y1, z1));
         return this;
+    }
+
+    /// <summary>
+    /// A solid whose top is no floor (a steep face's top, a rail too thin to stand on): the leaves
+    /// grounded on it are grounded and not walkable.
+    /// </summary>
+    public VoxelNavFixture NoFloor(float x0, float y0, float z0, float x1, float y1, float z1)
+    {
+        _noFloors.Add(new Box(x0, y0, z0, x1, y1, z1));
+        return Solid(x0, y0, z0, x1, y1, z1);
     }
 
     public VoxelNavFixture Obstacle(string name, string className, Nav3dObstacleKind kind, float x0, float y0, float z0, float x1, float y1, float z1)
@@ -91,7 +111,7 @@ internal sealed class VoxelNavFixture(int cellsX, int cellsY, int heightVoxels)
                 for (int x = 0; x < CellVoxels; x++)
                 {
                     int gx = cx * CellVoxels + x, gy = cy * CellVoxels + y;
-                    foreach ((int lo, int hi) in Runs(gx, gy))
+                    foreach ((int lo, int hi) in SplitByRecord ? Runs(gx, gy).SelectMany(r => Split(gx, gy, r.Lo, r.Hi)) : Runs(gx, gy))
                     {
                         byte[] record = Record(gx, gy, lo);
                         string key = Convert.ToHexString(record);
@@ -141,6 +161,23 @@ internal sealed class VoxelNavFixture(int cellsX, int cellsY, int heightVoxels)
     private bool SolidAt(int gx, int gy, int z)
         => z < 0 || _solids.Exists(s => s.Overlaps(gx * Voxel, gy * Voxel, z * Voxel, (gx + 1) * Voxel, (gy + 1) * Voxel, (z + 1) * Voxel));
 
+    /// <summary>The run <paramref name="lo"/> to <paramref name="hi"/> cut where its voxels' records differ (<see cref="SplitByRecord"/>).</summary>
+    private IEnumerable<(int Lo, int Hi)> Split(int gx, int gy, int lo, int hi)
+    {
+        int start = lo;
+        byte[] record = Record(gx, gy, lo);
+        for (int z = lo + 1; z <= hi; z++)
+        {
+            byte[] next = Record(gx, gy, z);
+            if (next.AsSpan().SequenceEqual(record))
+                continue;
+            yield return (start, z - 1);
+            (start, record) = (z, next);
+        }
+
+        yield return (start, hi);
+    }
+
     private IEnumerable<(int Lo, int Hi)> Runs(int gx, int gy)
     {
         int z = 0;
@@ -173,7 +210,9 @@ internal sealed class VoxelNavFixture(int cellsX, int cellsY, int heightVoxels)
 
         var flags = Nav3dLeafFlags.None;
         if (grounded)
-            flags |= Nav3dLeafFlags.GroundedPlayer | Nav3dLeafFlags.GroundedNpc | Nav3dLeafFlags.WalkablePlayer | Nav3dLeafFlags.WalkableNpc;
+            flags |= Nav3dLeafFlags.GroundedPlayer | Nav3dLeafFlags.GroundedNpc;
+        if (grounded && !_noFloors.Exists(b => b.Overlaps(x0, y0, z0 - Voxel, x1, y1, z0)))
+            flags |= Nav3dLeafFlags.WalkablePlayer | Nav3dLeafFlags.WalkableNpc;
         bool ladder = _ladders.Exists(b => Touches(b, x0, y0, z0, x1, y1, z1));
         bool water = _water.Exists(b => Touches(b, x0, y0, z0, x1, y1, z1));
         if (ladder)

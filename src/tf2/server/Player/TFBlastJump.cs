@@ -50,7 +50,8 @@ public enum TFBlastJump
 /// </summary>
 public sealed class TFBlastJumpState(TFPlayerCarriers carriers, TFPlayerConditions conditions,
                                      IEngineNetworking networking, IEntityDirectory directory,
-                                     IEnginePlayers players, IEngineGameEvents events) : IPlayerComponent
+                                     IEnginePlayers players, IEngineGameEvents events,
+                                     IGameClock clock) : IPlayerComponent
 {
     private TFBlastJump _state = TFBlastJump.None;
     private bool _blastLatched;
@@ -77,14 +78,24 @@ public sealed class TFBlastJumpState(TFPlayerCarriers carriers, TFPlayerConditio
         carriers.EnterPart(_index, this);
     }
 
+    /// <summary>The frame pass is a no-op: the landing half is asked where
+    /// stock asks it — after the movement of the command that follows the
+    /// blast — in <see cref="EndCommand"/>, not on the managed frame's own
+    /// tick (which runs right after the blast lands, while the engine's last
+    /// categorize still carries the pre-blast ground flag).</summary>
+    public void Tick(float now) { }
+
     /// <summary>
     /// <c>TFPlayerThink</c>'s landing arm (:1441-1483): airborne is no ground
     /// and dry — its <c>m_iLeftGroundHealth</c> half is the health lane's —
     /// and everything else is a landing, told once. The sticky jump is named
     /// first when both bits ride (:1462-1466); the landed event carries the
-    /// userid and nothing else (:1470-1476).
+    /// userid and nothing else (:1470-1476). Asked by
+    /// <see cref="EndCommand"/> after that command's movement, where
+    /// <c>CategorizePosition</c> has already told the engine whether the
+    /// player is off the ground.
     /// </summary>
-    public void Tick(float now)
+    private void AskLanding(float now)
     {
         if (_player == EntityHandle.None)
             return;
@@ -156,8 +167,17 @@ public sealed class TFBlastJumpState(TFPlayerCarriers carriers, TFPlayerConditio
             Set(TFBlastJump.EnemyBlastedMe);
     }
 
-    /// <summary>The end-of-command clear (:335): the latch lives exactly one command.</summary>
-    public void EndCommand() => _blastLatched = false;
+    /// <summary>The end-of-command clear (:335): the latch lives exactly one
+    /// command. The landing half then gets its ask, after this command's
+    /// movement — stock's <c>TFPlayerThink</c> runs once per
+    /// <c>PhysicsSimulate</c>, after that tick's commands (:1441-1483), so the
+    /// categorize of the command that followed the blast has already lifted
+    /// the player or returned them to ground.</summary>
+    public void EndCommand()
+    {
+        _blastLatched = false; // :335
+        AskLanding(clock.Now); // airborne keeps, grounded clears (:1444)
+    }
 
     /// <summary>
     /// <c>CTFPlayer::Spawn</c>'s <c>m_iBlastJumpState = 0</c> and the latch's

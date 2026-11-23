@@ -45,6 +45,21 @@ public sealed class TownVerbTests
         Assert.Equal(ware.Item.Id, rig.Status.Item);
     }
 
+    /// <summary>Live at e8f1f489b's stow: a potion bought onto the belt's same potion said "Bought:" and no name (it joined a stack: no item came into view).</summary>
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public async Task A_potion_bought_onto_the_belt_names_itself_on_the_status_line()
+    {
+        var rig = new TownRig();
+        rig.SetPurse(100_000);
+        rig.Use("medic");
+        var offer = (await rig.Ledger.Stock(TownRig.Key, "medic", rig.Service.Restock)).Items.First(i => i.Item.BaseId == "health_small");
+
+        var r = await rig.Service.Buy(TownRig.Index, offer.Id);
+
+        Assert.True(r!.Ok, r.Refusal);
+        Assert.Equal((TownStatusTokens.Done("buy"), "Sandvich Bite"), (rig.Status.Token, rig.Status.Arg));
+    }
+
     [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task Buying_without_the_australium_is_refused_on_the_status_line_and_changes_nothing()
     {
@@ -332,6 +347,120 @@ public sealed class TownVerbTests
         Assert.True(r!.Ok, r.Refusal);
         Assert.Empty(rig.Held.Stash.Slots);
         Assert.Contains(rig.Held.Inventory.Backpack.Values, v => v.Item.Seed == item.Seed);
+    }
+
+    /// <summary>The Lost &amp; Found (R5, D6): in town, with no window open, the hero reclaims what his lost corpse held, for the fee.</summary>
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public async Task The_reclaim_verb_takes_back_a_lost_corpse_in_town_for_the_fee()
+    {
+        var rig = new TownRig();
+        var item = rig.Roll("rocket_launcher", 1, 20);
+        rig.Give(item);
+        Assert.True(await rig.Ledger.RecordDeath(TownRig.Key, default));
+        Assert.Single(rig.Ledger.CorpsesLost());
+        long fee = rig.Ledger.ReclaimFee(TownRig.Key)!.Value;
+        rig.SetPurse(fee + 7);
+
+        var r = await rig.Service.Reclaim(TownRig.Index);
+
+        Assert.True(r!.Ok, r.Refusal);
+        Assert.Contains(rig.Held.Inventory.Items, h => h.Item.Seed == item.Seed);
+        Assert.Equal(7, rig.Purse);
+        Assert.Equal(TownStatusTokens.Done("reclaim"), rig.Status.Token);
+    }
+
+    /// <summary>
+    /// The whole run (2026-11-14): the reclaim needs no window, and a town status draws only in
+    /// one, so a refused reclaim showed the hero nothing at all. With no window open the answer
+    /// is a notice too.
+    /// </summary>
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public async Task A_reclaim_refused_with_no_window_open_is_told_as_a_notice()
+    {
+        var rig = new TownRig();
+        rig.Give(rig.Roll("rocket_launcher", 1, 20));
+        Assert.True(await rig.Ledger.RecordDeath(TownRig.Key, default));
+        Assert.Single(rig.Ledger.CorpsesLost());
+        rig.SetPurse(0);
+
+        var r = await rig.Service.Reclaim(TownRig.Index);
+
+        Assert.False(r!.Ok);
+        var notice = rig.Of<Notice>().Last();
+        Assert.Equal(("#Descent_Town_" + LedgerRefusals.LostAndFoundFee, ""), (notice.Text, notice.Arg));
+    }
+
+    /// <summary>
+    /// The whole run's F16: the notice named a console command, so a player had no way to the Lost
+    /// and Found. The resupply locker is its counter: using it with something waiting reclaims it.
+    /// </summary>
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public async Task Using_the_resupply_locker_reclaims_what_waits_in_the_lost_and_found()
+    {
+        var rig = new TownRig();
+        var item = rig.Roll("rocket_launcher", 1, 20);
+        rig.Give(item);
+        Assert.True(await rig.Ledger.RecordDeath(TownRig.Key, default));
+        Assert.Single(rig.Ledger.CorpsesLost());
+        rig.SetPurse(rig.Ledger.ReclaimFee(TownRig.Key)!.Value + 3);
+
+        rig.Use("stash");
+
+        Assert.Contains(rig.Held.Inventory.Items, h => h.Item.Seed == item.Seed);
+        Assert.Null(rig.Ledger.LostAndFound(TownRig.Key));
+        Assert.Equal(3, rig.Purse);
+    }
+
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public void Using_the_resupply_locker_with_nothing_lost_reclaims_nothing_and_charges_nothing()
+    {
+        var rig = new TownRig();
+        rig.SetPurse(40);
+        int mark = rig.Mark;
+
+        rig.Use("stash");
+
+        Assert.Equal(40, rig.Purse);
+        Assert.DoesNotContain(rig.Of<TownStatus>(mark), s => s.View().Token == TownService.TokenOf(LedgerRefusals.NothingLost));
+    }
+
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public async Task A_reclaim_done_with_no_window_open_is_told_as_a_notice()
+    {
+        var rig = new TownRig();
+        rig.Give(rig.Roll("rocket_launcher", 1, 20));
+        Assert.True(await rig.Ledger.RecordDeath(TownRig.Key, default));
+        Assert.Single(rig.Ledger.CorpsesLost());
+        rig.SetPurse(rig.Ledger.ReclaimFee(TownRig.Key)!.Value);
+
+        var r = await rig.Service.Reclaim(TownRig.Index);
+
+        Assert.True(r!.Ok, r.Refusal);
+        Assert.Equal(TownStatusTokens.Done("reclaim"), rig.Of<Notice>().Last().Text);
+    }
+
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public async Task A_verb_answered_in_an_open_window_sends_no_notice()
+    {
+        var rig = new TownRig();
+        rig.Use("saxton");
+        int mark = rig.Mark;
+
+        var r = await rig.Service.Sell(TownRig.Index, 0);   // nothing in the backpack: refused
+
+        Assert.False(r!.Ok);
+        Assert.Equal((1, 0), (rig.Of<TownStatus>(mark).Count, rig.Of<Notice>(mark).Count));
+    }
+
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public async Task The_reclaim_verb_with_nothing_lost_is_refused_in_words()
+    {
+        var rig = new TownRig();
+
+        var r = await rig.Service.Reclaim(TownRig.Index);
+
+        Assert.False(r!.Ok);
+        Assert.Equal("#Descent_Town_" + LedgerRefusals.NothingLost, rig.Status.Token);
     }
 
     [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]

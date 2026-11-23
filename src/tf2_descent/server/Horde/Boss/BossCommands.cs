@@ -209,3 +209,26 @@ public sealed class BossKillCommand(HordeService horde, RobotKills kills, IEngin
         log.Msg($"[TF2Descent/Boss] boss_kill: {roster.Template(row)} row {row} killed by {how}; {kills.Told - before} kill(s) told\n");
     }
 }
+
+/// <summary>
+/// <c>tf2_descent_boss_arena [phase N | drill N | fallen]</c>: the arena's named brushes as the fight
+/// has driven them this level (each input, the entities it reached, the names the map lacks); with a
+/// verb, first fires what the fight would (the boss entering phase N, the Tank's drill of station N
+/// ending, the boss's death) through the same stage.
+/// </summary>
+[ConCommand("tf2_descent_boss_arena", Flags = ConVarFlags.Cheat,
+            Help = "tf2_descent_boss_arena [phase N | drill N | fallen]: the arena's named brushes as the fight drove them; a verb fires that change first")]
+public sealed class BossArenaCommand(ArenaStage stage, ILog log)
+{
+    public void Execute(string verb = "", int n = 0)
+    {
+        if (!stage.Dev(verb, n))
+        {
+            log.Msg($"[TF2Descent/Boss] boss_arena: '{verb}' is no verb (phase N, drill N, fallen)\n");
+            return;
+        }
+
+        foreach (string line in stage.Lines())
+            log.Msg($"[TF2Descent/Boss] {line}\n");
+    }
+}

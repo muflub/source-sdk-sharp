@@ -17,9 +17,9 @@ public sealed class HordeSensesTests
 {
     /// <summary>
     /// Three rooms in a row along X (0, 1, 2) and a long room 3 above all three,
-    /// joined only to room 2. A point in room 2 and one in room 3 are both 1,024
+    /// joined only to room 2. A point in room 1 and one in room 3 are both 512
     /// units in a straight line from the middle of room 0; the walk to the first
-    /// is 1,024, to the second about 2,410.
+    /// is 512 through one door, to the second three doors round.
     /// </summary>
     private static HordeLevel U() => HordeLevel.Create(5, 1,
         [
@@ -35,7 +35,7 @@ public sealed class HordeSensesTests
         ]);
 
     [Fact]
-    public void A_sound_two_rooms_off_through_doors_is_heard_and_one_as_near_through_a_wall_is_not()
+    public void A_sound_in_the_next_room_through_its_door_is_heard_and_one_as_near_through_a_wall_is_not()
     {
         var log = new EventLog();
         var rig = new BrainRig(U(), sink: log);
@@ -43,18 +43,19 @@ public sealed class HordeSensesTests
         int body = rig.Lend(rig.Robot(me));
         rig.Tick();
         var actor = rig.Brains.BrainAt(body);
-        float reach = 1100f / rig.Brains.SenseOf(body).Hearing;
-        AiVector twoRooms = At(1280, 256), behindWall = At(256, 1280);
-        Assert.Equal(twoRooms.DistanceTo(me), behindWall.DistanceTo(me));
+        float reach = 560f / rig.Brains.SenseOf(body).Hearing;
+        AiVector nextRoom = At(768, 256), behindWall = At(256, 768);
+        Assert.Equal(nextRoom.DistanceTo(me), behindWall.DistanceTo(me));
 
-        rig.Sounds.Add(new HordeSound(SoundKind.Gunfire, behindWall, reach, -1, rig.Level.RoomAt(behindWall)));
+        // A hero's shots (seat 1): the hearing's rooms are a hero's (horde.json's senses.hearing.rooms).
+        rig.Sounds.Add(new HordeSound(SoundKind.Gunfire, behindWall, reach, 1, rig.Level.RoomAt(behindWall)));
         rig.Tick();
         Assert.DoesNotContain(log.Events, e => e.Kind == AiEventKind.SoundHeard && e.Bot == actor);
 
-        rig.Sounds.Add(new HordeSound(SoundKind.Gunfire, twoRooms, reach, -1, rig.Level.RoomAt(twoRooms)));
+        rig.Sounds.Add(new HordeSound(SoundKind.Gunfire, nextRoom, reach, 1, rig.Level.RoomAt(nextRoom)));
         rig.Tick();
         var heard = Assert.Single(log.Events, e => e.Kind == AiEventKind.SoundHeard && e.Bot == actor);
-        Assert.Equal(twoRooms, heard.Position);
+        Assert.Equal(nextRoom, heard.Position);
         Assert.InRange(heard.Amount, 0.01f, 0.2f);
     }
 

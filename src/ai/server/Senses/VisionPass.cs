@@ -5,7 +5,7 @@ using SourceSharp.Server.Interop;
 namespace SourceSharp.Ai.Server.Senses;
 
 /// <summary>Where another actor was this tick, as the vision pass read it once for every bot.</summary>
-public readonly record struct ActorRead(EntityHandle Player, AiVector Origin, AiVector Eye, AiVector Velocity);
+public readonly record struct ActorRead(EntityHandle Player, AiVector Origin, AiVector Eye, AiVector Velocity, AiAngles View = default);
 
 /// <summary>
 /// The vision pass (plan_hl2mp_ai §4.1), on the main thread: for each bot and
@@ -203,8 +203,9 @@ public sealed class VisionPass(IEnginePlayers players, IEngineEntities entities,
         Array.Clear(_actors);
         foreach (SensedActor a in actors)
         {
-            Vector o = entities.GetOrigin(a.Player), e = entities.GetEyePosition(a.Player), v = entities.GetVelocity(a.Player);
-            _reads[a.Id.Slot] = new ActorRead(a.Player, new AiVector(o.X, o.Y, o.Z), new AiVector(e.X, e.Y, e.Z), new AiVector(v.X, v.Y, v.Z));
+            Vector o = entities.GetOrigin(a.Player), e = entities.GetEyePosition(a.Player), v = entities.GetVelocity(a.Player), look = entities.GetEyeAngles(a.Player);
+            _reads[a.Id.Slot] = new ActorRead(a.Player, new AiVector(o.X, o.Y, o.Z), new AiVector(e.X, e.Y, e.Z), new AiVector(v.X, v.Y, v.Z),
+                                              new AiAngles(look.X, look.Y, 0f));
             _actors[a.Id.Slot] = a.Id;
         }
 

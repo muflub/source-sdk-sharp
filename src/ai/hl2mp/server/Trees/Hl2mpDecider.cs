@@ -135,9 +135,7 @@ public sealed partial class Hl2mpDecider : IDecider
 
     // What outlives a decide.
     private int _oneShot;
-    private int _strafeSign = 1;
-    private bool _strafing;
-    private Tick _strafeUntil;
+    private readonly StrafeRhythm _strafe;
     private AiVector _roamGoal;
     private Tick _roamUntil;
     private bool _roaming;
@@ -362,6 +360,9 @@ public sealed partial class Hl2mpDecider : IDecider
         _run = new BtRun(_rng, Trace, _tick);
         _aim = new AimWander(_rng);
         _glance = new PathGlance(_rng);
+        _strafe = new StrafeRhythm(_rng);
+        _crouch = new CrouchRhythm(_crouchRng);
+        _cover = new CoverSearch(_graph?.CellCount ?? 0);
         _root = Build();
         _tree = new BehaviorTree<Hl2mpDecider>(_root);
         _names = new string[_tree.Nodes.Length];
@@ -405,7 +406,7 @@ public sealed partial class Hl2mpDecider : IDecider
             _goalHeld = _walkingToGoal = _wasSighted = false;
             _heldFor = _lastTarget = null;
             _prefire.End();
-            _crouching = false;
+            _crouch.Release();
             Trace.Begin(tick);
             Trace.End(default);
             Doing = new DoingRecord("dead", "", false, default, ActorId.None, "", 0f, 0f, 0f, 0f, 0f, 0f, tick,
@@ -1184,67 +1185,34 @@ public sealed partial class Hl2mpDecider : IDecider
 
     // ---------------------------------------------------------------- crouching (§5.4)
 
-    /// <summary>The shortest a crouch is held, and the shortest gap after one: nobody's knee does less, and IN_DUCK flicking on and off looks wrong.</summary>
-    public const float CrouchMinHoldSeconds = 0.35f, CrouchMinGapSeconds = 0.6f;
+    /// <summary>The shortest a crouch is held, and the shortest gap after one: the core's <see cref="CrouchRhythm"/>.</summary>
+    public const float CrouchMinHoldSeconds = CrouchRhythm.MinHoldSeconds, CrouchMinGapSeconds = CrouchRhythm.MinGapSeconds;
 
-    /// <summary>A quick dip's upper end, a stretch's, and how often a crouch is a dip: holds a person's length (the user's: a median of about 0.9 s).</summary>
-    public const float CrouchDipSeconds = 0.6f, CrouchStretchSeconds = 2.5f, CrouchDipShare = 0.3f;
+    /// <summary>A quick dip's upper end, a stretch's, and how often a crouch is a dip: the core's <see cref="CrouchRhythm"/>.</summary>
+    public const float CrouchDipSeconds = CrouchRhythm.DipSeconds, CrouchStretchSeconds = CrouchRhythm.StretchSeconds, CrouchDipShare = CrouchRhythm.DipShare;
 
     /// <summary>Up or down at more than this, it is in the air: no crouch mid-jump.</summary>
     public const float CrouchAirSpeed = 8f;
 
     private readonly AiRandom _crouchRng;
-    private bool _crouching;
-    private Tick _crouchUntil, _crouchNext;
+    private readonly CrouchRhythm _crouch;
 
     /// <summary>Whether the bot's last decide crouched for the fight, for the facts.</summary>
-    public bool Crouching => _crouching;
+    public bool Crouching => _crouch.Crouching;
 
     /// <summary>
     /// A bot in a fight sometimes crouches while it fires (§5.4, ruling 2026-11-02: "bots should
     /// crouch as well when shooting to make it hard to hit"): at range, in the fight's holding
     /// leaf, for a stretch or a quick dip, for <c>crouchShare</c> of the time. Not close, where a
     /// sidestep is worth more; not chasing or retreating, since a crouch is slow; not in the air. The
-    /// holds and gaps are by the clock, not the decide, so the key does not flicker. What ends
-    /// one early is what makes it wrong, and a new one waits its gap.
+    /// holds and gaps are the core's <see cref="CrouchRhythm"/>'s, by the clock, not the decide, so the
+    /// key does not flicker. What ends one early is what makes it wrong, and a new one waits its gap.
     /// </summary>
     private void Crouch()
     {
         bool fit = _move.Kind is MoveKind.Hold or MoveKind.Strafe or MoveKind.Follow && _targetSighted && _leaf == "hold range"
             && _targetDist > CloseRange && MathF.Abs(_self.Velocity.Z) <= CrouchAirSpeed;
-        if (!fit)
-        {
-            if (_crouching)
-                _crouchNext = _now + (int)(CrouchMinGapSeconds / _tick);
-            _crouching = false;
-            _crouchFit = false;
-            return;
-        }
-
-        // Every draw every time, so the stream does not depend on the weights.
-        if (!_crouchFit)
-        {
-            // A fight does not open with a crouch every time: the first waits part of a gap.
-            _crouchFit = true;
-            Tick first = _now + (int)(_crouchRng.NextFloat() * CrouchGap(1f) / _tick);
-            if (first > _crouchNext)
-                _crouchNext = first;
-        }
-
-        if (_crouching && _now >= _crouchUntil)
-            _crouching = false;
-        else if (!_crouching && _now >= _crouchNext)
-        {
-            float kind = _crouchRng.NextFloat(), length = _crouchRng.NextFloat(), jitter = _crouchRng.NextFloat();
-            float hold = kind < CrouchDipShare
-                ? CrouchMinHoldSeconds + (CrouchDipSeconds - CrouchMinHoldSeconds) * length
-                : CrouchDipSeconds + (CrouchStretchSeconds - CrouchDipSeconds) * length;
-            _crouching = _p.CrouchShare > 0f;
-            _crouchUntil = _now + (int)(hold / _tick);
-            _crouchNext = _crouchUntil + (int)(MathF.Max(CrouchMinGapSeconds, CrouchGap(hold) * (0.5f + jitter)) / _tick);
-        }
-
-        if (!_crouching)
+        if (!_crouch.Step(_now, _tick, fit, _p.CrouchShare))
             return;
         if (_move.Kind == MoveKind.Strafe)
         {
@@ -1257,14 +1225,6 @@ public sealed partial class Hl2mpDecider : IDecider
         _move = MoveIntent.Hold with { Kind = MoveKind.Crouch, CrouchOn = true };
     }
 
-    /// <summary>The gap that makes a hold this long <c>crouchShare</c> of the time.</summary>
-    private float CrouchGap(float hold)
-    {
-        float share = MathF.Max(_p.CrouchShare, 0.002f);
-        return hold * (1f - share) / share;
-    }
-
-    private bool _crouchFit;
 
     /// <summary>Bursts begun, for the facts.</summary>
     public int Prefires => _prefire.Begun;
@@ -1712,53 +1672,23 @@ public sealed partial class Hl2mpDecider : IDecider
     /// <summary>
     /// §10 Cover: the nearest place within <c>coverWeight</c> × <see cref="CoverReach"/>
     /// along the graph that the opponent's cell does not see in the map's sight
-    /// table. False with no table, no opponent within the table's range, a bot
-    /// already unseen there (it holds), or no such place in reach.
+    /// table (the core's <see cref="CoverSearch"/>). False with no table, no opponent
+    /// within the table's range, a bot already unseen there (it holds), or no such
+    /// place in reach.
     /// </summary>
     private bool CoverSpot(out AiVector at)
     {
         at = default;
         ICellSight? sight = _memory.World.Sight;
         float reach = CoverReach * _p.CoverWeight;
-        if (_graph is null || sight is null || reach <= 0f || _target is null || _targetDist > sight.Range)
+        if (_graph is null || sight is null || reach <= 0f || _target is null || _targetDist > sight.Range
+            || !_cover.Find(_graph, sight, _self.Origin, _targetPos, reach, out at))
             return false;
-        CellId from = _graph.FindCell(_self.Origin), threat = _graph.FindCell(_targetPos);
-        if (!from.IsValid || !threat.IsValid || !sight.Visible(threat.Index, from.Index))
-            return false;
-
-        if (++_coverStamp == int.MaxValue)
-        {
-            Array.Clear(_coverSeen);
-            _coverStamp = 1;
-        }
-
-        int head = 0, tail = 0;
-        _coverQueue[tail++] = from.Index;
-        _coverSeen[from.Index] = _coverStamp;
-        while (head < tail)
-        {
-            int c = _coverQueue[head++];
-            AiVector centre = _graph.Cell(c).Centre;
-            if (centre.DistanceTo(_self.Origin) > reach)
-                continue;
-            if (!sight.Visible(threat.Index, c))
-            {
-                at = centre;
-                CoverMoves++;
-                return true;
-            }
-
-            foreach (NavEdge e in _graph.EdgesFrom(c))
-            {
-                if (_coverSeen[e.To] == _coverStamp || tail >= _coverQueue.Length)
-                    continue;
-                _coverSeen[e.To] = _coverStamp;
-                _coverQueue[tail++] = e.To;
-            }
-        }
-
-        return false;
+        CoverMoves++;
+        return true;
     }
+
+    private readonly CoverSearch _cover;
 
     private bool Search()
     {
@@ -2197,28 +2127,19 @@ public sealed partial class Hl2mpDecider : IDecider
     public int Glances => _glance.Taken;
 
     /// <summary>
-    /// A fight's sidestep (§3.4: aperiodic, by Agility): a side drawn anew
-    /// after an exponential wait of mean <c>strafeMeanSeconds</c>, and with
-    /// chance <c>strafeWeight</c> the stretch is a sidestep at all, not a stand;
-    /// <paramref name="approach"/> mixes in moving toward (+) or away from (−)
-    /// the target. Drawn by the stretch, not by the decide: on and off ten times a
-    /// second the body jerks like nobody's does, and the bot's own view cannot
-    /// follow it (Expert hit 37 % with Agility 5, 75 % with 0, §12.3).
+    /// A fight's sidestep (§3.4: aperiodic, by Agility): the core's <see cref="StrafeRhythm"/>
+    /// on the tree's own stream, HL2MP's coin (a side drawn anew after an exponential wait of mean
+    /// <c>strafeMeanSeconds</c>, and with chance <c>strafeWeight</c> the stretch is a sidestep at
+    /// all, not a stand); <paramref name="approach"/> mixes in moving toward (+) or away from (−)
+    /// the target. Drawn by the stretch, not by the decide: on and off ten times a second the body
+    /// jerks like nobody's does, and the bot's own view cannot follow it (Expert hit 37 % with
+    /// Agility 5, 75 % with 0, §12.3).
     /// </summary>
     private void Strafe(float approach)
     {
-        if (_now >= _strafeUntil)
-        {
-            _strafeSign = _rng.NextFloat() < 0.5f ? -1 : 1;
-            _strafing = _rng.NextFloat() < _p.StrafeWeight;
-            float u = Math.Max(_rng.NextFloat(), 1e-4f);
-            float wait = -MathF.Log(u) * _p.StrafeMeanSeconds;
-            _strafeUntil = _now + Math.Max(4, (int)(wait / _tick));
-        }
-
+        float strafe = _strafe.Step(_now, _tick, _p.StrafeWeight, _p.StrafeMeanSeconds, StrafeStyle.Coin);
         AiVector to = new AiVector(_targetPos.X - _self.Origin.X, _targetPos.Y - _self.Origin.Y, 0f).Normalised();
         var side = new AiVector(-to.Y, to.X, 0f);
-        float strafe = _strafing ? _strafeSign : 0f;
         AiVector dir = to * approach + side * strafe;
         _move = dir.Length < 0.05f ? MoveIntent.Hold : new MoveIntent(MoveKind.Strafe, MoveSpeed.Run, 0, default, default, default, default, dir.Normalised(), false, 0);
     }

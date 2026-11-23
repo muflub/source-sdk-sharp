@@ -27,7 +27,18 @@ public enum AiRecordType : byte
 
     /// <summary>The tree the intents' node ids are of (format 4), written with each bot: the jank score names leaves and branches by it.</summary>
     DecisionTree = 11,
+
+    /// <summary>
+    /// The level's navigation changed under the brains (format 9, plan_bots_teams_tf2_part_g R.2 item 8: a map in rooms
+    /// follows its bots from room to room): the new graph's hash and the navigation's name. A replay asks for that graph
+    /// and builds the brains' world over it from here on; the bots the game made again over it follow as BotRemoved and
+    /// BotAdded records.
+    /// </summary>
+    NavChange = 12,
 }
+
+/// <summary>A NavChange record (format 9): the graph the brains' world is over from here on, by hash, and the navigation's name (a room's file, or the level's).</summary>
+public readonly record struct AiRecordedNavChange(ulong NavGraphHash, string Nav);
 
 /// <summary>
 /// A decision tree's shape as a recording holds it: each node's name by id, and
@@ -48,7 +59,14 @@ public sealed record AiDecisionTree(string[] Names, int[] Branches)
 /// nav graph's hash. A replay rebuilds the brains' world from it and the
 /// graph the hash names, so a live recording replays as the game decided.
 /// </summary>
-public sealed record AiRecordedWorld(MapKnowledge Map, float TickSeconds, string CurvesJson, ulong NavGraphHash);
+public sealed record AiRecordedWorld(MapKnowledge Map, float TickSeconds, string CurvesJson, ulong NavGraphHash)
+{
+    /// <summary>
+    /// The navigation a replay asks for by name: null for the level's own (what the World record names), a room's
+    /// (<see cref="AiRecordedNavChange.Nav"/>) once a NavChange record has moved the world to it. Not written.
+    /// </summary>
+    public string? Nav { get; init; }
+}
 
 /// <summary>
 /// What a recording was made under: the match seed, the map, the nav graph's
@@ -87,9 +105,14 @@ public static class AiRecordFormat
     /// and an optional tail on the Intent record, its say slot (B.4), written only when it says something);
     /// format 7 a second tail on the World record, the map's team spawns (B.5); format 8 a tail on the
     /// Header record, its flags (<see cref="AiRecordingHeader.TeamLayerOff"/>), and one on the BotAdded
-    /// record, the bot's home point when it has one (cf's Descent proposals 4 and 6).
+    /// record, the bot's home point when it has one (cf's Descent proposals 4 and 6); format 9 the
+    /// NavChange record (<see cref="AiRecordType.NavChange"/>): a map in rooms changing the room in play
+    /// (plan_bots_teams_tf2_part_g R.2 item 8); format 10 a third tail on the Snapshot record (plan_bots_teams_tf2 P7,
+    /// review-p7f F1): each view's own class, conditions and metal, each sighted actor's class, conditions, borrowed name
+    /// and facing, and the game's HUD (<see cref="GameHud.Recorded"/>: TF2's kit, meters and mates) when it changed
+    /// since the bot's last snapshot.
     /// </summary>
-    public const ushort Version = 8;
+    public const ushort Version = 10;
 
     /// <summary>The largest payload a reader accepts; anything bigger is a corrupt length.</summary>
     public const int MaxPayload = 1 << 24;
@@ -169,6 +192,14 @@ public static class AiRecordFormat
         // Format 8's tail: how the session ran.
         w.Write(h.Flags);
     }
+
+    public static void Write(BinaryWriter w, in AiRecordedNavChange change)
+    {
+        w.Write(change.NavGraphHash);
+        WriteString(w, change.Nav);
+    }
+
+    public static AiRecordedNavChange ReadNavChange(BinaryReader r) => new(r.ReadUInt64(), ReadString(r));
 
     public static void Write(BinaryWriter w, AiRecordedWorld world)
     {
@@ -407,7 +438,7 @@ public static class AiRecordFormat
     /// sighted actor named through <paramref name="actors"/> when given (the
     /// recorder's anonymiser, §3.4.4).
     /// </summary>
-    public static void Write(BinaryWriter w, AiSnapshot s, Func<ActorId, ActorId>? actors = null)
+    public static void Write(BinaryWriter w, AiSnapshot s, Func<ActorId, ActorId>? actors = null, AiHudMemo? huds = null)
     {
         w.Write(s.Tick.Value);
         int present = 0;
@@ -445,10 +476,42 @@ public static class AiRecordFormat
             foreach (ref readonly ActorFacts f in view.Sighted)
                 w.Write((byte)f.Team);
         }
+
+        // Format 10's tail: what a class-based game draws (each view's class, conditions, metal; each sighted actor's class,
+        // conditions, borrowed name, facing), and the game's HUD: 0 none, 1 the bot's last one again, 2 new bytes.
+        for (int slot = 0; slot < s.Slots; slot++)
+        {
+            if (s.ViewFor(slot) is not { } view)
+                continue;
+            w.Write((byte)view.Self.Class);
+            w.Write((byte)view.Self.Conditions);
+            w.Write(view.Self.Metal);
+            foreach (ref readonly ActorFacts f in view.Sighted)
+            {
+                w.Write((byte)f.Class);
+                w.Write((byte)f.Conditions);
+                w.Write((byte)f.NameSlot);
+                w.Write(f.Facing.Pitch);
+                w.Write(f.Facing.Yaw);
+            }
+
+            if (view.GameHud is not { } hud)
+                w.Write((byte)0);
+            else if (huds is not null && huds.WroteLast(view.Bot.Slot, hud))
+                w.Write((byte)1);
+            else
+            {
+                byte[] bytes = hud.Recorded();
+                w.Write((byte)2);
+                w.Write(bytes.Length);
+                w.Write(bytes);
+                huds?.Wrote(view.Bot.Slot, hud);
+            }
+        }
     }
 
     /// <summary>Reads a snapshot payload into <paramref name="ring"/>'s slot for its tick (not yet published).</summary>
-    public static AiSnapshot ReadSnapshot(BinaryReader r, SnapshotRing ring)
+    public static AiSnapshot ReadSnapshot(BinaryReader r, SnapshotRing ring, AiHudMemo? huds = null)
     {
         AiSnapshot s = ring.BeginWrite(new Tick(r.ReadInt32()));
         int views = r.ReadUInt16();
@@ -484,6 +547,41 @@ public static class AiRecordFormat
                 for (int i = 0; i < teams.Length; i++)
                     teams[i] = r.ReadByte();
                 view.SetTeams(self, teams);
+            }
+        }
+
+        if (More(r))
+        {
+            for (int slot = 0; slot < s.Slots; slot++)
+            {
+                if (s.ViewFor(slot) is not { } view)
+                    continue;
+                int cls = r.ReadByte();
+                var conditions = (ActorConditions)r.ReadByte();
+                int metal = r.ReadInt32();
+                var drawn = new (int, ActorConditions, int, AiAngles)[view.SightedCount];
+                for (int i = 0; i < drawn.Length; i++)
+                {
+                    int c = r.ReadByte();
+                    var cond = (ActorConditions)r.ReadByte();
+                    int name = r.ReadByte();
+                    float pitch = r.ReadSingle();
+                    drawn[i] = (c, cond, name, new AiAngles(pitch, r.ReadSingle(), 0f));
+                }
+
+                view.SetDrawn(cls, conditions, metal, drawn);
+                switch (r.ReadByte())
+                {
+                    case 1:
+                        view.SetGameHud(huds?.ReadLast(view.Bot.Slot)
+                                        ?? throw new InvalidDataException($"a snapshot names bot {view.Bot}'s last HUD and the reader kept none"));
+                        break;
+                    case 2:
+                        var hud = new RecordedGameHud(r.ReadBytes(r.ReadInt32()));
+                        huds?.Read(view.Bot.Slot, hud);
+                        view.SetGameHud(hud);
+                        break;
+                }
             }
         }
 
@@ -597,4 +695,24 @@ public static class AiRecordFormat
         => new(ReadActor(r), new Tick(r.ReadInt32()), r.ReadInt32(), r.ReadInt32(), ReadAngles(r), r.ReadSingle(),
                r.ReadSingle(), r.ReadSingle(), r.ReadInt32(), r.ReadByte(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(),
                r.ReadInt16(), r.ReadInt16());
+}
+
+/// <summary>
+/// Each bot's last game HUD a recording wrote or a reader read (format 10): a snapshot whose HUD is the bot's last one
+/// says so in a byte rather than write it again. A recorder and each reader of one file keep one each.
+/// </summary>
+public sealed class AiHudMemo
+{
+    private readonly Dictionary<int, GameHud> _written = new();
+    private readonly Dictionary<int, GameHud> _read = new();
+
+    /// <summary>Whether <paramref name="hud"/> is the one last written for the bot in <paramref name="slot"/>.</summary>
+    public bool WroteLast(int slot, GameHud hud) => _written.TryGetValue(slot, out GameHud? last) && ReferenceEquals(last, hud);
+
+    public void Wrote(int slot, GameHud hud) => _written[slot] = hud;
+
+    /// <summary>The HUD last read for the bot in <paramref name="slot"/>, or null.</summary>
+    public GameHud? ReadLast(int slot) => _read.GetValueOrDefault(slot);
+
+    public void Read(int slot, GameHud hud) => _read[slot] = hud;
 }

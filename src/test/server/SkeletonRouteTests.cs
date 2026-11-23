@@ -64,6 +64,20 @@ public class SkeletonRouteTests
             Calls.Add("scale");
             return Scale;
         }
+
+        public int PoseParameterCount(EntityHandle entity) { Calls.Add("posecount"); return 2; }
+        public int LookupPoseParameter(EntityHandle entity, string name) { Calls.Add($"poselook {name}"); return 1; }
+        public string PoseParameterName(EntityHandle entity, int parameter) { Calls.Add("posename"); return "body_pitch"; }
+
+        public bool PoseParameterRange(EntityHandle entity, int parameter, out float start, out float end)
+        {
+            Calls.Add("poserange");
+            (start, end) = (-45f, 45f);
+            return true;
+        }
+
+        public float SetPoseParameter(EntityHandle entity, int parameter, float value) { Calls.Add($"poseset {parameter} {value}"); return value; }
+        public float GetPoseParameter(EntityHandle entity, int parameter) { Calls.Add("poseget"); return -45f; }
     }
 
     private static (IEngineEntityRender Render, IEngineEntities Entities, Fake Fake, StandaloneSkeletonRoute Route) Rig(bool filled)
@@ -89,6 +103,27 @@ public class SkeletonRouteTests
         Assert.Null(render.BoneMatrices(Standalone));
 
         Assert.Equal(new[] { "attachment", "lookup", "count", "poseable", "name", "matrices" }, fake.Calls);
+    }
+
+    /// <summary>
+    /// The pose parameters are the route's on the server too
+    /// (plan_descent_logic CR11): every pose member asks the skeleton, which
+    /// is not the client's.
+    /// </summary>
+    [Fact]
+    public void AFilledServerRouteAnswersEveryPoseMemberFromTheSkeleton()
+    {
+        var (render, _, fake, _) = Rig(filled: true);
+
+        Assert.Equal(2, render.PoseParameterCount(Standalone));
+        Assert.Equal(1, render.LookupPoseParameter(Standalone, "body_pitch"));
+        Assert.Equal("body_pitch", render.PoseParameterName(Standalone, 1));
+        Assert.True(render.PoseParameterRange(Standalone, 1, out float start, out float end));
+        Assert.Equal((-45f, 45f), (start, end));
+        Assert.Equal(-30f, render.SetPoseParameter(Standalone, 1, -30f));
+        Assert.Equal(-45f, render.GetPoseParameter(Standalone, 1));
+
+        Assert.Equal(new[] { "posecount", "poselook body_pitch", "posename", "poserange", "poseset 1 -30", "poseget" }, fake.Calls);
     }
 
     [Fact]

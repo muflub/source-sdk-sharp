@@ -57,6 +57,9 @@ public sealed class RecordingSwitch : IAiRecordSink
 
     /// <summary>What the brains know of the world, written right after the header (format 2).</summary>
     public void World(AiRecordedWorld world) => _recorder?.World(world);
+
+    /// <summary>The brains' world moved to another graph (format 9), written before the bots made again over it.</summary>
+    public void NavChange(in AiRecordedNavChange change) => _recorder?.NavChange(change);
 }
 
 /// <summary>
@@ -146,9 +149,13 @@ public sealed class AiRecordCommand(ServerAiSession ai, VisionPass vision, IEngi
             ulong nav = world?.Graph?.Hash ?? 0;
             ai.Recording.Start(path, new AiRecordingHeader(AiBots.MatchSeed, tag, nav, 0, VisionPass.Slots, ServerAiSession.SightedCapacity),
                                Anonymiser(BitConverter.ToUInt64(System.Security.Cryptography.RandomNumberGenerator.GetBytes(8))));
-            // The brains' world, so the recording replays as the game decided (§2.6).
+            // The brains' world, so the recording replays as the game decided (§2.6). In a level in rooms the world is over
+            // the room in play: the World record names no graph and a NavChange names the room's (format 9).
+            string? room = ai.RoomNav;
             if (world is not null)
-                ai.Recording.World(new AiRecordedWorld(world.Map, world.TickSeconds, ai.Session.Curves?.Json ?? "", nav));
+                ai.Recording.World(new AiRecordedWorld(world.Map, world.TickSeconds, ai.Session.Curves?.Json ?? "", room is null ? nav : 0));
+            if (world is not null && room is not null)
+                ai.Recording.NavChange(new AiRecordedNavChange(nav, room));
             // The bots already playing, so the recording knows them for bots (§3.4.4's metrics).
             ai.Session.AnnounceBots();
             var held = new List<AiEvent>();

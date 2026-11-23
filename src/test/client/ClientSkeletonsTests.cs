@@ -232,14 +232,15 @@ public unsafe class ClientSkeletonsTests
         public ClientSkeletons Skeletons { get; }
         public SolverBodies Ragdolls { get; } = new();
 
-        public Rig(Func<EntityHandle, (string BoneName, float AngleRadians)?>? boneSpin = null)
+        public Rig(Func<EntityHandle, (string BoneName, float AngleRadians)?>? boneSpin = null,
+                   Func<EntityHandle, ICustomTraceTarget?>? custom = null)
         {
             Memory.Models[Model] = Chain();
             Blocks.Held[Entity] = Block(new NVector(100f, 0f, 0f), worldX: 100f);
             Indices[5] = Entity;
             Skeletons = new ClientSkeletons(Blocks, Store, new StudioModels(Memory),
                                             i => Indices.TryGetValue(i, out EntityHandle h) ? h : null,
-                                            Environment, Log, new Props(), null, () => Ragdolls, boneSpin);
+                                            Environment, Log, new Props(), null, () => Ragdolls, boneSpin, custom);
         }
 
         public bool Setup(EntityHandle entity, float[] output, int mask = UsedByAnything, float time = 1f) =>
@@ -997,6 +998,40 @@ public unsafe class ClientSkeletonsTests
         Assert.True(tested);
         Assert.True(floats[BoneTraceFlat.TraceFraction] < 1f);
         Assert.Equal(42, ints[BoneTraceFlat.TraceSurfaceProps]);
+    }
+
+    /// <summary>An entity that answers its own traces: it records each and writes its fraction and hitbox.</summary>
+    private sealed class CustomTarget : ICustomTraceTarget
+    {
+        public int Asked { get; private set; }
+
+        public bool TestTrace(in BoneRay ray, int contentsMask, BoneTrace tr)
+        {
+            Asked++;
+            tr.Fraction = 0.5f;
+            tr.HitBox = 3;
+            return true;
+        }
+    }
+
+    [Fact]
+    public void AnEntityThatAnswersItsOwnTracesAnswersPredictionsTracesInsteadOfItsHitboxes()
+    {
+        var target = new CustomTarget();
+        using Rig rig = new(custom: h => h == Entity ? target : null);
+        float[] ray = new float[BoneTraceFlat.RayFloats];
+        ray[BoneTraceFlat.RayDeltaX] = 100f;
+        ray[BoneTraceFlat.RayExtentsX] = 16f;
+        float[] floats = new float[BoneTraceFlat.TraceFloats];
+        int[] ints = new int[BoneTraceFlat.TraceInts];
+        floats[BoneTraceFlat.TraceFraction] = 1f;
+
+        bool tested = rig.Skeletons.TestHitboxes(Entity, rig.Blocks.Held[Entity], ray, -1, floats, ints, 1f, 7);
+
+        Assert.True(tested);
+        Assert.Equal(1, target.Asked);
+        Assert.Equal((0.5f, 3), (floats[BoneTraceFlat.TraceFraction], ints[BoneTraceFlat.TraceHitBox]));
+        Assert.Equal((1L, 0L), (rig.Skeletons.CustomTraces, rig.Skeletons.HitboxTraces));
     }
 
     // ---- the sequence clock ------------------------------------------------------------

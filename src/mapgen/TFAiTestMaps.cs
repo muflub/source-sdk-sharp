@@ -486,6 +486,153 @@ public static class TFAiTestMaps
         return map;
     }
 
+    // ------------------------------------------------------------------ ss_ai_tf_pack (lane G9)
+
+    /// <summary>The pack course's pit floor and the first stage's height over it: low enough that four +350 jumps stay under the room's ceiling.</summary>
+    public const float PackPitDepth = 320f;
+
+    /// <summary>Each of the pack course's jumps rises this much, over a 128 u gap: a single rocket's (the pass found none at +400).</summary>
+    public const float PackRise = 350f;
+
+    /// <summary>
+    /// The pack course's stages S0 (the spawns, a cabinet over its top) to S4, east then north, each +<see cref="PackRise"/> over
+    /// the one before across a 128 u gap and past one rocket's reach from the one before that (+700), so no jump skips a
+    /// stage. S1 and S2 have no cabinet: a Soldier comes to S2 having paid for two jumps (about 42 each), with less over the
+    /// floor of 90 than the third costs. S3 is long north to south, its middle on S2's line (the link pass proposes a jump
+    /// onto a ledge from the middle of its edge): the third jump lands at its west edge by <see cref="PackPack"/>; its cabinet
+    /// bay (<see cref="PackBay"/>) is off its east side at the north end, further than a jump's heal walk (384 u) from that
+    /// landing and near the fourth jump's takeoff. The fourth is the same jump reached with about the same health and nothing
+    /// by its landing.
+    /// </summary>
+    public static readonly CourseStage[] PackStages =
+    [
+        new(64f, 176f, 320f, 432f, CourseFloorZ + PackPitDepth),
+        new(448f, 208f, 704f, 528f, CourseFloorZ + PackPitDepth + PackRise),
+        new(832f, 336f, 1088f, 592f, CourseFloorZ + PackPitDepth + 2f * PackRise),
+        new(1216f, 32f, 1600f, 1000f, CourseFloorZ + PackPitDepth + 3f * PackRise),
+        new(1216f, 1128f, 1472f, 1384f, CourseFloorZ + PackPitDepth + 4f * PackRise),
+    ];
+
+    /// <summary>The east edge of S0's cabinet zone: its west half, where the spawns stand (live, with the zone over all of S0 the first jump's blast was refilled at once).</summary>
+    public const float PackSpawnCabinetEast = 208f;
+
+    /// <summary>The small health pack on S3, by the third jump's landing (S3's south end, on S2's line), off where it touches down.</summary>
+    public static Point PackPack => new(1440f, 400f, PackStages[3].Top);
+
+    /// <summary>S3's cabinet bay (west, south): a <see cref="BaySize"/> square off S3's east side at its north end, 479 u from the third jump's landing in a straight line.</summary>
+    public static readonly (float West, float South) PackBay = (1600f, 872f);
+
+    /// <summary>
+    /// The heal yard (lane G9's second step: a hurt bot going for health): a floor at S0's height north of it, and on it a ledge
+    /// <see cref="HealLedgeRise"/> high with a small pack on top (<see cref="HealPack"/>). On foot the pack is up the stairs on
+    /// the ledge's far (north) side, round the ledge's east side: about 1,100 u from the yard's south end; a single rocket from
+    /// the corridor beside the ledge lands by it. (west, south, east, north) at S0's top.
+    /// </summary>
+    public static readonly (float West, float South, float East, float North) HealYard = (64f, 432f, 352f, 1600f);
+
+    /// <summary>The heal ledge (west, south, east, north), and its rise over the yard.</summary>
+    public static readonly (float West, float South, float East, float North) HealLedge = (64f, 640f, 208f, 896f);
+
+    public const float HealLedgeRise = 192f;
+
+    /// <summary>The heal ledge's small pack.</summary>
+    public static Point HealPack => new(136f, 768f, PackStages[0].Top + HealLedgeRise);
+
+    /// <summary>The pack course's resets, one a jump (back to its takeoff stage), splitting the room's floor.</summary>
+    public static readonly (int Jump, float X0, float Y0, float X1, float Y1)[] PackResets =
+    [
+        (1, 16f, 16f, 576f, 2032f),
+        (2, 576f, 16f, 960f, 2032f),
+        (3, 960f, 16f, 2032f, 1000f),
+        (4, 960f, 1000f, 2032f, 2032f),
+    ];
+
+    /// <summary>
+    /// ss_ai_tf_pack (lane G9): a course of four single-rocket jumps over a pit (<see cref="PackStages"/>), a control point on
+    /// each stage after the first under a master no team wins, the spawns and a cabinet on S0, a small health pack by the third
+    /// jump's landing and a cabinet bay on S3 away from it, and a reset under each jump. The third jump is the one a Soldier's
+    /// floor of 90 refuses and the pack by its landing pays for; the fourth, the same jump with nothing by its landing, is
+    /// healed for at the bay. Beside the course, the heal yard (<see cref="HealYard"/>), for a hurt bot going for a pack.
+    /// </summary>
+    public static VmfMap Pack()
+    {
+        var map = new VmfMap();
+        map.World.Add(new("skyname", "sky_day01_01"));
+        AiTestMaps.Room(map, 0, "course", east: false, west: false, JumpCell);
+        for (int s = 0; s < PackStages.Length; s++)
+        {
+            CourseStage st = PackStages[s];
+            map.WorldSolids.Add(VmfMap.Box(new Point(st.West, st.South, CourseFloorZ), new Point(st.East, st.North, st.Top), Ledge));
+            // S0's cabinet is its west half, over the spawns: the first jump takes off from its east edge outside it, so it is paid for.
+            if (s == 0)
+                Regenerate(map, new Point(st.West, st.South, st.Top), new Point(PackSpawnCabinetEast, st.North, st.Top + CaptureHeight));
+            var destination = new VmfEntity { ClassName = "info_teleport_destination" };
+            destination.Set("targetname", $"stage{s}_start").Set("origin", (st.Centre + new Point(0, 0, 8)).ToString()).Set("angles", s < 3 ? "0 0 0" : "0 90 0");
+            map.Entities.Add(destination);
+            if (s == 0)
+                continue;
+
+            var point = new VmfEntity { ClassName = "team_control_point" };
+            string previous = s == 1 ? $"stage{s}" : $"stage{s - 1}";
+            point.Set("targetname", $"stage{s}").Set("origin", st.Centre.ToString()).Set("point_index", $"{s - 1}").Set("point_default_owner", "0")
+                 .Set("point_printname", $"Stage {s}").Set("spawnflags", "2").Set("team_previouspoint_2_0", previous).Set("team_previouspoint_3_0", previous);
+            map.Entities.Add(point);
+            var area = new VmfEntity { ClassName = "trigger_capture_area" };
+            area.Set("area_cap_point", $"stage{s}").Set("area_time_to_cap", "1").Set("team_cancap_2", "1").Set("team_cancap_3", "1")
+                .Set("team_numcap_2", "1").Set("team_numcap_3", "1");
+            area.Solids.Add(VmfMap.Box(new Point(st.West, st.South, st.Top), new Point(st.East, st.North, st.Top + CaptureHeight), "TOOLS/TOOLSTRIGGER"));
+            map.Entities.Add(area);
+        }
+
+        CourseStage three = PackStages[3];
+        (float bw, float bs) = PackBay;
+        map.WorldSolids.Add(VmfMap.Box(new Point(bw, bs, CourseFloorZ), new Point(bw + BaySize, bs + BaySize, three.Top), Ledge));
+        Regenerate(map, new Point(bw, bs, three.Top), new Point(bw + BaySize, bs + BaySize, three.Top + CaptureHeight));
+        var pack = new VmfEntity { ClassName = "item_healthkit_small" };
+        pack.Set("origin", PackPack.ToString()).Set("TeamNum", "0");
+        map.Entities.Add(pack);
+
+        // The heal yard, its ledge, the ledge's stairs down its north side, and the ledge's pack.
+        float yardTop = PackStages[0].Top;
+        (float yw, float ys, float ye, float yn) = HealYard;
+        map.WorldSolids.Add(VmfMap.Box(new Point(yw, ys, CourseFloorZ), new Point(ye, yn, yardTop), Ledge));
+        (float lw, float ls, float le, float ln) = HealLedge;
+        map.WorldSolids.Add(VmfMap.Box(new Point(lw, ls, yardTop), new Point(le, ln, yardTop + HealLedgeRise), Ledge));
+        for (int step = 1; step <= 12; step++)
+            map.WorldSolids.Add(VmfMap.Box(new Point(lw, ln, yardTop), new Point(le, ln + (13 - step) * 32, yardTop + step * 16), Ledge));
+        var healPack = new VmfEntity { ClassName = "item_healthkit_small" };
+        healPack.Set("origin", HealPack.ToString()).Set("TeamNum", "0");
+        map.Entities.Add(healPack);
+
+        var master = new VmfEntity { ClassName = "team_control_point_master" };
+        master.Set("targetname", "course_master").Set("origin", "1024 1024 64").Set("cpm_restrict_team_cap_win", "1");
+        map.Entities.Add(master);
+
+        CourseStage first = PackStages[0];
+        foreach (float y in (float[])[224, 272, 320, 368])
+        {
+            TeamSpawn(map, new Point(first.West + 64, y, first.Top), Red, 0);
+            TeamSpawn(map, new Point(first.West + 128, y, first.Top), Blue, 0);
+        }
+
+        foreach ((int jump, float x0, float y0, float x1, float y1) in PackResets)
+            Reset(map, $"stage{jump - 1}_start", new Point(x0, y0, CourseFloorZ), new Point(x1, y1, PackResetTop(jump, x0, y0, x1, y1)));
+        return map;
+    }
+
+    /// <summary>The top of the pack course's jump <paramref name="jump"/>'s reset: <see cref="ResetUnder"/> under the lowest top of its two stages and any stage or bay over it.</summary>
+    public static float PackResetTop(int jump, float x0, float y0, float x1, float y1)
+    {
+        float lowest = MathF.Min(PackStages[jump - 1].Top, PackStages[jump].Top);
+        foreach (CourseStage st in PackStages)
+        {
+            if (Overlaps(st.West, st.South, st.East, st.North, x0, y0, x1, y1))
+                lowest = MathF.Min(lowest, st.Top);
+        }
+
+        return lowest - ResetUnder;
+    }
+
     private static void Reset(VmfMap map, string target, Point mins, Point maxs)
     {
         var reset = new VmfEntity { ClassName = "trigger_teleport" };

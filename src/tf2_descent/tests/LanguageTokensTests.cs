@@ -51,7 +51,7 @@ public sealed partial class LanguageTokensTests
     private static IEnumerable<string> TravelTokens() =>
         Enum.GetValues<WayDown>().Select(WaysDown.Token)
             .Concat([TravelService.DepthClosedToken, TravelService.WaitingToken, TravelService.RefusedToken,
-                     TravelService.UpToken, TravelService.CorpseToken]);
+                     TravelService.UpToken, TravelService.UpLevelToken, TravelService.NoLevelUpToken, TravelService.CorpseToken]);
 
     [Fact]
     public void Every_travel_notice_token_is_in_the_language_file()
@@ -60,6 +60,24 @@ public sealed partial class LanguageTokensTests
 
         string missing = string.Join(", ", TravelTokens().Where(t => !tokens.ContainsKey(t)));
         Assert.True(missing.Length == 0, "missing from the language file: " + missing);
+    }
+
+    [Fact]
+    public void Every_use_refusal_token_is_in_the_language_file_and_names_the_item()
+    {
+        var tokens = Tokens();
+
+        foreach (string token in TF2.Descent.Server.Hero.UseRefusals.Tokens)
+            Assert.Contains("%s1", tokens.GetValueOrDefault(token) ?? "(missing: " + token + ")");
+    }
+
+    [Fact]
+    public void The_lost_and_found_notices_are_in_the_language_file_and_the_fee_one_says_the_fee()
+    {
+        var tokens = Tokens();
+
+        Assert.Contains("%s1", tokens.GetValueOrDefault(TF2.Descent.Server.Hero.HeroCorpses.LostToken) ?? "(missing)");
+        Assert.True(tokens.ContainsKey(TF2.Descent.Server.Hero.HeroCorpses.LostTokenNoFee), "missing: " + TF2.Descent.Server.Hero.HeroCorpses.LostTokenNoFee);
     }
 
     [Fact]

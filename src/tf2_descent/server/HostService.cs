@@ -5,8 +5,17 @@ namespace TF2.Descent.Server;
 
 /// <summary>
 /// This instance's life in the hosting service (spec §3-4): start the SDK at
-/// server start, Booting at every level, MapReady when the level is up, and
-/// quit loudly on a refusal that retrying cannot fix.
+/// server start, Booting at the first level and at each level a same-process
+/// hop moves to, MapReady when a level is up, and quit loudly on a refusal
+/// that retrying cannot fix.
+///
+/// <para>
+/// Any other level change (an operator's <c>changelevel</c>) leaves the process
+/// the instance it was: the service refuses a second Booting from a live
+/// instance (<c>not_booting</c>), so the level keeps the boot it had and only
+/// MapReady is asked again, which the service answers for a live instance on
+/// the same port.
+/// </para>
 /// </summary>
 [SideService(Side.Server)]
 public sealed class HostService(
@@ -15,7 +24,8 @@ public sealed class HostService(
     IFrameScheduler scheduler,
     IServerConsole console,
     IHooks<IHostBootHook> boot,
-    ILog log) : IGameLifecycle
+    ILog log,
+    ISameProcessHop? hops = null) : IGameLifecycle
 {
     public int LifecycleOrder => ModStages.First + 10;
 
@@ -27,6 +37,13 @@ public sealed class HostService(
 
     /// <summary>Set once MapReady has been accepted for the current level.</summary>
     public bool Live { get; private set; }
+
+    /// <summary>
+    /// True while the current level kept the boot of the level before: the
+    /// level changed without a hop, so the process is the same instance and
+    /// whoever it held is held still.
+    /// </summary>
+    public bool SameInstance { get; private set; }
 
     public TimeSpan RetryDelay { get; init; } = TimeSpan.FromSeconds(1);
 
@@ -53,10 +70,25 @@ public sealed class HostService(
 
     public void OnLevelInit(string mapName)
     {
-        Boot = null;
         Live = false;
-        if (Mode == HostingMode.Hosted)
-            _ = Guard("Booting", () => BootLevel(mapName));
+        SameInstance = false;
+        if (Mode != HostingMode.Hosted)
+        {
+            Boot = null;
+            return;
+        }
+
+        bool hop = hops?.Take(mapName) ?? false;
+        if (Boot is { } kept && !hop)
+        {
+            SameInstance = true;
+            log.Msg($"[TF2Descent] {mapName}: a level change that is no hop; still the {kept.InstanceKind} instance booted before (depth {kept.Depth})\n");
+            boot.Each(nameof(IHostBootHook.OnBooted), h => h.OnBooted(kept));
+            return;
+        }
+
+        Boot = null;
+        _ = Guard("Booting", () => BootLevel(mapName));
     }
 
     public void OnLevelReady(string mapName)
@@ -70,6 +102,7 @@ public sealed class HostService(
     /// <summary>Booting, retried while the service cannot be reached or is not ready for us.</summary>
     private async Task BootLevel(string map)
     {
+        bool told = false;
         while (true)
         {
             HostResult<BootInfo> result;
@@ -91,8 +124,17 @@ public sealed class HostService(
                 return;
             }
 
-            if (result.Refusal!.Error is HostError.Unreachable or HostError.Rejected)
+            // NotBooting (SDK 2.8.1) also answers a fast process whose instance the service has not yet marked
+            // Booting (still Creating while its pod is made): it passes, so it is retried like Rejected.
+            if (result.Refusal!.Error is HostError.Unreachable or HostError.Rejected or HostError.NotBooting)
             {
+                // Said once a level: a retry nobody hears of looks exactly like a hang.
+                if (result.Refusal.Error is not HostError.Unreachable && !told)
+                {
+                    told = true;
+                    log.Warning($"[TF2Descent] Booting was refused: {Describe(result.Refusal)}; retrying every {RetryDelay.TotalSeconds:0.#} s\n");
+                }
+
                 await scheduler.Delay(RetryDelay);
                 continue;
             }

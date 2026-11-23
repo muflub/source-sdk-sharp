@@ -31,6 +31,7 @@ public static class RoomLint
     public const string DoorPath = "door_path";
     public const string MarkerCount = "marker_count";
     public const string Lit = "lit";
+    public const string HazardPath = "hazard_path";
 
     /// <summary>A giant robot (R16): the main route between doors is clear for it.</summary>
     public const int GiantWidth = RoomKit.GiantWidth, GiantHeight = RoomKit.GiantHeight;
@@ -54,7 +55,7 @@ public static class RoomLint
         var columns = new RoomColumns(room);
         return [.. CheckSealed(room), .. CheckDoorsOnKit(room), .. CheckMarkerFloor(room, columns), .. CheckJumpClearAir(room, columns),
                 .. CheckLedgePays(room, columns), .. CheckInsideCell(room), .. CheckFrameClear(room), .. CheckDoorPath(room, columns),
-                .. CheckMarkerCount(room, columns), .. CheckLit(room, columns)];
+                .. CheckMarkerCount(room, columns), .. CheckLit(room, columns), .. CheckHazardPath(room, columns)];
     }
 
     //-------------------------------------------------------------------------
@@ -144,7 +145,9 @@ public static class RoomLint
 
     public static IEnumerable<LintFinding> CheckMarkerFloor(Room room, RoomColumns columns)
     {
-        foreach (RoomEntity e in room.Entities.Where(e => e.ClassName == "info_poi" && e.Origin is not null))
+        // A breakable's point (M34) is where a crate stands, not where a player does: the dress lint
+        // holds it to the room compile's own rule (DressLint.Breakable).
+        foreach (RoomEntity e in room.Entities.Where(e => e.ClassName == "info_poi" && e.Origin is not null && !Breakables.Is(e)))
         {
             Point at = e.Origin!.Value;
             string what = e.Key("poi_type") ?? "info_poi";
@@ -193,9 +196,16 @@ public static class RoomLint
     // jump rooms: 576 of clear air over half the floor and a straight 768 run.
     //-------------------------------------------------------------------------
 
+    /// <summary>
+    /// Whether the jump-space rules (plan §4: a jump room's clear air) pass over a room by its role: a tunnel, a
+    /// corridor or a junction, whose low roof is the point of it. Level 5's maze cells are tunnels so: their solid
+    /// roof at 384 is what stops a jump over the maze's walls (brief p18).
+    /// </summary>
+    public static bool JumpSpaceExempt(Room room) => room.Entry.Tags.Contains("corridor") || room.Entry.Tags.Contains("junction");
+
     public static IEnumerable<LintFinding> CheckJumpClearAir(Room room, RoomColumns columns)
     {
-        if (!room.Entry.Jump)
+        if (!room.Entry.Jump || JumpSpaceExempt(room))
             yield break;
         var reached = columns.ReachableAtT1(room.Sockets.Select(s => room.DoorInside(s.Face, s.Offset, 48)));
         var (clear, floor, run) = columns.ClearAir(JumpTable.RocketClearAir, reached);
@@ -268,7 +278,9 @@ public static class RoomLint
         {
             string wall = room.SocketName(face, offset);
             var pieces = room.Entities.Where(e => e.ClassName == "prop_static" && e.Key("room_needs") == "joined_" + wall).ToArray();
-            var brushFrames = room.Entities.Where(e => e.ClassName == "func_brush" && e.Key("room_needs") == "joined_" + wall).ToArray();
+            // A slab over the doorway's dip (a model frame's floor, RoomBuilder.SillSlabPiece) is no frame: nothing of it stands above a step.
+            var brushFrames = room.Entities.Where(e => e.ClassName == "func_brush" && e.Key("room_needs") == "joined_" + wall
+                                                       && e.Brushes.Any(b => b.Maxs.Z > kit.Sill + Step)).ToArray();
             int frames = pieces.Count(e => e.Key("model") == kit.Frame.Model) + brushFrames.Length;
             int sills = kit.Frame.Sill is { } sill ? pieces.Count(e => e.Key("model") == sill.Model) : 0;
             int need = RoomBuilder.SillInsets(kit).Count;
@@ -338,6 +350,37 @@ public static class RoomLint
     }
 
     //-------------------------------------------------------------------------
+    // the hazard path (brief p14): no hazard floor is the only way between two doors.
+    //-------------------------------------------------------------------------
+
+    /// <summary>
+    /// A giant (92 by 156) walks from every door to every other without its box entering an always-on hazard
+    /// volume (slime, lava: <see cref="Dressing.RoomDresser.HazardVolumes"/>) at its feet: a hazard floor is
+    /// never the only way through a room (brief p14), for the robots (lava burns them) or the heroes.
+    /// </summary>
+    public static IEnumerable<LintFinding> CheckHazardPath(Room room, RoomColumns columns)
+    {
+        var volumes = Dressing.RoomDresser.HazardVolumes(room).ToArray();
+        var sockets = room.Sockets.ToArray();
+        if (volumes.Length == 0 || sockets.Length < 2)
+            yield break;
+        bool Wet(int i, int j, float z)
+        {
+            float x = i * Grid + Grid / 2f, y = j * Grid + Grid / 2f, r = GiantWidth / 2f;
+            return volumes.Any(v => x + r > v.Mins.X && x - r < v.Maxs.X && y + r > v.Mins.Y && y - r < v.Maxs.Y && z >= v.Mins.Z - Brush.Epsilon && z < v.Maxs.Z);
+        }
+
+        foreach (var (from, fromOffset) in sockets)
+        {
+            var reached = columns.ReachableWalking([room.DoorInside(from, fromOffset, 48)], GiantWidth, GiantHeight, Wet);
+            foreach (var (to, toOffset) in sockets.Where(s => s != (from, fromOffset)))
+                if (!columns.Reaches(reached, room.DoorInside(to, toOffset, 48)))
+                    yield return new LintFinding(HazardPath, room.Name,
+                        $"a giant ({GiantWidth} by {GiantHeight}) walks from its {room.SocketName(from, fromOffset)} door to its {room.SocketName(to, toOffset)} door only through a hazard volume");
+        }
+    }
+
+    //-------------------------------------------------------------------------
     // markers: a combat room has 2 to 4 packs away from its doors and 1 or 2 pieces of furniture on its floor; a corridor at most one pack.
     //-------------------------------------------------------------------------
 
@@ -345,6 +388,14 @@ public static class RoomLint
     {
         var markers = room.Markers.ToArray();
         var packs = markers.Where(m => m.Kind == MarkerKind.PackSpawn).ToArray();
+        if (room.Entry.Quiet)
+        {
+            // A quiet room stands beside the way in (brief p9): no pack at all.
+            if (packs.Length > 0)
+                yield return new LintFinding(MarkerCount, room.Name, $"a quiet room has {packs.Length} pack spawn(s); it has none");
+            yield break;
+        }
+
         if (room.Entry.Tags.Contains("corridor") || room.Entry.Tags.Contains("junction"))
         {
             if (packs.Length > 1)
@@ -671,14 +722,15 @@ public sealed class RoomColumns
     /// distance, wherever its box is clear. A surface is reached when the
     /// agent's centre stands on it.
     /// </summary>
-    public HashSet<(int, int, int)> ReachableWalking(IEnumerable<Point> starts, int width, int height)
+    /// <param name="avoid">Where the agent's centre may not stand (column, standing height): a hazard's floor.</param>
+    public HashSet<(int, int, int)> ReachableWalking(IEnumerable<Point> starts, int width, int height, Func<int, int, float, bool>? avoid = null)
     {
         var states = new HashSet<(int I, int J, int Z)>();
         var queue = new Queue<(int I, int J, float Z)>();
         var reached = new HashSet<(int, int, int)>();
         void Visit(int i, int j, float z)
         {
-            if (!states.Add((i, j, (int)MathF.Round(z))) || !BoxClear(i, j, z, width, height))
+            if (!states.Add((i, j, (int)MathF.Round(z))) || !BoxClear(i, j, z, width, height) || (avoid?.Invoke(i, j, z) ?? false))
                 return;
             queue.Enqueue((i, j, z));
             foreach (Surface t in At(i, j))

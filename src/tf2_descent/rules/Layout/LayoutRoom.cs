@@ -71,6 +71,9 @@ public sealed record LayoutRoom(RoomInfo Info, RoomShape Shape)
         IsConnector ? RoomClass.Connector
         : Shape.Height switch { HeightClass.Hall => RoomClass.Hall, HeightClass.Shaft => RoomClass.Shaft, _ => RoomClass.Chamber };
 
+    /// <summary>A quiet room (flag <c>q</c>): no pack spawn; the layout puts these beside the way in and nowhere else.</summary>
+    public bool IsQuiet => Shape.Quiet;
+
     /// <summary>A shrine stub: unique rooms are counted per level (M20).</summary>
     public bool IsShrine => Shape.Family == RoomTags.StubFamily && Has(RoomTags.Shrine);
 

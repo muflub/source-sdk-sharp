@@ -204,4 +204,23 @@ public sealed class TFDangerShotTests
 
         Assert.Equal((1, 0, 0), (f.Decider.PrefireRockets, f.Decider.DangerRockets, f.Decider.DangerChances));
     }
+
+    /// <summary>
+    /// With no rocket loaded, an enemy lost from sight and a teammate's death at a killer place both ask for a rocket on one
+    /// decide: that decide is one refusal for the clip, not one for each shot that asked (lane Ge's note).
+    /// </summary>
+    [Fact]
+    public void ADecideBothShotsAskOnIsOneClipRefusal()
+    {
+        TFField f = Field();
+        SelfState empty = TFField.Self(Self0, clip: 0);
+        ActorFacts them = new(Enemy, Self0 + new AiVector(600f, 0f, 0f), AiVector.Zero, TFField.Launcher, ActorActivity.None, 1f, TFField.Blue, (int)TFClass.Soldier);
+        f.StepHearing(empty, null, [AiEvent.SightGained(f.Bot, Next(f), Enemy, them.Origin, AiVector.Zero, 1f)], them);
+        f.StepHearing(empty, null, [AiEvent.SightLost(f.Bot, Next(f), Enemy, them.Origin, AiVector.Zero), Scream(f, Mate, DiedAt), Feed(f, Mate)]);
+        Assert.Equal((Enemy, 1), (f.Decider.Doing.Target, f.Decider.DeathsAtDanger));
+        Assert.True(f.Branch is TFDecider.Fight or TFDecider.Defend or TFDecider.Guard or TFDecider.Search, $"the stimulus: a branch both shots go on, not {f.Branch}");
+        int before = f.Decider.PrefireRefused[(int)TFPrefireRefusal.Clip];
+        f.StepHearing(empty, null, []);
+        Assert.Equal(before + 1, f.Decider.PrefireRefused[(int)TFPrefireRefusal.Clip]);
+    }
 }

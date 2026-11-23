@@ -121,7 +121,7 @@ public sealed class TownService(
             var stall = stalls[i];
             if (world.Marker(stall.Marker) is not { } marker)
             {
-                log.Warning($"[TF2Descent/Town] {map} has no {stall.Marker}: the {stall.Id} stall stands nowhere\n");
+                log.Warning($"[TF2Descent/Town] {map} has no {stall.Marker}: the {stall.Id} stall stands nowhere (a town built before the marker existed: make town)\n");
                 continue;
             }
             Vector at = world.Floor(marker + stall.Offset);
@@ -160,9 +160,17 @@ public sealed class TownService(
     public void Use(int entity, int player)
     {
         int stall = world.StallOf(entity);
-        if (stall >= 0)
-            OpenStall(player, stall);
+        if (stall < 0 || !OpenStall(player, stall))
+            return;
+        // The resupply locker is the Lost and Found's counter (the whole run's F16): what waits there
+        // of the hero's comes back as he opens it, for the fee, told on the stash window's status line.
+        if (TownStalls.All[stall].Id == LostAndFoundStall && world.HeroOf(player) is { } key
+            && ledger.LostAndFound(key) is { Empty: false })
+            _ = Reclaim(player);
     }
+
+    /// <summary>The stall whose use reclaims from the Lost and Found: the resupply locker.</summary>
+    public const string LostAndFoundStall = "stash";
 
     /// <summary>Opens stall <paramref name="stall"/>'s window for <paramref name="player"/>; with <paramref name="reach"/> false walking away leaves it open (a dev open).</summary>
     public bool OpenStall(int player, int stall, bool reach = true)
@@ -204,6 +212,22 @@ public sealed class TownService(
             return;
         world.Panel(player, TownSender.PanelOf(session.Screen), false);
         log.Msg($"[TF2Descent/Town] {player} closed {(session.Stall >= 0 ? TownStalls.All[session.Stall].Id : "the way down")}\n");
+    }
+
+    /// <summary>
+    /// The hero closed his window on the client (Esc, its x; the whole run's F27): the session ends
+    /// at once, as walking away ends it, so a verb after it is told no window is open. A close that
+    /// names another screen than the one open (one the server has replaced since) changes nothing.
+    /// The client has closed its panel already, so none is sent.
+    /// </summary>
+    public bool ClosedOnClient(int player, string screen)
+    {
+        if (!_sessions.TryGetValue(player, out var session)
+            || !string.Equals(TownSender.PanelOf(session.Screen), "descent_" + screen, StringComparison.Ordinal))
+            return false;
+        _sessions.Remove(player);
+        log.Msg($"[TF2Descent/Town] {player} closed {(session.Stall >= 0 ? TownStalls.All[session.Stall].Id : "the way down")} on the client\n");
+        return true;
     }
 
     public void OnPostThink(float frameTime)
@@ -433,8 +457,16 @@ public sealed class TownService(
     private void Refuse(int player, string code)
     {
         string token = TokenOf(code);
-        sender.Status(player, token, token == TownStatusTokens.Refused ? code : "", error: true);
+        Tell(player, token, token == TownStatusTokens.Refused ? code : "", error: true);
         log.Msg($"[TF2Descent/Town] {player} refused: {code}\n");
+    }
+
+    /// <summary>A verb's answer on the status line, and as a notice too while no window shows that line.</summary>
+    private void Tell(int player, string token, string arg, bool error, long item = 0)
+    {
+        sender.Status(player, token, arg, error, item);
+        if (!_sessions.ContainsKey(player))
+            sender.Notice(player, token, arg);
     }
 
     private string NameOf(ItemInstance item) =>
@@ -455,7 +487,7 @@ public sealed class TownService(
             if (r.Ok)
             {
                 var (arg, item) = done?.Invoke(r) ?? ("", 0);
-                sender.Status(player, TownStatusTokens.Done(verb), arg, error: false, item);
+                Tell(player, TownStatusTokens.Done(verb), arg, error: false, item);
                 log.Msg(string.Create(CultureInfo.InvariantCulture,
                     $"[TF2Descent/Town] {player} {verb} {arg}: done, Australium {before} -> {after}\n"));
             }
@@ -477,7 +509,7 @@ public sealed class TownService(
         if (Gate(player, Shop) is not { } g)
             return Task.FromResult<LedgerResult?>(null);
         return Run(player, "buy", () => ledger.Buy(g.Key, g.Stall!.Vendor!, stockId),
-                   r => (Added(r) is { } a ? NameOf(a.Item) : "", stockId));
+                   r => (Added(r) is { } a ? NameOf(a.Item) : Changed(r) is { } joined ? NameOf(joined.Item) : "", stockId));   // a potion that joined a belt stack is a change
     }
 
     public Task<LedgerResult?> Sell(int player, int slot)
@@ -600,6 +632,25 @@ public sealed class TownService(
         return Run(player, "stash_out", () => ledger.Withdraw(g.Key, slot), r => (name, Changed(r)?.Id ?? 0));
     }
 
+    /// <summary>
+    /// The Lost &amp; Found (R5, D6): in town, the hero takes back what his lost corpses held, for the
+    /// rules' fee. No stall stands for it yet (the town has no marker for one), so it needs no window.
+    /// </summary>
+    public Task<LedgerResult?> Reclaim(int player)
+    {
+        string? key = world.HeroOf(player);
+        string? why = !InTown ? TownRefusals.NotInTown : key is null ? LedgerRefusals.NoHero : null;
+        if (why is not null)
+        {
+            Refuse(player, why);
+            return Task.FromResult<LedgerResult?>(null);
+        }
+
+        int before = ledger.LostAndFound(key!)?.Items.Count ?? 0;
+        return Run(player, "reclaim", () => ledger.Reclaim(key!),
+                   r => ((before - (ledger.LostAndFound(key!)?.Items.Count ?? 0)).ToString(CultureInfo.InvariantCulture), 0));
+    }
+
     /// <summary>Goes down to <paramref name="depth"/>, when the rules let this hero pick it; the window closes as he goes.</summary>
     public bool Descend(int player, int depth)
     {
@@ -637,7 +688,7 @@ public static class TownStatusTokens
 
     /// <summary>Every verb that tells a success.</summary>
     public static IReadOnlyList<string> Verbs =>
-        ["buy", "sell", "buyback", "identify", "repair", "repair_all", "craft", "crate", "stash_in", "stash_out", "descend"];
+        ["buy", "sell", "buyback", "identify", "repair", "repair_all", "craft", "crate", "stash_in", "stash_out", "descend", "reclaim"];
 
     /// <summary>The refusals the language file words, each <c>#Descent_Town_&lt;code&gt;</c>.</summary>
     public static IReadOnlyList<string> Worded =>
@@ -646,7 +697,7 @@ public static class TownStatusTokens
         TownRefusals.NoCrate, TownRefusals.NothingToRepair, TownRefusals.DepthClosed, TownRefusals.NoLevel,
         InventoryRefusals.BackpackFull, InventoryRefusals.StashFull, InventoryRefusals.WithdrawOnly, InventoryRefusals.NoItem,
         InventoryRefusals.NotEnoughAustralium, InventoryRefusals.WrongClass,
-        LedgerRefusals.NoHero, LedgerRefusals.NotInStock, LedgerRefusals.HostUnsupported,
+        LedgerRefusals.NoHero, LedgerRefusals.NotInStock, LedgerRefusals.HostUnsupported, LedgerRefusals.NothingLost, LedgerRefusals.LostAndFoundFee,
         TF2.Descent.Rules.Economy.RepairRefusals.NotRepairable, TF2.Descent.Rules.Economy.RepairRefusals.AtMaximum,
         TF2.Descent.Rules.Economy.RepairRefusals.Unusable,
         TF2.Descent.Rules.Economy.CraftRefusals.NotEnoughMetal, TF2.Descent.Rules.Economy.CraftRefusals.WrongInputs,

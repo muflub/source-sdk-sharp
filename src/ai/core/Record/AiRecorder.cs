@@ -14,6 +14,7 @@ public sealed class AiRecorder : IAiRecordSink
     private readonly BinaryWriter _w;
     private readonly ActorAnonymiser? _actors;
     private readonly Func<ActorId, ActorId>? _map;
+    private readonly AiHudMemo _huds = new();
 
     public AiRecorder(Stream output, in AiRecordingHeader header, ActorAnonymiser? actors = null)
     {
@@ -58,7 +59,7 @@ public sealed class AiRecorder : IAiRecordSink
 
     public void Snapshot(AiSnapshot snapshot)
     {
-        AiRecordFormat.Write(Begin(), snapshot, _map);
+        AiRecordFormat.Write(Begin(), snapshot, _map, _huds);
         End(AiRecordType.Snapshot);
     }
 
@@ -74,6 +75,13 @@ public sealed class AiRecorder : IAiRecordSink
         ArgumentNullException.ThrowIfNull(world);
         AiRecordFormat.Write(Begin(), world);
         End(AiRecordType.World);
+    }
+
+    /// <summary>The brains' world moved to another graph (format 9): written before the bots made again over it.</summary>
+    public void NavChange(in AiRecordedNavChange change)
+    {
+        AiRecordFormat.Write(Begin(), change);
+        End(AiRecordType.NavChange);
     }
 
     public void UserCmd(in AiUserCmd cmd)

@@ -1,0 +1,198 @@
+#!/usr/bin/env python3
+"""tools/descent-arena -- a boss level's arena data, written into the level's .map2d.
+
+    tools/descent-arena <level.bsp> <level.arena>   write the ARNA section (none for a level without an arena)
+    tools/descent-arena --print <level.map2d>       print the section
+    tools/descent-arena --self-test
+
+The game-logic session's boss arena contract (brief p13, plan section 1.3g):
+the server reads where a level's boss stands and faces, the Tank's track and
+the robots' spawn mouths from the level's .map2d, beside LITE. MapGen's
+descent-level writes them in the linked map's frame into <level>.arena (JSON,
+DescentLevel.ArenaFile: `{}` for a level with no arena); this writes them.
+Map2dReader skips tags it does not know, so every reader of today reads the
+file as before. Tag `ARNA`, little-endian:
+
+    uint32 version (1)
+    float32 x, y, z, yaw       the boss spot; it faces yaw at its intro (toward the way in)
+    uint32 trackCount
+    trackCount records:  float32 x, y, z; uint32 flags (1: a station, the Tank stops and drills;
+                         2: the final station, the central pillar's). File order; the loop
+                         closes back to point 0.
+    uint32 mouthCount
+    mouthCount records:  float32 x, y, z, yaw; uint32 leg (the boss's phase it opens at, 1-based)
+
+The file is rewritten as tools/descent-room-light rewrites it (its helpers:
+the directory after the 96-byte header, each section on a four-byte boundary);
+the other sections keep their bytes and order, and an earlier ARNA section is
+replaced. The map's checksum does not change (the .bsp is not touched).
+"""
+import importlib.machinery
+import importlib.util
+import json
+import os
+import struct
+import sys
+import tempfile
+
+HERE = os.path.dirname(os.path.abspath(os.path.realpath(__file__)))
+TAG = b'ARNA'
+VERSION = 1
+STATION, FINAL = 1, 2
+
+
+def room_light():
+    """tools/descent-room-light as a module: the .map2d reader and writer."""
+    loader = importlib.machinery.SourceFileLoader('descent_room_light', os.path.join(HERE, 'descent-room-light'))
+    spec = importlib.util.spec_from_loader('descent_room_light', loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+def section(arena):
+    """The ARNA bytes of an arena dict ({"boss": [x, y, z, yaw], "track": [...], "mouths": [...]})."""
+    boss = arena['boss']
+    if len(boss) != 4:
+        raise ValueError('a boss spot is x, y, z, yaw: %r' % (boss,))
+    b = bytearray(struct.pack('<I4f', VERSION, *[float(v) for v in boss]))
+    track = arena.get('track', [])
+    finals = [i for i, t in enumerate(track) if int(t[3]) & FINAL]
+    if len(finals) > 1 or (finals and finals[0] != len(track) - 1):
+        raise ValueError('a track has one final station, its last point')
+    b += struct.pack('<I', len(track))
+    for t in track:
+        if len(t) != 4 or int(t[3]) & ~(STATION | FINAL):
+            raise ValueError('a track point is x, y, z, flags (1, 2): %r' % (t,))
+        b += struct.pack('<3fI', float(t[0]), float(t[1]), float(t[2]), int(t[3]))
+    mouths = arena.get('mouths', [])
+    b += struct.pack('<I', len(mouths))
+    for m in mouths:
+        if len(m) != 5 or int(m[4]) < 1:
+            raise ValueError('a mouth is x, y, z, yaw, leg (1 or more): %r' % (m,))
+        b += struct.pack('<4fI', float(m[0]), float(m[1]), float(m[2]), float(m[3]), int(m[4]))
+    return bytes(b)
+
+
+def read(b):
+    """(boss (x, y, z, yaw), [(x, y, z, flags)], [(x, y, z, yaw, leg)]) of an ARNA section's bytes."""
+    version = struct.unpack_from('<I', b, 0)[0]
+    if version != VERSION:
+        raise ValueError('an ARNA section of version %d' % version)
+    boss = struct.unpack_from('<4f', b, 4)
+    at = 20
+    n = struct.unpack_from('<I', b, at)[0]
+    at += 4
+    track = [struct.unpack_from('<3fI', b, at + 16 * i) for i in range(n)]
+    at += 16 * n
+    k = struct.unpack_from('<I', b, at)[0]
+    at += 4
+    mouths = [struct.unpack_from('<4fI', b, at + 20 * i) for i in range(k)]
+    at += 20 * k
+    if at != len(b):
+        raise ValueError('an ARNA section of %d bytes for %d track points and %d mouths' % (len(b), n, k))
+    return boss, track, mouths
+
+
+def with_arena(data, arena, rl=None):
+    """The .map2d bytes with its ARNA section replaced (or added); without one when arena is None."""
+    rl = rl or room_light()
+    header, sections = rl.read_map2d(data)
+    kept = [(t, b) for t, b in sections if t != TAG]
+    return rl.write_map2d(header, kept + ([(TAG, section(arena))] if arena is not None else []))
+
+
+def run(bsp, arena_file):
+    map2d = os.path.splitext(bsp)[0] + '.map2d'
+    with open(arena_file) as f:
+        arena = json.load(f)
+    with open(map2d, 'rb') as f:
+        data = f.read()
+    if not arena:
+        out = with_arena(data, None)
+        what = 'no arena'
+    else:
+        out = with_arena(data, arena)
+        track = arena.get('track', [])
+        what = 'boss at (%.0f %.0f %.0f) yaw %.0f, %d track points (%d stations), %d mouths' % (
+            *arena['boss'], len(track), sum(1 for t in track if int(t[3]) & (STATION | FINAL)), len(arena.get('mouths', [])))
+    if out != data:
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(map2d))
+        with os.fdopen(fd, 'wb') as f:
+            f.write(out)
+        os.replace(tmp, map2d)
+    print('descent-arena: %s: %s' % (os.path.basename(map2d), what))
+    return 0
+
+
+def show(map2d):
+    rl = room_light()
+    with open(map2d, 'rb') as f:
+        _, sections = rl.read_map2d(f.read())
+    found = dict(sections)
+    if TAG not in found:
+        print('%s: no ARNA section' % map2d)
+        return 1
+    boss, track, mouths = read(found[TAG])
+    print('%s: boss (%.0f %.0f %.0f) yaw %.0f' % (map2d, *boss))
+    for i, (x, y, z, fl) in enumerate(track):
+        print('  track %d (%.0f %.0f %.0f)%s' % (i, x, y, z, ' final' if fl & FINAL else ' station' if fl & STATION else ''))
+    for x, y, z, yaw, leg in mouths:
+        print('  mouth (%.0f %.0f %.0f) yaw %.0f leg %d' % (x, y, z, yaw, leg))
+    return 0
+
+
+def self_test():
+    bad = []
+
+    def expect(cond, what):
+        if not cond:
+            bad.append(what)
+    rl = room_light()
+    header = bytearray(rl.HEADER_BYTES)
+    header[:8] = rl.MAGIC
+    struct.pack_into('<iii', header, 8, 1, rl.HEADER_BYTES, 0)
+    struct.pack_into('<i', header, 64, 1)
+    sections = [(b'STRS', b'\0a\0'), (b'ROOM', struct.pack('<iiifII', 0, 0, 0, 512, 1, 1)), (b'LITE', struct.pack('<IIfI', 1, 1, 50.0, 2))]
+    data = rl.write_map2d(bytes(header), sections)
+    arena = {'boss': [100, 200, 16, 180], 'track': [[0, 0, 16, 0], [10, 0, 16, 1], [20, 0, 16, 3]],
+             'mouths': [[5, 5, 16, 90, 1], [6, 6, 16, 270, 3]]}
+    out = with_arena(data, arena, rl)
+    _, s2 = rl.read_map2d(out)
+    expect([t for t, _ in s2] == [b'STRS', b'ROOM', b'LITE', b'ARNA'], 'the other sections do not keep their order before ARNA')
+    expect(s2[:3] == sections, 'the other sections do not keep their bytes')
+    boss, track, mouths = read(dict(s2)[TAG])
+    expect(boss == (100, 200, 16, 180), 'the boss spot and yaw do not read back')
+    expect([t[3] for t in track] == [0, 1, 3] and track[1][:3] == (10, 0, 16), 'the track does not read back in order with its flags')
+    expect([m[4] for m in mouths] == [1, 3] and mouths[0][3] == 90, 'the mouths do not read back with their yaws and legs')
+    again = with_arena(out, {'boss': [1, 2, 3, 4], 'track': [], 'mouths': []}, rl)
+    _, s3 = rl.read_map2d(again)
+    expect([t for t, _ in s3].count(TAG) == 1, 'a second write leaves two ARNA sections')
+    expect(read(dict(s3)[TAG]) == ((1, 2, 3, 4), [], []), 'an empty track and no mouths do not read back')
+    gone = with_arena(out, None, rl)
+    expect(TAG not in dict(rl.read_map2d(gone)[1]), 'a level with no arena keeps an earlier ARNA section')
+    for wrong, what in (({'boss': [0, 0, 0, 0], 'track': [[0, 0, 0, 3], [1, 0, 0, 0]], 'mouths': []}, 'a final station before the track\'s end'),
+                        ({'boss': [0, 0, 0, 0], 'track': [], 'mouths': [[0, 0, 0, 0, 0]]}, 'a mouth of leg 0'),
+                        ({'boss': [0, 0, 0], 'track': [], 'mouths': []}, 'a boss spot without a yaw'),
+                        ({'boss': [0, 0, 0, 0], 'track': [[0, 0, 0, 4]], 'mouths': []}, 'a track flag outside 1 and 2')):
+        try:
+            section(wrong)
+            bad.append(what + ' is written')
+        except ValueError:
+            pass
+    for b in bad:
+        print('descent-arena self-test: FAIL: ' + b)
+    print('descent-arena self-test: %s' % ('FAIL' if bad else 'ok'))
+    return 1 if bad else 0
+
+
+if __name__ == '__main__':
+    a = sys.argv[1:]
+    if a == ['--self-test']:
+        sys.exit(self_test())
+    if len(a) == 2 and a[0] == '--print':
+        sys.exit(show(a[1]))
+    if len(a) == 2:
+        sys.exit(run(a[0], a[1]))
+    print(__doc__)
+    sys.exit(2)

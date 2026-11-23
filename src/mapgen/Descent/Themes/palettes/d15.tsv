@@ -1,0 +1,20 @@
+# Palette of depth 15 (the Pit, Captain Punch's level), plan_descent_mine_levels.md E7, brief p13.
+# Act III is not themed yet; the Pit takes section 7's Rot column (mud, black water) and Brimstone's black rock.
+# One row per asset the theme names: asset, kind (material, static, dynamic), role, why. Chosen by query of
+# /home/lodle/assetdb and looked at. DescentPaletteTests holds every row to the theme and to the database.
+asset	kind	role	why
+swamp/nature/swampmud003	material	floor	dark brown mud (#3c3228, level 12's), the slime lake's bed and its shore: the plan's blend drew its second layer, twigs, on a flat floor, which read as grass, and black mud (swampmud005) took no light (brief p15)
+nature/underworld_rockwall001	material	wall	black jagged rock (#453f3f; 15 maps, Helltower's): the Pit's walls; Brimstone's in the plan
+nature/underworld_rockwall001	material	ceiling	the same rock, lost in the dark overhead
+swamp/brick/swampcobblewall001	material	block	slimy green-black cobbles (#353932): the central stone platform, its islands and pillars
+swamp/nature/swampmud004	material	wall-low	black mud (#251e16; the plan's Rot wall) along each wall's foot to 160
+nature/underworld_rockwall001	material	large-wall	the rock at 0.5 on the arena's 4096 walls
+swamp/brick/swampcobblewall001	material	door-frame	a rough cobbled arch round each doorway
+props_gameplay/door_grate003_floorplate	static	door-sill	covers the doorway's floor under the plugs (the kit's sill)
+props_viaduct_event/underworld_torch01	static	lamp	a burning torch on a stake (26 maps, the underworld's): the Pit's only fire
+props_coalmines/boulder_pile1	static	corner-pile	rock heaped in a corner (non-solid)
+props_coalmines/boulder3	static	floor-prop	a boulder in the mud
+water/water_underworld	water	water	the underworld's black-green water, drawn as descent/pit_slime (reflecting, no cubemap, its fog near black): the slime lake
+props_viaduct_event/underworld_torch01	static	arena-lamp	torches on the arena's platform, its only light but the slime's glow
+# rejected nature/blendrockgroundwallforest004 (the plan's Rot wall): its first texture is grass
+# rejected nature/toxicslime002a (the plan's slime): no texture in the database's TF2 rows

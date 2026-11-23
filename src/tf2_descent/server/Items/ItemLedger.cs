@@ -18,8 +18,22 @@ public sealed class ItemLedger(
     InMemoryItemLedger memory,
     HostedItemLedger hosted,
     HeroKeys keys,
-    ILog log) : IItemLedger, IGameLifecycle, IClientLifecycle
+    ILog log) : IItemLedger, IGameLifecycle, IClientLifecycle, IHeroJoinHook, IOrderedHook
 {
+    /// <summary>The join hook's place (the ledger is its one member today).</summary>
+    public int HookOrder => ModStages.First + 7;
+
+    /// <summary>
+    /// Hosted, a hero is loaded as his join answers (SDK 2.7: his kit is worn on the host from his
+    /// creation), so the load's change settles his TF kit and stats at once, not at whatever
+    /// first touches the ledger.
+    /// </summary>
+    public void OnHeroJoined(int entIndex, string steamId)
+    {
+        if (host.Mode == HostingMode.Hosted)
+            _ = hosted.Load(steamId);
+    }
+
     /// <summary>After HostService (First + 10), which decides the mode at PostInit.</summary>
     public int LifecycleOrder => ModStages.First + 73;
 
@@ -72,6 +86,10 @@ public sealed class ItemLedger(
     public Task<DropResult> ContainerDrop(ContainerDrop drop) => Current.ContainerDrop(drop);
     public Task<LedgerResult> Claim(string hero, long floorId) => Current.Claim(hero, floorId);
     public Task<LedgerResult> CollectAustralium(string hero, long amount) => Current.CollectAustralium(hero, amount);
+    public Task<PileAnswer> KillAustralium(KillPile kill) => Current.KillAustralium(kill);
+    public Task<PileTake> ClaimAustralium(string hero, long pileId, IReadOnlyList<string> members) => Current.ClaimAustralium(hero, pileId, members);
+    public Task<BreakAnswer> Break(BreakDrop drop) => Current.Break(drop);
+    public IReadOnlyCollection<AustraliumPile> Piles => Current.Piles;
     public Task<LedgerResult> Drop(string hero, int slot, Vector position) => Current.Drop(hero, slot, position);
     public Task<LedgerResult> Move(string hero, int from, int to) => Current.Move(hero, from, to);
     public Task<LedgerResult> Stack(string hero, int from, int to) => Current.Stack(hero, from, to);
@@ -95,6 +113,10 @@ public sealed class ItemLedger(
     public Task<bool> RecordDeath(string hero, Vector position) => Current.RecordDeath(hero, position);
     public Task<LootAnswer> LootCorpse(string hero) => Current.LootCorpse(hero);
     public LedgerCorpse? Corpse(string hero) => Current.Corpse(hero);
+    public IReadOnlyList<string> CorpsesLost() => Current.CorpsesLost();
+    public LedgerCorpse? LostAndFound(string hero) => Current.LostAndFound(hero);
+    public long? ReclaimFee(string hero) => Current.ReclaimFee(hero);
+    public Task<LedgerResult> Reclaim(string hero) => Current.Reclaim(hero);
     public Task<LedgerResult> Consume(string hero, int slot) => Current.Consume(hero, slot);
     public Task<LedgerResult> Wear(string hero, IReadOnlyList<WearEvents> events) => Current.Wear(hero, events);
     public Task<LedgerResult> RepairWorn(string hero, string equipSlot, WornRepair how) => Current.RepairWorn(hero, equipSlot, how);

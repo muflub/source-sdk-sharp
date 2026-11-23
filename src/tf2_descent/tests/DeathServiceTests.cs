@@ -204,7 +204,7 @@ public sealed class DeathServiceTests
         clients.Slots[3] = (76561197960287930UL, "203.0.113.7:27005");
         var net = new RecordingEngine();
         var players = new PlayerService(link, host, clients, new ClientMessages(net), new NeverScheduler(), log,
-                                        new TF2.Descent.Server.Hero.HeroSheets(new TF2.Descent.Rules.TF2DescentRules(), host, clients, log));
+                                        new TF2.Descent.Server.Hero.HeroSheets(new TF2.Descent.Rules.TF2DescentRules(), host, clients, log), new TF2.Descent.Tests.Hero.HeroRig.ListHooks<TF2.Descent.Server.IHeroJoinHook>([]));
         if (mode == HostingMode.Hosted)
             players.OnClientActive(3);    // FakeLink's join is already complete
 

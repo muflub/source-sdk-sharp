@@ -600,6 +600,37 @@ public class TFBlastApplierFacts
         Assert.Equal(71.5f, hit.ArgAs<float>(2), 1f);
     }
 
+    /// <summary>An entity that takes a blast whole: it records each blast it was handed.</summary>
+    private sealed class BlastTaker : ScriptedEntity, ITFBlastReceiver
+    {
+        public List<(Vector Source, TFBlast Blast, EntityHandle Attacker, EntityHandle Inflictor)> Taken { get; } = [];
+
+        public void TakeBlast(Vector source, in TFBlast blast, EntityHandle attacker, EntityHandle inflictor) =>
+            Taken.Add((source, blast, attacker, inflictor));
+    }
+
+    [Fact]
+    public void AnEntityThatTakesABlastWholeIsHandedItAndDealtNoHit()
+    {
+        var rig = new ProjectileRig();
+        var taker = new BlastTaker();
+        rig.Directory.Holds(ProjectileRig.Victim, taker);
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        rig.Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(60f, 0f, 0f));
+        rig.Engine.Returns("Entities.GetOrigin", new Vector(60f, 0f, 0f));
+        rig.Engine.Returns("WorldQuery.TraceLine",
+                           new TraceResult(true, 1f, new Vector(60f, 0f, 0f), default, EntityHandle.None));
+
+        rig.Blast.Apply(new Vector(0f, 0f, 0f), RocketBlast(), ProjectileRig.Player,
+                        ProjectileRig.ProjectileHandle, ignored: ProjectileRig.ProjectileHandle,
+                        TFWeaponId.Rocketlauncher, "tf_weapon_rocketlauncher", critical: false);
+
+        var taken = Assert.Single(taker.Taken);
+        Assert.Equal((new Vector(0f, 0f, 1f), ProjectileRig.Player, ProjectileRig.ProjectileHandle), (taken.Source, taken.Attacker, taken.Inflictor));
+        Assert.Equal(RocketBlast().Radius, taken.Blast.Radius);
+        Assert.Empty(rig.Engine.AllOf("Damage.TakeDamageAnswered"));
+    }
+
     [Fact]
     public void AnOwnerThatIsNoPlayerTakesItsOwnSweepAsDealt()
     {
@@ -1179,6 +1210,219 @@ public class TFBlastApplierFacts
                         TFWeaponId.Rocketlauncher, "tf_weapon_rocketlauncher", critical: false);
 
         Assert.Equal(0, rig.Engine.CountOf("Damage.TakeDamageAnswered"));
+    }
+
+    [Fact]
+    public void ABlastHandsANonPlayerVictimItsDirectionAwayFromTheCentre()
+    {
+        // CTFRadiusDamageInfo::ApplyToEntity (tf_gamerules.cpp:5846-5860):
+        // the hit carries dir — the normalized line away from the blast's
+        // lifted centre to the victim — and the centre itself as the force
+        // position. With no force on the info the engine manufactures one
+        // (CalculateExplosiveDamageForce, takedamageinfo.cpp:301-327): the
+        // answered damage times 75 kg x 4 in/s, clamped at 30000, fudged
+        // 0.85-1.15 through the engine's own random stream. What managed
+        // hands over is the direction and that centre: the victim at
+        // (60, 0, 0) of a blast at (0, 0, 0) takes
+        // (60, 0, -1) normalized, the centre lifted by the same 1 stock
+        // lifts vecSrc (:5635).
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        rig.Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(60f, 0f, 0f));
+        rig.Engine.Returns("Entities.GetOrigin", new Vector(60f, 0f, 0f));
+        rig.Engine.Returns("WorldQuery.TraceLine",
+                           new TraceResult(true, 1f, new Vector(60f, 0f, 0f), default, EntityHandle.None));
+
+        rig.Blast.Apply(new Vector(0f, 0f, 0f), RocketBlast(), ProjectileRig.Player,
+                        ProjectileRig.ProjectileHandle, ignored: ProjectileRig.ProjectileHandle,
+                        TFWeaponId.Rocketlauncher, "tf_weapon_rocketlauncher", critical: false);
+
+        var hit = rig.Engine.Last("Damage.TakeDamageAnswered");
+        Assert.NotNull(hit);
+
+        // A missing direction reads as the zeroed default, so the away-from-
+        // the-centre components below are also the non-null proof.
+        Vector direction = hit!.ArgAs<Vector>(4);
+        Assert.Equal(0.9999f, direction.X, 4);   // away from the centre, along +x
+        Assert.Equal(0f, direction.Y, 4);
+        Assert.Equal(-0.0167f, direction.Z, 4);  // the lifted centre tips it down
+
+        Assert.Equal(new Vector(0f, 0f, 1f), hit.ArgAs<Vector>(5)); // vecSrc itself
+    }
+
+    [Fact]
+    public void AnEnemyRocketBlastBesideAStuckStickyKnocksItLoose()
+    {
+        // OnTakeDamage of the stuck bomb (tf_weapon_grenade_pipebomb.cpp:
+        // 1046-1069): an enemy blow carrying DMG_BLAST scales the hit's
+        // force by tf_grenade_forcefrom_blast and past
+        // tf_pipebomb_force_to_move re-animates the prop. The force reaches
+        // the bomb through the answered ask's direction, so an enemy
+        // rocket's blast beside the sticky has to hand one over — and the
+        // bomb, given the force the ask carried, detaches.
+        var rig = new ProjectileRig();
+        var enemy = new EntityHandle(0x0001_0000u | 6);
+        rig.StickyVars.ForceFromBlast.Hold("0.15");
+        rig.Engine.ReturnsEachCall("Players.GetTeam", () =>
+            rig.Engine.Calls[^1].Args[0] is EntityHandle h && h == enemy ? 3 : 2);
+        rig.Engine.Returns("Clock.Now", 10f);
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        rig.Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(60f, 0f, 0f));
+        rig.Engine.Returns("Entities.GetOrigin", new Vector(60f, 0f, 0f));
+        rig.Engine.Returns("WorldQuery.TraceLine",
+                           new TraceResult(true, 1f, new Vector(60f, 0f, 0f), default, EntityHandle.None));
+
+        var sticky = rig.Sticky();
+        sticky.OnSpawn();
+        sticky.ThrownBy(ProjectileRig.Player, new Vector(2400f, 0f, 0f), 90f, 146f,
+                        TFWeaponId.Pipebomblauncher, "tf_weapon_pipebomblauncher", critical: false);
+        rig.Engine.Returns("Entities.GetIndex", 0); // the toucher is the world
+        sticky.OnTouch(new EntityHandle(0x0001_0000u)); // the world: it sticks
+        rig.Queue.Run(); // the pin waits for the step's end
+        Assert.Equal(1, rig.Engine.CountOf("EntityPhysics.EnableMotion"));
+
+        rig.Blast.Apply(new Vector(0f, 0f, 0f), RocketBlast(), ProjectileRig.Player,
+                        ProjectileRig.ProjectileHandle, ignored: ProjectileRig.ProjectileHandle,
+                        TFWeaponId.Rocketlauncher, "tf_weapon_rocketlauncher", critical: false);
+
+        var hit = rig.Engine.Last("Damage.TakeDamageAnswered");
+        Assert.NotNull(hit);
+        var direction = hit!.ArgAs<Vector>(4);
+        Assert.True(direction.LengthSquared > 0f, $"the handed force is not zero ({direction})");
+
+        int moved = sticky.OnDamagedAt(enemy, hit.ArgAs<float>(2), hit.ArgAs<DamageType>(3),
+                                       hit.ArgAs<Vector>(5), direction);
+        Assert.Equal(1, moved);
+        Assert.Equal(2, rig.Engine.CountOf("EntityPhysics.EnableMotion")); // re-animated
+        Assert.True(rig.Engine.Last("EntityPhysics.EnableMotion")!.ArgAs<bool>(1));
+    }
+
+    [Fact]
+    public void ThePlayersPushNumbersSurviveTheHandedForce()
+    {
+        // The player's push is stock's ApplyPushFromDamage inside
+        // OnTakeDamage_Alive (tf_player.cpp:10232): the managed Push owns
+        // it, and the force the answered ask now carries (stock's
+        // :5846-5860, what moves props and stickies) must not double it —
+        // the impulse keeps the numbers it had before the ask carried a
+        // direction at all. Half-falloff damage 71.5; the other's push is
+        // DamageForce at scale 6 along the lift-10 line: (60, 0, -9)
+        // normalized times 429, minus-signs folded in.
+        var rig = new ProjectileRig();
+        rig.Engine.Returns("Entities.IsPlayer", true);
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        rig.Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(60f, 0f, 0f));
+        rig.Engine.Returns("Entities.GetOrigin", new Vector(60f, 0f, 0f));
+        rig.Engine.Returns("Entities.GetBounds", (new Vector(-24f, -24f, 0f), new Vector(24f, 24f, 82f)));
+        rig.Engine.Returns("WorldQuery.TraceLine",
+                           new TraceResult(true, 1f, new Vector(60f, 0f, 0f), default, EntityHandle.None));
+
+        rig.Blast.Apply(new Vector(0f, 0f, 0f), RocketBlast(), ProjectileRig.Player,
+                        ProjectileRig.ProjectileHandle, ignored: ProjectileRig.ProjectileHandle,
+                        TFWeaponId.Rocketlauncher, "tf_weapon_rocketlauncher", critical: false);
+
+        Assert.Equal(1, rig.Engine.CountOf("Damage.TakeDamageAnswered")); // the hit
+        Assert.Equal(1, rig.Engine.CountOf("Entities.ApplyVelocityImpulse")); // pushed once
+
+        var impulse = EngineCallFacts.ArgAs<Vector>(rig.Engine.Last("Entities.ApplyVelocityImpulse"), 1);
+        Assert.Equal(424.3f, impulse.X, 1);
+        Assert.Equal(0f, impulse.Y, 1);
+        Assert.Equal(63.6f, impulse.Z, 1);
+    }
+
+    /// <summary>
+    /// The übered victim of the same rocket blast: stock's
+    /// <c>DAMAGE_EVENTS_ONLY</c> for an übered player
+    /// (<c>tf_gamerules.cpp:6366-6391</c>) holds the health whole — the
+    /// managed side answers a zero — but the hit still runs its events and
+    /// its push. Through the real blast path the held zero must not read as
+    /// a refusal at the push gate: the same rig answers the same push
+    /// numbers as the unübered victim's
+    /// (<see cref="ThePlayersPushNumbersSurviveTheHandedForce"/>), and the
+    /// hurt event still fires.
+    /// </summary>
+    [Fact]
+    public void AnUberedVictimOfARocketBlastKeepsItsHealthAndGetsTheSamePush()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.Returns("Entities.IsPlayer", true);
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        rig.Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(60f, 0f, 0f));
+        rig.Engine.Returns("Entities.GetOrigin", new Vector(60f, 0f, 0f));
+        rig.Engine.Returns("Entities.GetBounds", (new Vector(-24f, -24f, 0f), new Vector(24f, 24f, 82f)));
+        rig.Engine.Returns("WorldQuery.TraceLine",
+                           new TraceResult(true, 1f, new Vector(60f, 0f, 0f), default, EntityHandle.None));
+        // The hurt arm reaches its game event through these; their landing
+        // is what proves the events-only hit ran its events at all.
+        rig.Engine.Returns("Players.GetUserId", 3);
+        rig.Engine.Returns("GameEvents.EventCreate", new IntPtr(7));
+        rig.Engine.Returns("GameEvents.EventFire", true);
+
+        var rules = new HeldHitRules();
+        var moves = new SourceSharp.Server.Interop.ServerPlayerMoves();
+        moves.For(ProjectileRig.Victim);
+        var player = new SsPlayer(rig.Engine, rig.Engine, TestServices.Impacts(rig.Engine), TestServices.Fluid(),
+                                  TestServices.InfiniteAux(), TestServices.PrintDamage(),
+                                  inflictors: rig.Inflictors, rules: rules, moves: moves,
+                                  events: rig.Engine, entities: rig.Engine,
+                                  pushRules: new HeldHitHooks(new TF2.Server.Entities.TFNoCoreDamagePush()))
+        { Handle = ProjectileRig.Victim };
+        player.BindAreas(TestServices.Areas(rig.Engine));
+        player.State.BindLocal();
+        rig.Directory.Holds(ProjectileRig.Victim, player);
+
+        // The answered ask runs the player's own damage path, as the shell's
+        // TakeDamage does, and answers what the player took — the held zero.
+        int taken = 0;
+        rig.Engine.ReturnsEachCall("Damage.TakeDamageAnswered",
+            () => taken = player.OnDamagedAt(rig.Engine.Calls[^1].ArgAs<EntityHandle>(1),
+                                             rig.Engine.Calls[^1].ArgAs<float>(2),
+                                             rig.Engine.Calls[^1].ArgAs<DamageType>(3), default, default));
+
+        rig.Blast.Apply(new Vector(0f, 0f, 0f), RocketBlast(), ProjectileRig.Player,
+                        ProjectileRig.ProjectileHandle, ignored: ProjectileRig.ProjectileHandle,
+                        TFWeaponId.Rocketlauncher, "tf_weapon_rocketlauncher", critical: false);
+
+        Assert.True(taken == 0, $"the übered victim keeps its health: the shell subtracts {taken}");
+
+        // The hit's events ran: the hurt path reached the game event.
+        Assert.True(rig.Engine.Called("GameEvents.EventCreate"), rig.Engine.Describe());
+
+        // And the push landed with the hit's numbers, identical to the
+        // unübered victim's: a held-health zero is not a refusal at the gate.
+        var call = Assert.Single(rig.Engine.AllOf("Entities.ApplyVelocityImpulse"));
+        var impulse = EngineCallFacts.ArgAs<Vector>(call, 1);
+        Assert.True(impulse.Z != 0f, $"the blast must actually throw the victim, not answer a default ({impulse})");
+        Assert.Equal(424.3f, impulse.X, 1);
+        Assert.Equal(0f, impulse.Y, 1);
+        Assert.Equal(63.6f, impulse.Z, 1);
+    }
+
+    /// <summary>The rules for a hit an übered victim takes: the über's answer,
+    /// and a modify fold that numbers the hit whole.</summary>
+    private sealed class HeldHitRules : IGameRules
+    {
+        public Decision CanTakeDamage(EntityHandle player, EntityHandle attacker, float damage, int damageType,
+                                       float now, HitGroup hitGroup = HitGroup.Generic)
+            => Decision.EventsOnly;
+
+        public float ModifyDamage(EntityHandle victim, EntityHandle attacker, float damage, int damageType,
+                                  HitGroup hitGroup = HitGroup.Generic)
+            => damage;
+
+        public Decision CanRespawn(EntityHandle player) => Decision.UseStockRule;
+        public float GetRespawnDelay(EntityHandle player) => -1f;
+        public bool IsProtected(EntityHandle player, float now) => false;
+        public bool RoundOver => false;
+        public void OnPlayerSpawned(EntityHandle player, float now) { }
+        public void Forget(EntityHandle player) { }
+    }
+
+    /// <summary>The one-hook shape the composition root hands the player's hooks.</summary>
+    private sealed class HeldHitHooks(TF2.Server.Entities.TFNoCoreDamagePush hook) : IHooks<IPlayerDamagePushRule>
+    {
+        public IReadOnlyList<IPlayerDamagePushRule> All => new IPlayerDamagePushRule[] { hook };
+        public void Each(string what, Action<IPlayerDamagePushRule> call) => call(hook);
     }
 }
 
@@ -2230,6 +2474,246 @@ public class TFProjectileEffectsFacts
         Assert.Equal(TraceMask.Solid, rig.Engine.Last("WorldQuery.TraceLine")!.ArgAs<TraceMask>(2));
     }
 
+    /// <summary>
+    /// Stock's teammate-pass window (<c>CTFBaseRocket::PhysicsSolidMaskForEntity</c>,
+    /// tf_weaponbase_rocket.cpp:354-369; <c>ResetCollideWithTeammates</c>,
+    /// baseprojectile.cpp:212-230): while the rocket is younger than
+    /// <see cref="TFProjectileDefs.CollideWithTeammatesDelay"/> its sweep carries only the
+    /// other team's contents bit, so a teammate standing in front does not stop it — the
+    /// rocket-jump over the heavy who walked in front of the soldier. At 0.2 s the shot
+    /// flies through the teammate and is spent on what stands behind him, not on his body.
+    /// </summary>
+    [Fact]
+    public void A_rocket_passes_its_own_teammate_for_the_first_quarter_second()
+    {
+        var rig = new ProjectileRig();
+        var rocket = rig.Rocket();
+        rocket.Handle = ProjectileRig.ProjectileHandle;
+        rig.Directory.Instance = rocket;
+        var teammate = new EntityHandle(0x0001_0000u | 4);
+
+        rig.Engine.Returns("Entities.GetParent", EntityHandle.None)
+                  .Returns("Entities.GetOrigin", Vector.Zero)
+                  .Returns("Entities.IsPlayer", true)
+                  .Returns("Players.GetTeam", 2)
+                  .ReturnsEachCall("WorldQuery.TraceLine", () =>
+                      rig.Engine.Calls.Count(c => c.Member == "WorldQuery.TraceLine") <= 2
+                          ? new TraceResult(true, 0.5f, new Vector(0f, 7.5f, 0f), new Vector(0f, -1f, 0f), teammate)
+                          : new TraceResult(true, 0.8f, new Vector(0f, 12f, 0f), new Vector(0f, 0f, 1f), EntityHandle.None))
+                  .Ignores("Entities.SetOrigin", "Entities.SetVelocity");
+
+        rig.MotionDirectory.Bind(ProjectileRig.ProjectileHandle, rocket);
+        rocket.FiredBy(ProjectileRig.Player, new Vector(0f, 1000f, 0f));
+        rig.Motion.RunFrame(0.015f);   // stops on the teammate; the pass is armed
+        rig.Motion.RunFrame(0.015f);   // flown through him — the brush behind stops the shot
+
+        Assert.Equal(EntityHandle.None, rocket.DirectVictim);
+
+        // The floor beyond the teammate, not the step's destination: the world kept its say.
+        var origin = rig.Engine.Last("Entities.SetOrigin")!.ArgAs<Vector>(1);
+        Assert.Equal(12f, origin.Y, 0.01f);
+
+        // The first sweep carries the full solid mask; the re-trace that replaced
+        // it is brush-only, and the hull's sweep is recorded beside the line's.
+        var traces = rig.Engine.AllOf("WorldQuery.TraceLine")
+                          .Concat(rig.Engine.AllOf("WorldQuery.TraceBox")).ToArray();
+        Assert.Equal(TraceMask.Solid, traces[0].ArgAs<TraceMask>(2));
+        Assert.Contains(traces, t => t.ArgAs<TraceMask>(2) == TraceMask.Brushes);
+    }
+
+    /// <summary>
+    /// After the delay the mask carries both teams' bits
+    /// (<c>tf_weaponbase_rocket.cpp:363-366</c>, answered by <c>CTFPlayer::ShouldCollide</c>,
+    /// tf_player.cpp:10159-10178): at 0.3 s a teammate stops the rocket and it is spent on him.
+    /// </summary>
+    [Fact]
+    public void A_rocket_hits_a_teammate_once_the_delay_has_passed()
+    {
+        var rig = new ProjectileRig();
+        var rocket = rig.Rocket();
+        rocket.Handle = ProjectileRig.ProjectileHandle;
+        rig.Directory.Instance = rocket;
+        var teammate = new EntityHandle(0x0001_0000u | 4);
+
+        rig.Engine.Returns("Entities.GetParent", EntityHandle.None)
+                  .Returns("Entities.GetOrigin", Vector.Zero)
+                  .Returns("Players.GetTeam", 2)
+                  .ReturnsEachCall("WorldQuery.TraceLine", () =>
+                      rig.Engine.Calls.Count(c => c.Member == "WorldQuery.TraceLine") <= 2
+                          ? new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None)
+                          : new TraceResult(true, 0.5f, new Vector(0f, 7.5f, 0f), new Vector(0f, -1f, 0f), teammate))
+                  .Ignores("Entities.SetOrigin", "Entities.SetVelocity");
+
+        rig.MotionDirectory.Bind(ProjectileRig.ProjectileHandle, rocket);
+        rocket.FiredBy(ProjectileRig.Player, new Vector(0f, 1000f, 0f));
+        rig.Motion.RunFrame(0.1f);     // two fly-over frames put the age past the delay
+        rig.Motion.RunFrame(0.1f);
+        rig.Motion.RunFrame(0.1f);     // third frame: the teammate stops it
+
+        Assert.Equal(teammate, rocket.DirectVictim);
+
+        var origin = rig.Engine.Last("Entities.SetOrigin")!.ArgAs<Vector>(1);
+        Assert.Equal(7.5f, origin.Y, 0.01f);
+
+        // Past the delay the sweep itself stops the shot: the stop trace carries the
+        // full solid mask and no brush-only re-trace replaces it.
+        var traces = rig.Engine.AllOf("WorldQuery.TraceLine").ToArray();
+        Assert.Equal(TraceMask.Solid, traces[0].ArgAs<TraceMask>(2));
+    }
+
+    /// <summary>
+    /// The other team's bit is in the mask from the first frame
+    /// (<c>tf_weaponbase_rocket.cpp:358-361</c>): at 0.1 s an enemy stops the rocket —
+    /// the window passes teammates, not everybody.
+    /// </summary>
+    [Fact]
+    public void A_rocket_hits_an_enemy_inside_the_pass_delay()
+    {
+        var rig = new ProjectileRig();
+        var rocket = rig.Rocket();
+        rocket.Handle = ProjectileRig.ProjectileHandle;
+        rig.Directory.Instance = rocket;
+        var enemy = ProjectileRig.Victim;
+        var answers = new Queue<int>(new[] { 2, 3 });
+
+        rig.Engine.Returns("Entities.GetParent", EntityHandle.None)
+                  .Returns("Entities.GetOrigin", Vector.Zero)
+                  .Returns("Entities.IsPlayer", true)
+                  .ReturnsEachCall("Players.GetTeam", () => answers.Dequeue())
+                  .Returns("WorldQuery.TraceLine",
+                      new TraceResult(true, 0.5f, new Vector(0f, 7.5f, 0f), new Vector(0f, -1f, 0f), enemy))
+                  .Ignores("Entities.SetOrigin", "Entities.SetVelocity");
+
+        rig.MotionDirectory.Bind(ProjectileRig.ProjectileHandle, rocket);
+        rocket.FiredBy(ProjectileRig.Player, new Vector(0f, 1000f, 0f));
+        rig.Motion.RunFrame(0.015f);   // age 0.015 — inside the window
+
+        Assert.Equal(enemy, rocket.DirectVictim);
+
+        // The enemy stops the shot inside the window: the sweep itself hits him,
+        // on the full solid mask — the window passes teammates, not everybody.
+        var traces = rig.Engine.AllOf("WorldQuery.TraceLine").ToArray();
+        Assert.Equal(TraceMask.Solid, traces[0].ArgAs<TraceMask>(2));
+    }
+
+    /// <summary>
+    /// The pass is a mask change, not a cleared step
+    /// (<c>PhysicsCheckSweep</c>'s shape): when the teammate stands on the floor the
+    /// rocket is to reach, flying through him must still stop on that floor — not carry
+    /// on to the step's destination past it. Seventeen rockets were lost under the
+    /// cleared shape on ctf_2fort, 4v4 bots.
+    /// </summary>
+    [Fact]
+    public void A_passed_teammate_on_the_floor_still_stops_the_rocket_below_it()
+    {
+        var rig = new ProjectileRig();
+        var rocket = rig.Rocket();
+        rocket.Handle = ProjectileRig.ProjectileHandle;
+        rig.Directory.Instance = rocket;
+        var teammate = new EntityHandle(0x0001_0000u | 4);
+
+        rig.Engine.Returns("Entities.GetParent", EntityHandle.None)
+                  .Returns("Entities.GetOrigin", Vector.Zero)
+                  .Returns("Entities.IsPlayer", true)
+                  .Returns("Players.GetTeam", 2)
+                  .ReturnsEachCall("WorldQuery.TraceLine", () =>
+                      rig.Engine.Calls.Count(c => c.Member == "WorldQuery.TraceLine") <= 2
+                          ? new TraceResult(true, 0.5f, new Vector(0f, 7.5f, 0f), new Vector(0f, -1f, 0f), teammate)
+                          : new TraceResult(true, 0.8f, new Vector(0f, 12f, 0f), new Vector(0f, 0f, 1f), EntityHandle.None))
+                  .Ignores("Entities.SetOrigin", "Entities.SetVelocity");
+
+        rig.MotionDirectory.Bind(ProjectileRig.ProjectileHandle, rocket);
+        rocket.FiredBy(ProjectileRig.Player, new Vector(0f, 1000f, 0f));
+        rig.Motion.RunFrame(0.015f);
+        rig.Motion.RunFrame(0.015f);
+
+        // The teammate standing on the floor did not let the shot through it: the
+        // re-trace beside him is brush-only, and the floor answered it at twelve.
+        var origin = rig.Engine.Last("Entities.SetOrigin")!.ArgAs<Vector>(1);
+        Assert.Equal(12f, origin.Y, 0.01f);
+
+        var traces = rig.Engine.AllOf("WorldQuery.TraceLine")
+                          .Concat(rig.Engine.AllOf("WorldQuery.TraceBox")).ToArray();
+        Assert.Contains(traces, t => t.ArgAs<TraceMask>(2) == TraceMask.Brushes);
+    }
+
+    /// <summary>
+    /// The window leaves out the TEAMMATE, not every player (stock's mask keeps the
+    /// other team's bit, <c>tf_weaponbase_rocket.cpp:358-361</c>): a rocket that has
+    /// flown past a teammate still stops on the enemy behind him. Review of F242: a
+    /// pass that stayed on for the rest of the flight flew through that enemy too.
+    /// </summary>
+    [Fact]
+    public void A_rocket_that_flew_past_a_teammate_still_hits_the_enemy_behind_him()
+    {
+        var rig = new ProjectileRig();
+        var rocket = rig.Rocket();
+        rocket.Handle = ProjectileRig.ProjectileHandle;
+        rig.Directory.Instance = rocket;
+        var teammate = new EntityHandle(0x0001_0000u | 4);
+        var enemy = ProjectileRig.Victim;
+
+        rig.Engine.Returns("Entities.GetParent", EntityHandle.None)
+                  .Returns("Entities.GetOrigin", Vector.Zero)
+                  .Returns("Entities.IsPlayer", true)
+                  .ReturnsEachCall("Players.GetTeam", () => rig.Engine.Calls[^1].ArgAs<EntityHandle>(0) == enemy ? 3 : 2)
+                  .ReturnsEachCall("WorldQuery.TraceLine", () =>
+                      rig.Engine.Calls.Count(c => c.Member == "WorldQuery.TraceLine") switch
+                      {
+                          1 or 2 => new TraceResult(true, 0.5f, new Vector(0f, 7.5f, 0f), new Vector(0f, -1f, 0f), teammate),
+                          4 => new TraceResult(true, 0.5f, new Vector(0f, 30f, 0f), new Vector(0f, -1f, 0f), enemy),
+                          _ => new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None),
+                      })
+                  .Ignores("Entities.SetOrigin", "Entities.SetVelocity");
+
+        rig.MotionDirectory.Bind(ProjectileRig.ProjectileHandle, rocket);
+        rocket.FiredBy(ProjectileRig.Player, new Vector(0f, 1000f, 0f));
+        rig.Motion.RunFrame(0.015f);   // strikes the teammate: flown past
+        rig.Motion.RunFrame(0.015f);   // through him, against the brushes alone
+        rig.Motion.RunFrame(0.015f);   // the enemy behind him stops it
+
+        Assert.Equal(enemy, rocket.DirectVictim);
+    }
+
+    /// <summary>
+    /// The pass belongs to the body struck inside the window, and ends with it: a rocket
+    /// that flew past one teammate early is stopped by the next teammate it meets after
+    /// <see cref="TFProjectileDefs.CollideWithTeammatesDelay"/>.
+    /// </summary>
+    [Fact]
+    public void A_rocket_that_flew_past_a_teammate_early_is_stopped_by_a_teammate_after_the_delay()
+    {
+        var rig = new ProjectileRig();
+        var rocket = rig.Rocket();
+        rocket.Handle = ProjectileRig.ProjectileHandle;
+        rig.Directory.Instance = rocket;
+        var first = new EntityHandle(0x0001_0000u | 4);
+        var second = new EntityHandle(0x0001_0000u | 6);
+
+        rig.Engine.Returns("Entities.GetParent", EntityHandle.None)
+                  .Returns("Entities.GetOrigin", Vector.Zero)
+                  .Returns("Entities.IsPlayer", true)
+                  .Returns("Players.GetTeam", 2)
+                  .ReturnsEachCall("WorldQuery.TraceLine", () =>
+                      rig.Engine.Calls.Count(c => c.Member == "WorldQuery.TraceLine") switch
+                      {
+                          1 or 2 => new TraceResult(true, 0.5f, new Vector(0f, 7.5f, 0f), new Vector(0f, -1f, 0f), first),
+                          6 => new TraceResult(true, 0.5f, new Vector(0f, 300f, 0f), new Vector(0f, -1f, 0f), second),
+                          _ => new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None),
+                      })
+                  .Ignores("Entities.SetOrigin", "Entities.SetVelocity");
+
+        rig.MotionDirectory.Bind(ProjectileRig.ProjectileHandle, rocket);
+        rocket.FiredBy(ProjectileRig.Player, new Vector(0f, 1000f, 0f));
+        rig.Motion.RunFrame(0.015f);   // strikes the first teammate inside the window
+        rig.Motion.RunFrame(0.015f);   // through him (the re-trace is the third trace)
+        rig.Motion.RunFrame(0.1f);     // open air
+        rig.Motion.RunFrame(0.1f);     // open air: the age is past the delay
+        rig.Motion.RunFrame(0.1f);     // the second teammate stops it
+
+        Assert.Equal(second, rocket.DirectVictim);
+    }
+
     [Fact]
     public void A_pipe_carries_the_shot_the_hooks_answered()
     {
@@ -3053,6 +3537,10 @@ public sealed class TFProjectileEnergyBallFacts
         // impact; a fact's own Returns after the arm turns the answer.
         rig.Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(0f, 0f, 64f));
         rig.Engine.Returns("Precache.ParticleSystemIndex", 7);
+        // The victim on the other team: a touch inside the teammate window
+        // (TFProjectileDefs.OwnTeamWithinPass) flies past a teammate.
+        rig.Engine.ReturnsEachCall("Players.GetTeam",
+                                   () => rig.Engine.Calls[^1].ArgAs<EntityHandle>(0) == ProjectileRig.Victim ? 3 : 2);
         ball.ArmedBy(100f, TFWeaponId.Raygun, "tf_weapon_raygun", critical, charged, 1);
         return ball;
     }
@@ -3187,8 +3675,10 @@ public sealed class TFProjectileEnergyBallFacts
         var rig = new ProjectileRig();
         rig.Engine.FillsSphere(ProjectileRig.Victim);
         rig.Engine.Returns("Precache.ParticleSystemIndex", 7);
-        rig.Engine.Returns("Players.GetTeam", 3);   // TF_TEAM_BLUE
         var ball = Arm(rig, charged: false);
+        // A BLU owner (TF_TEAM_BLUE) and a RED victim.
+        rig.Engine.ReturnsEachCall("Players.GetTeam",
+                                   () => rig.Engine.Calls[^1].ArgAs<EntityHandle>(0) == ProjectileRig.Victim ? 2 : 3);
 
         ball.OnTouch(ProjectileRig.Victim);
 

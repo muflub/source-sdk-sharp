@@ -9,8 +9,8 @@ namespace TF2.Descent.Server.Party;
 /// The <see cref="IParties"/> game code is given: the host's parties when this server runs
 /// against a hosting service, the in-memory ones when it runs <c>-unhosted</c>, chosen by
 /// <see cref="HostService.Mode"/> at each call, as <see cref="ItemLedger"/> chooses its ledger.
-/// It also tells the parties when a hero disconnects (unhosted he leaves his party; a level
-/// change's reported departures are the travellers' and are dropped), and,
+/// It also tells the parties when a hero disconnects (unhosted he leaves his party, at the next
+/// frame or the next level's init, whichever comes first), and,
 /// hosted, asks the host for each hero's party when he is first seen and every
 /// <see cref="RefreshFrames"/> frames after (the host tells no change made elsewhere).
 /// </summary>
@@ -54,10 +54,10 @@ public sealed class Parties(HostService host, InMemoryParties memory, HostedPart
     public void Gone(string hero) => Current.Gone(hero);
 
     /// <summary>
-    /// A client went: he is gone from the parties at the next frame, not now. A level change
-    /// reports every travelling client as gone (measured live: the core's player removal at the
-    /// change; RejoinScores records them too) and each comes back on the new level in his slot,
-    /// so a departure the next level's init finds still pending is a traveller's, and is dropped.
+    /// A client went: he is gone from the parties at the next frame, not now. The core reports a
+    /// real departure only (the engine's <c>player_disconnect</c>, main 7ba83b22e and 274fff686): a
+    /// level change keeps every travelling client connected and reports none, so a departure is
+    /// carried out whatever the level does (<see cref="OnLevelInit"/>).
     /// </summary>
     public void OnClientDisconnected(int entIndex)
     {
@@ -65,8 +65,21 @@ public sealed class Parties(HostService host, InMemoryParties memory, HostedPart
             _departing.Add(hero);
     }
 
-    /// <summary>A new level: the departures the change reported are the travellers', who stay in their parties.</summary>
-    public void OnLevelInit(string mapName) => _departing.Clear();
+    /// <summary>A new level: a departure reported in the last level's last frame is carried out now (it is a real one: see <see cref="OnClientDisconnected"/>).</summary>
+    public void OnLevelInit(string mapName) => Depart();
+
+    /// <summary>Each departure reported since the last look leaves the parties.</summary>
+    private void Depart()
+    {
+        if (_departing.Count == 0)
+            return;
+        foreach (string hero in _departing)
+        {
+            Gone(hero);
+            _seen.Remove(hero);
+        }
+        _departing.Clear();
+    }
 
     public int LifecycleOrder => Order;
 
@@ -82,16 +95,7 @@ public sealed class Parties(HostService host, InMemoryParties memory, HostedPart
     /// </summary>
     public void OnThink(float frameTime)
     {
-        if (_departing.Count > 0)
-        {
-            foreach (string hero in _departing)
-            {
-                Gone(hero);
-                _seen.Remove(hero);
-            }
-            _departing.Clear();
-        }
-
+        Depart();
         if (!Hosted)
             return;
         bool all = ++_frame % RefreshFrames == 0;

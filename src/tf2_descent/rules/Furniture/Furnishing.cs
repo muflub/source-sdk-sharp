@@ -24,7 +24,11 @@ public sealed record Placed(
     string? KeyRoom = null,
     string? Trap = null);
 
-/// <summary>A level's furniture: one entry per furnished marker, in room then marker order.</summary>
+/// <summary>
+/// A level's furniture: one entry per furnished marker, in room then marker order; then the
+/// breakables standing on markers the furnishing passed over (a rule's <see cref="MarkerRule.Otherwise"/>),
+/// in room then marker order.
+/// </summary>
 public sealed record Furnishing(ImmutableArray<Placed> Placed)
 {
     public IEnumerable<Placed> In(string room) => Placed.Where(p => p.Room == room);
@@ -37,7 +41,10 @@ public sealed record Furnishing(ImmutableArray<Placed> Placed)
 /// is furnished with the kind's fill chance. What stands on it, and whether a container is
 /// locked or trapped, is rolled from the level seed and the marker, so the same room is
 /// furnished differently on another level seed. A locked container's key drops in another
-/// room of the level; with no other room, nothing is locked.
+/// room of the level; with no other room, nothing is locked. A breakable marker holds its rule's
+/// crate or barrel; a marker whose rule has an otherwise and that was passed over (past the
+/// room's limit, or its fill roll failed) holds that breakable, listed after every furnished marker
+/// so the furnished ones keep their places.
 /// </summary>
 public sealed class FurnishingRules
 {
@@ -50,6 +57,7 @@ public sealed class FurnishingRules
     public Furnishing Furnish(ulong levelSeed, IReadOnlyList<RoomMarkers> rooms)
     {
         var placed = ImmutableArray.CreateBuilder<Placed>();
+        var passedOver = new List<Placed>();
         var allRooms = rooms.Select(r => r.Room).Distinct(StringComparer.Ordinal).ToList();
         foreach (var room in rooms)
         {
@@ -57,21 +65,31 @@ public sealed class FurnishingRules
             {
                 var ofKind = room.Markers.Where(m => m.Poi == rule.Poi).OrderBy(m => m.Id, StringComparer.Ordinal);
                 var order = Seeded.From(levelSeed, "furnish-order", room.Room, rule.Poi).Shuffle(ofKind);
+                var filled = new HashSet<string>(StringComparer.Ordinal);
                 foreach (var marker in order.Take(rule.PerRoom).OrderBy(m => m.Id, StringComparer.Ordinal))
                 {
                     var roll = Seeded.From(levelSeed, "furnish", marker.Id);
                     if (!roll.Chance(rule.FillPct)) continue;
-                    placed.Add(Place(room.Room, marker, rule.Kind, ref roll, allRooms));
+                    placed.Add(Place(room.Room, marker, rule, ref roll, allRooms));
+                    filled.Add(marker.Id);
                 }
+
+                if (rule.Otherwise is { } breakable)
+                    foreach (var marker in ofKind.Where(m => !filled.Contains(m.Id)))
+                        passedOver.Add(new Placed(marker.Id, room.Room, FurnitureKind.Breakable, breakable));
             }
         }
+        placed.AddRange(passedOver);
         return new Furnishing(placed.ToImmutable());
     }
 
-    private Placed Place(string room, FurnitureMarker marker, FurnitureKind kind, ref Seeded roll, List<string> rooms)
+    private Placed Place(string room, FurnitureMarker marker, MarkerRule rule, ref Seeded roll, List<string> rooms)
     {
+        var kind = rule.Kind;
         switch (kind)
         {
+            case FurnitureKind.Breakable:
+                return new Placed(marker.Id, room, kind, rule.Variant!);
             case FurnitureKind.Shrine:
                 return new Placed(marker.Id, room, kind, S.Shrines[roll.Pick([.. S.Shrines.Select(s => s.Weight)])].Id);
             case FurnitureKind.Dispenser:

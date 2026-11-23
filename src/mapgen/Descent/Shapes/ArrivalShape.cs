@@ -18,6 +18,13 @@ public static class ArrivalShape
     public static IEnumerable<Room> Variants(RoomKit kit, RoomTheme theme, ulong seed)
     {
         var rng = new RoomSeed(seed, "arrival");
+        // Level 5's lift station on its 512 kit (brief p18): 2 by 2 cells, its one door east.
+        if (Parts.SpanCells(kit) > 1)
+        {
+            yield return Cage("arrival_cagea", kit, theme, Parts.E, rng);
+            yield break;
+        }
+
         foreach (var (id, doors) in DoorSets)
         {
             yield return Shaft("arrival_shaft" + id, kit, theme, doors, rng);
@@ -31,22 +38,24 @@ public static class ArrivalShape
     public static IReadOnlyList<(string Id, CellFace[] Doors)> DoorSets { get; } = [("a", Parts.E), ("b", Parts.WE), ("c", Parts.NE)];
 
     /// <summary>The room's body: 672 by 640 in the cell's middle, room for a cage's alcove off any side.</summary>
-    public static Rect Body(RoomKit kit) => Rect.Around(kit.Cell / 2f, kit.Cell / 2f - 32, 672, 640);
+    public static Rect Body(RoomKit kit) =>
+        // On level 5's 512 kit 8 further north, so no face of a station's platform lies on the room's middle cell face.
+        Rect.Around(Parts.Span(kit) / 2f, Parts.Span(kit) / 2f - (Parts.SpanCells(kit) > 1 ? 24 : 32), 672, 640);
 
     /// <summary>The body and its necks to <paramref name="doors"/>.</summary>
     public static RoomBuilder Shell(RoomBuilder b, Rect body, CellFace[] doors)
     {
         b.WithOutline(body).WithBody(body);
         foreach (CellFace face in doors)
-            b.WithOutline(Parts.Neck(b.Kit, face, 256, NeckLength(b.Kit, body, face)));
+            b.WithOutline(Parts.Neck(b, face, 256, NeckLength(b.Kit, body, face)));
         return b;
     }
 
     private static float NeckLength(RoomKit kit, Rect body, CellFace face) => face switch
     {
-        CellFace.East => kit.Cell - kit.WallDepth - body.X1 + 32,
+        CellFace.East => Parts.Span(kit) - kit.WallDepth - body.X1 + 32,
         CellFace.West => body.X0 - kit.WallDepth + 32,
-        CellFace.North => kit.Cell - kit.WallDepth - body.Y1 + 32,
+        CellFace.North => Parts.Span(kit) - kit.WallDepth - body.Y1 + 32,
         _ => body.Y0 - kit.WallDepth + 32,
     };
 
@@ -64,7 +73,7 @@ public static class ArrivalShape
     }
 
     private static RoomBuilder New(string name, RoomKit kit, RoomTheme theme, CellFace[] doors, int minDepth, int maxDepth, int height = Height) =>
-        new RoomBuilder(name, kit, theme).WithHeight(height).WithDoors(doors)
+        new RoomBuilder(name, kit, theme).WithHeight(height).Seat(doors)
             .WithEntry(new RoomEntry(["start"], MinDepth: minDepth, MaxDepth: maxDepth)).WithMapLabel("Way in");
 
     /// <summary>Level 1: the foot of the town's shaft, open to the sky.</summary>
@@ -80,7 +89,7 @@ public static class ArrivalShape
         // The shaft over the cage, its back flush with the alcove's.
         var shaft = Stations.OutRect(body, wall, along - MineShaft.Half, Stations.AlcoveDepth - MineShaft.Size, along + MineShaft.Half, Stations.AlcoveDepth);
         float cx = shaft.CentreX, cy = shaft.CentreY;
-        float t = kit.WallDepth, c = kit.Cell;
+        float t = kit.WallDepth, c = Parts.Span(kit);
         foreach (Rect r in Rects.Subtract(new Rect(t, t, c - t, c - t), [shaft]))
             b.WithBox(new Point(r.X0, r.Y0, b.Floor + roof), new Point(r.X1, r.Y1, b.CeilingUnderside), MineShaft.Lining);
         b.WithOutline(shaft).WithSkyCeiling(shaft);

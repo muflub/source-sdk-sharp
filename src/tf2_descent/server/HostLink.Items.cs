@@ -106,4 +106,51 @@ public sealed partial class HostLink : IHostItems
 
     public Task<HostResult<IReadOnlyList<HostItem>>> Salvage(string steamId, string itemId) =>
         Leased(steamId, (sdk, held) => sdk.Items.Salvage(held.Lease, itemId));
+
+    public Task<HostResult<HostItem>> Move(string steamId, string itemId, HostContainer container, int slot) =>
+        Leased(steamId, (sdk, held) => sdk.Items.Move(held.Lease, itemId, container, slot));
+
+    public Task<HostResult<HostItem>> Consume(string steamId, string itemId, int count) =>
+        Leased(steamId, (sdk, held) => sdk.Items.Consume(held.Lease, itemId, count));
+
+    public Task<HostResult<IReadOnlyList<HostItem>>> Wear(string steamId, IReadOnlyList<HostWear> entries) =>
+        Leased(steamId, (sdk, held) => sdk.Items.Wear(held.Lease, entries));
+
+    public Task<HostResult<HostItem>> Repair(string steamId, string itemId, HostRepairKind kind, string? kitId) =>
+        Leased(steamId, (sdk, held) => sdk.Items.Repair(held.Lease, itemId, kind, kitId));
+
+    public Task<HostResult<IReadOnlyList<HostItem>>> OpenContainer(string steamId, uint containerSeq) =>
+        Leased(steamId, async (sdk, held) => Named(await sdk.Items.OpenContainer(held.Lease, containerSeq)));
+
+    public Task<HostResult<HostItem>> KillAustralium(string steamId, uint killSeq, string robot, int partySize, Vector position) =>
+        Leased(steamId, (sdk, held) => sdk.Items.KillAustralium(held.Lease, killSeq, robot, partySize, Point(position)));
+
+    public Task<HostResult<IReadOnlyList<HostAustraliumCredit>>> ClaimAustralium(string steamId, string pileId) =>
+        Leased(steamId, async (sdk, held) =>
+        {
+            var r = await sdk.Items.ClaimAustralium(held.Lease, pileId);
+            return r.Ok ? HostResult<IReadOnlyList<HostAustraliumCredit>>.Success([.. r.Value.Select(c => c with { CharacterId = SteamIdOf(c.CharacterId) })]) : r;
+        });
+
+    /// <summary>The SteamID of the held player whose character is <paramref name="characterId"/>; the id itself for one not held here. SDK thread.</summary>
+    private string SteamIdOf(string characterId)
+    {
+        foreach (var (steamId, held) in _held)
+            if (held.Lease.CharacterId == characterId)
+                return steamId;
+        return characterId;
+    }
+
+    public Task<HostResult<HostBreak>> Break(string steamId, uint breakableSeq) =>
+        Leased(steamId, async (sdk, held) =>
+        {
+            var r = await sdk.Items.Break(held.Lease, breakableSeq);
+            return r.Ok ? HostResult<HostBreak>.Success(r.Value with { Items = [.. r.Value.Items.Select(Named)] }) : r;
+        });
+
+    public Task<HostResult<IReadOnlyList<HostItem>>> Swap(string steamId, string itemA, string itemB) =>
+        Leased(steamId, (sdk, held) => sdk.Items.Swap(held.Lease, itemA, itemB));
+
+    public Task<HostResult<IReadOnlyList<HostItem>>> Merge(string steamId, string fromItemId, string intoItemId) =>
+        Leased(steamId, (sdk, held) => sdk.Items.Merge(held.Lease, fromItemId, intoItemId));
 }

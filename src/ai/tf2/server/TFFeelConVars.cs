@@ -5,7 +5,7 @@ namespace SourceSharp.Ai.TF2;
 
 /// <summary>
 /// <c>ai_tf_feel_carrier</c>: 0 makes the enemy carrying a bot's flag no one special as a target
-/// (<see cref="TFFeelSwitches.Carrier"/>). Each of these seven switches one part of the feel layer
+/// (<see cref="TFFeelSwitches.Carrier"/>). Each of these switches one part of the feel layer
 /// (plan_bots_teams_tf2_part_g G.2.1) off, to tell in a live game which part changed the bots'
 /// play; a bot reads them once, when it is added, so each is a cheat as <c>ai_sync</c> is.
 /// </summary>
@@ -37,12 +37,38 @@ public sealed class TFFeelGlanceConVar : BoolConVar { }
 public sealed class TFFeelPrefireConVar : BoolConVar { }
 
 /// <summary>
-/// The feel layer's switches as the seven convars stand now. <see cref="TFBotGame"/> reads them when
+/// <c>ai_tf_feel_jumphealth</c> (lane G9): 0 and a Soldier's planned rocket jump keeps the health floor of 90 wherever it
+/// lands; 1 (the default) and one that lands by a health pack or a cabinet it may use may leave it under the floor
+/// (<see cref="TFFeelSwitches.JumpHealth"/>, <see cref="Jump.JumpHealthRule"/>). A bot reads it when added; the level's
+/// links are published by it when the level loads (a change takes a <c>changelevel</c>).
+/// </summary>
+[ConVar("ai_tf_feel_jumphealth", "1", Help = "0: a Soldier's rocket jump keeps the health floor of 90 even when it lands by a health pack; for bots added and levels loaded afterwards", Flags = ConVarFlags.Cheat)]
+public sealed class TFFeelJumpHealthConVar : BoolConVar { }
+
+/// <summary>
+/// <c>ai_tf_feel_fight</c> (lane Gfight): 0 and a fighting Soldier moves as it did before the lane: a sidestep only in
+/// Agility's share of its stretches (a Medium one stood still for most of a fight), a coin for each side, no hop, crouch
+/// or cover (<see cref="TFFeelSwitches.Fight"/>, TFDecider.Fight.cs).
+/// </summary>
+[ConVar("ai_tf_feel_fight", "1", Help = "0: a fighting bot sidesteps only by Agility's share, with no hop, crouch or cover, as before; for bots added afterwards", Flags = ConVarFlags.Cheat)]
+public sealed class TFFeelFightConVar : BoolConVar { }
+
+/// <summary>
+/// <c>ai_tf_feel_routes</c> (lane Groutes): 0 and a bot's searches have no field of its own, so every bot from one place
+/// takes the one shortest way, as before (<see cref="TFFeelSwitches.Routes"/>, <see cref="Nav.TFRouteVariation"/>).
+/// </summary>
+[ConVar("ai_tf_feel_routes", "1", Help = "0: a bot's searches have no field of its own, so every bot takes the one shortest way; for bots added afterwards", Flags = ConVarFlags.Cheat)]
+public sealed class TFFeelRoutesConVar : BoolConVar { }
+
+/// <summary>
+/// The feel layer's switches as the ten convars stand now. <see cref="TFBotGame"/> reads them when
 /// it makes a bot's decider, which keeps them for its life.
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFFeelSwitchConVars(TFFeelCarrierConVar carrier, TFFeelSearchConVar search, TFFeelAimConVar aim, TFFeelRetreatConVar retreat,
-                                        TFFeelFriendGateConVar friendGate, TFFeelGlanceConVar glance, TFFeelPrefireConVar prefire)
+                                        TFFeelFriendGateConVar friendGate, TFFeelGlanceConVar glance, TFFeelPrefireConVar prefire,
+                                        TFFeelJumpHealthConVar jumpHealth, TFFeelFightConVar fight, TFFeelRoutesConVar routes)
 {
-    public TFFeelSwitches Read() => new(carrier.Value, search.Value, aim.Value, retreat.Value, friendGate.Value, glance.Value, prefire.Value);
+    public TFFeelSwitches Read() => new(carrier.Value, search.Value, aim.Value, retreat.Value, friendGate.Value, glance.Value, prefire.Value, jumpHealth.Value,
+                                        fight.Value, routes.Value);
 }

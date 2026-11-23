@@ -49,6 +49,7 @@ public sealed class Corpses : IGameLifecycle
     private readonly IEntityDirectory _directory;
     private readonly ViolenceConVars? _violence;
     private readonly IEnginePlayers? _players;
+    private readonly IServerSkins? _skins;
 
     /// <summary>The bodies currently standing, oldest first. See <see cref="Limit"/>.</summary>
     private readonly List<EntityHandle> _live = new();
@@ -60,7 +61,7 @@ public sealed class Corpses : IGameLifecycle
 
     public Corpses(ILog log, IEngineEntities entities, IEngineEntityRender render,
                    IEntityDirectory directory, ViolenceConVars? violence = null,
-                   IEnginePlayers? players = null)
+                   IEnginePlayers? players = null, IServerSkins? skins = null)
     {
 
         _log = log;
@@ -69,6 +70,7 @@ public sealed class Corpses : IGameLifecycle
         _directory = directory;
         _violence = violence;
         _players = players;
+        _skins = skins;
     }
 
     /// <summary>
@@ -295,6 +297,76 @@ public sealed class Corpses : IGameLifecycle
     }
 
     /// <summary>
+    /// Spawns a body that no player left, described by <paramref name="shot"/>,
+    /// and returns it — <see cref="EntityHandle.None"/> if none was made.
+    ///
+    /// <para>
+    /// <see cref="Make"/>'s body for a dying thing that is not a player (a mod's
+    /// own monster): the same entity, the same <see cref="Limit"/> sweep and the
+    /// same violence rule, but everything the player path reads off the player
+    /// is handed in, because there is no player to read. No replace: nothing's
+    /// next death retires this body, so a <see cref="CorpseShot.Lifetime"/>
+    /// ends it on the server (<see cref="SsRagdoll.Expire"/>) and the cap bounds
+    /// how many stand before that.
+    /// </para>
+    /// </summary>
+    public EntityHandle Leave(in CorpseShot shot)
+    {
+        if (!Enabled || RagdollRetirementPolicy.EffectiveCap(-1, Limit, LowViolence) <= 0)
+            return EntityHandle.None;
+
+        if (string.IsNullOrEmpty(shot.Model))
+        {
+            _log.Warning("[SourceSharp/Corpse] a body was left with no model; none made\n");
+            return EntityHandle.None;
+        }
+
+        Forget();
+        Trim();
+
+        var body = _entities.Create(EntityNames.Hl2mpRagdoll);
+
+        // None, not IsValid: see Make.
+        if (body == EntityHandle.None)
+        {
+            _log.Warning($"[SourceSharp/Corpse] could not create a body of {shot.Model}\n");
+            return EntityHandle.None;
+        }
+
+        // Dressed before the spawn, the impulse after it: Make's order, for Make's reasons.
+        _render.SetModel(body, shot.Model);
+        _entities.SetOrigin(body, shot.Origin);
+        _entities.SetAngles(body, shot.Angles);
+
+        _entities.Spawn(body);
+
+        _skins?.SetSkin(body, shot.Skin);
+
+        if (_directory.Get(body) is SsRagdoll ragdoll)
+        {
+            ragdoll.State.Velocity = shot.Velocity;
+            ragdoll.State.Force = shot.Force;
+            ragdoll.State.ForceBone = shot.ForceBone;
+            ragdoll.State.PlayerIndex = -1;
+            ragdoll.State.Origin = shot.Origin;
+            ragdoll.State.Sequence = shot.Sequence;
+            ragdoll.Expire(shot.Lifetime);
+        }
+        else
+        {
+            _log.Warning($"[SourceSharp/Corpse] {body} has no managed SsRagdoll; " +
+                         "the body will not carry its throw or its pose\n");
+        }
+
+        _live.Add(body);
+
+        _log.Msg($"[SourceSharp/Corpse] a {shot.Model} body (entity {body.EntryIndex}) left at {shot.Origin} " +
+                 $"({_live.Count} of {Limit})\n");
+
+        return body;
+    }
+
+    /// <summary>
     /// Drops handles whose entity is gone — removed by
     /// <see cref="SsRagdoll.OnThink"/> or by a level change.
     ///
@@ -401,4 +473,33 @@ public sealed class Corpses : IGameLifecycle
         _live.Clear();
         _byPlayer.Clear();
     }
+}
+
+/// <summary>
+/// A body no player left, as <see cref="Corpses.Leave"/> spawns it: its model,
+/// where it falls and its facing, and what <see cref="Corpses.Make"/> would
+/// otherwise read off a player.
+/// </summary>
+/// <param name="Model">The model the body wears.</param>
+/// <param name="Origin">Where it collapses.</param>
+/// <param name="Angles">Its facing.</param>
+public readonly record struct CorpseShot(string Model, Vector Origin, Vector Angles)
+{
+    /// <summary>What it was moving at (<see cref="RagdollNetState.Velocity"/>).</summary>
+    public Vector Velocity { get; init; }
+
+    /// <summary>The killing hit's force (<see cref="RagdollNetState.Force"/>).</summary>
+    public Vector Force { get; init; }
+
+    /// <summary>The ragdoll element the force lands on; -1 lands it on nothing (<see cref="RagdollNetState.ForceBone"/>).</summary>
+    public short ForceBone { get; init; } = -1;
+
+    /// <summary>The skin it is drawn with.</summary>
+    public int Skin { get; init; }
+
+    /// <summary>The sequence it collapses from; 0 for the client's idle (<see cref="RagdollNetState.Sequence"/>).</summary>
+    public short Sequence { get; init; }
+
+    /// <summary>Seconds until the server removes it; 0 for none (the cap and the level end alone).</summary>
+    public float Lifetime { get; init; }
 }

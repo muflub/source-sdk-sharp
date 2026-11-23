@@ -180,7 +180,7 @@ public sealed class TFPlayerComponents(IEngineEntities entities, IEntityDirector
         yield return new TFPlayerConditionTicker(carriers, conditions, networking, healing);
         yield return new TFShieldChargeMeter(carriers, conditions, items, hooks, chargeDrain, chargeRegen, environment);
         yield return new TFShieldChargeEnd(carriers, shields, hooks, clock);
-        yield return new TFBlastJumpState(carriers, conditions, networking, directory, enginePlayers, events);
+        yield return new TFBlastJumpState(carriers, conditions, networking, directory, enginePlayers, events, clock);
         yield return new TFTauntThink(conditions, directory);
         yield return new TFTauntAttack(carriers, players, entities, world, damage, enginePlayers, networking, weaponScripts, damageScopes, directory, lunchbox,
                                        owners, hooks, random, events, effects, precache, blast, temps, mediguns, stats, projectiles);

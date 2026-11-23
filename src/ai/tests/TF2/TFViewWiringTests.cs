@@ -59,7 +59,7 @@ public sealed class TFViewWiringTests
         => new(_facts, _players, DispatchProxy.Create<IEngineEntities, Unasked>(), DispatchProxy.Create<IEntityDirectory, Unasked>(),
                new TFDisguiseWeapons(null!, null!, null!, null!, null!, null!), WeaponCatalog.Stock(), null!, _rounds,
                new ConVarRegistry(new NamedConVars(new Dictionary<string, string> { ["tf_player_movement_restart_freeze"] = freeze }))
-                   .Declare<TFPlayerMovementRestartFreezeConVar>());
+                   .Declare<TFPlayerMovementRestartFreezeConVar>(), null!);
 
     /// <summary>
     /// The pre-round freeze reaches the bot's HUD as its client knows it: the round restarting, with the

@@ -73,7 +73,7 @@ public sealed class HeroDeathCosts(IDescentModeState mode, Heroes heroes, HeroKe
         var dying = rules.Deaths.Die(key ?? "", hardcore, carried);
 
         LastCosts = string.Create(CultureInfo.InvariantCulture,
-            $"player {death.EntIndex} died: {dying.Corpse.Items.Length} item(s) [{string.Join(' ', dying.Corpse.Items)}] and {dying.Corpse.Australium} Australium to the corpse, "
+            $"player {death.EntIndex} died carrying {dying.Corpse.Items.Length} item(s) [{string.Join(' ', dying.Corpse.Items)}] and {dying.Corpse.Australium} Australium to the corpse, "
             + $"kept {dying.Kept.Items.Count()} item(s) and {dying.Kept.Australium} Australium; XP {sheetBefore?.Xp ?? 0} -> {sheet?.Xp ?? 0} (a death costs none); "
             + $"durability unchanged (D21); sheet audit {(audit.Ok ? "ok" : audit.Rule)}{(sheet?.Fallen == true ? "; HARDCORE: fallen" : "")}");
         log.Msg($"[TF2Descent/Death] {LastCosts}\n");

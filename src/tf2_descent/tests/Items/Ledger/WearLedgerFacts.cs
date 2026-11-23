@@ -10,8 +10,8 @@ namespace TF2.Descent.Tests.Items.Ledger;
 /// <summary>
 /// HE8 and HE9 through the in-memory ledger: a consumable used one at a time, wear applied by
 /// the rules in one write, the Engineer's repair (lossless, charged) and the field repair
-/// (lowering the maximum, never destroying), the dev durability set; and the hosted ledger's
-/// refusal of each, the host having no call for them.
+/// (lowering the maximum, never destroying, spending a Repair Kit), the dev durability set. The
+/// hosted ledger's calls for each are <see cref="HostedInventoryFacts"/>.
 /// </summary>
 public sealed class WearLedgerFacts
 {
@@ -135,21 +135,92 @@ public sealed class WearLedgerFacts
         Assert.Equal(10, Held.Inventory.Equipped["primary"].Item.Durability);
     }
 
+    /// <summary>A Repair Kit had at hero level <paramref name="heroLevel"/>, picked up into the backpack; its id.</summary>
+    private async Task<long> GiveKit(int heroLevel = 1)
+    {
+        var kit = ItemFixtures.Item("repair_kit", 0, 1) with
+        {
+            Durability = 0, MaxDurability = 0, Context = ItemFixtures.Ctx(0) with { CharacterLevel = heroLevel },
+        };
+        var floor = _ledger.PlaceOnFloor(kit, A, default);
+        Assert.True((await _ledger.Claim(A, floor.Id)).Ok);
+        return floor.Id;
+    }
+
     [Fact]
     public async Task A_field_repair_lowers_the_maximum_by_the_rules_steps()
     {
         var worn = await Launcher();
         var broken = worn.Item with { Durability = 0 };
         Plant("primary", broken);
+        await GiveKit(heroLevel: 1);   // at level 1 a step restores exactly 1: the steps do not depend on the seed
 
         var r = await _ledger.RepairWorn(A, "primary", WornRepair.Field);
 
         var after = Held.Inventory.Equipped["primary"].Item;
-        var steps = R.Repairs.Field(broken, Held.Sheet.Level, 1).Steps;
+        var steps = R.Repairs.Field(broken, 1, 1).Steps;
         Assert.True(r.Ok, r.Refusal);
         Assert.Equal(60 - steps.Sum(s => s.MaxLost), after.MaxDurability);
         Assert.True(after.MaxDurability < 60);
         Assert.Equal(after.MaxDurability, after.Durability);
+    }
+
+    [Fact]
+    public async Task A_field_repair_runs_at_the_heros_level_not_the_level_the_kit_was_had_at()
+    {
+        // Contract 1.2 carries the repairer's sheet; the 2.7 interim read the kit's stored level.
+        var worn = await Launcher();
+        var broken = worn.Item with { Durability = 0 };
+        Plant("primary", broken);
+        _ledger.SetSheet(A, Held.Sheet with { Level = 1 });
+        await GiveKit(heroLevel: 30);
+
+        var r = await _ledger.RepairWorn(A, "primary", WornRepair.Field);
+
+        var after = Held.Inventory.Equipped["primary"].Item;
+        Assert.True(r.Ok, r.Refusal);
+        Assert.Equal(60 - R.Repairs.Field(broken, 1, 1).Steps.Sum(s => s.MaxLost), after.MaxDurability);
+        Assert.NotEqual(R.Repairs.Field(broken, 30, 1).Item!.MaxDurability, after.MaxDurability);
+    }
+
+    [Fact]
+    public async Task A_field_repair_of_what_is_worn_spends_one_repair_kit_from_the_backpack()
+    {
+        var worn = await Launcher();
+        Plant("primary", worn.Item with { Durability = 0 });
+        long kit = await GiveKit();
+        long other = await GiveKit();
+
+        var r = await _ledger.RepairWorn(A, "primary", WornRepair.Field);
+
+        Assert.True(r.Ok, r.Refusal);
+        Assert.Equal([kit], r.Change!.Gone);
+        Assert.DoesNotContain(Held.Inventory.Backpack.Values, h => h.Id == kit);
+        Assert.Contains(Held.Inventory.Backpack.Values, h => h.Id == other);
+    }
+
+    [Fact]
+    public async Task A_field_repair_without_a_kit_is_refused_and_changes_nothing()
+    {
+        var worn = await Launcher();
+        Plant("primary", worn.Item with { Durability = 0 });
+
+        var r = await _ledger.RepairWorn(A, "primary", WornRepair.Field);
+
+        Assert.Equal(RepairRefusals.NoKit, r.Refusal);
+        Assert.Equal(0, Held.Inventory.Equipped["primary"].Item.Durability);
+    }
+
+    [Fact]
+    public async Task A_refused_field_repair_keeps_the_kit()
+    {
+        await Launcher();   // at its maximum: the rules refuse, the kit is not used
+        long kit = await GiveKit();
+
+        var r = await _ledger.RepairWorn(A, "primary", WornRepair.Field);
+
+        Assert.Equal(RepairRefusals.AtMaximum, r.Refusal);
+        Assert.Contains(Held.Inventory.Backpack.Values, h => h.Id == kit);
     }
 
     [Fact]
@@ -160,9 +231,11 @@ public sealed class WearLedgerFacts
         while (Held.Inventory.Equipped["primary"].Item.MaxDurability > 0 && repairs < 500)
         {
             Plant("primary", Held.Inventory.Equipped["primary"].Item with { Durability = 0 });
+            await GiveKit();
             Assert.True((await _ledger.RepairWorn(A, "primary", WornRepair.Field)).Ok);
             repairs++;
         }
+        await GiveKit();
 
         var item = Held.Inventory.Equipped["primary"];
         Assert.Equal(worn.Id, item.Id);
@@ -183,34 +256,4 @@ public sealed class WearLedgerFacts
         Assert.Equal(worn.Item with { Durability = 0 }, Held.Inventory.Equipped["primary"].Item);
     }
 
-    //-------------------------------------------------------------------------
-    // Hosted: the host has no call for any of them
-    //-------------------------------------------------------------------------
-
-    [Fact]
-    public async Task The_hosted_ledger_refuses_consume_wear_and_worn_repairs_as_not_supported_by_the_host()
-    {
-        var host = new FakeHostItems(R);
-        host.AddCharacter(A, R.Heroes.New("soldier", "a"));
-        var hosted = new HostedItemLedger(R, new Hooks(_changes), host, new NoLog());
-        await hosted.Load(A);
-        host.Reserve(A, 0, ItemFixtures.Item("town_portal", 0, 1) with { Durability = 0, MaxDurability = 0 });
-        var drop = await hosted.KillDrop(new KillDrop(A, 0, 1, "soldier", 1, default));
-        Assert.True((await hosted.Claim(A, Assert.Single(drop.Items).Id)).Ok);
-        host.Calls.Clear();
-
-        var consume = await hosted.Consume(A, 0);
-        var wear = await hosted.Wear(A, []);
-
-        Assert.Equal(LedgerRefusals.HostUnsupported, consume.Refusal);
-        Assert.Equal(LedgerRefusals.HostUnsupported, wear.Refusal);
-        Assert.Empty(host.Calls);
-        Assert.True(hosted.Find(A)!.Inventory.Backpack.ContainsKey(0));
-    }
-
-    private sealed class NoLog : ILog
-    {
-        public void Msg(string message) { }
-        public void Warning(string message) { }
-    }
 }

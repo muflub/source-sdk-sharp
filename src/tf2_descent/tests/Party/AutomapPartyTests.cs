@@ -61,15 +61,21 @@ public sealed class AutomapPartyTests
         _automap.Poll();
     }
 
-    /// <summary>The room ids sent to <paramref name="slot"/>'s client.</summary>
+    /// <summary>
+    /// The explored room ids sent to <paramref name="slot"/>'s client: the rooms shown whole. A
+    /// room through a door of one of them goes as a discovered outline (user 2026-11-15), which
+    /// these facts do not count.
+    /// </summary>
     private HashSet<int> RoomsOf(int slot) =>
     [
         .. _wire.Calls.Where(c => c.Member == "UserMessages.Send" && c.ArgAs<string>(0) == KeyOf<AutomapRoomWire>() && c.ArgAs<int>(2) == slot)
             .Select(c =>
             {
                 var reader = new UserMessageReader(c.ArgAs<byte[]>(4));
-                return AutomapRoomWire.Read(ref reader).View().Room;
-            }),
+                return AutomapRoomWire.Read(ref reader).View();
+            })
+            .Where(r => !r.Discovered)
+            .Select(r => r.Room),
     ];
 
     private static string KeyOf<T>() where T : IUserMessagePayload<T> => T.Key;

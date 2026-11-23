@@ -274,6 +274,50 @@ public sealed class SkeletonCompareCommand(ServerSkeletons skeletons, Standalone
     private static bool Far(Vector a, Vector b) => (a - b).Length > 1e-3f;
 }
 
+/// <summary>
+/// <c>cs_sv_poses &lt;entindex|handle&gt; [bone]</c> (plan_descent_logic CR11): the pose parameters the
+/// server's skeleton holds for one entity (a scripted one by index, any by its whole handle), each in its own units, and where the
+/// server puts a bone (the root unless named) from the skeleton its hitbox trace reads.
+/// </summary>
+[ConCommand("cs_sv_poses", Help = "cs_sv_poses <entindex|handle> [bone]: an entity's pose parameters on the server's skeleton, and where it puts a bone")]
+public sealed class SkeletonPosesCommand(ServerSkeletons skeletons, IEngineEntities entities, IEntityDirectory directory, ILog log)
+{
+    public void Execute(string which, string bone = "")
+    {
+        long target = long.TryParse(which, NumberStyles.Integer, CultureInfo.InvariantCulture, out long parsed) ? parsed : 0;
+        // A whole handle (the dev API's "handle": the serial above the index) is the entity
+        // itself; a bare index is looked up among the scripted entities.
+        EntityHandle entity = target > 0xFFFF ? new EntityHandle(unchecked((uint)target)) : Find((int)target);
+        if (entity == EntityHandle.None || skeletons.StudioName(entity).Length == 0)
+        {
+            log.Msg(string.Create(CultureInfo.InvariantCulture, $"[SourceSharp] cs_sv_poses: no skeleton at {target}\n"));
+            return;
+        }
+
+        var line = new System.Text.StringBuilder(string.Create(CultureInfo.InvariantCulture,
+            $"[SourceSharp] poses #{entities.GetIndex(entity)} {skeletons.StudioName(entity)}:"));
+        for (int i = 0; i < skeletons.PoseParameterCount(entity); i++)
+            line.Append(CultureInfo.InvariantCulture, $" {skeletons.PoseParameterName(entity, i)} {skeletons.GetPoseParameter(entity, i):0.###}");
+
+        int b = bone.Length > 0 ? skeletons.LookupBone(entity, bone) : 0;
+        line.Append(skeletons.GetBonePosition(entity, b, out Vector at)
+            ? string.Create(CultureInfo.InvariantCulture, $"; bone #{b} {bone} at {at.X:0.##} {at.Y:0.##} {at.Z:0.##}")
+            : $"; no bone {bone}");
+        log.Msg(line.Append('\n').ToString());
+    }
+
+    private EntityHandle Find(int entindex)
+    {
+        foreach (EntityHandle entity in SkeletonCompareCommand.StandaloneHandles(directory))
+        {
+            if (entities.GetIndex(entity) == entindex)
+                return entity;
+        }
+
+        return EntityHandle.None;
+    }
+}
+
 public enum ProbeKind
 {
     Seq,

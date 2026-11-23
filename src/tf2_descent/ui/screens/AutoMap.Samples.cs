@@ -93,7 +93,9 @@ public sealed class FakeBigMap : IDescentAutomap, IAutomapRoomLabels
     };
 
     /// <summary>The hero entered the crypt only: the other two storeys never
-    /// had a room arrive, which is how the reveal rule looks on screen.</summary>
+    /// had a room arrive, which is how the reveal rule looks on screen. The two
+    /// rooms through the entry hall's and the crypt's south doors are discovered:
+    /// their outlines only, fainter, no name.</summary>
     public static FakeBigMap Partial() => new()
     {
         Rooms =
@@ -101,10 +103,13 @@ public sealed class FakeBigMap : IDescentAutomap, IAutomapRoomLabels
             (96, 448, 224, 160, 2, "Entry Hall"),
             (416, 384, 256, 256, 2, "Crypt"),
             (768, 448, 160, 160, 2, "Shrine Room"),
+            (96, 704, 224, 128, 2, ""),
+            (416, 704, 256, 160, 2, ""),
         ],
+        DiscoveredRooms = [3, 4],
         Doors =
         [
-            (320, 512, 96, 4), (672, 512, 96, 4),
+            (320, 512, 96, 4), (672, 512, 96, 4), (192, 608, 4, 96), (528, 640, 4, 64),
         ],
         Markers =
         [
@@ -138,6 +143,11 @@ public sealed class FakeBigMap : IDescentAutomap, IAutomapRoomLabels
     public float RoomH(int r) => Rooms[r].H;
     public int RoomStorey(int r) => Rooms[r].Storey;
     public bool RoomCurrentStorey(int r) => Rooms[r].Storey == HeroStorey;
+
+    /// <summary>The rooms seen through a door and not entered, by index.</summary>
+    public int[] DiscoveredRooms { get; init; } = [];
+
+    public bool RoomDiscovered(int r) => Array.IndexOf(DiscoveredRooms, r) >= 0;
     public string RoomLabel(int r) => Rooms[r].Label;
 
     public int DoorStubCount => Doors.Length;

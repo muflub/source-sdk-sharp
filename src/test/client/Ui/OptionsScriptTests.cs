@@ -172,6 +172,12 @@ public class OptionsScriptTests
         Assert.Equal(values.Skip(1), back.Skip(1).Select(x => x.Value));
     }
 
+    /// <summary>A console holding the names given, and nothing else.</summary>
+    internal sealed class Names(params string[] names) : IConsoleNames
+    {
+        public IReadOnlySet<string> Held() => new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
+    }
+
     private sealed class Files : IOptionsFiles
     {
         public Dictionary<string, byte[]> Stored { get; } = [];
@@ -188,7 +194,7 @@ public class OptionsScriptTests
         files.Stored[OptionsScriptSource.DefaultFile] = Encoding.UTF8.GetBytes(Defaults);
         var convars = new SourceSharp.Client.Ui.Screens.MemoryConVarStore().With("voice_modenable", "1");
         var lines = new SourceSharp.Client.Ui.Screens.RecordingCommandLine();
-        var source = new OptionsScriptSource(files, convars, lines);
+        var source = new OptionsScriptSource(files, convars, lines, new Names("voice_modenable"));
         var entries = source.Load();
         Assert.Equal("1", entries[1].Value);
 
@@ -199,5 +205,40 @@ public class OptionsScriptTests
 
         source.Press(entries[2]);
         Assert.Equal("open_chat_filter_settings", lines.Lines[^1]);
+    }
+
+    // The engine forwards a line it has no convar or command for to the
+    // server as a string command, and the server drops a client past 40 a
+    // second: TF2's script saved over a client missing seventy of its convars
+    // dropped the host from its own game (#GameUI_Disconnect_TooManyCommands).
+    [Fact]
+    public void A_saved_entry_naming_nothing_the_clients_console_holds_runs_no_line()
+    {
+        var files = new Files();
+        files.Stored[OptionsScriptSource.DefaultFile] = Encoding.UTF8.GetBytes(Defaults);
+        var lines = new SourceSharp.Client.Ui.Screens.RecordingCommandLine();
+        var source = new OptionsScriptSource(files, new SourceSharp.Client.Ui.Screens.MemoryConVarStore(), lines,
+                                             new Names("voice_modenable"));
+        var entries = source.Load();
+
+        source.Save(entries, [.. entries.Select(x => x.Value)]);
+
+        Assert.Equal(["voice_modenable \"0\"", "setinfo cl_autoreload \"1\""], lines.Lines);
+    }
+
+    [Fact]
+    public void A_saved_entry_the_client_does_not_hold_keeps_its_value_in_the_user_script()
+    {
+        var files = new Files();
+        files.Stored[OptionsScriptSource.DefaultFile] = Encoding.UTF8.GetBytes(Defaults);
+        var source = new OptionsScriptSource(files, new SourceSharp.Client.Ui.Screens.MemoryConVarStore(),
+                                             new SourceSharp.Client.Ui.Screens.RecordingCommandLine(), new Names());
+        var entries = source.Load();
+        string[] values = [.. entries.Select(x => x.Value)];
+        values[4] = "66";
+
+        source.Save(entries, values);
+
+        Assert.Equal("66", Read(Encoding.UTF8.GetString(files.Stored[OptionsScriptSource.UserFile])).Entries()[4].Value);
     }
 }

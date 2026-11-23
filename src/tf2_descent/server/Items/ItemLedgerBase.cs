@@ -26,6 +26,8 @@ public abstract class ItemLedgerBase : IItemLedger
     private readonly Dictionary<(string Hero, string Vendor), (long Restock, List<VendorItem> Items)> _stock = new();
     private readonly Dictionary<long, long> _soldFor = new();
     private readonly Dictionary<string, Task> _queues = new(StringComparer.Ordinal);
+    private readonly Dictionary<long, AustraliumPile> _piles = new();
+    private readonly HashSet<(uint Seq, string Hero)> _broken = [];
     private long _nextId;
 
     protected ItemLedgerBase(TF2DescentRules rules, IHooks<IItemLedgerHook> hooks)
@@ -36,6 +38,9 @@ public abstract class ItemLedgerBase : IItemLedger
 
     /// <summary>The rules every transition is made of.</summary>
     protected TF2DescentRules Rules { get; }
+
+    /// <summary>The same rules as the host calls them (Host.Contracts' members, the defaults included).</summary>
+    protected IGameRules Contract => Rules;
 
     private InventoryRules Inv => Rules.Inventory;
 
@@ -61,10 +66,12 @@ public abstract class ItemLedgerBase : IItemLedger
 
     public virtual void Forget(string hero) => _heroes.Remove(hero);
 
-    /// <summary>A new level: the floor and the vendors' offers were the last level's.</summary>
+    /// <summary>A new level: the floor, its piles and its breakables, and the vendors' offers were the last level's.</summary>
     public void NewLevel()
     {
         _floor.Clear();
+        _piles.Clear();
+        _broken.Clear();
         _offered.Clear();
         _stock.Clear();
     }
@@ -81,7 +88,7 @@ public abstract class ItemLedgerBase : IItemLedger
 
     /// <summary>The operation a transition carries out, for <see cref="Confirm"/>: its name and its arguments.</summary>
     protected sealed record Op(string Name, int Slot = -1, int To = -1, string? Text = null, long Id = 0, Vector Position = default,
-                              IReadOnlyList<int>? Slots = null);
+                              IReadOnlyList<int>? Slots = null, IReadOnlyList<WearEvents>? Wear = null);
 
     /// <summary>What a confirmation committed (the hero after it), or why it was refused.</summary>
     protected sealed record Confirmed(LedgerHero? After, string? Refusal, IReadOnlyList<long>? Gone = null)
@@ -104,6 +111,17 @@ public abstract class ItemLedgerBase : IItemLedger
     /// <summary>Whether one restock's stock is kept and shrinks as it is bought (the in-memory ledger); hosted the host's stock is asked each time.</summary>
     protected virtual bool KeepsStock => true;
 
+    /// <summary>
+    /// Whether a potion gained (picked up, bought, bought back, reclaimed, looted from the corpse)
+    /// goes onto the belt (<see cref="InventoryRules.StowGained"/>, the whole run's F20): the
+    /// in-memory ledger's; hosted the host carries no belt (X6), so it stays where the host put it.
+    /// </summary>
+    protected virtual bool StowsPotions => true;
+
+    /// <summary><paramref name="result"/> with the potions it gained put on the belt, where this ledger does (<see cref="StowsPotions"/>).</summary>
+    protected InventoryResult Stowing(LedgerHero before, InventoryResult result) =>
+        StowsPotions ? Inv.StowGained(before.Inventory, result) : result;
+
     public abstract Task<DropResult> KillDrop(KillDrop kill);
 
     public abstract Task<DropResult> BossDrop(BossDrop boss);
@@ -118,6 +136,15 @@ public abstract class ItemLedgerBase : IItemLedger
 
     /// <summary>What the hero's corpse holds; null when the ledger cannot say (the hosted ledger: the SDK lists no corpse).</summary>
     public virtual LedgerCorpse? Corpse(string hero) => null;
+
+    /// <summary>Hosted, a corpse goes to the Lost &amp; Found when the host reaps its instance: nothing here.</summary>
+    public virtual IReadOnlyList<string> CorpsesLost() => [];
+
+    public virtual LedgerCorpse? LostAndFound(string hero) => null;
+
+    public virtual long? ReclaimFee(string hero) => null;
+
+    public virtual Task<LedgerResult> Reclaim(string hero) => Task.FromResult(LedgerResult.Refused(LedgerRefusals.NothingLost));
 
     //-------------------------------------------------------------------------
     // State
@@ -228,6 +255,37 @@ public abstract class ItemLedgerBase : IItemLedger
     /// <summary>Takes an item off the floor (a forged reveal the host destroyed).</summary>
     protected void Unplace(long id) => _floor.Remove(id);
 
+    public IReadOnlyCollection<AustraliumPile> Piles => _piles.Values;
+
+    /// <summary>Puts a pile on the floor.</summary>
+    protected AustraliumPile PlacePile(AustraliumPile pile) => _piles[pile.Id] = pile;
+
+    /// <summary>The pile on the floor under <paramref name="id"/>; null when none is (taken, or never there).</summary>
+    protected AustraliumPile? PileOf(long id) => _piles.GetValueOrDefault(id);
+
+    /// <summary>Takes a pile off the floor.</summary>
+    protected void UnplacePile(long id) => _piles.Remove(id);
+
+    /// <summary>Marks the breakable broken by the hero; false when he broke it already (this level).</summary>
+    protected bool MarkBroken(uint seq, string hero) => _broken.Add((seq, hero));
+
+    /// <summary>
+    /// <paramref name="amount"/> Australium into the hero's purse, as an operation of his after any in
+    /// flight (one that commits later would put back the Australium it read). With
+    /// <paramref name="load"/> false a hero not in memory is skipped: hosted, his next load reads what
+    /// the host credited.
+    /// </summary>
+    protected Task<LedgerResult> Credit(string hero, long amount, string op, bool load) => Serial(hero, async () =>
+        (load ? await Ensure(hero) : Find(hero)) is { } h
+            ? Commit(op, h, h with { Inventory = h.Inventory with { Australium = h.Inventory.Australium + amount } }, [])
+            : LedgerResult.Refused(LedgerRefusals.NoHero));
+
+    public abstract Task<PileAnswer> KillAustralium(KillPile kill);
+
+    public abstract Task<PileTake> ClaimAustralium(string hero, long pileId, IReadOnlyList<string> members);
+
+    public abstract Task<BreakAnswer> Break(BreakDrop drop);
+
     public Task<LedgerResult> Claim(string hero, long floorId) => Serial(hero, async () =>
     {
         if (await Ensure(hero) is not { } h)
@@ -236,7 +294,7 @@ public abstract class ItemLedgerBase : IItemLedger
             return LedgerResult.Refused(LedgerRefusals.NotOnFloor, h);
         if (item.ForHero is { } owner && owner != hero)
             return LedgerResult.Refused(LedgerRefusals.WrongOwner, h);
-        var result = Inv.Pickup(h.Inventory, h.Stash, h.Sheet, new Held(item.Id, item.Item));
+        var result = Stowing(h, Inv.Pickup(h.Inventory, h.Stash, h.Sheet, new Held(item.Id, item.Item)));
         return await Settle(new Op("claim", Id: item.Id), h, result, () => _floor.Remove(floorId));
     });
 
@@ -362,7 +420,7 @@ public abstract class ItemLedgerBase : IItemLedger
             return LedgerResult.Refused(LedgerRefusals.NoHero);
         if (!_offered.TryGetValue(stockId, out var offer) || offer.Vendor != vendor)
             return LedgerResult.Refused(LedgerRefusals.NotInStock, h);
-        var result = Inv.Buy(h.Inventory, h.Stash, h.Sheet, new Held(stockId, offer.Item.Item), BuyPrice(h, offer.Item.Item));
+        var result = Stowing(h, Inv.Buy(h.Inventory, h.Stash, h.Sheet, new Held(stockId, offer.Item.Item), BuyPrice(h, offer.Item.Item)));
         return await Settle(new Op("buy", Text: vendor, Id: stockId), h, result, () =>
         {
             _offered.Remove(stockId);
@@ -391,7 +449,7 @@ public abstract class ItemLedgerBase : IItemLedger
             if (index < 0 || index >= h.Inventory.BuyBack.Count)
                 return new InventoryResult(h.Inventory, h.Stash, [], InventoryRefusals.NoItem);
             id = h.Inventory.BuyBack[index].Id;
-            return Inv.BuyBack(h.Inventory, h.Stash, h.Sheet, index, SoldFor(h, h.Inventory.BuyBack[index]));
+            return Stowing(h, Inv.BuyBack(h.Inventory, h.Stash, h.Sheet, index, SoldFor(h, h.Inventory.BuyBack[index])));
         }, () => _soldFor.Remove(id));
     }
 
@@ -410,13 +468,13 @@ public abstract class ItemLedgerBase : IItemLedger
     }
 
     /// <summary>Identify and repair change the item in place, as the host does: the same id, the rules' changed item, the cost paid.</summary>
-    private Task<LedgerResult> InPlace(string hero, Op op, Func<RolledItem, ItemChange> operate) => Serial(hero, async () =>
+    private Task<LedgerResult> InPlace(string hero, Op op, Func<LedgerHero, RolledItem, ItemChange> operate) => Serial(hero, async () =>
     {
         if (await Ensure(hero) is not { } h)
             return LedgerResult.Refused(LedgerRefusals.NoHero);
         if (!h.Inventory.Backpack.TryGetValue(op.Slot, out var held))
             return LedgerResult.Refused(InventoryRefusals.NoItem, h);
-        var change = operate(Codec.ToRolled(held.Item));
+        var change = operate(h, Codec.ToRolled(held.Item));
         if (!change.Ok)
             return LedgerResult.Refused(change.Refusal!, h);
         long cost = Charge(h, change.Cost, PriceKind.Buy);
@@ -427,10 +485,11 @@ public abstract class ItemLedgerBase : IItemLedger
     });
 
     public Task<LedgerResult> Identify(string hero, int slot) =>
-        InPlace(hero, new Op("identify", slot), item => Rules.Identify(item, RollSeed("identify")));
+        InPlace(hero, new Op("identify", slot), (_, item) => Rules.Identify(item, RollSeed("identify")));
 
+    /// <summary>The Engineer's repair by the hero (contract 1.2, the host's call): priced, or free when his perks waive it.</summary>
     public Task<LedgerResult> Repair(string hero, int slot) =>
-        InPlace(hero, new Op("repair", slot), item => Rules.Repair(item));
+        InPlace(hero, new Op("repair", slot), (h, item) => Contract.Repair(item, RepairKind.Town, null, Rules.SheetCodec.Write(h.Sheet), 0));
 
     /// <summary>An operation that consumes backpack inputs and produces outputs, all at once (the rules' <see cref="InventoryRules.Apply"/>).</summary>
     private Task<LedgerResult> Transform(string hero, Op op, IReadOnlyList<int> slots, Func<LedgerHero, IReadOnlyList<RolledItem>, ItemChange> operate) =>
@@ -480,17 +539,17 @@ public abstract class ItemLedgerBase : IItemLedger
                 return LedgerResult.Refused(InventoryRefusals.Refused, h);
             if (inventory.Equipped.FirstOrDefault(p => p.Value.Id == e.ItemId) is { Value: { } worn } at)
             {
-                var item = durability.Hit(durability.Use(worn.Item, e.Uses).Item, e.Hits).Item;
+                var item = durability.Worn(worn.Item, e.Uses, e.Hits);
                 inventory = inventory with { Equipped = inventory.Equipped.SetItem(at.Key, worn with { Item = item }) };
             }
             else if (inventory.Backpack.FirstOrDefault(p => p.Value.Id == e.ItemId) is { Value: { } carried } bp)
             {
                 // Taken off before the write: its wear still counts where it is now.
-                var item = durability.Hit(durability.Use(carried.Item, e.Uses).Item, e.Hits).Item;
+                var item = durability.Worn(carried.Item, e.Uses, e.Hits);
                 inventory = inventory with { Backpack = inventory.Backpack.SetItem(bp.Key, carried with { Item = item }) };
             }
         }
-        return await Settle(new Op("wear"), h, new InventoryResult(inventory, h.Stash, [], null));
+        return await Settle(new Op("wear", Wear: events), h, new InventoryResult(inventory, h.Stash, [], null));
     });
 
     public Task<LedgerResult> RepairWorn(string hero, string equipSlot, WornRepair how) => Serial(hero, async () =>
@@ -501,24 +560,39 @@ public abstract class ItemLedgerBase : IItemLedger
             return LedgerResult.Refused(InventoryRefusals.NoItem, h);
         ItemInstance repaired;
         long cost = 0;
+        int kitSlot = -1;
         if (how == WornRepair.Field)
         {
-            var field = Rules.Repairs.Field(held.Item, h.Sheet.Level, RollSeed("field_repair"));
+            // A field repair spends one Repair Kit from the backpack, the lowest slot first, at the hero's
+            // level: the rules' Repair(item, Field, kit, sheet, seed), the call the host makes (contract 1.2),
+            // so both ledgers agree.
+            var kit = h.Inventory.Backpack.FirstOrDefault(p => p.Value.Item.BaseId == Rules.Repairs.Kit);
+            if (kit.Value is null)
+                return LedgerResult.Refused(RepairRefusals.NoKit, h);
+            var field = Contract.Repair(Codec.ToRolled(held.Item), RepairKind.Field, Codec.ToRolled(kit.Value.Item), Rules.SheetCodec.Write(h.Sheet),
+                RollSeed("field_repair"));
             if (!field.Ok)
                 return LedgerResult.Refused(field.Refusal!, h);
-            repaired = field.Item!;
+            // Only the mutable half changes (ReplaceEquipped checks it): the worn item with the repair's numbers.
+            var answer = Codec.Instance(field.Produced[0]);
+            repaired = held.Item with { Durability = answer.Durability, MaxDurability = answer.MaxDurability, WearUses = answer.WearUses };
+            kitSlot = kit.Key;
         }
         else
         {
             if (Rules.Repairs.Refusal(held.Item) is { } refusal)
                 return LedgerResult.Refused(refusal, h);
-            cost = how == WornRepair.Town ? Charge(h, Rules.Repairs.Price(held.Item), PriceKind.Buy) : 0;
+            // The Engineer's price, waived by the dev command (TownUncharged) or by the hero's own perks (the
+            // rules' town_free, the one waiver the host knows: contract 1.2's Repair reads it from his sheet).
+            cost = how == WornRepair.Town && !Rules.TownFree(h.Sheet) ? Charge(h, Rules.Repairs.Price(held.Item), PriceKind.Buy) : 0;
             if (h.Inventory.Australium < cost)
                 return LedgerResult.Refused(InventoryRefusals.NotEnoughAustralium, h);
             repaired = TF2.Descent.Rules.Economy.Repairs.Restore(held.Item);
         }
         var result = Inv.ReplaceEquipped(h.Inventory, h.Stash, equipSlot, repaired);
-        return await Settle(new Op(how == WornRepair.Field ? "field_repair_worn" : "repair_worn", Text: equipSlot, Id: held.Id), h, result, cost: cost);
+        if (kitSlot >= 0 && result.Ok)
+            result = result with { Hero = result.Hero with { Backpack = result.Hero.Backpack.Remove(kitSlot) }, Left = [h.Inventory.Backpack[kitSlot]] };
+        return await Settle(new Op(how == WornRepair.Field ? "field_repair_worn" : "repair_worn", kitSlot, (int)how, equipSlot, held.Id), h, result, cost: cost);
     });
 
     public Task<LedgerResult> SetDurability(string hero, string equipSlot, int durability, int maxDurability) =>

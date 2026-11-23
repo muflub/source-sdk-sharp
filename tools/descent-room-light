@@ -1,0 +1,312 @@
+#!/usr/bin/env python3
+"""tools/descent-room-light -- each room's light, written into the level's .map2d.
+
+    tools/descent-room-light <level.bsp> <rooms-preview-dir>   write the LITE section
+    tools/descent-room-light --print <level.map2d>             print the section
+    tools/descent-room-light --self-test
+
+The game's horde reads how dark a room is to decide what a robot sees
+(plan_descent_logic Y5: until a level says, the sight reads the depth's
+darkness from lamp.json). This measures it offline, at link time, per room,
+on the brightness gate's scale (tools/descent-gate: the room's view as the
+game draws it, level 1 = 100), and writes it into the level's .map2d, which
+the host already ships beside the .bsp.
+
+The light of a room is its own corner camera's view (MapGen's .roomcams: the
+room's library.json camera turned with it, at a player's eye in a corner of
+its body looking across it at its focus), rendered by `ssmap preview` from the
+level's preview map with every room's camera (`-cameras <level>.roomcams
+-no-sheet`), each view's luma by descent-gate's own rule (tile_luma: re-encoded to the game's
+2.2 gamma, the label band cut and the scale figure left out),
+scaled by descent-gate's LEVEL1_VIEW. A room is dark by design when it holds
+no light of its own (no light entity inside its cells in the level's entity
+lump); every room of levels 1 to 9 holds one (the room lint's `lit` rule).
+
+The section. The .map2d's directory takes a new tag; Map2dReader skips tags
+it does not know ("a later build may add sections"), so every reader of today
+reads the file as before. Tag `LITE`, little-endian:
+
+    uint32 version (1)
+    uint32 count               the .map2d's room count (its ROOM section's)
+    count records of 8 bytes, in the ROOM section's order (a room's id):
+        float32 light          level 1 = 100 on the gate's scale; NaN when unmeasured
+        uint32  flags          1: dark by design (no light of its own)
+                               2: measured (its view was rendered)
+
+The file is rewritten as the map tools' writer lays one out (the directory
+after the 96-byte header, each section on a four-byte boundary); the sections
+before keep their bytes, and an earlier LITE section is replaced.
+
+It then writes the level's boss arena (tools/descent-arena: the section ARNA)
+from the level's .arena beside the rooms preview's directory (MapGen's
+descent-level writes <level>.arena there, `{}` for a level with no arena), so
+the Makefile's one step after the previews writes both; a missing .arena is a
+failure.
+"""
+import importlib.machinery
+import importlib.util
+import json
+import math
+import os
+import re
+import struct
+import sys
+import tempfile
+
+HERE = os.path.dirname(os.path.abspath(os.path.realpath(__file__)))
+
+MAGIC = b'SSMAP2D\0'
+HEADER_BYTES = 96
+ENTRY_BYTES = 12
+TAG = b'LITE'
+VERSION = 1
+DARK, MEASURED = 1, 2
+
+
+def gate():
+    """tools/descent-gate as a module: its scale (LEVEL1_VIEW) and its view rule (view_lumas' re-encoding)."""
+    loader = importlib.machinery.SourceFileLoader('descent_gate', os.path.join(HERE, 'descent-gate'))
+    spec = importlib.util.spec_from_loader('descent_gate', loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+def read_map2d(data):
+    """(header bytes, [(tag, section bytes)] in directory order) of a .map2d."""
+    if data[:8] != MAGIC or len(data) < HEADER_BYTES:
+        raise ValueError('not a .map2d')
+    header_bytes, count = struct.unpack_from('<ii', data, 12)
+    if header_bytes != HEADER_BYTES:
+        raise ValueError('a .map2d header of %d bytes; this writes %d' % (header_bytes, HEADER_BYTES))
+    sections = []
+    for s in range(count):
+        tag, off, ln = struct.unpack_from('<4sII', data, header_bytes + s * ENTRY_BYTES)
+        if off + ln > len(data):
+            raise ValueError('section %r lies outside the file' % tag)
+        sections.append((tag, data[off:off + ln]))
+    return data[:HEADER_BYTES], sections
+
+
+def write_map2d(header, sections):
+    """A .map2d of these sections, laid out as Map2dWriter lays one out."""
+    def align(n):
+        return (n + 3) & ~3
+    at = HEADER_BYTES + len(sections) * ENTRY_BYTES
+    offsets = []
+    for _, b in sections:
+        at = align(at)
+        offsets.append(at)
+        at += len(b)
+    out = bytearray(align(at))
+    out[:HEADER_BYTES] = header
+    struct.pack_into('<i', out, 16, len(sections))
+    for s, ((tag, b), off) in enumerate(zip(sections, offsets)):
+        struct.pack_into('<4sII', out, HEADER_BYTES + s * ENTRY_BYTES, tag, off, len(b))
+        out[off:off + len(b)] = b
+    return bytes(out)
+
+
+def rooms_of(header, sections):
+    """[(cell x, cell y, cells x, cells y)] of the .map2d's rooms, in id order."""
+    room_count = struct.unpack_from('<i', header, 64)[0]
+    found = dict(sections)
+    rooms = found.get(b'ROOM', b'')
+    if len(rooms) != room_count * 24:
+        raise ValueError('the ROOM section holds %d bytes for %d rooms' % (len(rooms), room_count))
+    cells = found.get(b'CELL')
+    out = []
+    for i in range(room_count):
+        cx, cy = struct.unpack_from('<ii', rooms, 24 * i)
+        nx, ny = struct.unpack_from('<ii', cells, 8 * i) if cells else (1, 1)
+        out.append((cx, cy, nx, ny))
+    return out
+
+
+def lite_section(values):
+    """values: [(light or None, flags)] in room order."""
+    b = bytearray(struct.pack('<II', VERSION, len(values)))
+    for light, flags in values:
+        b += struct.pack('<fI', float('nan') if light is None else light, flags)
+    return bytes(b)
+
+
+def read_lite(sections):
+    found = dict(sections)
+    if TAG not in found:
+        return None
+    b = found[TAG]
+    version, count = struct.unpack_from('<II', b, 0)
+    if version != VERSION or len(b) != 8 + 8 * count:
+        raise ValueError('a LITE section of version %d and %d bytes for %d rooms' % (version, len(b), count))
+    return [struct.unpack_from('<fI', b, 8 + 8 * i) for i in range(count)]
+
+
+def with_lite(data, values):
+    header, sections = read_map2d(data)
+    if len(values) != struct.unpack_from('<i', header, 64)[0]:
+        raise ValueError('%d values for %d rooms' % (len(values), struct.unpack_from('<i', header, 64)[0]))
+    kept = [(t, b) for t, b in sections if t != TAG]
+    return write_map2d(header, kept + [(TAG, lite_section(values))])
+
+
+def lights_in(bsp):
+    """The (x, y) of every light entity (light, light_spot) in a map's entity lump."""
+    with open(bsp, 'rb') as f:
+        data = f.read()
+    off, ln = struct.unpack_from('<ii', data, 8)
+    text = data[off:off + ln].decode('latin1')
+    out = []
+    for block in re.finditer(r'\{[^{}]*\}', text):
+        kv = dict(re.findall(r'"([^"]*)" "([^"]*)"', block.group(0)))
+        if kv.get('classname') in ('light', 'light_spot') and 'origin' in kv:
+            x, y, _ = (float(v) for v in kv['origin'].split())
+            out.append((x, y))
+    return out
+
+
+def dark_flags(rooms, lights, cell):
+    """Per room: whether no light stands inside its cells."""
+    return [not any(cx * cell <= x <= (cx + nx) * cell and cy * cell <= y <= (cy + ny) * cell for x, y in lights)
+            for cx, cy, nx, ny in rooms]
+
+
+def measured(preview_dir, g):
+    """{(column, row): light} from the rooms preview: each room camera's view, on the gate's scale."""
+    with open(os.path.join(preview_dir, 'index.json')) as f:
+        index = json.load(f)
+    try:
+        from PIL import Image
+    except ImportError:
+        raise SystemExit('descent-room-light: PIL (python3-pil) is not installed')
+    out = {}
+    for c in index['cameras']:
+        m = re.match(r'room (\d+) (\d+) ', c.get('description', ''))
+        if c.get('kind') != 'custom' or not m:
+            continue
+        files = [i for i in index['images'] if i.endswith('-%s.png' % c['id'])]
+        if len(files) != 1:
+            raise SystemExit('descent-room-light: camera %s has %d images' % (c['id'], len(files)))
+        im = Image.open(os.path.join(preview_dir, files[0])).convert('RGB')
+        w, h = im.size
+        out[(int(m.group(1)), int(m.group(2)))] = 100 * g.tile_luma(im.crop((0, g.VIEW_LABEL_ROWS, w, h))) / g.LEVEL1_VIEW
+    return out
+
+
+def run(bsp, preview_dir):
+    g = gate()
+    if g.LEVEL1_VIEW <= 0:
+        raise SystemExit('descent-room-light: descent-gate has no LEVEL1_VIEW to scale by')
+    map2d = os.path.splitext(bsp)[0] + '.map2d'
+    with open(map2d, 'rb') as f:
+        data = f.read()
+    header, sections = read_map2d(data)
+    cell = struct.unpack_from('<f', header, 28)[0]
+    rooms = rooms_of(header, sections)
+    lights = measured(preview_dir, g)
+    dark = dark_flags(rooms, lights_in(bsp), cell)
+    values = [(lights.get((cx, cy)), (DARK if d else 0) | (MEASURED if (cx, cy) in lights else 0))
+              for (cx, cy, _, _), d in zip(rooms, dark)]
+    out = with_lite(data, values)
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(map2d))
+    with os.fdopen(fd, 'wb') as f:
+        f.write(out)
+    os.replace(tmp, map2d)
+    got = [v for v, _ in values if v is not None]
+    print('descent-room-light: %s: %d of %d rooms measured, light %s, %d dark by design' % (
+        os.path.basename(map2d), len(got), len(rooms),
+        '%.0f to %.0f (mean %.1f)' % (min(got), max(got), sum(got) / len(got)) if got else 'none',
+        sum(1 for _, fl in values if fl & DARK)))
+    arena_file = arena_file_of(bsp, preview_dir)
+    if not os.path.isfile(arena_file):
+        print('descent-room-light: no %s (MapGen descent-level writes it beside the level)' % arena_file)
+        return 1
+    arena_rc = arena().run(bsp, arena_file)
+    return 0 if len(got) == len(rooms) and arena_rc == 0 else 1
+
+
+def arena_file_of(bsp, preview_dir):
+    """The level's .arena: <the rooms preview's parent>/<the level>.arena, where descent-level writes it."""
+    return os.path.join(os.path.dirname(os.path.abspath(preview_dir)), os.path.splitext(os.path.basename(bsp))[0] + '.arena')
+
+
+def arena():
+    """tools/descent-arena as a module."""
+    loader = importlib.machinery.SourceFileLoader('descent_arena', os.path.join(HERE, 'descent-arena'))
+    spec = importlib.util.spec_from_loader('descent_arena', loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+def show(map2d):
+    with open(map2d, 'rb') as f:
+        _, sections = read_map2d(f.read())
+    lite = read_lite(sections)
+    if lite is None:
+        print('%s: no LITE section' % map2d)
+        return 1
+    print('%s: %s' % (map2d, ' '.join('%d:%s%s' % (i, 'nan' if math.isnan(v) else '%.0f' % v, 'd' if fl & DARK else '')
+                                      for i, (v, fl) in enumerate(lite))))
+    return 0
+
+
+def self_test():
+    bad = []
+
+    def expect(cond, what):
+        if not cond:
+            bad.append(what)
+    # A two-room .map2d: STRS, ROOM, a CELL section, and an unknown section that must survive.
+    header = bytearray(HEADER_BYTES)
+    header[:8] = MAGIC
+    struct.pack_into('<iii', header, 8, 1, HEADER_BYTES, 0)
+    struct.pack_into('<f', header, 28, 1024)
+    struct.pack_into('<i', header, 64, 2)
+    rooms = struct.pack('<iiifII', 0, 0, 0, 512, 1, 1) + struct.pack('<iiifII', 1, 0, 0, 512, 1, 1)
+    sections = [(b'STRS', b'\0a\0'), (b'ROOM', rooms), (b'CELL', struct.pack('<iiii', 1, 1, 2, 2)), (b'XTRA', b'xyz')]
+    data = write_map2d(bytes(header), sections)
+    h2, s2 = read_map2d(data)
+    expect(s2 == sections, 'a file written and read back is not the same sections')
+    expect(struct.unpack_from('<i', data, 16)[0] == 4, 'the section count is not written')
+    expect(all(struct.unpack_from('<I', data, HEADER_BYTES + i * ENTRY_BYTES + 4)[0] % 4 == 0 for i in range(4)), 'a section is off a four-byte boundary')
+    expect(rooms_of(h2, s2) == [(0, 0, 1, 1), (1, 0, 2, 2)], 'the rooms\' cells and footprints are not read')
+    lit = with_lite(data, [(37.5, MEASURED), (None, DARK)])
+    _, s3 = read_map2d(lit)
+    expect([t for t, _ in s3] == [b'STRS', b'ROOM', b'CELL', b'XTRA', b'LITE'], 'the other sections do not keep their order before LITE')
+    expect(s3[:4] == sections, 'the other sections do not keep their bytes')
+    got = read_lite(s3)
+    expect(abs(got[0][0] - 37.5) < 1e-6 and got[0][1] == MEASURED, 'the first room\'s light is not 37.5, measured')
+    expect(math.isnan(got[1][0]) and got[1][1] == DARK, 'an unmeasured dark room does not read NaN, dark')
+    again = with_lite(lit, [(10, MEASURED), (20, MEASURED)])
+    _, s4 = read_map2d(again)
+    expect([t for t, _ in s4].count(b'LITE') == 1, 'a second write leaves two LITE sections')
+    expect([round(v) for v, _ in read_lite(s4)] == [10, 20], 'a second write does not replace the values')
+    try:
+        with_lite(data, [(1, 0)])
+        bad.append('a value count that is not the room count is written')
+    except ValueError:
+        pass
+    flags = dark_flags([(0, 0, 1, 1), (1, 0, 2, 2), (5, 5, 1, 1)], [(100, 100), (2000, 1500)], 1024)
+    expect(flags == [False, False, True], 'a room with no light inside its cells is not dark (or one with a light is)')
+    g = gate()
+    expect(g.LEVEL1_VIEW > 0, 'descent-gate has no LEVEL1_VIEW')
+    expect(arena_file_of('/d/maps/tf2_descent-10-s1.bsp', '/d/tf2_descent-10-s1-rooms') == '/d/tf2_descent-10-s1.arena',
+           'the level\'s .arena is not read beside its rooms preview')
+    expect(arena().self_test() == 0, 'tools/descent-arena\'s self-test fails')
+    for b in bad:
+        print('descent-room-light self-test: FAIL: ' + b)
+    print('descent-room-light self-test: %s' % ('FAIL' if bad else 'ok'))
+    return 1 if bad else 0
+
+
+if __name__ == '__main__':
+    a = sys.argv[1:]
+    if a == ['--self-test']:
+        sys.exit(self_test())
+    if len(a) == 2 and a[0] == '--print':
+        sys.exit(show(a[1]))
+    if len(a) == 2:
+        sys.exit(run(a[0], a[1]))
+    print(__doc__)
+    sys.exit(2)

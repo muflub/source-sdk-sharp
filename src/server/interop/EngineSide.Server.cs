@@ -1056,6 +1056,23 @@ internal sealed unsafe partial class EngineSide
         return ServerTraceResults.Surface(t);
     }
 
+    /// <summary>
+    /// A box swept as the other <see cref="TraceBox(Vector, Vector, Vector, Vector, TraceMask, EntityHandle)"/>
+    /// is, with the engine's own contents mask and a collision group (UTIL_TraceHull with one):
+    /// the filter passes what the group does not collide with.
+    /// </summary>
+    public SurfaceTraceResult TraceBox(Vector start, Vector end, Vector mins, Vector maxs,
+                                       uint contentsMask, EntityHandle ignore, int collisionGroup)
+    {
+        if (Tracer.Target is not { } tracer)
+            return new SurfaceTraceResult(false, 1f, end, Vector.Zero, EntityHandle.None, -1, 0);
+
+        long cost = CostMeter.Start();
+        ServerTrace t = tracer.Hull(start, end, mins, maxs, contentsMask, new EntityHandle(Skippable(ignore)), collisionGroup);
+        TraceCost.Target!.Hull.Stop(cost);
+        return ServerTraceResults.Surface(t);
+    }
+
     public HullResult TraceHull(Vector start, Vector end, Vector mins, Vector maxs,
                                        TraceMask mask, EntityHandle ignore = default)
     {

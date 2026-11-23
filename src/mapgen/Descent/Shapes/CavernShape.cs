@@ -57,6 +57,7 @@ public static class CavernShape
         cc.WithBrushes(cc.RoundCorner(wide, Corner.SouthWest, 256, 4)).WithBrushes(cc.RoundCorner(wide, Corner.SouthEast, 256, 4))
             .WithBrushes(cc.RoundCorner(wide, Corner.NorthWest, 160, 3)).WithBrushes(cc.RoundCorner(wide, Corner.NorthEast, 160, 3));
         Rock(cc, wide, rng, 256, CellFace.South);
+        RockAround(cc, kit, wide, 160, rng.Fraction() * 6.283f, 1, CellFace.North, CellFace.East, CellFace.West);
         Mound(cc, new Rect(224, 640, 400, 816), rng);
         Stalactites(cc, wide, rng, 6);
         Roof(cc, wide.Grow(-128), rng, 144);
@@ -108,20 +109,67 @@ public static class CavernShape
     /// to <paramref name="hi"/> along it (a grotto's walls between its sockets): a slab whose face is
     /// pushed into the room by up to <see cref="Bulge"/> over a player's head and a third at the floor.
     /// </summary>
-    public static void RockRun(RoomBuilder b, Rect r, CellFace wall, float lo, float hi, float phase)
+    public static void RockRun(RoomBuilder b, Rect r, CellFace wall, float lo, float hi, float phase) => RockRun(b, r, wall, lo, hi, phase, b.Floor, 128);
+
+    /// <summary>The least run of rough rock a wall takes beside a door (brief p9: a single cave's walls beside its doors are this short).</summary>
+    public const int ShortRun = 96;
+
+    /// <summary>How far over a door's head rough rock starts above it, clear of its frame's flange and keystone.</summary>
+    public const int OverDoor = 96;
+
+    /// <summary>
+    /// Rough rock over every door of a cave wall and beside it (brief p9: the caverns and grottos kept
+    /// flat walls round their doors, floor to roof): on each side of <paramref name="r"/> whose wall is
+    /// the room's, a run from <see cref="OverDoor"/> above the door's head to the roof across the door's
+    /// approach, and runs down to the floor between the approach and <paramref name="corner"/> from the
+    /// rectangle's corners (rounded off), <see cref="ShortRun"/> long at least. <paramref name="doors"/>
+    /// are the room's door faces; a larger room's sockets are on every cell edge of each.
+    /// </summary>
+    public static void RockAround(RoomBuilder b, RoomKit kit, Rect r, float corner, float phase, int cells, params CellFace[] doors)
     {
-        if (hi - lo < 128)
+        float c = kit.Cell, gap = RoomBuilder.DoorApproach + 32, roof = b.CeilingUnderside;
+        foreach (CellFace wall in doors)
+        {
+            float lo = wall is CellFace.North or CellFace.South ? r.X0 : r.Y0, hi = wall is CellFace.North or CellFace.South ? r.X1 : r.Y1;
+            float at = lo + corner;
+            for (int k = 0; k < cells; k++)
+            {
+                float d0 = k * c + kit.DoorLow - gap, d1 = k * c + kit.DoorHigh + gap;
+                if (d0 - at >= ShortRun)
+                    RockRun(b, r, wall, at, d0, phase + k, b.Floor, ShortRun);
+                if (roof - (kit.Head + OverDoor) >= 128)
+                    RockRun(b, r, wall, d0, d1, phase + 2 * k + 1, kit.Head + OverDoor, ShortRun);
+                at = d1;
+            }
+
+            if (hi - corner - at >= ShortRun)
+                RockRun(b, r, wall, at, hi - corner, phase + cells, b.Floor, ShortRun);
+        }
+    }
+
+    /// <summary>Rough rock over the door on the cell edge <paramref name="k"/> along <paramref name="wall"/>, from <see cref="OverDoor"/> above its head to the roof, across its approach.</summary>
+    public static void RockOverDoor(RoomBuilder b, RoomKit kit, Rect r, CellFace wall, int k, float phase)
+    {
+        float gap = RoomBuilder.DoorApproach + 32;
+        if (b.CeilingUnderside - (kit.Head + OverDoor) >= 128)
+            RockRun(b, r, wall, k * kit.Cell + kit.DoorLow - gap, k * kit.Cell + kit.DoorHigh + gap, phase, kit.Head + OverDoor, ShortRun);
+    }
+
+    private static void RockRun(RoomBuilder b, Rect r, CellFace wall, float lo, float hi, float phase, float bottom, float least)
+    {
+        if (hi - lo < least)
             return;
         float top = b.CeilingUnderside;
+        Surface rock = b.Cells > 1 ? b.Theme.LargeWall ?? b.Theme.Wall : b.Theme.Wall;
         float Relief(float u, float v) => MathF.Round(Bulge * MathF.Sin(MathF.PI * u)
             * (0.5f + 0.3f * MathF.Sin(9 * u + 5 * v + phase) + 0.2f * MathF.Sin(17 * u - 11 * v + 2 * phase))
             * (0.33f + 0.67f * MathF.Min(1, v * 4)));
         Brush slab = wall switch
         {
-            CellFace.North => Brush.DisplacedWall(new(lo, r.Y1 - 32, b.Floor), new(hi, r.Y1, top), Compass.South, 3, Relief, b.Theme.Wall),
-            CellFace.South => Brush.DisplacedWall(new(lo, r.Y0, b.Floor), new(hi, r.Y0 + 32, top), Compass.North, 3, Relief, b.Theme.Wall),
-            CellFace.East => Brush.DisplacedWall(new(r.X1 - 32, lo, b.Floor), new(r.X1, hi, top), Compass.West, 3, Relief, b.Theme.Wall),
-            _ => Brush.DisplacedWall(new(r.X0, lo, b.Floor), new(r.X0 + 32, hi, top), Compass.East, 3, Relief, b.Theme.Wall),
+            CellFace.North => Brush.DisplacedWall(new(lo, r.Y1 - 32, bottom), new(hi, r.Y1, top), Compass.South, 3, Relief, rock),
+            CellFace.South => Brush.DisplacedWall(new(lo, r.Y0, bottom), new(hi, r.Y0 + 32, top), Compass.North, 3, Relief, rock),
+            CellFace.East => Brush.DisplacedWall(new(r.X1 - 32, lo, bottom), new(r.X1, hi, top), Compass.West, 3, Relief, rock),
+            _ => Brush.DisplacedWall(new(r.X0, lo, bottom), new(r.X0 + 32, hi, top), Compass.East, 3, Relief, rock),
         };
         b.WithBrush(slab);
     }

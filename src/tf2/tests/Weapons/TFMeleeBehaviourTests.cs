@@ -89,7 +89,8 @@ public sealed class TFMeleeBehaviourTests
                               new client::TF2.Shared.SwingTrace(TFWeaponTypes.SwingRange, TFMeleeBehaviour.SwingHull,
                                                                 false));
 
-        Assert.Equal((Bat, TFWeaponTypes.SwingRange, "Weapon_Bat.HitWorld", "Weapon_Bat.HitFlesh"),
+        Assert.Equal((Bat, TFWeaponTypes.SwingRange, TFMeleeBehaviour.SwingHull, "Weapon_Bat.HitWorld",
+                      "Weapon_Bat.HitFlesh"),
                      Assert.Single(arms.ArmSwings));
     }
 
@@ -97,7 +98,8 @@ public sealed class TFMeleeBehaviourTests
     /// other members, like the replay's, do nothing.</summary>
     private sealed class ClientSwingArms : client::SourceSharp.Shared.IWeaponArms
     {
-        public readonly List<(string Weapon, float Range, string HitWorldSound, string HitPlayerSound)> ArmSwings =
+        public readonly List<(string Weapon, float Range, float HullHalfExtent, string HitWorldSound,
+                              string HitPlayerSound)> ArmSwings =
             new();
 
         public void Sound(string soundScript) { }
@@ -109,8 +111,9 @@ public sealed class TFMeleeBehaviourTests
         public float AnimDuration(WeaponAnim anim) => 0f;
 
         public void MeleeSwing(in client::SourceSharp.Shared.WeaponType type, float range,
+                               in client::SourceSharp.Shared.MeleeHull hull,
                                string hitWorldSound, string hitPlayerSound) =>
-            ArmSwings.Add((type.Name, range, hitWorldSound, hitPlayerSound));
+            ArmSwings.Add((type.Name, range, hull.HalfExtent, hitWorldSound, hitPlayerSound));
     }
 
     /// <summary>The client's effects service over its own prediction, the way

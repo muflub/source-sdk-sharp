@@ -92,7 +92,7 @@ public sealed class DescentUiCompositionTests
         // Every screen the assembly ships, by the game's own discovery.
         Assert.Equal(UiScreens.Discover(Screens).Count, screens.Count);
         Assert.Equal(["automap", "charsheet", "craftbench", "crate", "depthpicker", "descenthud", "downed",
-                      "inventory", "party", "robotbars", "skilltree", "spellbook", "stash", "vendor"],
+                      "inventory", "mapoverlay", "party", "robotbars", "skilltree", "spellbook", "stash", "vendor"],
                      screens.Select(s => s.Name).Order(StringComparer.Ordinal));
     }
 
@@ -153,6 +153,19 @@ public sealed class DescentUiCompositionTests
             }
         }
         Assert.True(problems.Count == 0, string.Join("\n", problems));
+    }
+
+    /// <summary>TF2's main menu names TF2 Descent: the client answers the menu's brand.</summary>
+    [Fact]
+    public void The_client_names_tf2_descent_on_tf2s_main_menu()
+    {
+        var brand = Assert.IsAssignableFrom<TF2.Client.Ui.ITFMainMenuBrand>(Services().Resolve(typeof(TF2.Client.Ui.ITFMainMenuBrand)));
+
+        Assert.Equal("descent/ui/menu_mark", brand.Mark);
+        Assert.Equal("descent/ui/menu_background", brand.Background);
+        Assert.Equal(TF2.Client.Ui.TFMainMenuButtons.FindAGame | TF2.Client.Ui.TFMainMenuButtons.Items
+                     | TF2.Client.Ui.TFMainMenuButtons.ReportPlayer | TF2.Client.Ui.TFMainMenuButtons.RequestCoach,
+                     brand.Hidden);
     }
 
     [Fact]
@@ -289,6 +302,35 @@ public sealed class DescentUiCompositionTests
 
         Escape(host);
         Assert.True(host.Menu.IsOpen("mainmenu"));
+    }
+
+    [Fact]
+    public void Escape_closes_the_depth_picker_and_does_not_open_the_main_menu()
+    {
+        // Live (the whole run, 2026-11-14): Esc over the town's depth picker opened the main
+        // menu on top of it and never closed it, because a dialog is not one of the windows
+        // the host's Escape closes.
+        var host = EscapeHost();
+        host.Open("depthpicker");
+        host.Paint(1, 1920, 1080);
+        Assert.True(host.Menu.IsOpen("depthpicker"));   // before: the picker is up
+
+        Escape(host);
+
+        Assert.Equal((false, false), (host.Menu.IsOpen("depthpicker"), host.Menu.IsOpen("mainmenu")));
+    }
+
+    [Fact]
+    public void An_empty_stash_says_the_backpack_is_empty_on_the_backpack_side()
+    {
+        // Live (the whole run): both sides of an empty stash read "The locker is empty."
+        var host = EscapeHost();
+        host.Open("stash");
+        host.Paint(1, 1920, 1080);
+
+        var texts = host.Debug.ReadMenu(false).Draws.Where(d => d.Kind == "Text").Select(d => d.Text).ToList();
+        int Count(string token) => texts.Count(t => string.Equals(t, token, StringComparison.OrdinalIgnoreCase));
+        Assert.Equal((1, 1), (Count("#Descent_Stash_Empty"), Count("#Descent_Stash_BackpackEmpty")));
     }
 
     //-------------------------------------------------------------------------

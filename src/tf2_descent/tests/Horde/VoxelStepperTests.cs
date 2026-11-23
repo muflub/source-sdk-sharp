@@ -131,6 +131,64 @@ public sealed class VoxelStepperTests
         Assert.Equal(77, rig.Motion.Blocked(1).Who);
     }
 
+    /// <summary>
+    /// Live on depth 10 seed 1 (2026-11-16, at 680ce6e82): a pyro whose path ran down landed rubble 1's east
+    /// face, its corner a unit and a half inside the face, stood against it 1,860 ticks, BLOCKED by Prop 19,
+    /// its velocity along the face: the voxels hold no arena brush, and the accept stopped each step at the
+    /// face whole, the part along it with the part into it. A body touching a brush the voxels lack slides
+    /// along it, as the movement slides along a wall it knows.
+    /// </summary>
+    [Fact]
+    public void A_body_pressed_along_a_brush_the_voxels_lack_slides_along_its_face()
+    {
+        var world = new BoxMotionWorld { FloorZ = 0f }.Put(new Vector(-200, -200, 0), new Vector(0, 200, 64), entityIndex: 19);
+        WorkerMotionStepper? worker = null;
+        var flat = VoxelColumns.Of(-1024f, -1024f, 16f, 128, 128, (_, _) => [new FreeSpan(0f, 1024f)]);
+        var rig = new MotionRig(world: world, stepper: _ => worker = Worker(flat));
+        rig.Bodies.Lend(1, At(24.5f, 100, 1));
+        rig.Motion.Order(1, MotionRig.Follow(At(22.5f, -150)), LookIntent.AlongPath, long.MaxValue);
+
+        float least = float.MaxValue;
+        for (int t = 0; t < 150; t++)
+        {
+            Settle(rig, worker!);
+            least = MathF.Min(least, rig.At(1).X);
+        }
+
+        Assert.True(rig.At(1).Y < -100f, $"the body did not slide down the face: {rig.At(1)}");
+        Assert.True(least >= 24f, $"the body went into the brush: x {least}");
+        Assert.True(rig.Motion.Slides > 0, "the control: the accept never met the face");
+    }
+
+    /// <summary>
+    /// The live corner on depth 10 seed 1 (2026-11-16): a path round landed rubble 1's north-east corner,
+    /// its corners a hull and 8 units off the box; the body takes the corner within its arrive radius and
+    /// heads for the next across the box's corner. It slides round the box to the next corner, never
+    /// inside it.
+    /// </summary>
+    [Fact]
+    public void A_corner_cut_beside_a_brush_the_voxels_lack_slides_round_it_to_the_next_corner()
+    {
+        var world = new BoxMotionWorld { FloorZ = 0f }.Put(new Vector(-200, -200, 0), new Vector(0, 200, 64), entityIndex: 19);
+        WorkerMotionStepper? worker = null;
+        var flat = VoxelColumns.Of(-1024f, -1024f, 16f, 128, 128, (_, _) => [new FreeSpan(0f, 1024f)]);
+        var rig = new MotionRig(world: world, stepper: _ => worker = Worker(flat));
+        rig.Bodies.Lend(1, At(60, 0, 1));
+        rig.Motion.Order(1, MotionRig.Follow(At(32, 232), At(-300, 232)), LookIntent.AlongPath, long.MaxValue);
+
+        bool inside = false;
+        for (int t = 0; t < 250; t++)
+        {
+            Settle(rig, worker!);
+            var at = rig.At(1);
+            inside |= at.X < 24f - 0.1f && at.Y < 224f - 0.1f;
+        }
+
+        Assert.True(rig.At(1).X < -250f, $"the body did not get round the box to the next corner: {rig.At(1)}");
+        Assert.False(inside, "the body went into the box");
+        Assert.True(rig.Motion.Slides > 0, "the control: the body never touched the box (the corner was not cut)");
+    }
+
     /// <summary>L9: the hero in a doorway blocks the robots; the worker's voxels hold no hero, the accept does.</summary>
     [Fact]
     public void A_hero_in_the_way_blocks_a_body_stepped_on_the_worker()

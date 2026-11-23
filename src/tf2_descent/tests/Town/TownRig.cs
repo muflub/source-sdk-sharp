@@ -115,6 +115,8 @@ internal sealed class TownRig
             ["shop_bunkhouse_1"] = new(-800f, -240f, 64f),
             ["shop_bunkhouse_2"] = new(-150f, -240f, 64f),
             ["shop_smithy"] = new(500f, -240f, 64f),
+            ["shop_engineer"] = new(324f, -240f, 64f),
+            ["shop_bench"] = new(676f, -240f, 64f),
         };
 
         public bool IsTown(string map) => map == Town;
@@ -136,6 +138,14 @@ internal sealed class TownRig
         public int StallOf(int entity) => entity >= 100 && entity - 100 < TownStalls.All.Count ? entity - 100 : -1;
 
         public void Panel(int player, string panel, bool show) => Panels.Add((player, panel, show));
+
+        public readonly List<(int Entity, string Sequence)> Animations = [];
+
+        public bool Animate(int entity, string sequence)
+        {
+            Animations.Add((entity, sequence));
+            return true;
+        }
 
         public double Now => Clock;
 

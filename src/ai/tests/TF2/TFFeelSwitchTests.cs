@@ -194,25 +194,38 @@ public sealed class TFFeelSwitchTests
         return convar;
     }
 
-    /// <summary>The service over seven convars of its own, each at its default but the one named <paramref name="off"/>, held at 0.</summary>
+    /// <summary>The service over ten convars of its own, each at its default but the one named <paramref name="off"/>, held at 0.</summary>
     internal static TFFeelSwitchConVars Switches(string? off = null)
         => new(ConVar<TFFeelCarrierConVar>(off), ConVar<TFFeelSearchConVar>(off), ConVar<TFFeelAimConVar>(off), ConVar<TFFeelRetreatConVar>(off),
-               ConVar<TFFeelFriendGateConVar>(off), ConVar<TFFeelGlanceConVar>(off), ConVar<TFFeelPrefireConVar>(off));
+               ConVar<TFFeelFriendGateConVar>(off), ConVar<TFFeelGlanceConVar>(off), ConVar<TFFeelPrefireConVar>(off), ConVar<TFFeelJumpHealthConVar>(off),
+               ConVar<TFFeelFightConVar>(off), ConVar<TFFeelRoutesConVar>(off));
 
     [Fact]
     public void AsDeclaredEveryPartIsOn()
-        => Assert.Equal(new TFFeelSwitches(true, true, true, true, true, true, true), Switches().Read());
+        => Assert.Equal(new TFFeelSwitches(true, true, true, true, true, true, true, true, true, true), Switches().Read());
+
+    /// <summary>Lane Groutes: <c>ai_tf_feel_routes</c> at 0 switches off the bots' own ways and nothing else.</summary>
+    [Fact]
+    public void TheRoutesConVarAtZeroSwitchesOffTheBotsOwnWaysAndNoOther()
+    {
+        Assert.Equal(TFFeelSwitches.All with { Routes = false }, Switches(off: "ai_tf_feel_routes").Read());
+        Assert.Equal(TFFeelSwitches.All, Switches().Read());
+    }
 
     [Theory]
-    [InlineData("ai_tf_feel_carrier", false, true, true, true, true, true, true)]
-    [InlineData("ai_tf_feel_search", true, false, true, true, true, true, true)]
-    [InlineData("ai_tf_feel_aim", true, true, false, true, true, true, true)]
-    [InlineData("ai_tf_feel_retreat", true, true, true, false, true, true, true)]
-    [InlineData("ai_tf_feel_friendgate", true, true, true, true, false, true, true)]
-    [InlineData("ai_tf_feel_glance", true, true, true, true, true, false, true)]
-    [InlineData("ai_tf_feel_prefire", true, true, true, true, true, true, false)]
-    public void AConVarAtZeroSwitchesOffItsOwnPartAndNoOther(string convar, bool carrier, bool search, bool aim, bool retreat, bool friendGate, bool glance, bool prefire)
-        => Assert.Equal(new TFFeelSwitches(Carrier: carrier, Search: search, Aim: aim, Retreat: retreat, FriendGate: friendGate, Glance: glance, Prefire: prefire),
+    [InlineData("ai_tf_feel_carrier", false, true, true, true, true, true, true, true, true)]
+    [InlineData("ai_tf_feel_search", true, false, true, true, true, true, true, true, true)]
+    [InlineData("ai_tf_feel_aim", true, true, false, true, true, true, true, true, true)]
+    [InlineData("ai_tf_feel_retreat", true, true, true, false, true, true, true, true, true)]
+    [InlineData("ai_tf_feel_friendgate", true, true, true, true, false, true, true, true, true)]
+    [InlineData("ai_tf_feel_glance", true, true, true, true, true, false, true, true, true)]
+    [InlineData("ai_tf_feel_prefire", true, true, true, true, true, true, false, true, true)]
+    [InlineData("ai_tf_feel_jumphealth", true, true, true, true, true, true, true, false, true)]
+    [InlineData("ai_tf_feel_fight", true, true, true, true, true, true, true, true, false)]
+    public void AConVarAtZeroSwitchesOffItsOwnPartAndNoOther(string convar, bool carrier, bool search, bool aim, bool retreat, bool friendGate, bool glance, bool prefire,
+                                                             bool jumpHealth, bool fight)
+        => Assert.Equal(new TFFeelSwitches(Carrier: carrier, Search: search, Aim: aim, Retreat: retreat, FriendGate: friendGate, Glance: glance, Prefire: prefire,
+                                           JumpHealth: jumpHealth, Fight: fight),
                         Switches(off: convar).Read());
 
     /// <summary>A bot added with a switch off plays differently from the server's others: each is a cheat, as <c>ai_sync</c> is.</summary>
@@ -224,6 +237,9 @@ public sealed class TFFeelSwitchTests
     [InlineData(typeof(TFFeelFriendGateConVar))]
     [InlineData(typeof(TFFeelGlanceConVar))]
     [InlineData(typeof(TFFeelPrefireConVar))]
+    [InlineData(typeof(TFFeelJumpHealthConVar))]
+    [InlineData(typeof(TFFeelFightConVar))]
+    [InlineData(typeof(TFFeelRoutesConVar))]
     public void EachSwitchIsACheat(Type convar)
         => Assert.Equal(ConVarFlags.Cheat, convar.GetCustomAttribute<ConVarAttribute>()!.Flags & ConVarFlags.Cheat);
 }

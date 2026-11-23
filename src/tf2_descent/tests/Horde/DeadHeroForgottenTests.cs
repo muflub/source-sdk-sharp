@@ -88,7 +88,7 @@ public sealed class DeadHeroForgottenTests
         Assert.Equal(AlertLevel.Suspicious, roster.Carried(0).Alert);
     }
 
-    /// <summary>Six rooms in a row, the only pack in room 5; it heard the hero in room 1 and is walking there.</summary>
+    /// <summary>Six rooms in a row, the only pack in room 5; it heard the hero in room 4, the next room (the hearing's reach), and is walking there.</summary>
     private static (RobotRoster Roster, FarSimulation Sim, FakeSight Sight, Func<long> Tick) Converging()
     {
         var level = HordeLevel.Create(11, 4, Enumerable.Range(0, 6).Select(i => RowRoom(i, i == 5 ? 2 : 0)), Enumerable.Range(0, 5).Select(RowDoor));
@@ -104,7 +104,7 @@ public sealed class DeadHeroForgottenTests
         }
 
         now += interval;
-        sim.Tick(roster, sight, [new SoundEvent(1, Centre(1), 5000, Dead)], now);
+        sim.Tick(roster, sight, [new SoundEvent(4, Centre(4), 5000, Dead)], now);
         for (int t = 0; t < 15; t++)
             Tick();
         return (roster, sim, sight, Tick);

@@ -254,6 +254,10 @@ public sealed class FakeInvActions : IDescentItemActions
     public void Hover(int slotOrCell) => LastHover = slotOrCell;
     public void Use(int slotOrCell) => LastUse = slotOrCell;
     public void Move(int fromCell, int toCell) => (LastFrom, LastTo) = (fromCell, toCell);
+    public int LastToBelt = -1;
+    public int LastOffBelt = -1;
+    public void ToBelt(int cell, int beltSlot) => (LastFrom, LastToBelt) = (cell, beltSlot);
+    public void OffBelt(int beltSlot, int cell) => (LastOffBelt, LastTo) = (beltSlot, cell);
 }
 
 /// <summary>The drops, recorded so a wiring test can read them back.</summary>

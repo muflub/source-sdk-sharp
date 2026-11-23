@@ -1470,11 +1470,18 @@ internal sealed unsafe partial class EngineEntityRender
         _networkServerArea = networkServerArea ?? throw new ArgumentNullException(nameof(networkServerArea));
     }
 
-    /// <summary>Precaches and applies a model.</summary>
+    /// <summary>
+    /// Precaches and applies a model, then resets the skeleton's sequence as
+    /// stock's CBaseAnimating::SetModel does (SetSequence( 0 ) after
+    /// UTIL_SetModel). An empty name changes nothing: native ignores it.
+    /// </summary>
     public void SetModel(EntityHandle entity, string model)
     {
         var bytes = Encoding.UTF8.GetBytes(model + "\0");
         fixed (byte* p = bytes) { _modelsServerArea.EntitySetModel(entity.Value, p); }
+
+        if (!string.IsNullOrEmpty(model))
+            (_skeletons.Skeletons as IServerStandaloneSkeletons)?.ModelChanged(entity);
     }
 
     /// <summary>
@@ -2322,6 +2329,18 @@ internal sealed unsafe partial class EnginePrecache
         return index >= 0 ? index : 0;
     }
 
+    /// <summary>The capacity shell_stringtables.cpp creates ParticleEffectNames with: stock's
+    /// MAX_PARTICLESYSTEMS_STRINGS (networkstringtable_gamedll.h:31-32), and live TF2's
+    /// server.so passes the same 0x2000.</summary>
+    public const int MaxParticleSystemStrings = 1 << 13;
+
+    public int ParticleSystemRoom()
+    {
+        int table = Tables.Find("ParticleEffectNames");
+        int stored = table >= 0 ? Tables.GetNumStrings(table) : -1;
+        return stored >= 0 ? Math.Max(0, MaxParticleSystemStrings - stored) : 0;
+    }
+
     public int PrecacheModel(string model) => E.PrecacheModel(model);
 
     /// <summary>A decal's index, precached through the engine; -1 for none.</summary>
@@ -2946,6 +2965,9 @@ internal sealed unsafe partial class EngineWorldQuery
     public SurfaceTraceResult TraceBox(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore = default)
         => E.TraceBox(start, end, mins, maxs, mask, ignore);
 
+    public SurfaceTraceResult TraceBoxInGroup(Vector start, Vector end, Vector mins, Vector maxs, uint contentsMask, EntityHandle ignore, int collisionGroup)
+        => E.TraceBox(start, end, mins, maxs, contentsMask, ignore, collisionGroup);
+
     public EntityHullTrace EntityTraceHull(EntityHandle entity, Vector start, Vector end, Vector mins, Vector maxs, uint mask, int collisionGroup)
         => E.EntityTraceHull(entity, start, end, mins, maxs, mask, collisionGroup);
 
@@ -3015,5 +3037,12 @@ internal sealed unsafe partial class EngineWorldQuery
                                                    TraceMask mask, int passEntityIndex,
                                                    ReadOnlySpan<int> entityIndices)
         => new ClientBoxTrace(false, 1f, end, -1, Vector.Zero);
+    public int ClientSolidEntities(Span<ClientSolidEntity> into) => 0;
+    public int ClientClipHullToEntities(Vector start, Vector end, Vector mins, Vector maxs, uint mask,
+                                        ReadOnlySpan<int> entityIndices, out MoveTrace trace)
+    {
+        trace = MoveTrace.Clear(end);
+        return -1;
+    }
     public int GetArea(Vector origin) => _server.GetArea(origin);
 }

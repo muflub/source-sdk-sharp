@@ -49,7 +49,7 @@ public sealed record TankSettings(string Template, double StopSeconds, double Fi
 
 /// <summary>The fight's sounds and effects, TF2's MvM ones.</summary>
 public sealed record BossSounds(string Intro, string Phase, string Death, string ExitOpens, string TankStart, string TankStop, string TankDrill,
-                                string TankDeath, string TankDeathParticle, string Roof);
+                                string TankDeath, string TankDeathParticle, string Roof, string PillarFalls, string PillarDust);
 
 /// <summary>
 /// bosses.json (D13, mine plan D4, D6, D11; plan_descent_logic HO13): how long the arena must be
@@ -154,7 +154,7 @@ public sealed class BossTable : SingleTable<BossSettings>
 
         var o = f.Obj("sounds");
         var sounds = new BossSounds(o.Str("intro"), o.Str("phase"), o.Str("death"), o.Str("exitOpens"), o.Str("tankStart"), o.Str("tankStop"),
-            o.Str("tankDrill"), o.Str("tankDeath"), o.Str("tankDeathParticle"), o.Str("roof"));
+            o.Str("tankDrill"), o.Str("tankDeath"), o.Str("tankDeathParticle"), o.Str("roof"), o.Str("pillarFalls"), o.Str("pillarDust"));
         o.End();
 
         return new BossSettings(f.Num("resetSeconds"), f.Num("arenaMargin"), f.Num("addSpacing"), bosses, specials, tank, sounds);

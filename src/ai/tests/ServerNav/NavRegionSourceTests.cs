@@ -50,6 +50,52 @@ public sealed class NavRegionSourceTests
     }
 
     [Fact]
+    public void ARegionOverAScratchAnswersAsOneWithoutIt()
+    {
+        Row r = Build();
+        var scratch = NavRegionScratch.For(r.Source);
+        foreach (int[] leaves in (int[][])[RegionA(r), RegionB(r), [.. Enumerable.Range(0, r.Source.LeafCount)]])
+        {
+            NavRegionSource plain = NavRegionSource.Over(r.Source, leaves), fast = NavRegionSource.Over(scratch, leaves);
+            Assert.Equal(Derive(plain).Graph.Hash, Derive(fast).Graph.Hash);
+            var a = new int[8];
+            var b = new int[8];
+            for (int o = 0; o < plain.ObstacleCount; o++)
+                Assert.Equal(a.AsSpan(0, plain.ObstacleLeaves(o, a)).ToArray(), b.AsSpan(0, fast.ObstacleLeaves(o, b)).ToArray());
+            for (int leaf = 0; leaf < r.Source.LeafCount; leaf++)
+                Assert.Equal(plain.LeafOf(leaf), fast.LeafOf(leaf));
+            fast.Release();
+        }
+    }
+
+    [Fact]
+    public void AScratchServesOneRegionAtATime()
+    {
+        Row r = Build();
+        var scratch = NavRegionScratch.For(r.Source);
+        NavRegionSource a = NavRegionSource.Over(scratch, RegionA(r));
+        Assert.Throws<InvalidOperationException>(() => NavRegionSource.Over(scratch, RegionB(r)));
+        a.Release();
+        NavRegionSource b = NavRegionSource.Over(scratch, RegionB(r));
+
+        // Region A's leaves were given back: region B does not hold them.
+        Assert.All(RegionA(r), leaf => Assert.Equal(-1, b.LeafOf(leaf)));
+        Assert.Equal(0, b.LeafOf(r.Floor[4]));
+    }
+
+    [Fact]
+    public void AForkedScratchServesAnotherRegionAtTheSameTime()
+    {
+        Row r = Build();
+        var scratch = NavRegionScratch.For(r.Source);
+        NavRegionSource a = NavRegionSource.Over(scratch, RegionA(r)), b = NavRegionSource.Over(scratch.Fork(), RegionB(r));
+        Assert.Equal(0, a.LeafOf(r.Floor[0]));
+        Assert.Equal(-1, a.LeafOf(r.Floor[4]));
+        Assert.Equal(0, b.LeafOf(r.Floor[4]));
+        Assert.Equal(-1, b.LeafOf(r.Floor[0]));
+    }
+
+    [Fact]
     public void TwoRegionsThatDoNotTouchDeriveOnlyTheirOwnCells()
     {
         Row r = Build();

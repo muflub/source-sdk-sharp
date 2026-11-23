@@ -202,6 +202,47 @@ def unrun_steps(doc):
     return [s for s in doc.get("steps") or [] if not v.get(s)]
 
 
+SEQUENCE_PASSES = 2        # the night's own count: pass 2 is the map reload
+
+
+def sequence_suspects(night_doc, confirm_doc, flaky):
+    """The FLAKY steps that are FLAKY only because the confirm ran them alone:
+    red in every night pass (two or more) and green in every confirm pass.
+
+    2026-11-03 to 11-13: projectile, die, knock-loose and gib-ragdoll were
+    red in both passes every night and green in every confirm, so each night
+    said FLAKY. They were deterministic: an earlier step (damage-message) lit
+    an exploding barrel that went off in `shoot`, which the confirm never ran.
+    A flake fails some passes; a step that fails every pass of the full run
+    and none alone is red in sequence, and has to be confirmed in sequence."""
+    night = fail_counts(night_doc, list(flaky))
+    out = []
+    for s, (fails, _passes) in flaky.items():
+        nf, nn = night[s]
+        if nn >= 2 and nf == nn and fails == 0:
+            out.append(s)
+    return out
+
+
+def sequence_prefix(night_doc, suspects):
+    """The night's steps, in its order, from the first up to the last suspect:
+    what ran before each of them at night."""
+    order = list((night_doc or {}).get("steps") or [])
+    at = [order.index(s) for s in suspects if s in order]
+    return order[:max(at) + 1] if at else []
+
+
+def sequence_confirmed(seq_doc, suspects):
+    """The suspects red in CONFIRM_MIN_FAILS (capped at the passes run) of the
+    in-sequence run's passes. A run that gave a suspect no verdict confirms
+    nothing: it stays FLAKY."""
+    out = []
+    for s, (fails, passes) in fail_counts(seq_doc, suspects).items():
+        if passes and fails >= min(CONFIRM_MIN_FAILS, passes):
+            out.append(s)
+    return out
+
+
 def next_action(confirmed, flaky, last_green, is_ancestor, never_ran=()):
     """What follows the confirm: FLAKY (nothing confirmed), NEVER-RAN
     (nothing confirmed, but a step never gave a verdict at all: not green, and
@@ -733,6 +774,22 @@ def triage(report, wt, failing, last_green, sha, state, env, log, stamp, night=N
                % (CONFIRM_PASSES, len(cdoc["runs"])))
     for l in step_table(night, cdoc, steps, confirmed, flaky, unrun):
         report.say(l)
+    # RED IN SEQUENCE: a step red in every night pass and green alone is run
+    # again behind the steps that ran before it at night (sequence_suspects).
+    suspects = sequence_suspects(night, cdoc, flaky)
+    if suspects:
+        prefix = sequence_prefix(night, suspects)
+        report.say("in sequence: %s red in every night pass and green alone; running the night's %d step(s) "
+                   "up to them, %d pass(es)" % (", ".join(suspects), len(prefix), SEQUENCE_PASSES))
+        spath = os.path.join(state, stamp + "-sequence.json")
+        _rc, sdoc = live_gate(report, "sequence", wt, env, log, spath, prefix, SEQUENCE_PASSES)
+        for s in sequence_confirmed(sdoc, suspects):
+            f, n = fail_counts(sdoc, [s])[s]
+            report.say("IN SEQUENCE %s: red in %d of %d pass(es) behind the steps before it, green alone -- an "
+                       "earlier step leaves the world it needs changed (the night log's health trail and "
+                       "death lines name where)" % (s, f, n))
+            del flaky[s]
+            confirmed.append(s)
     for s, (f, n) in flaky.items():
         r = rates.get(s, "not known flaky")
         known = "unmeasured" if r is None else ("%d/%d" % r if isinstance(r, tuple) else r)
@@ -851,6 +908,28 @@ def self_test():
     ok(c == [] and f == {"door": (0, 2)}, "0 of 2 cannot reach 2 of 3: FLAKY")
     c, f = classify(doc({"door": ["fail", "fail", "fail"]}), ["door"])
     ok(c == ["door"] and not f, "3 of 3 is confirmed")
+    # red in sequence (2026-11-13): every night pass red, every confirm pass green
+    night = doc({"join": ["pass", "pass"], "shoot": ["skip", "skip"], "projectile": ["fail", "fail"],
+                 "push": ["fail", "pass"], "die": ["fail", "fail"], "door": ["pass", "pass"]})
+    alone = doc({"projectile": ["pass"] * 3, "push": ["pass"] * 3, "die": ["fail", "pass", "pass"]})
+    c, f = classify(alone, ["projectile", "push", "die"])
+    ok(c == [] and set(f) == {"projectile", "push", "die"}, "the control: alone, all three are FLAKY")
+    ok(sequence_suspects(night, alone, f) == ["projectile"],
+       "only the step red in every night pass and in no confirm pass is a sequence suspect "
+       "(push failed one night pass of two; die failed a confirm pass)")
+    ok(sequence_suspects(doc({"projectile": ["fail"]}), alone, {"projectile": (0, 3)}) == [],
+       "one night pass is not every pass of a full run: not a suspect")
+    ok(sequence_prefix(night, ["projectile"]) == ["join", "shoot", "projectile"],
+       "the prefix is the night's steps up to the suspect, in its order")
+    ok(sequence_prefix(night, ["die", "projectile"]) == ["join", "shoot", "projectile", "push", "die"],
+       "with two suspects, up to the later one")
+    ok(sequence_prefix(night, ["absent"]) == [], "a suspect the night never listed gives no prefix")
+    ok(sequence_confirmed(doc({"projectile": ["fail", "fail"]}), ["projectile"]) == ["projectile"],
+       "red in both passes behind the steps before it: confirmed")
+    ok(sequence_confirmed(doc({"projectile": ["fail", "pass"]}), ["projectile"]) == [],
+       "red in one pass of two: still FLAKY")
+    ok(sequence_confirmed(None, ["projectile"]) == [] and sequence_confirmed(doc({}), ["projectile"]) == [],
+       "a sequence run with no verdict for it confirms nothing")
 
     def fake_gate(script):
         """A live-gate stand-in: `script(steps, passes)` gives the verdict

@@ -2686,19 +2686,42 @@ def blast_side_spot(blast, props, distance=96.0, clear=72.0):
     return None
 
 
-def blast_floor_spot(floor, props, clear=72.0):
-    """Where on the floor around `floor` to make the blast: the nearest point
-    of a 64-unit grid out to 192 with no prop within `clear` units across and
-    a clear side (blast_side_spot) to stand at, or None. dm_lockdown's
-    openFloor has props on all four sides of it at 96 units."""
-    steps = (0.0, 64.0, -64.0, 128.0, -128.0, 192.0, -192.0)
-    grid = sorted(((dx, dy) for dx in steps for dy in steps), key=lambda d: (math.hypot(*d), d))
+# THE BLAST REACHES NO PHYSICS PROP (2026-11-13; projectile, die, knock-loose
+# and gib-ragdoll red every night from 2026-11-03). A 256-unit blast made 72
+# units clear of the props reached dm_lockdown's two exploding barrels at 113
+# and 125 units. Stock CBreakableProp::OnTakeDamage ignites a flammable prop on
+# any blast damage that does not kill it; the barrel burned and went off three
+# steps later, in `shoot`, beside openFloor: it broke shoot's crate and killed
+# the player (73 -> -12, "killed by #388" with 'physics'), and projectile then
+# fired a crossbow from a dead player. So the blast's radius only just reaches
+# the stand 96 units away, and no physics prop stands within it.
+BLAST_RADIUS = 128.0
+BLAST_MAGNITUDE = 24
+BLAST_PROP_CLEAR = BLAST_RADIUS + 32.0
+
+
+def blast_floor_spots(floor, props, clear=BLAST_PROP_CLEAR, stand_clear=72.0, reach=320.0, step=32.0):
+    """Where on the floor around `floor` the blast may be made, nearest first:
+    each point of a `step`-unit grid out to `reach` with no prop within `clear`
+    units across (out of the blast's reach) and a stand (blast_side_spot) with
+    none within `stand_clear`. The grid knows no walls: the step teleports to
+    each in turn and takes the first the player lands on."""
+    n = int(reach // step)
+    offsets = [i * step for i in range(-n, n + 1)]
+    grid = sorted(((dx, dy) for dx in offsets for dy in offsets), key=lambda d: (math.hypot(*d), d))
+    spots = []
     for dx, dy in grid:
         x, y = floor[0] + dx, floor[1] + dy
         if all(math.hypot(p[0] - x, p[1] - y) > clear for p in props) \
-                and blast_side_spot((x, y), props, clear=clear) is not None:
-            return [x, y, floor[2]]
-    return None
+                and blast_side_spot((x, y), props, clear=stand_clear) is not None:
+            spots.append([x, y, floor[2]])
+    return spots
+
+
+def blast_floor_spot(floor, props, clear=BLAST_PROP_CLEAR, stand_clear=72.0):
+    """The nearest of blast_floor_spots, or None."""
+    spots = blast_floor_spots(floor, props, clear, stand_clear)
+    return spots[0] if spots else None
 
 
 def contact_spots(g):
@@ -3201,8 +3224,12 @@ def step_knock_loose(g):
     index, resting, _fell = spawn_prop(g, name=KNOCK_NAME, keyvalues={"forcetoenablemotion": 1000})
     if index is None or resting is None:
         g.skip("/entities/spawn made nothing")
-
-    # THE CONTROL: nothing has touched it, and it has not let go.
+    # WHERE IT RESTS, read not checked: the scrape needs the knocked crate to
+    # fall off the map's crates it rests on; one resting on the floor is
+    # pushed at the jam's speed and does not scrape (the comment above).
+    floor_z = g.player_origin()[2]
+    g.say("    the pinned crate rests at %s, %.1f above the player's floor"
+          % ([round(v, 1) for v in resting], resting[2] - floor_z))
     g.check(not enabled(since, index),
             "the pinned crate stays pinned until something hits it")
 
@@ -3220,6 +3247,20 @@ def step_knock_loose(g):
     # of the walk, props 60-63, and the knock passed through them both passes.)
     g.face(resting, lift=64.0)
     scrapes_before = physics_counter(g, "scrapes started")
+    # THE FRICTION TABLE'S SLOTS IN USE before the walk: stock's has four
+    # (CCollisionEvent::m_current) and a new scrape starts only in a free one,
+    # so four held by contacts that never stop rubbing silence this crate.
+    #
+    # AFTER push AND BEFORE trigger in RUN_ORDER (2026-11-13; red in both night
+    # passes from 2026-11-03, green alone): trigger drops the player into
+    # dm_lockdown's fan room, the wind blows them into the fan_debris piled at
+    # the spinning fan, and the debris wake there, pressed into the fan by
+    # fan_wind, and rub for the rest of the level. They held all four slots
+    # (#214-#232 prop_physics at (-3550, 5800)), and the crate knocked loose
+    # here slid 52 units and started no scrape. Alone: 0 of 4.
+    playing = physics_counter(g, "scrapes playing")
+    holders = scrape_holders(g)
+    g.say("    scrapes playing before the walk: %s of 4: %s" % (playing, holders))
     g.hold("forward", 1.5)
 
     g.api.wait({"event": "output", "index": index, "name": "OnMotionEnabled*", "since": since},
@@ -3234,10 +3275,17 @@ def step_knock_loose(g):
     # looping scrape for it. A difference across the walk, not a total: the
     # map's own props settle and scrape too.
     scrapes_after = physics_counter(g, "scrapes started")
+    moved = prop_origin(g, index)
+    if moved is not None:
+        g.say("    the knocked crate ended at %s: %.1f units across, %.1f down"
+              % ([round(v, 1) for v in moved], math.hypot(moved[0] - resting[0], moved[1] - resting[1]),
+                 resting[2] - moved[2]))
     g.check(scrapes_before is not None and scrapes_after is not None
             and scrapes_after > scrapes_before,
-            "the loosed crate scraped across the floor: scrapes started %s -> %s"
-            % (scrapes_before, scrapes_after))
+            "the loosed crate scraped across the floor: scrapes started %s -> %s%s"
+            % (scrapes_before, scrapes_after,
+               "" if playing is None or playing < 4 else
+               " (the friction table was full before the walk, so no new scrape could start: %s)" % holders))
 
     kill_prop(g, KNOCK_NAME)
 
@@ -3732,6 +3780,7 @@ PHYSICS_COUNTER_NAMES = {
     "updates delivered": "updatesDelivered",
     "impact sounds": "impactSounds",
     "scrapes started": "scrapesStarted",
+    "scrapes playing": "scrapesPlaying",
     "shadow moves": "shadowMoves",
     "stress felt": "stressFelt",
     "stress crushes": "stressCrushes",
@@ -3746,6 +3795,21 @@ def physics_counter(g, label):
     if counters is None:
         return None
     return counters.get(PHYSICS_COUNTER_NAMES[label])
+
+
+def scrape_holders(g):
+    """Who holds each friction slot: "#index class at [x, y, z]", one per
+    slot in use (the physics group's scrapeEntity0..3, -1 for a free slot)."""
+    counters = g.api.counters("physics") or {}
+    out = []
+    for slot in range(4):
+        index = counters.get("scrapeEntity%d" % slot)
+        if index is None or index < 0:
+            continue
+        e = g.api.entity(index=index)
+        out.append("#%d %s at %s" % (index, e.get("classname") if e else "(gone)",
+                                     [round(v) for v in e["origin"]] if e else "?"))
+    return out
 
 
 def physics_responded(g):
@@ -8515,18 +8579,32 @@ def step_damage_message(g):
     # facing +X.
     g.cheats()
     props = physics_prop_origins(g)
-    floor = blast_floor_spot(g.scen["openFloor"], props)
-    if floor is None:
-        g.check(False, "a floor spot near openFloor for the blast, with a side clear of every physics prop (%d props)"
-                % len(props))
+    spots = blast_floor_spots(g.scen["openFloor"], props)
+    if not spots:
+        g.check(False, "a floor spot near openFloor for the blast, %d units from every physics prop, with a "
+                       "side clear of them (%d props)" % (BLAST_PROP_CLEAR, len(props)))
         return
-    g.teleport(floor, [0, 0, 0], settle=1.2)
+    floor = None
+    tried = 0
+    for spot in spots[:8]:
+        tried += 1
+        landed = g.teleport(spot, [0, 0, 0], settle=1.2)
+        here = g.player_origin()
+        if landed.get("ok") and here and math.hypot(here[0] - spot[0], here[1] - spot[1]) < 8.0 \
+                and abs(here[2] - spot[2]) < 8.0:
+            floor = spot
+            break
+    g.check(floor is not None, "the player landed on a blast spot clear of every physics prop (%s, try %d of %d)"
+            % (floor, tried, len(spots)))
+    if floor is None:
+        return
     g.api.cmd("setang 89 0 0")
     time.sleep(0.6)
     feet = g.player_origin()
     group = {"placement": "origin", "entities": [{
         "classname": "env_explosion", "targetname": "ss_lg_boom", "origin": feet, "angles": [0, 0, 0],
-        "keyvalues": {"iMagnitude": "12", "iRadiusOverride": "256", "spawnflags": "0"}}]}
+        "keyvalues": {"iMagnitude": str(BLAST_MAGNITUDE), "iRadiusOverride": str(int(BLAST_RADIUS)),
+                      "spawnflags": "0"}}]}
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
         json.dump(group, f)
         path = f.name
@@ -8563,10 +8641,15 @@ def step_damage_message(g):
     g.check(bool(pose), "the client's view stands where the server put the player, facing %g, before the blast (%s)"
             % (face, (g.api.get("client", str(slot), "frame") or {}).get("pose")))
     before = damage_received(g, slot)
+    flames = len(g.api.ents("entityflame"))
     g.api.fire("env_explosion", "Explode")
     edges, shown = lit(g, slot, lambda left, right: left > 0 and right == 0)
     g.check(damage_received(g, slot) > before, "the explosion hurt the player (a Damage message arrived)")
     g.check(shown, "an env_explosion to the left lights the left edge only (left %d, right %d draws)" % edges)
+    # NOTHING CAUGHT FIRE: a prop the blast lit burns on into later steps, and
+    # an exploding barrel goes off in one of them (BLAST_RADIUS's note).
+    lit_now = len(g.api.ents("entityflame"))
+    g.check(lit_now == flames, "the blast set nothing alight: entityflame %d -> %d" % (flames, lit_now))
 
 def step_ui_resize(g):
     """
@@ -11553,7 +11636,7 @@ ALL_STEPS = STEPS + EXTRA_STEPS
 # what survives. Putting them earlier would leave three barrels in the middle of
 # those counts.
 RUN_ORDER = ["join", "render", "rope-settle", "beam-ring", "proxy-animated", "view-camera", "render-plan", "draw-batch", "ui-scoreboard", "ui-teammenu", "ui-resize", "ui-form", "ui-keys", "kill-feed", "ui-motd", "text-msg", "chat-notices", "changename", "voice-state", "ui-newmap", "loading-disc", "debug-overlay", "input-usercmd", "move", "jump", "damage", "damage-message", "pickup", "shoot", "projectile",
-             "push", "contact-touch", "start-asleep", "trigger", "penetration", "prop-hurts-player", "knock-loose", "impact-damage", "stress", "door", "lift", "die", "respawn",
+             "push", "knock-loose", "contact-touch", "start-asleep", "trigger", "penetration", "prop-hurts-player", "impact-damage", "stress", "door", "lift", "die", "respawn",
              "skinned-model", "viewmodel-merge", "gib-ragdoll",
              "engine-vectors", "second-client", "frag-credit", "chat", "spectate", "round-end", "save-load", "hot-reload", "map-reload",
              "phys-convert", "render-plan-sandbox", "ai-nav", "ai-reload", "bots", "ai-jank", "ss-ai-nav", "ss-ai-sight", "ss-ai-hearing",
@@ -11831,6 +11914,30 @@ def log_since(api, seq, page=500, pages=200):
     return lines, False
 
 
+DEATH_NEEDLES = (" killed by #", " killed by the world")
+
+
+def step_deaths(gate, lines):
+    """The death lines among a step's managed log `lines`: the server's
+    "#V killed by #K", with K's class where it still stands, and the score's
+    "killed by the world with 'physics'". Read from the step's own log window
+    (log_since), which a reload does not reset; the console mirror re-reads
+    its whole file after one."""
+    out = []
+    for line in lines or []:
+        if not any(n in line for n in DEATH_NEEDLES):
+            continue
+        m = re.search(r"#(\d+) killed by #(\d+)", line)
+        if m:
+            try:
+                e = gate.api.entity(index=int(m.group(2)))
+                line += " [#%s is %s]" % (m.group(2), e.get("classname") if e else "gone")
+            except (ApiError, KeyError, TypeError, AttributeError):
+                pass
+        out.append(line.strip())
+    return out
+
+
 def run_step(gate, step_id, budget, recorded, report):
     _, title, func = BY_ID[step_id]
     gate._step = step_id
@@ -11852,6 +11959,7 @@ def run_step(gate, step_id, budget, recorded, report):
     # per client frame) and hand it over here in place of the server's.
     gate._window = None
 
+    step_lines = None
     failures_before = len(gate.failures)
     verdict = "pass"
     try:
@@ -11872,6 +11980,7 @@ def run_step(gate, step_id, budget, recorded, report):
         else:
             try:
                 lines, complete = log_since(gate.api, log_mark)
+                step_lines = lines
                 faults = faults_in(lines, step_id)
                 gate.check(not faults,
                            "no managed exception or refused acquisition in the step's log "
@@ -11913,6 +12022,12 @@ def run_step(gate, step_id, budget, recorded, report):
         gate.say("    player  health %s after this step" % (who["health"] if who else None))
     except (ApiError, KeyError, TypeError):
         gate.say("    player  health unreadable after this step")
+    # WHO DIED IN THE STEP, AND TO WHAT. The trail above says a player died;
+    # this says what killed them, so a death a step did not ask for names its
+    # cause in the step it happened in rather than in the reds three steps on
+    # (2026-11-13: shoot's "73 -> -12" was a barrel lit by damage-message).
+    for line in step_deaths(gate, step_lines):
+        gate.say("    death   %s" % line)
 
     # WALL SECONDS AND SERVER TICKS, per step. The gate printed only frames,
     # so nobody could say where a two-minute step's time went: a step slow in
@@ -12143,6 +12258,13 @@ def self_test():
        and all(math.hypot(p[0] - floor[0], p[1] - floor[1]) > 72.0 for p in lockdown)
        and all(math.hypot(p[0] - stand[0][0], p[1] - stand[0][1]) > 72.0 for p in lockdown),
        "round openFloor the blast and its stand are both 72 units from every prop (%s, %s)" % (floor, stand))
+    ok(floor is not None and all(math.hypot(p[0] - floor[0], p[1] - floor[1]) > BLAST_RADIUS + 1.0 for p in lockdown),
+       "and no prop is within the blast's reach, %g units (%s)" % (BLAST_RADIUS, floor))
+    ok(blast_floor_spot((-3843.0, 2894.0, 0.0), lockdown, clear=72.0) is not None
+       and any(math.hypot(p[0] - blast_floor_spot((-3843.0, 2894.0, 0.0), lockdown, clear=72.0)[0],
+                          p[1] - blast_floor_spot((-3843.0, 2894.0, 0.0), lockdown, clear=72.0)[1]) < 256.0
+               for p in lockdown),
+       "the control: 72 units of clearance leaves a prop inside a 256-unit blast, which is the 2026-11-13 red")
     for yaw in (0.0, 180.0, 90.0, 270.0):
         r = math.radians(yaw)
         sx, sy = blast[0] + math.sin(r) * 96.0, blast[1] - math.cos(r) * 96.0

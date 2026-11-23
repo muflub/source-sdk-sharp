@@ -168,6 +168,7 @@ public sealed class FakeAutomap : IDescentAutomap
         (416, 384, 256, 256),  // crypt
         (768, 448, 160, 160),  // shrine room
         (448, 96, 192, 128),   // upper guardroom (other storey)
+        (416, 704, 256, 160),  // through the crypt's south door: discovered, not entered
     ];
 
     public int RoomCount => Rooms.Length;
@@ -177,12 +178,14 @@ public sealed class FakeAutomap : IDescentAutomap
     public float RoomH(int r) => Rooms[r].H;
     public int RoomStorey(int r) => r == 3 ? 1 : 2;
     public bool RoomCurrentStorey(int r) => r != 3;
+    public bool RoomDiscovered(int r) => r == 4;
 
     private readonly (float X, float Y, float W, float H)[] Doors =
     [
         (320, 512, 96, 4),
         (672, 512, 96, 4),
         (512, 224, 4, 160),
+        (528, 640, 4, 64),
     ];
 
     public int DoorStubCount => Doors.Length;

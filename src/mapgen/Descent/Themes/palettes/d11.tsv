@@ -1,0 +1,44 @@
+# Palette of depth 11 (Robot Works), plan_descent_mine_levels.md E7; brief p14.
+# One row per asset the theme names: asset, kind (material, static, dynamic, water), role, why.
+# Chosen by query of /home/lodle/assetdb (average_colour, maps_used) and looked at (.scratch/p14-m*.jpg, p14-mod*.jpg).
+# DescentPaletteTests holds every row to the theme and to the database. '# rejected' lines are notes.
+asset	kind	role	why
+swamp/tile/floor_tile_002a_worn	material	floor	worn dark factory tiles (#46443f; the plan's), the works' shop floor; 14 maps
+metal/wall026	material	wall	rusted orange steel panels (#855e50; the plan's): the factory failing; 86 maps
+swamp/metal/swampmetal001	material	ceiling	dark perforated steel overhead
+metal/metalgrate011a	material	block	steel grating (#444041; the plan's floor) for every deck, catwalk, stair and pillar; 84 maps
+metal/ibeam001b	material	trim	steel I-beams for sets, pilasters, roof beams and the crane's girders
+swamp/metal/swampmetal001	material	wall-low	dark perforated steel (the plan's swampmetal) along a wall's foot to 192
+metal/wall026	material	large-wall	the panels at 0.5 on a larger room's walls
+props/hazardstrip001a	material	hazard	yellow and black stripes over door heads and along catwalk and ledge edges, so they read in the dark
+swamp/metal/swampmetal001	material	door-frame	dark perforated steel posts round each doorway
+metal/ibeam001b	material	door-frame-head	a steel head over each doorway
+props_gameplay/door_grate003_floorplate	static	door-sill	covers the doorway's floor under the plugs (the kit's sill)
+props_spytech/hanging_ceiling_lamp	static	lamp	a spytech shade on a short stem (the plan's; 47 maps): half of them have failed and hang dark
+props_spytech/siren	static	cover-lamp	a red caged lamp on a wall: the emergency light where the failed lamps leave the floor dark (level 5's warning lamp)
+props_spytech/spytech_hanging_light_52	static	pendant	the same shade on a longer stem, hung on a cable over the halls; half failed; 51 maps
+props_island/gantry_support_cable_128	static	pendant-cord	the cable the shade hangs from
+props_island/gantry_support_cable_64	static	pendant-cord	a half length of the cable
+props_island/gantry_support_cable_32	static	pendant-cord	a quarter length of the cable
+props_spytech/control_room_console01	static	wall-prop	a red control console against the wall, its dials toward the room (front +y); 113 maps
+props_spytech/computer_wall_cabinet	static	wall-prop	a grey computer cabinet; 123 maps
+props_spytech/pipes_wall001	static	wall-prop	rusted pipework climbing a wall; 22 maps; non-solid (its top run, 186 up, was a standing place no one reaches)
+props_mvm/barrel_crate	static	corner-pile	a Mann Co. barrel crate (MvM's) in a corner; 42 maps
+props_hydro/water_machinery2	static	corner-pile	a ribbed steel tank on legs, 238 high
+props_hydro/water_machinery4	static	floor-prop	three tanks joined by pipes, a machine on the floor; 42 maps
+props_mining/generator_pipe01	static	floor-prop	a rusted white drum, 176 high
+props_hydro/3pipe_straight_256	static	ceiling-run	three pipes along the walls under the roof (level 4's)
+props_2fort/oildrum	static	companion	an oil drum by a pile: the server's breakable barrel (M34)
+props_2fort/miningcrate002	static	companion	a Mann Co. crate by a pile: the server's breakable crate (M34)
+props_hydro/water_machinery2	static	centrepiece	the tank on a larger room's focus
+props_farm/vent001	static	hung	a wall vent high up
+props_mining/cranehook001	static	gantry-hook	the overhead crane's hook (the plan's overhead crane, drawn as the halls' gantry)
+props_island/gantry_support_cable_64	static	gantry-cable	the short cable the hook hangs from
+# rejected props_powerhouse/powerhouse_turbine (the plan's): not a static prop
+# rejected props_trainyard/blast_furnace002 (the plan's): no collision model, 560 by 672: a centrepiece a player walks through
+# rejected props_well/overhead_crane (the plan's): 1,021 long and 535 high; the halls' gantry of girders stands in for it
+# rejected props_farm/sewer_grate_end01: a pipe end 320 long whose cone would stand in the room, not in the wall
+nature/rockwall010b	material	caves-wall	the Bore's grey drilled rock at 0.5 on a grotto's and a flooded gallery's walls (#727174): caves the works broke into, not factory steel (brief p15)
+concrete/concretefloor003	material	caves-floor	poured concrete (the Magazine's floor) under a grotto and a flooded gallery
+nature/rockwall010b	material	caves-ceiling	the same rock overhead in a grotto and a flooded gallery
+nature/rockwall010b	material	caves-large-wall	the rock at 0.5 on those rooms' walls (they are all larger than a cell)

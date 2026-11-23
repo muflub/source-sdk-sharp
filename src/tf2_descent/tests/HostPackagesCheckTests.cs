@@ -64,6 +64,30 @@ public sealed class HostPackagesCheckTests
         }
     }
 
+    private static string Pin(string props, string name)
+    {
+        var m = System.Text.RegularExpressions.Regex.Match(props, $"<{name}>([^<]+)</{name}>");
+        Assert.True(m.Success, $"Directory.Build.props names no {name}");
+        return m.Groups[1].Value;
+    }
+
+    [Fact]
+    public void The_pins_the_props_and_the_makefile_name_are_the_packages_the_build_restored()
+    {
+        // The SDK and the contract compiled in are the ones the props pin, and make setup
+        // looks for the same two packages: a bump in one place and not the other fails here.
+        var root = RepoRoot();
+        string props = File.ReadAllText(Path.Combine(root, "src/tf2_descent/Directory.Build.props"));
+        string sdk = Pin(props, "HostSdkVersion"), contracts = Pin(props, "HostContractsVersion");
+        var packages = File.ReadAllLines(Path.Combine(root, "Makefile"))
+            .SkipWhile(l => !l.StartsWith("HOST_PACKAGES :=", StringComparison.Ordinal)).Take(2).ToList();
+
+        Assert.Equal(SourceSharp.Host.Sdk.HostSdk.Version, sdk);
+        Assert.Equal(SourceSharp.Host.Contracts.HostContract.Version, contracts);
+        Assert.Contains(packages, l => l.Contains($"SourceSharp.Host.Sdk.{sdk}.nupkg", StringComparison.Ordinal));
+        Assert.Contains(packages, l => l.Contains($"SourceSharp.Host.Contracts.{contracts}.nupkg", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void The_real_host_root_passes_the_check()
     {

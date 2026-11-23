@@ -49,6 +49,10 @@ public sealed class ClientTFWearableTests
         public void WantTransparent(EntityHandle entity, bool transparent) { }
 
         public void WantOwnerSeen(EntityHandle entity, bool ownerSeen) => Seen.Add((entity.Value, ownerSeen));
+
+        public int InEyeTarget { get; set; }
+
+        public void WatchInEye(int index) => InEyeTarget = index;
     }
 
     private static bool MergedOnto(ClientEngine engine, int source)
@@ -118,6 +122,22 @@ public sealed class ClientTFWearableTests
         Assert.Empty(wishes.Seen); // not the bearer: no wish moved
 
         Decoded(engine, wishes, screen: engine, owner: Local);
+
+        Assert.Equal([(Hat.Value, true)], wishes.Seen);
+    }
+
+    [Fact]
+    public void The_copy_worn_by_the_player_watched_in_eye_hides_too()
+    {
+        // C_BasePlayer::InFirstPersonView answers true for the local
+        // observer's in-eye target: its hat is not drawn from inside its head.
+        var engine = new ClientEngine();
+        engine.Returns("Hud.LocalPlayerIndex", Local);
+        var wishes = new Wishes();
+        var wearable = Decoded(engine, wishes, screen: engine, owner: 2);
+
+        wishes.WatchInEye(2);
+        wearable.ReconsiderFirstPerson();
 
         Assert.Equal([(Hat.Value, true)], wishes.Seen);
     }

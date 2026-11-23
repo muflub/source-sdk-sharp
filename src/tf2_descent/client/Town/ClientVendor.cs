@@ -30,6 +30,6 @@ public sealed class ClientVendor(IEngineEntityRender render) : ClientStandaloneE
         if (State.Sequence == _playing || State.Sequence < 0)
             return;
         _playing = State.Sequence;
-        Render.PlaySequence(Handle, _playing, 1f, true);
+        Render.PlaySequence(Handle, _playing, 1f, !State.Once);
     }
 }

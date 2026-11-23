@@ -36,8 +36,9 @@ enum
 {
 	// The row count of StandaloneNetFields, held to it by that header's
 	// static_assert. 11 since m_nSkin (2026-10-19), 12 since m_nBody
-	// (2026-10-25), 14 since the m_vecMins/m_vecMaxs pair (2026-11-10).
-	SOURCESHARP_TIER_PROPS_STANDALONE = 14,
+	// (2026-10-25), 14 since the m_vecMins/m_vecMaxs pair (2026-11-10), 15
+	// since m_CollisionGroup (2026-11-15).
+	SOURCESHARP_TIER_PROPS_STANDALONE = 15,
 };
 
 // Takes nShell because it is part of the ABI.

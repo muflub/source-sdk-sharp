@@ -40,9 +40,8 @@ public sealed record HeroGear(
 ///
 /// <list type="bullet">
 /// <item><b>Who is a hero here:</b> a player who is no bot, while the Descent mode is on,
-/// whose items the ledger holds and can equip. Hosted, the host's SDK has no equip yet
-/// (<see cref="LedgerRefusals.HostUnsupported"/>), so a hosted hero is not claimed and keeps
-/// TF2's own kit until it has.</item>
+/// whose items the ledger holds, hosted or not (SDK 2.7 equips: the host keeps the equipment
+/// slots, and a new character starts with its kit worn).</item>
 /// <item><b>The sheet</b> is the hero's live one (<see cref="HeroSheets"/>), never the
 /// ledger's copy, which <see cref="Equip"/> brings up to date before it asks.</item>
 /// <item><b>Requirements</b> are the rules' (<see cref="TF2.Descent.Rules.Items.Equipment.Resolve"/>): the gear alone
@@ -97,7 +96,7 @@ public sealed class HeroEquipment(
     /// <summary>The ledger's key of the hero in <paramref name="playerIndex"/> when this package claims him (see the class summary); null otherwise.</summary>
     public string? HeroOf(int playerIndex)
     {
-        if (!mode.Active || ledger.Kind != LedgerKind.InMemory)
+        if (!mode.Active)
             return null;
         if (bots.IsBot(players.GetHandle(playerIndex)))
             return null;
@@ -141,25 +140,34 @@ public sealed class HeroEquipment(
     public TFSlotItem KitAnswer(HeroGear gear, TFClass cls, string equipmentSlot)
     {
         if (gear.In(equipmentSlot) is not { } held)
-            return equipmentSlot == FallbackSlot ? Fallback(cls) : TFSlotItem.Empty;
+            return LoadoutSlotOf(equipmentSlot) is { } tfSlot ? StockWeapon(cls, tfSlot) : TFSlotItem.Empty;
         var row = rules.Content.ItemBases[held.Item.BaseId];
         if (!row.AllowsClass(ClassId(cls)))
             return TFSlotItem.Empty;
         return TFItemOf(gear, equipmentSlot) is { } item ? TFSlotItem.Of(item) : TFSlotItem.NoOpinion;
     }
 
-    /// <summary>The equipment slot an empty one of which is filled by the class's stock weapon (<see cref="Fallback"/>).</summary>
-    public const string FallbackSlot = "melee";
+    /// <summary>The TF loadout slot a weapon equipment slot is handed to TF2 as (<see cref="EquipmentSlotOf"/> the other way); null for none.</summary>
+    public static TFLoadoutSlot? LoadoutSlotOf(string equipmentSlot) => equipmentSlot switch
+    {
+        "primary" => TFLoadoutSlot.Primary,
+        "secondary" => TFLoadoutSlot.Secondary,
+        "melee" => TFLoadoutSlot.Melee,
+        _ => null,
+    };
 
     /// <summary>
-    /// THE FALLBACK MELEE (this lane's choice where the plans are silent; the user may
-    /// overrule it): a hero with nothing in his melee slot (after a death, all of it is on his
-    /// corpse) swings the class's stock melee, the schema's base item for the TF melee slot,
-    /// so a Soldier on his corpse run can still fight. It is no Descent item: no ledger id, no
-    /// affix, no wear, nothing to drop or lose, and it goes the moment a melee is equipped.
+    /// THE STOCK WEAPONS OF AN EMPTY SLOT (the user, 2026-11-15: "when you die you should be
+    /// respawned with default weapons"; it overrules the melee-only fallback an earlier lane
+    /// chose): a hero with nothing in a weapon slot (after a death, all of it is on his corpse)
+    /// carries the class's stock weapon there, the schema's base item for that TF slot, so he
+    /// respawns with the class's three. It is no Descent item: no ledger id, no affix, no wear,
+    /// nothing to drop, lose or sell, and it goes the moment a weapon is equipped in that slot.
+    /// The TF slots beyond the three (an Engineer's PDAs, a Spy's watch and sapper) were never
+    /// Descent's: TF2 answers them itself (<see cref="TFSlotItem.NoOpinion"/>).
     /// </summary>
-    public TFSlotItem Fallback(TFClass cls) =>
-        schema.BaseItem(cls, TFLoadoutSlot.Melee) is { } definition ? TFSlotItem.Of(TFItem.Base(definition)) : TFSlotItem.Empty;
+    public TFSlotItem StockWeapon(TFClass cls, TFLoadoutSlot slot) =>
+        schema.BaseItem(cls, slot) is { } definition ? TFSlotItem.Of(TFItem.Base(definition)) : TFSlotItem.Empty;
 
     /// <summary>
     /// The TF item an equipped weapon is handed to TF2 as; null for an empty slot, an item

@@ -54,7 +54,9 @@ public sealed class ChampionAffixTests
         var (gid, giant) = Champion(rig, "spy", "giant");
         rig.World.Shot = RigAttackWorld.Meets(AttackRig.HeroEntity);
 
-        Assert.Equal(plain.EngineHealth * (1 + Affix("giant").LifePct / 100), giant.EngineHealth, 1);
+        // The body's health is whole: the giant's is the plain robot's life by the affix, within the rounding.
+        Assert.InRange(giant.EngineHealth - rig.Roster.Life(pid.Index) * (1 + Affix("giant").LifePct / 100), -1.0, 1.0);
+        Assert.InRange(plain.EngineHealth - rig.Roster.Life(pid.Index), -1.0, 1.0);
         rig.Fire(giant);
         rig.Tick(30);
         double plainDamage = RobotAttackRules.AttackDamage(rig.Roster.Stats(pid.Index), TheRules.Attacks.Of("knife"));

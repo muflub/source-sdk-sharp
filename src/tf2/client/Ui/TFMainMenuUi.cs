@@ -207,10 +207,12 @@ public sealed class TFAdvancedOptionsCommand(ITFMenuNavigation nav)
 /// GameMenu.res's four in-game buttons beside it (ReportPlayer, CallVote,
 /// MutePlayers, RequestCoach), and the advanced-options gear
 /// (TF2SettingsButtonSDK) in the tray. The first gear (SettingsButtonSDK, the
-/// options dialog) is the taskbar's own Settings.
+/// options dialog) is the taskbar's own Settings. A game built on TF2 leaves
+/// off the ones its <see cref="ITFMainMenuBrand"/> hides; the rest close up.
 /// </summary>
 [SideService(Side.Client, As = [typeof(ITaskbarLaunchers)])]
-public sealed class TFTaskbarLaunchers(ITFMainMenuActions actions, IFwdEngineClient engine) : ITaskbarLaunchers
+public sealed class TFTaskbarLaunchers(ITFMainMenuActions actions, IFwdEngineClient engine, ITFMainMenuBrand? brand = null)
+    : ITaskbarLaunchers
 {
     private const int Items = 0, Advanced = 1, ReportPlayer = 2, CallVote = 3, MutePlayers = 4, RequestCoach = 5;
 
@@ -221,16 +223,47 @@ public sealed class TFTaskbarLaunchers(ITFMainMenuActions actions, IFwdEngineCli
         new("#TF2_MainMenu_MutePlayers", false), new("#TF2_MainMenu_RequestCoach", false),
     ];
 
+    // The button each launcher is, as a brand names it (the gear is never hidden).
+    private readonly TFMainMenuButtons[] _buttons =
+    [
+        TFMainMenuButtons.Items, TFMainMenuButtons.None, TFMainMenuButtons.ReportPlayer,
+        TFMainMenuButtons.CallVote, TFMainMenuButtons.MutePlayers, TFMainMenuButtons.RequestCoach,
+    ];
+
     // A level is up: the engine names one (the menu's own InLevel answer).
     private bool InLevel => engine.LevelName() is { Length: > 0 };
 
-    public int LauncherCount => InLevel ? _launchers.Length : 2;
+    // The launchers the bar may carry now, before a brand's hiding.
+    private int Offered => InLevel ? _launchers.Length : 2;
 
-    public UiTaskbarLauncher Launcher(int i) => _launchers[i];
+    private bool Shown(int slot) => brand is null || (brand.Hidden & _buttons[slot]) == 0;
+
+    public int LauncherCount
+    {
+        get
+        {
+            int n = 0;
+            for (int k = 0; k < Offered; k++)
+                if (Shown(k))
+                    n++;
+            return n;
+        }
+    }
+
+    /// <summary>The slot of the <paramref name="i"/>th launcher shown.</summary>
+    private int Slot(int i)
+    {
+        for (int k = 0; k < Offered; k++)
+            if (Shown(k) && i-- == 0)
+                return k;
+        throw new ArgumentOutOfRangeException(nameof(i));
+    }
+
+    public UiTaskbarLauncher Launcher(int i) => _launchers[Slot(i)];
 
     public void Launch(int i)
     {
-        switch (i)
+        switch (Slot(i))
         {
             case Items: actions.Items(); break;
             case Advanced: actions.AdvancedOptions(); break;

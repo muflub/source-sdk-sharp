@@ -20,6 +20,7 @@ namespace TF2.Descent.Server.Town;
 [Precache(PrecacheKind.Model, TownStalls.EngineerModel)]
 [Precache(PrecacheKind.Model, TownStalls.LockerModel)]
 [Precache(PrecacheKind.Model, TownStalls.BenchModel)]
+[Precache(PrecacheKind.Sound, TownLocker.Sound)]
 public sealed class TownVendor(IEngineEntityRender render, TownService town) : ScriptedEntity
 {
     [NetState] public VendorNetState State = new();
@@ -55,6 +56,22 @@ public sealed class TownVendor(IEngineEntityRender render, TownService town) : S
             render.PlaySequence(Handle, idle, 1f, true);
         State.Stall = (byte)Math.Clamp(index + 1, 0, byte.MaxValue);
         State.Sequence = (short)idle;
+        State.Once = false;
+    }
+
+    /// <summary>
+    /// Plays <paramref name="sequence"/> once and holds its last frame (the locker's doors opening,
+    /// then closing), here and on every client. False when the model has no such sequence.
+    /// </summary>
+    internal bool Animate(string sequence)
+    {
+        int found = render.LookupSequence(Handle, sequence);
+        if (found < 0)
+            return false;
+        render.PlaySequence(Handle, found, 1f, false);
+        State.Sequence = (short)found;
+        State.Once = true;
+        return true;
     }
 
     [ScriptedEvent("Use")]

@@ -1,0 +1,28 @@
+# Palette of depth 14 (the Rot), plan_descent_mine_levels.md E7; brief p14.
+# One row per asset the theme names: asset, kind (material, static, dynamic, water), role, why.
+# Chosen by query of /home/lodle/assetdb (average_colour, maps_used) and looked at (.scratch/p14-m*.jpg, p14-mod*.jpg).
+# DescentPaletteTests holds every row to the theme and to the database. '# rejected' lines are notes.
+asset	kind	role	why
+nature/mudfloor005a	material	floor	dark olive mud (#302b1c), drawn as descent/rot_mud (its $envmap off): the plan's blend drew its second layer, twigs, on a flat floor, which read as leaf litter (brief p15)
+nature/rockwall006a	material	wall	mossy dark olive rock (#55513f; level 8's), wet and organic: the black mud walls (swamp/nature/swampmud005) took no light, the hero's lamp's included, and left 40 % of the frame black in game (brief p14)
+nature/rockwall006a	material	ceiling	the same rock overhead
+nature/rockwall015a	material	block	dark mossy rock (#514c3e) for ledges, decks, steps and the pillars in the slime, drawn as descent/rot_rock (its $envmap off): the plan's karst drew as flat grey concrete under the lamp (brief p15)
+swamp/nature/swampmud004	material	wall-low	black mud (#251e16; the plan's) along a wall's foot to 128
+nature/rockwall006a	material	large-wall	the rock at 0.5 on a larger room's walls
+swamp/brick/swampcobblewall001	material	door-frame	a rough arch of slimy green-black cobbles (level 15's) round each doorway; the pale karst's arch glowed in the dark (brief p14, first build)
+props_gameplay/door_grate003_floorplate	static	door-sill	covers the doorway's floor under the plugs (the kit's sill)
+props_swamp/shroom_ref_01_cluster	static	lamp	a cluster of fungi by the wall, glowing faint green: the plan's "a few glows only"
+props_swamp/shroom_ref_01_cluster	static	cover-lamp	the fungi growing out of a wall as brackets where the floor's leave the floor dark (a deck's, a pool's walkway)
+props_mining/rock002	static	wall-prop	a rock spire against the wall (level 7's)
+props_swamp/rock006c_swamp	static	corner-pile	scattered stones in a corner (non-solid)
+props_mining/rock006b	static	corner-pile	a flat slab of rock in a corner (non-solid)
+props_coalmines/boulder2	static	floor-prop	a dark boulder standing out of the mud (levels 6 and 13's): the pale karst rocks read white in the fungi's light (brief p15)
+props_coalmines/boulder3	static	floor-prop	a lower dark boulder
+props_swamp/shroom_ref_01_cluster	static	companion	fungi by a pile (no light)
+props_island/stalagtites_med	static	hanging	drips hanging from the roof (level 7's stalactites)
+props_island/stalagtites_small	static	hanging	smaller drips
+water/water_underworld	water	hazard-slime	the black-green slime in the pools, flooded galleries and channels, drawn as descent/pit_slime (the Pit's, level 15)
+# rejected nature/blendrockgroundwallforest004 (the plan's wall): its first texture is grass
+# rejected props_halloween/skull_island_horns (the plan's): 1,968 by 1,995 and 1,367 high, no collision
+# rejected props_swamp/rock003_swamp (the plan's): tan sandstone, the colour of a desert, not of the Rot
+# rejected swamp/nature/swampmud005 (#282317) for the walls: near black, the lamp lit nothing of it in game (brief p14)

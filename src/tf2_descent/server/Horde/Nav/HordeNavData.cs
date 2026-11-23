@@ -45,16 +45,19 @@ public static class HordeNavNumbers
 /// A level's navigation as the horde holds it (plan_descent_logic 3.7): the graph derived from
 /// the level's <c>.nav3d</c> for the robots' numbers (<see cref="HordeNavNumbers"/>), the
 /// file's free space as voxel columns (what <see cref="VoxelMoveWorld"/> sweeps a worker's step
-/// against), the obstacle state every path is planned with (every dynamic obstacle open: a
-/// robot's doors are open doorways), and how long the derivation took. Immutable once made, so
+/// against), the obstacle state with every dynamic obstacle open (a robot's doors are open
+/// doorways; the arena's standing brushes block on top of it, <see cref="HordeArenaObstacles"/>),
+/// and how long the derivation took. Immutable once made, so
 /// any number of AI workers read it.
 /// </summary>
 public sealed class HordeNavData
 {
-    private readonly int[][] _components;
+    private readonly NavComponents?[] _components;
+    private readonly NavObstacleState?[] _classOpen;
+    private readonly int[] _classBlocked;
 
     private HordeNavData(DerivedNav nav, VoxelColumns columns, NavObstacleState open, double deriveMs, double columnsMs, int fileBytes, ulong identity,
-                         int blocked)
+                         int blocked, NavObstacleState?[]? classOpen = null, int[]? classBlocked = null)
     {
         Nav = nav;
         Columns = columns;
@@ -65,10 +68,44 @@ public sealed class HordeNavData
         Identity = identity;
         BlockedCells = blocked;
         World = new VoxelMoveWorld(columns);
-        _components = new int[2 + HordeHulls.Scales.Length][];
+        _classOpen = classOpen ?? new NavObstacleState?[2 + HordeHulls.Scales.Length];
+        _classBlocked = classBlocked ?? new int[_classOpen.Length];
+        _components = new NavComponents?[2 + HordeHulls.Scales.Length];
         for (int c = 0; c < _components.Length; c++)
-            _components[c] = c == (int)ClearanceClass.Crouch ? [] : Components(nav.Graph, (ClearanceClass)c, open);
+            _components[c] = c == (int)ClearanceClass.Crouch ? null : NavComponents.Of(nav.Graph, (ClearanceClass)c, OpenFor((ClearanceClass)c));
     }
+
+    /// <summary>
+    /// <see cref="Open"/> for <paramref name="cls"/>: with the cells a static prop takes from the
+    /// class's own hull blocked too (<see cref="WithBlocks"/>'s <c>hullFrom</c>), where the probe
+    /// found a giant's box in a prop that a standing body's clears; <see cref="Open"/> itself for
+    /// the stand and crouch classes and for a class no prop blocks more.
+    /// </summary>
+    public NavObstacleState OpenFor(ClearanceClass cls) => (uint)cls < (uint)_classOpen.Length && _classOpen[(int)cls] is { } s ? s : Open;
+
+    /// <summary>Each class's own cells (indexed by <see cref="ClearanceClass"/>), none for a class whose are <see cref="Open"/>'s: what <see cref="HordeArenaObstacles.ByClass(DerivedNav, NavObstacleState, IReadOnlyList{NavCellBlocks?})"/> starts each class from.</summary>
+    public IReadOnlyList<NavCellBlocks?> ClassCells => Array.ConvertAll(_classOpen, s => s?.Cells);
+
+    /// <summary>Cells blocked for <paramref name="cls"/> more than for a standing body (props its hull meets: <see cref="WithBlocks"/>).</summary>
+    public int ClassBlockedCells(ClearanceClass cls) => (uint)cls < (uint)_classBlocked.Length ? _classBlocked[(int)cls] : 0;
+
+    /// <summary>
+    /// Whether <paramref name="cell"/> is on <paramref name="cls"/>'s main floor: the largest
+    /// component of its cells (the one the level's rooms share; on depth 1 seed 1, the arrival's
+    /// for every class). A cell in a smaller one is a floor that class cannot leave.
+    /// </summary>
+    public bool OnMainFloor(CellId cell, ClearanceClass cls)
+    {
+        if (Components(cls) is not { } comp)
+            return cell.IsValid;
+        return cell.IsValid && comp.Of(cell) >= 0 && comp.Of(cell) == comp.Largest;
+    }
+
+    /// <summary>
+    /// The components of <paramref name="cls"/>'s cells with every obstacle open (<see cref="Open"/>):
+    /// none for a class no robot plans by (Crouch) or one the graph has no hull for.
+    /// </summary>
+    public NavComponents? Components(ClearanceClass cls) => (uint)cls < (uint)_components.Length ? _components[(int)cls] : null;
 
     public DerivedNav Nav { get; }
 
@@ -78,7 +115,10 @@ public sealed class HordeNavData
 
     public VoxelMoveWorld World { get; }
 
-    /// <summary>The obstacles as every path is planned: all open.</summary>
+    /// <summary>
+    /// The obstacles all open, with the level's prop cells (<see cref="WithBlocks"/>): what the
+    /// arena's state starts from (<see cref="HordeArenaObstacles.State"/>; the paths plan with that).
+    /// </summary>
     public NavObstacleState Open { get; }
 
     /// <summary>The graph's identity, as a recording and a view name it: the graph's own hash, and the cells blocked on it (<see cref="WithBlocks"/>).</summary>
@@ -117,20 +157,40 @@ public sealed class HordeNavData
         }
 
         double cols = Stopwatch.GetElapsedTime(t1).TotalMilliseconds;
-        var open = new NavObstacleState(nav.Graph.ObstacleCount) { OpenDoors = true };
-        return new HordeNavData(nav, columns, open, derive, cols, nav3d.Length, nav.Graph.Hash, 0);
+        return Of(nav, columns, derive, cols, nav3d.Length);
     }
+
+    /// <summary>
+    /// A level's navigation from a derived graph and its voxel columns, every obstacle open (what
+    /// <see cref="Derive"/> makes of a file, and a fact of a graph it builds by hand).
+    /// </summary>
+    public static HordeNavData Of(DerivedNav nav, VoxelColumns columns, double deriveMs = 0, double columnsMs = 0, int fileBytes = 0)
+    {
+        ArgumentNullException.ThrowIfNull(nav);
+        ArgumentNullException.ThrowIfNull(columns);
+        var open = new NavObstacleState(nav.Graph.ObstacleCount) { OpenDoors = true };
+        return new HordeNavData(nav, columns, open, deriveMs, columnsMs, fileBytes, nav.Graph.Hash, 0);
+    }
+
+    /// <summary>A cell no robot hull's probe found in a prop (<see cref="WithBlocks"/>'s <c>hullFrom</c>).</summary>
+    public const byte NoHull = 0xFF;
 
     /// <summary>
     /// The same navigation with the cells <paramref name="blocks"/> marks
     /// (<see cref="NavCellBlocks.Blocked"/>) taken out of every path: what the file does not know
-    /// (a static prop) found another way. Its identity names the blocks as well.
+    /// (a static prop) found another way. With <paramref name="hullFrom"/>, each cell's smallest
+    /// extra hull class (<see cref="ClearanceClass.Hull2"/> and up) whose probe met a prop there
+    /// (<see cref="NoHull"/> for none): the cell is blocked for that class and every bigger one too
+    /// (<see cref="OpenFor"/>), so a giant's path keeps its own hull off a prop. Its identity names
+    /// the blocks as well.
     /// </summary>
-    public HordeNavData WithBlocks(byte[] blocks)
+    public HordeNavData WithBlocks(byte[] blocks, byte[]? hullFrom = null)
     {
         ArgumentNullException.ThrowIfNull(blocks);
         if (blocks.Length != Graph.CellCount)
             throw new ArgumentException($"{blocks.Length} cell states for a graph of {Graph.CellCount} cells", nameof(blocks));
+        if (hullFrom is not null && hullFrom.Length != Graph.CellCount)
+            throw new ArgumentException($"{hullFrom.Length} hull states for a graph of {Graph.CellCount} cells", nameof(hullFrom));
         var open = new NavObstacleState(Graph.ObstacleCount) { OpenDoors = true, Cells = new NavCellBlocks(blocks) };
         ulong identity = Graph.Hash;
         int blocked = 0;
@@ -142,7 +202,27 @@ public sealed class HordeNavData
             identity = (identity ^ (ulong)i) * 0x100000001B3UL;
         }
 
-        return new HordeNavData(Nav, Columns, open, DeriveMs, ColumnsMs, FileBytes, identity, blocked);
+        int n = 2 + HordeHulls.Scales.Length;
+        var classOpen = new NavObstacleState?[n];
+        var classBlocked = new int[n];
+        for (int k = (int)ClearanceClass.Hull2; hullFrom is not null && k < n; k++)
+        {
+            byte[]? own = null;
+            for (int i = 0; i < hullFrom.Length; i++)
+            {
+                if (hullFrom[i] > k || blocks[i] == NavCellBlocks.Blocked)
+                    continue;
+                own ??= (byte[])blocks.Clone();
+                own[i] = NavCellBlocks.Blocked;
+                classBlocked[k]++;
+                identity = (identity ^ (((ulong)(uint)i << 8) | (uint)k)) * 0x100000001B3UL;
+            }
+
+            if (own is not null)
+                classOpen[k] = new NavObstacleState(Graph.ObstacleCount) { OpenDoors = true, Cells = new NavCellBlocks(own) };
+        }
+
+        return new HordeNavData(Nav, Columns, open, DeriveMs, ColumnsMs, FileBytes, identity, blocked, classOpen, classBlocked);
     }
 
     /// <summary>
@@ -152,53 +232,7 @@ public sealed class HordeNavData
     /// </summary>
     public bool Joined(CellId a, CellId b, ClearanceClass cls)
     {
-        int c = (int)cls;
-        if ((uint)c >= (uint)_components.Length || _components[c].Length == 0)
-            return true;
-        int[] comp = _components[c];
-        return comp[a.Index] >= 0 && comp[a.Index] == comp[b.Index];
-    }
-
-    /// <summary>Each cell's component for <paramref name="cls"/> over the passable edges, both ways (-1 for a cell the class does not stand on).</summary>
-    private static int[] Components(NavGraph graph, ClearanceClass cls, NavObstacleState open)
-    {
-        int n = graph.CellCount;
-        var comp = new int[n];
-        Array.Fill(comp, -1);
-        var stack = new Stack<int>();
-        int next = 0;
-        for (int seed = 0; seed < n; seed++)
-        {
-            if (comp[seed] >= 0 || !graph.Cell(seed).Admits(cls) || open.CellBlocked(seed))
-                continue;
-            comp[seed] = next;
-            stack.Push(seed);
-            while (stack.Count > 0)
-            {
-                int at = stack.Pop();
-                foreach (NavEdge e in graph.EdgesFrom(at))
-                {
-                    if (comp[e.To] < 0 && graph.Passable(e, cls, open))
-                    {
-                        comp[e.To] = next;
-                        stack.Push(e.To);
-                    }
-                }
-
-                foreach (NavEdge e in graph.EdgesTo(at))
-                {
-                    if (comp[e.From] < 0 && graph.Passable(new NavEdge(e.To, e.From, e.Type, e.Cost, e.Obstacle), cls, open))
-                    {
-                        comp[e.From] = next;
-                        stack.Push(e.From);
-                    }
-                }
-            }
-
-            next++;
-        }
-
-        return comp;
+        return Components(cls) is not { } comp || comp.Joined(a, b);
     }
 
     /// <summary>The cell a body of <paramref name="cls"/> standing at <paramref name="feet"/> is on (its own, or one within a hull's reach), or none.</summary>
@@ -211,10 +245,11 @@ public sealed class HordeNavData
     /// </remarks>
     public CellId CellAt(AiVector feet, ClearanceClass cls)
     {
+        NavObstacleState open = OpenFor(cls);
         CellId c = Graph.FindCell(feet + new AiVector(0f, 0f, 18f));
-        if (c.IsValid && Graph.Cell(c).Admits(cls) && !Open.CellBlocked(c.Index))
+        if (c.IsValid && Graph.Cell(c).Admits(cls) && !open.CellBlocked(c.Index))
             return c;
-        if (BlockedCells == 0)
+        if (BlockedCells == 0 && ClassBlockedCells(cls) == 0)
             return NavPoints.CellNear(Graph, feet, cls);
 
         var near = new List<int>();
@@ -225,7 +260,7 @@ public sealed class HordeNavData
         foreach (int i in near)
         {
             NavCell cell = Graph.Cell(i);
-            if (!cell.Admits(cls) || Open.CellBlocked(i) || cell.FloorZ < feet.Z - 72f || cell.FloorZ > feet.Z + 24f)
+            if (!cell.Admits(cls) || open.CellBlocked(i) || cell.FloorZ < feet.Z - 72f || cell.FloorZ > feet.Z + 24f)
                 continue;
             float d = (cell.Centre - feet).Length2D;
             if (d < bestD || (d == bestD && i < best))
@@ -248,7 +283,7 @@ public sealed class HordeNavData
         {
             foreach (NavEdge e in Graph.EdgesFrom(open.Pop()))
             {
-                if (seen[e.To] || !Graph.Passable(e, cls, Open))
+                if (seen[e.To] || !Graph.Passable(e, cls, OpenFor(cls)))
                     continue;
                 seen[e.To] = true;
                 open.Push(e.To);

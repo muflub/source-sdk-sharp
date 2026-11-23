@@ -22,6 +22,19 @@
 #       (tools/ai-aim-calibrate runs the probes; exits 2 if a target is out of reach)
 #   tools/ai-replay hitrates <metrics.txt> <out.tsv>
 #       a person's hit rate per band from `ai-replay metrics`' output, as a hit rate file
+#   tools/ai-replay fight <recording.airec>... [--config ..]
+#       per bot and in total, how its body moves while it fires (lane Gfight): the share of
+#       firing ticks moving at 120 u/s or more, with a forward or side move sent, under each
+#       intent kind; the body's and the commands' changes of side a second of fire; jumps and
+#       ducks; hits taken, kills and deaths; the leaves the firing ticks ran
+#   tools/ai-replay fightstill <map> <recording.airec>... [--config ..]
+#       TF2: of the bots' firing ticks with a sidestep sent and the body under 120 u/s, why it
+#       was still (lane Gmove): crouched, in the air, a wall or a drop a step to the commanded
+#       side (the map's nav graph: SideRoom), a reversal, another body in the step, off the graph,
+#       else; and the three places with most wall ticks
+#   tools/ai-replay searches <recording.airec>... [--config ..]
+#       every bot's stretches under the search leaf ("heard something"): the longest, how many
+#       last over 15 s, and the three longest with where the bot stood and what it heard meanwhile
 #   tools/ai-replay jank <recording.airec>... [--config ..]
 #       prints what makes a bot look wrong, per actor and in total, people by
 #       the same definitions (§3.4.5): stuck, wall bump, decision flips,
@@ -67,7 +80,15 @@
 #       spawns, teleports, teleport destinations, cabinets and capture areas (the N
 #       largest listed too; 20); with --derive, what that one region costs to derive
 #       alone, step by step as navsize says it (open|regions|region|derive|sight|cache).
-#   tools/ai-replay jumps <map> [--config debug|release] [--limit N] [--routes]
+#   tools/ai-replay navsplit <map> [--mod tf2|test] [--regions counted|all|R,R,..] [--config ..]
+#       the map's .navhull as a file per sealed space (each region the counted entities are in,
+#       or those named) in bin/<config>/ai-replay/<map>-rooms/, with the room index
+#       (<map>.navrooms: which region a place is in) and the room table (<map>.navrooms.json).
+#   tools/ai-replay navcells <map> --room R [--variant base|tele+reach+k4+nosight..] [--config ..]
+#       where room R's cells are (navsplit's file of it): inside a teleport back, reached from its
+#       ways in or not, flat or at an edge, edges per cell; with --variant, one way of making its
+#       graph smaller measured step by step in a process of its own.
+#   tools/ai-replay jumps <map> [--config debug|release] [--limit N] [--routes] [--heals]
 #       TF2's blast-jump place finder (JumpPlaces, plan_bots_teams_tf2_part_g G.5 step 4) on the
 #       map's tf2 navigation, offline, on one thread: the candidates, the links kept, the flights,
 #       each part's thread CPU, the peak memory and the links' spread (rise, distance, time against
@@ -79,6 +100,20 @@
 #       and with the links, for a Soldier with the reach and 110 health to spend on a link: which take
 #       a link, which link, and the seconds saved; and each link's landing, reached from the places
 #       on foot or only with a link.
+#       --heals: then the map's heal places (packs, cabinets) and the cells within a jump by health's
+#       walk of each; each link's landing with the walk to the nearest pack and cabinet; the pass's
+#       proposals with no walk too short to jump that land by a heal place, each searched; and the
+#       stretch planner asked along the routes from the CTF places to each heal place.
+#   tools/ai-replay spread <map> [--lives N] [--teamwork 0..1] [--config debug|release]
+#       TF2's bots' planned routes (lane Groutes) from each team's first spawn room (its spawns in turn) to
+#       the point in play (a flag map's other flag, else the middle point), offline on the map's tf2
+#       navigation with each team's respawn room solids: the team's corridors as the game finds them
+#       (TFRouteCorridors: each distinct way within 1.15 times the shortest), then for bots of seed index
+#       1-8 in lives 1-N (3) the route with no field and the route minding the corridor the life draws (at
+#       Teamwork 0.3, a Normal preset's). Says how the routes spread (the live /ai/routes/spread measure:
+#       per 768-u band the sideways sd, the corridors), each route's cost against the way with no field
+#       (exits 1 if one is over 1.15 times it), and how wide the ways within 1.05 and 1.15 times are per band.
+#       The routes are drawn to bin/<config>/ai-replay/<map>-spread.png (white: no field).
 #
 # Builds src/ai/replay (SkiaSharp, a tool: never in the game's managed dir).
 set -euo pipefail
@@ -124,7 +159,7 @@ if [[ "$verb" == style ]]; then
   "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c Debug -v q --nologo >/dev/null
   exec "$dotnet" "$root/bin/debug/tools/ai-replay/SourceSharp.Ai.Replay.dll" style "$skills"
 fi
-[[ ( "$verb" =~ ^(nav|metrics|jank|threat|chokes|navsize|navrooms|jumps)$ && -n "${2:-}" ) || ( "$verb" =~ ^(heat|verify|tactics|cost)$ && -n "${3:-}" ) ]] || { sed -n '2,81p' "$0"; exit 2; }
+[[ ( "$verb" =~ ^(nav|metrics|jank|threat|fight|searches|chokes|navsize|navrooms|navsplit|navcells|jumps|spread)$ && -n "${2:-}" ) || ( "$verb" =~ ^(heat|verify|tactics|cost|fightstill)$ && -n "${3:-}" ) ]] || { sed -n '2,118p' "$0"; exit 2; }
 if [[ "$verb" == navsize ]]; then
   map="$2"; shift 2
   config=debug; mod=test; ext=nav3d; stop=cache; sight=sight
@@ -151,6 +186,28 @@ if [[ "$verb" == navsize ]]; then
   "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c "$cfg" -v q --nologo >/dev/null
   exec "$dotnet" "$root/bin/$config/tools/ai-replay/SourceSharp.Ai.Replay.dll" navsize "$game" "$nav" "$bsp" "$stop" "$sight"
 fi
+if [[ "$verb" == spread ]]; then
+  map="$2"; shift 2
+  config=debug; lives=3; teamwork=0.3
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --config) config="$2"; shift 2 ;;
+      --lives) lives="$2"; shift 2 ;;
+      --teamwork) teamwork="$2"; shift 2 ;;
+      *) echo "ai-replay spread: what is $1?" >&2; exit 2 ;;
+    esac
+  done
+  nav="$root/bin/$config/mods/tf2/maps/$map.nav3d"; bsp=""
+  for d in "$root/bin/$config/content/tf/maps" "$root/bin/$config/mods/tf2/maps" "$root/bin/$config/content/tf/download/maps"; do
+    [[ -z "$bsp" && -f "$d/$map.bsp" ]] && bsp="$d/$map.bsp"
+  done
+  [[ -f "$nav" ]] || { echo "ai-replay: no $nav: build it with tools/ai-nav-build $map --mod tf2" >&2; exit 1; }
+  [[ -n "$bsp" ]] || { echo "ai-replay: no $map.bsp for tf2" >&2; exit 1; }
+  cfg=Debug; [[ "$config" == release ]] && cfg=Release
+  "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c "$cfg" -v q --nologo >/dev/null
+  mkdir -p "$root/bin/$config/ai-replay"
+  exec "$dotnet" "$root/bin/$config/tools/ai-replay/SourceSharp.Ai.Replay.dll" spread "$nav" "$bsp" "$lives" "$teamwork" "$root/bin/$config/ai-replay/$map-spread.png"
+fi
 if [[ "$verb" == jumps ]]; then
   map="$2"; shift 2
   config=debug; limit=0; routes=
@@ -158,7 +215,8 @@ if [[ "$verb" == jumps ]]; then
     case "$1" in
       --config) config="$2"; shift 2 ;;
       --limit) limit="$2"; shift 2 ;;
-      --routes) routes=routes; shift ;;
+      --routes) routes="$routes routes"; shift ;;
+      --heals) routes="$routes heals"; shift ;;
       *) echo "ai-replay jumps: what is $1?" >&2; exit 2 ;;
     esac
   done
@@ -204,6 +262,44 @@ if [[ "$verb" == navrooms ]]; then
   "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c "$cfg" -v q --nologo >/dev/null
   exec "$dotnet" "$root/bin/$config/tools/ai-replay/SourceSharp.Ai.Replay.dll" navrooms "$game" "$nav" "$bsp" "${what[@]}"
 fi
+if [[ "$verb" == navsplit || "$verb" == navcells ]]; then
+  map="$2"; shift 2
+  config=debug; mod=tf2; regions=counted; room=""; variant=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --config) config="$2"; shift 2 ;;
+      --mod) mod="$2"; shift 2 ;;
+      --regions) regions="$2"; shift 2 ;;
+      --room) room="$2"; shift 2 ;;
+      --variant) variant="$2"; shift 2 ;;
+      *) echo "ai-replay $verb: what is $1?" >&2; exit 2 ;;
+    esac
+  done
+  case "$mod" in
+    test) game=hl2mp; dirs=("$root/bin/$config/mods/test/maps") ;;
+    tf2) game=tf2; dirs=("$root/bin/$config/mods/tf2/maps" "$root/bin/$config/content/tf/maps" "$root/bin/$config/content/tf/download/maps") ;;
+    *) echo "ai-replay $verb: no numbers for the mod $mod (test or tf2)" >&2; exit 2 ;;
+  esac
+  bsp=""
+  for d in "${dirs[@]}"; do [[ -z "$bsp" && -f "$d/$map.bsp" ]] && bsp="$d/$map.bsp"; done
+  [[ -n "$bsp" ]] || { echo "ai-replay: no $map.bsp in ${dirs[*]}" >&2; exit 1; }
+  out="$root/bin/$config/ai-replay/$map-rooms"
+  cfg=Debug; [[ "$config" == release ]] && cfg=Release
+  "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c "$cfg" -v q --nologo >/dev/null
+  dll="$root/bin/$config/tools/ai-replay/SourceSharp.Ai.Replay.dll"
+  if [[ "$verb" == navsplit ]]; then
+    nav="$root/bin/$config/mods/$mod/maps/$map.navhull"
+    [[ -f "$nav" ]] || { echo "ai-replay: no $nav: build it with tools/ai-nav-build $map --mod $mod --hull" >&2; exit 1; }
+    exec "$dotnet" "$dll" navsplit write "$nav" "$bsp" "$out" "$regions"
+  fi
+  [[ -n "$room" ]] || { echo "ai-replay navcells: which room? --room R" >&2; exit 2; }
+  part="$out/$map.r$room.navhull"
+  [[ -f "$part" ]] || { echo "ai-replay: no $part: tools/ai-replay navsplit $map --regions $room first" >&2; exit 1; }
+  if [[ -n "$variant" ]]; then
+    exec "$dotnet" "$dll" navcells "$game" "$part" "$bsp" variant "$variant"
+  fi
+  exec "$dotnet" "$dll" navcells "$game" "$part" "$bsp" where
+fi
 if [[ "$verb" == cost ]]; then
   map="$2"; recording="$3"; shift 3
   config=debug; mod=test; bodies=-; passes=2
@@ -242,7 +338,24 @@ if [[ "$verb" == tactics ]]; then
   "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c "$cfg" -v q --nologo >/dev/null
   exec "$dotnet" "$root/bin/$config/tools/ai-replay/SourceSharp.Ai.Replay.dll" tactics "$maps/$map.nav3d" "$maps/$map.bsp" "${recs[@]}"
 fi
-if [[ "$verb" =~ ^(metrics|jank|threat)$ ]]; then
+if [[ "$verb" == fightstill ]]; then
+  map="$2"; shift 2
+  config=debug; recs=()
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --config) config="$2"; shift 2 ;;
+      *) [[ -f "$1" ]] || { echo "ai-replay: no recording $1" >&2; exit 1; }; recs+=("$(realpath "$1")"); shift ;;
+    esac
+  done
+  nav="$root/bin/$config/mods/tf2/maps/$map.nav3d"; bsp="$root/bin/$config/content/tf/maps/$map.bsp"
+  [[ -f "$bsp" ]] || bsp="$root/bin/$config/mods/tf2/maps/$map.bsp"
+  [[ -f "$nav" ]] || { echo "ai-replay: no $nav: make ai-nav-tf MAP=$map" >&2; exit 1; }
+  [[ -f "$bsp" ]] || { echo "ai-replay: no $map.bsp for tf2" >&2; exit 1; }
+  cfg=Debug; [[ "$config" == release ]] && cfg=Release
+  "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c "$cfg" -v q --nologo >/dev/null
+  exec "$dotnet" "$root/bin/$config/tools/ai-replay/SourceSharp.Ai.Replay.dll" fightstill tf2 "$nav" "$bsp" "${recs[@]}"
+fi
+if [[ "$verb" =~ ^(metrics|jank|threat|fight|searches)$ ]]; then
   shift
   config=debug; recs=()
   while [[ $# -gt 0 ]]; do

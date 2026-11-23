@@ -96,8 +96,10 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
                            IFwdPhysicsSurfaceProps surfaceProps,
                            ClAnimThreeWayBlendConVar? threeWayBlend = null,
                            Func<Ragdolls.IClientRagdolls?>? ragdolls = null,
-                           Func<EntityHandle, (string BoneName, float AngleRadians)?>? boneSpin = null)
+                           Func<EntityHandle, (string BoneName, float AngleRadians)?>? boneSpin = null,
+                           Func<EntityHandle, ICustomTraceTarget?>? customTargets = null)
     {
+        _customTargets = customTargets;
         _boneSpin = boneSpin;
         _ragdolls = ragdolls;
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
@@ -156,6 +158,11 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
 
     /// <summary>The engine's hitbox traces.</summary>
     public long HitboxTraces { get; private set; }
+
+    /// <summary>The engine's traces an entity answered itself (<see cref="ICustomTraceTarget"/>).</summary>
+    public long CustomTraces { get; private set; }
+
+    private readonly Func<EntityHandle, ICustomTraceTarget?>? _customTargets;
 
     /// <summary>The frames' batches built, the skeletons they posed, and their ticks.</summary>
     public long Batches { get; private set; }
@@ -679,6 +686,13 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
     private bool TestHitboxes(EntityHandle entity, in EngineBlock read, in BoneRay ray, int contentsMask, BoneTrace tr,
                               float currentTime, int frameCount)
     {
+        // An entity that answers its traces itself (its custom ray or box test) answers before its hitboxes.
+        if (_customTargets?.Invoke(entity) is { } custom)
+        {
+            CustomTraces++;
+            return custom.TestTrace(ray, contentsMask, tr);
+        }
+
         HitboxTraces++;
         BoneEntityState state = _states.GetOrCreate(entity);
         BoneCacheKey before = state.CacheKey;

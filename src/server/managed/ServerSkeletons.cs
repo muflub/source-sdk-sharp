@@ -115,10 +115,19 @@ public interface ISkeletonAnimationRewind
 /// is not 1 is written out, and the first ask after the reload takes it with
 /// the clock from the block. Stock saves m_flModelScale (baseanimating.cpp's
 /// DATADESC); before this a scaled entity came back built at 1 until its
-/// scale was set again.
+/// scale was set again. The pose parameters ride with it (stock saves
+/// m_flPoseParameter too): each that is not its model's default.
+/// </para>
+///
+/// <para>
+/// <b>The pose parameters are the server's own</b> (plan_descent_logic CR11):
+/// what game code sets through IEngineEntityRender is stored here and the
+/// hitbox trace poses from it, as stock's SetupBones reads
+/// GetPoseParameterArray. A set only stores; the bones are built when an ask
+/// wants them.
 /// </para>
 /// </summary>
-public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes, IGameLifecycle, ISaveCustom, IMergedAttachments,
+public sealed class ServerSkeletons : IServerStandaloneSkeletons, IStandaloneHitboxes, IGameLifecycle, ISaveCustom, IMergedAttachments,
                                       ISkeletonAnimationRewind
 {
     private readonly IStandaloneBlocks _blocks;
@@ -132,12 +141,26 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
     private readonly Dictionary<string, int> _surfaceIndices = new(StringComparer.Ordinal);
     private readonly SurfacePropReader _surfaceReader;
 
-    /// <summary>Scales a reload carried, for skeletons not yet asked about in this composition.</summary>
-    private readonly Dictionary<EntityHandle, float> _carriedScales = [];
+    /// <summary>What a reload carried, for skeletons not yet asked about in this composition.</summary>
+    private readonly Dictionary<EntityHandle, CarriedSkeleton> _carried = [];
+
+    /// <summary>
+    /// One skeleton's carry across a hot reload: its scale, and the poses that
+    /// differ from its model's defaults (<see cref="float.NaN"/> for one that
+    /// does not), with the model they were set on.
+    /// </summary>
+    private sealed class CarriedSkeleton
+    {
+        public float Scale = 1.0f;
+        public int PoseModel = -1;
+        public float[]? Poses;
+    }
 
     public ServerSkeletons(IStandaloneBlocks blocks, StudioModels models, IGameClock clock, ILog log,
-                           IFwdPhysicsSurfaceProps surfaceProps, AnimThreeWayBlendConVar? threeWayBlend = null)
+                           IFwdPhysicsSurfaceProps surfaceProps, AnimThreeWayBlendConVar? threeWayBlend = null,
+                           Func<EntityHandle, ICustomTraceTarget?>? customTargets = null)
     {
+        _customTargets = customTargets;
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
         _models = models ?? throw new ArgumentNullException(nameof(models));
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
@@ -170,6 +193,11 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
 
     /// <summary>The engine's hitbox traces (IManagedBones::TestHitboxes).</summary>
     public long HitboxTraces { get; private set; }
+
+    /// <summary>The engine's traces an entity answered itself (<see cref="ICustomTraceTarget"/>).</summary>
+    public long CustomTraces { get; private set; }
+
+    private readonly Func<EntityHandle, ICustomTraceTarget?>? _customTargets;
 
     /// <summary>The cost counters back to zero.</summary>
     public void ResetCost()
@@ -216,9 +244,26 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
 
         BoneEntityState state = _states.GetOrCreate(entity);
 
-        if (_carriedScales.Remove(entity, out float scale))
+        if (_carried.Remove(entity, out CarriedSkeleton? carried))
         {
-            state.SetModelScale(scale);
+            state.SetModelScale(carried.Scale);
+
+            // Poses set on the model the entity still wears; a model changed
+            // since keeps the new one's defaults, as a SetModel would.
+            if (carried.Poses is { } poses && carried.PoseModel == block.Head.ModelIndex)
+            {
+                _driver.RefreshModelPoseState(state, carried.PoseModel);
+
+                for (int i = 0; i < poses.Length; i++)
+                {
+                    if (!float.IsNaN(poses[i]))
+                    {
+                        state.PoseParameter[i] = poses[i];
+                    }
+                }
+
+                PoseMoved(state);
+            }
         }
 
         state.Sequence = block.Client.Sequence;
@@ -228,7 +273,7 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
         // A clock that is not the constructor's (sequence 0, rate 1, never
         // started) was set by SetPoseSequence, which read the duration and
         // the loop flag at the model's own defaults: so does this.
-        if (state.Sequence != 0 || state.PlaybackRate != 1.0f || state.AnimTime != 0.0f)
+        if (state.ClockStarted)
         {
             StudioHdr? hdr = _models.OpenStudioHdr(block.Head.ModelIndex);
 
@@ -541,6 +586,22 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
     }
 
     /// <inheritdoc/>
+    public bool ModelChanged(EntityHandle entity)
+    {
+        Span<byte> span = _blocks.Block(entity);
+
+        if (!Read(span, out EngineBlock block))
+        {
+            return false;
+        }
+
+        BoneEntityState state = StateOf(entity, block);
+        _driver.ResetSequenceForModel(state, block.Head.ModelIndex, _clock.Now);
+        WriteClock(span, state);
+        return true;
+    }
+
+    /// <inheritdoc/>
     public bool SequenceState(EntityHandle entity, out int sequence, out float cycle, out float duration,
                               out bool looping, out int starts)
     {
@@ -602,6 +663,120 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
         }
     }
 
+    // ---- the pose parameters (plan_descent_logic CR11) ----------------------
+    //
+    // CBaseAnimating's (baseanimating.cpp 1318-1410): the value is stored as
+    // Studio_SetPoseParameter's 0..1 encoding and read back in the
+    // parameter's own units. A set builds nothing: the next ask that wants
+    // bones (a hitbox trace, an attachment) sees the new generation and
+    // rebuilds, so an entity nobody traces costs no bone work.
+
+    private StudioHdr? HdrOf(EntityHandle entity, out EngineBlock block) =>
+        Read(_blocks.Block(entity), out block) ? _models.OpenStudioHdr(block.Head.ModelIndex) : null;
+
+    /// <inheritdoc/>
+    public int PoseParameterCount(EntityHandle entity) => HdrOf(entity, out _)?.NumPoseParameters ?? 0;
+
+    /// <inheritdoc/>
+    public int LookupPoseParameter(EntityHandle entity, string name)
+    {
+        if (string.IsNullOrEmpty(name) || HdrOf(entity, out _) is not { } hdr)
+        {
+            return -1;
+        }
+
+        for (int i = 0; i < hdr.NumPoseParameters; i++)
+        {
+            if (string.Equals(hdr.PoseParameter(i).Name, name, StringComparison.OrdinalIgnoreCase))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <inheritdoc/>
+    public string PoseParameterName(EntityHandle entity, int parameter) =>
+        HdrOf(entity, out _) is { } hdr && parameter >= 0 && parameter < hdr.NumPoseParameters
+            ? hdr.PoseParameter(parameter).Name
+            : string.Empty;
+
+    /// <inheritdoc/>
+    public bool PoseParameterRange(EntityHandle entity, int parameter, out float start, out float end)
+    {
+        start = 0f;
+        end = 0f;
+
+        if (HdrOf(entity, out _) is not { } hdr || parameter < 0 || parameter >= hdr.NumPoseParameters)
+        {
+            return false;
+        }
+
+        MstudioPoseParamDesc desc = hdr.PoseParameter(parameter);
+        start = desc.Start;
+        end = desc.End;
+        return true;
+    }
+
+    /// <summary>The entity's state with the model's defaults read, for a parameter the model declares.</summary>
+    private bool PoseState(EntityHandle entity, int parameter, out StudioHdr hdr, out BoneEntityState state)
+    {
+        hdr = null!;
+        state = null!;
+
+        if (parameter < 0 || parameter >= BoneEntityState.MaxPoseParameters
+            || !Find(entity, out EngineBlock block, out state)
+            || _models.OpenStudioHdr(block.Head.ModelIndex) is not { } opened
+            || parameter >= opened.NumPoseParameters)
+        {
+            return false;
+        }
+
+        // The defaults first: a set (or a read) after a model change is about
+        // the new model, whose defaults replace the old one's poses.
+        _driver.RefreshModelPoseState(state, block.Head.ModelIndex);
+        hdr = opened;
+        return true;
+    }
+
+    /// <inheritdoc/>
+    public float SetPoseParameter(EntityHandle entity, int parameter, float value)
+    {
+        if (!PoseState(entity, parameter, out StudioHdr hdr, out BoneEntityState state))
+        {
+            return 0f;
+        }
+
+        float normalised = state.PoseParameter[parameter];
+        float stored = BoneSetupQuery.SetPoseParameter(hdr, parameter, value, ref normalised);
+
+        if (state.PoseParameter[parameter] != normalised)
+        {
+            state.PoseParameter[parameter] = normalised;
+            PoseMoved(state);
+        }
+
+        return stored;
+    }
+
+    /// <inheritdoc/>
+    public float GetPoseParameter(EntityHandle entity, int parameter) =>
+        PoseState(entity, parameter, out StudioHdr hdr, out BoneEntityState state)
+            ? BoneSetupQuery.GetPoseParameter(hdr, parameter, state.PoseParameter[parameter])
+            : 0f;
+
+    /// <summary>
+    /// A stored pose changed: the generation moves (the bone cache's key), and
+    /// the attachments, which are read without asking whether the bones still
+    /// stand, go stale.
+    /// </summary>
+    private static void PoseMoved(BoneEntityState state)
+    {
+        state.PoseGeneration++;
+        state.AttachmentsValid = false;
+    }
+
     // ---- the engine's hitbox trace --------------------------------------------
 
     /// <summary>
@@ -611,6 +786,13 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
     /// </summary>
     public bool TestHitboxes(EntityHandle entity, Span<byte> block, in BoneRay ray, int contentsMask, BoneTrace tr)
     {
+        // An entity that answers its traces itself (its custom ray or box test) answers before its hitboxes.
+        if (_customTargets?.Invoke(entity) is { } custom)
+        {
+            CustomTraces++;
+            return custom.TestTrace(ray, contentsMask, tr);
+        }
+
         if (!Read(block, out EngineBlock read))
         {
             return false;
@@ -686,9 +868,9 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
         state.HeldCycle = cycle;
         poseParameters[..Math.Min(poseParameters.Length, state.PoseParameter.Length)].CopyTo(state.PoseParameter);
 
-        // The attachments are read off the bones without asking whether the
-        // bones still stand: a new pose makes them stale.
-        state.AttachmentsValid = false;
+        // The cache key carries the sequence and the cycle but not the poses:
+        // their generation moves, and the attachments go stale with it.
+        PoseMoved(state);
     }
 
     /// <inheritdoc/>
@@ -702,7 +884,7 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
         state.Sequence = saved.Sequence;
         state.HeldCycle = saved.HeldCycle;
         saved.PoseParameters.AsSpan().CopyTo(state.PoseParameter);
-        state.AttachmentsValid = false;
+        PoseMoved(state);
     }
 
     /// <inheritdoc/>
@@ -720,7 +902,7 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
     public void Forget(EntityHandle entity)
     {
         _states.Remove(entity);
-        _carriedScales.Remove(entity);
+        _carried.Remove(entity);
     }
 
     /// <summary>
@@ -739,7 +921,7 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
     public void OnLevelShutdown()
     {
         _states.Clear();
-        _carriedScales.Clear();
+        _carried.Clear();
         _models.Clear();
         _surfaceIndices.Clear();
     }
@@ -748,33 +930,99 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
 
     void ISaveCustom.OnSave(ISaveWriter writer)
     {
+        float[] defaults = new float[BoneEntityState.MaxPoseParameters];
+
         foreach ((EntityHandle entity, BoneEntityState state) in _states.All())
         {
-            if (state.ModelScale != 1.0f)
+            // Stock's DATADESC saves m_flPoseParameter: each pose that is not
+            // its model's default rides with the model it was set on.
+            StudioHdr? hdr = state.PoseDefaultsFor >= 0 ? _models.OpenStudioHdr(state.PoseDefaultsFor) : null;
+            int declared = 0;
+            int moved = 0;
+
+            if (hdr is not null)
             {
-                writer.AddRow().Set("entity", entity).Set("scale", state.ModelScale);
+                BoneLibrary.ModelFacts(hdr, out _, defaults);
+                declared = Math.Min(hdr.NumPoseParameters, BoneEntityState.MaxPoseParameters);
+
+                for (int i = 0; i < declared; i++)
+                {
+                    moved += state.PoseParameter[i] != defaults[i] ? 1 : 0;
+                }
+            }
+
+            if (state.ModelScale == 1.0f && moved == 0)
+            {
+                continue;
+            }
+
+            ReloadRow row = writer.AddRow().Set("entity", entity).Set("scale", state.ModelScale);
+
+            if (moved > 0)
+            {
+                row.Set("posemodel", state.PoseDefaultsFor);
+
+                for (int i = 0; i < declared; i++)
+                {
+                    if (state.PoseParameter[i] != defaults[i])
+                    {
+                        row.Set(PoseKey(i), state.PoseParameter[i]);
+                    }
+                }
             }
         }
 
         // One carried but not yet asked about is still owed.
-        foreach ((EntityHandle entity, float scale) in _carriedScales)
+        foreach ((EntityHandle entity, CarriedSkeleton carried) in _carried)
         {
-            writer.AddRow().Set("entity", entity).Set("scale", scale);
+            ReloadRow row = writer.AddRow().Set("entity", entity).Set("scale", carried.Scale);
+
+            if (carried.Poses is { } poses)
+            {
+                row.Set("posemodel", carried.PoseModel);
+
+                for (int i = 0; i < poses.Length; i++)
+                {
+                    if (!float.IsNaN(poses[i]))
+                    {
+                        row.Set(PoseKey(i), poses[i]);
+                    }
+                }
+            }
         }
     }
 
+    private static string PoseKey(int parameter) => "pose" + parameter.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
     void ISaveCustom.OnRestore(ISaveReader reader)
     {
-        _carriedScales.Clear();
+        _carried.Clear();
 
         foreach (ReloadRow row in reader.Rows)
         {
             EntityHandle entity = reader.Resolve(row.GetHandle("entity"));
             float scale = row.GetFloat("scale", 1.0f);
 
-            if (entity != EntityHandle.None && scale > 0.0f && scale != 1.0f)
+            if (entity == EntityHandle.None || scale <= 0.0f)
             {
-                _carriedScales[entity] = scale;
+                continue;
+            }
+
+            var carried = new CarriedSkeleton { Scale = scale, PoseModel = row.GetInt("posemodel", -1) };
+
+            if (carried.PoseModel >= 0)
+            {
+                carried.Poses = new float[BoneEntityState.MaxPoseParameters];
+
+                for (int i = 0; i < carried.Poses.Length; i++)
+                {
+                    carried.Poses[i] = row.GetFloat(PoseKey(i), float.NaN);
+                }
+            }
+
+            if (scale != 1.0f || carried.Poses is not null)
+            {
+                _carried[entity] = carried;
             }
         }
     }

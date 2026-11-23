@@ -42,6 +42,11 @@ public static class LevelSummary
             line.Append(", no exit");
         if (level.BossArena is int arena)
             line.Append(", boss arena room ").Append(arena.ToString(CultureInfo.InvariantCulture));
+        if (level.Arena is { } layout)
+            line.Append(", arena layout: boss at ").Append(At(layout.Spot)).Append(" yaw ").Append(F(layout.SpotYaw)).Append(", ")
+                .Append(Count(layout.Track.Length, "track point", "track points")).Append(" (")
+                .Append(layout.Stations.ToString(CultureInfo.InvariantCulture)).Append(" stations), ")
+                .Append(Count(layout.Mouths.Length, "mouth", "mouths"));
         var missing = level.Sources.Where(s => s.Value == PieceSource.Absent).Select(s => s.Key.ToString().ToLowerInvariant()).Order(StringComparer.Ordinal).ToList();
         line.Append(", missing: ").Append(missing.Count == 0 ? "none" : string.Join(", ", missing));
         line.Append(" (read in ").Append(((int)took.TotalMilliseconds).ToString(CultureInfo.InvariantCulture)).Append(" ms)\n");

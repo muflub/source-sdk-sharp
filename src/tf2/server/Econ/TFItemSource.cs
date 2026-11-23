@@ -89,7 +89,7 @@ public interface ITFItemSource
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFInventoryItemSource(LocalInventory inventory, BotInventory botInventory, IBotPlayers bots,
-                                          ItemSchema schema) : ITFItemSource, IOrderedHook
+                                          ItemSchema schema, IEnginePlayers enginePlayers) : ITFItemSource, IOrderedHook
 {
     /// <summary>TF2's range (999,000-999,999): a further mod's source (from ModStages.First) answers after it.</summary>
     public const int Order = 1_000_000 - 1_000 + 61;
@@ -107,7 +107,10 @@ public sealed class TFInventoryItemSource(LocalInventory inventory, BotInventory
     {
         // A bot's draw is seeded by its name (BotInventory.SeedOf), so bots' loadouts differ and the
         // same roster replays the same items.
-        if (bots.IsBot(new EntityHandle((uint)entIndex))
+        // The real handle, serial and all: after a changelevel the slot's
+        // handle carries one and a bare index crosses the engine's handle
+        // table as another slot, so a bot's seeded loadout would read wrong.
+        if (bots.IsBot(enginePlayers.GetHandle(entIndex))
             && botInventory.ForBot(entIndex) is { } botOwned)
             return botOwned;
         return inventory.Of(entIndex) ?? _none;
