@@ -625,7 +625,9 @@ jobs:
       - name: "Test (managed, server, client, tf2_descent, tf2, ai, mapgen: ${{ matrix.tier }})"
         env:
           DOTNET: dotnet
-          SS_DOTNET_TEST_ARGS: --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type none
+          # The mapgen job's facts wait on a Descent depth's dressing (150 s at
+          # most on a 32-core box, PR #43), so a hang there is 15 minutes.
+          SS_DOTNET_TEST_ARGS: --blame-hang --blame-hang-timeout ${{ matrix.tier == 'mapgen' && '15m' || '5m' }} --blame-hang-dump-type none
         run: |
           legs="$(python tools/test-tiers legs ${{ matrix.tier }} | tr -d '\r' | grep -v '^native-')"
           [[ -n "$legs" ]] || { echo "::error::tools/test-tiers named no managed legs"; exit 1; }
