@@ -44,6 +44,16 @@ Entries by owner (the file keeps its order; this is the index):
 - **Not open work**: the rulings and divergences kept only here, and the
   closed entries still cited, in the last two sections.
 
+## Depth 13 at seed 1 does not lint clean (2026-11-22)
+
+`MapGen descent-rooms <dir> --seed 1 --depth 13` refuses its library:
+`stope_b-ew-h-j.b1` dresses a nature/underworld_rockwall001 set brush
+(950 882 16)-(1034 958 22) past the cell's east edge (`inside_cell`,
+`dress_in_brush`). Found comparing every depth at seeds 0 and 1 before and
+after the dresser speedup (PR #43): the old code refuses it identically, and
+every other depth at both seeds lints clean. The facts dress seed 0, so
+nothing holds seed 1. Owner: the Descent map work.
+
 ## The client prediction still walks through box-solid entities (2026-11-15)
 
 `PredictionEntityClip` (src/client/managed/PredictionEntityClip.cs, lane
