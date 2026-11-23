@@ -57,5 +57,6 @@
   <Project Path="src/ai/tf2/ui/SourceSharp.Ai.TF2.Ui.csproj" />
   <Project Path="src/ai/store/SourceSharp.Ai.Store.csproj" />
   <Project Path="src/ai/tests/SourceSharp.Ai.Tests.csproj" />
+  <Project Path="src/test/mapgen/SourceSharp.MapGen.Tests.csproj" />
   <Project Path="src/ai/replay/SourceSharp.Ai.Replay.csproj" />
 </Solution>

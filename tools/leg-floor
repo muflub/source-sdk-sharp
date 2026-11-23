@@ -509,6 +509,13 @@ def floor_ai():
     return _floor_dotnet('src/ai/tests')
 
 
+def floor_mapgen():
+    """The map generator's Descent facts (src/test/mapgen): the same counting
+    rule as the managed leg, over that project alone. The tiers do not split
+    it (tools/test-tiers OWN_JOB): CI runs it whole, in a job of its own."""
+    return _floor_dotnet('src/test/mapgen')
+
+
 def floor_oracle_native():
     """The oracle leg's native half alone; see floor_oracle_managed."""
     return [f for f in floor_oracle() if f[0] == 'gtest-binaries']
@@ -565,6 +572,7 @@ LEGS = {
     'tf2_descent': floor_descent,
     'tf2': floor_tf2,
     'ai': floor_ai,
+    'mapgen': floor_mapgen,
     'native': floor_native,
     'census': floor_census,
     'oracle': floor_oracle,
