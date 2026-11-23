@@ -362,6 +362,16 @@ def run(leg_tier):
 
 # --- measuring --------------------------------------------------------------
 
+def writable(rows):
+    """A list CI can run: its native-slow job (make cpp-test-slow) runs the
+    native leg's slow tier, so the list must name one. A warm build compiles
+    the must-not-compile checks in under a second (PR #43's first re-measure
+    dropped all seven, and the job failed with no such leg)."""
+    if not entries(rows, NATIVE):
+        raise TierError('no native test reached %.1f s, so CI\'s native-slow job would have no leg: '
+                        'measure after a cold native build, or pass its --ctest-cost' % THRESHOLD)
+
+
 def measure(argv):
     write = '--write' in argv
     trx_dir = _opt(argv, '--trx-dir')
@@ -386,6 +396,8 @@ def measure(argv):
         cost = os.path.join('farm', config, 'build', 'Testing', 'Temporary', 'CTestCostData.txt')
     native = read_ctest_cost(cost, native_roster())
     rows = classify(managed, native)
+    if write:
+        writable(rows)
     total = sum(s for _l, _n, s in managed) + sum(s for _u, _n, s in native)
     slow = sum(r.seconds for r in rows)
     header = ['threshold %.1f s per fact or binary, %.1f s per class; %d managed cases and %d native '
@@ -485,6 +497,8 @@ def self_test():
     ck('an own-job leg has no tier legs', refuses(lambda: split_leg('mapgen-fast')))
     ck('a timing run puts no own-job fact in the slow tier', classify([('mapgen', 'A.B.Slow', 99.0)], []) == [])
     ck('the list refuses an own-job leg', refuses(lambda: parse('fact\tmapgen\tA.B.Slow\t9.0\t1')))
+    ck('a list with no native slow entry is not written', refuses(lambda: writable([r for r in rows if r.leg != NATIVE])))
+    ck('a list with one is', not refuses(lambda: writable(rows)))
     ck('a leg that is no tier is refused', refuses(lambda: split_leg('managed')))
 
     seen = [('managed-server', 'A.B.Slow', 9.0), ('managed-server', 'A.B.New', 2.1),

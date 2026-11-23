@@ -1,7 +1,7 @@
 # tools/test-tiers.tsv -- the slow tier of the managed and native tests (tools/test-tiers).
 # Regenerate: tools/test-tiers measure --write. Columns:
 # kind<TAB>leg<TAB>name<TAB>seconds<TAB>cases
-# threshold 2.0 s per fact or binary, 20.0 s per class; 33424 managed cases and 169 native tests measured, 9961 s in all, 6268 s of it in this tier
+# threshold 2.0 s per fact or binary, 20.0 s per class; 33424 managed cases and 169 native tests measured, 9993 s in all, 6288 s of it in this tier
 class	managed	SourceSharp.Tests.OnSpawnFieldReloadTests	33.5	2
 fact	managed	SourceSharp.Tests.SeamsLedgerTests.ARowNamingATypeTheCoreDoesNotCompileIsCaught	2.5	1
 fact	managed	SourceSharp.Tests.SideAuditTests.SharedAssemblyLeansOnlyOnSlotsBothSidesFill	6.0	1
@@ -341,3 +341,10 @@ fact	ai	SourceSharp.Ai.Tests.Teams.TeamCalloutDeterminismTests.ATeamsCalloutsRep
 fact	ai	SourceSharp.Ai.Tests.Teams.TeamSpawnTests.ASpawnTheEnemyLooksAtIsPassedOver	4.6	1
 fact	ai	SourceSharp.Ai.Tests.Trees.PersonalityTests.OppositeSpreadsPlayDifferently	3.0	3
 fact	ai	SourceSharp.Ai.Tests.Trees.SkillObservableTests.CunningAmbushesMore	2.3	1
+gtest-binaries	native	dead_conditionals_test	4.4	1
+gtest-binaries	native	game_dll_exports_test	2.6	1
+must-not-compile	native	slot_table_no_activelist	2.6	1
+must-not-compile	native	slot_table_no_cursor	2.8	1
+must-not-compile	native	slot_table_no_foreach	3.4	1
+must-not-compile	native	slot_table_no_rangefor	2.6	1
+must-not-compile	native	standalone_handle_ban	2.2	1
