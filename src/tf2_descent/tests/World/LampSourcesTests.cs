@@ -77,22 +77,36 @@ public sealed class LampSourcesTests
         Assert.Equal(Lamp.Light.Radius * 1.3, met.LampRadius, 9);
     }
 
+    /// <summary>What Lamplighter grants while switched on: its toggle's stats at the sheet's rank, as the runtime holds them.</summary>
+    private static IReadOnlyList<Contribution> LamplighterOn(HeroSheet sheet) =>
+        SkillRules.AsBuff("lamplighter", R.Skills.Resolve(sheet, R.Heroes.Stats(sheet, []), SkillBonuses.None, "lamplighter")
+                                             .Effects.Single(e => e.Primitive == Primitive.Toggle));
+
     [Fact]
-    public void Lamplighter_raises_range_and_brightness_by_its_rank()
+    public void Lamplighter_switched_on_raises_range_and_brightness_by_its_rank()
     {
-        var one = R.Skills.Stats(WithLamplighter(1), SkillBonuses.None);
-        var five = R.Skills.Stats(WithLamplighter(5), SkillBonuses.None);
+        var one = R.Skills.Stats(WithLamplighter(1), SkillBonuses.None, LamplighterOn(WithLamplighter(1)));
+        var five = R.Skills.Stats(WithLamplighter(5), SkillBonuses.None, LamplighterOn(WithLamplighter(5)));
 
         Assert.Equal((15.0, 15.0), (one.LampRangeBonus, one.LampBrightnessBonus));
         Assert.Equal((75.0, 75.0), (five.LampRangeBonus, five.LampBrightnessBonus));
     }
 
     [Fact]
-    public void Lamplighter_is_open_to_every_class_on_the_mercenary_tab()
+    public void Lamplighter_learned_but_off_grants_the_lamp_nothing()
+    {
+        var five = R.Skills.Stats(WithLamplighter(5), SkillBonuses.None);
+
+        Assert.Equal((0.0, 0.0), (five.LampRangeBonus, five.LampBrightnessBonus));
+        Assert.Equal(Lamp.Light.Radius, five.LampRadius);
+    }
+
+    [Fact]
+    public void Lamplighter_is_a_toggle_open_to_every_class_on_the_mercenary_tab()
     {
         var skill = R.Content.Skills["lamplighter"];
 
-        Assert.Equal(("mercenary", "mercenary", SkillKind.Upgrade), (skill.Class, skill.Tab, skill.Kind));
+        Assert.Equal(("mercenary", "mercenary", SkillKind.Toggle), (skill.Class, skill.Tab, skill.Kind));
         Assert.Equal([3, 6, 9, 12, 15], Enumerable.Range(1, 5).Select(r => skill.LevelFloor!.At(r)));
     }
 
@@ -105,7 +119,7 @@ public sealed class LampSourcesTests
             new EquippedItem("hat", Item("cap", 1, 10, Radiant30, Light30)),
             new EquippedItem("trinket1", Item("dog_tags", 1, 10, Radiant30, Light30)),
         ]);
-        var stats = R.Skills.Stats(sheet, SkillBonuses.None, gear.Contributions);
+        var stats = R.Skills.Stats(sheet, SkillBonuses.None, [.. gear.Contributions, .. LamplighterOn(sheet)]);
 
         Assert.True(stats.Total(Lamp.Range.Stat) > Lamp.Range.Max);             // more than the ceiling was given
         Assert.True(stats.Total(Lamp.Brightness.Stat) > Lamp.Brightness.Max);

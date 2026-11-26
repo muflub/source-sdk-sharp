@@ -51,7 +51,8 @@ public sealed class SoldierTreeTests
         var tab = Tab("mercenary").ToList();
 
         Assert.Equal(ids, tab.Select(s => s.Id));
-        Assert.All(tab, s => Assert.Equal((SkillKind.Upgrade, "mercenary", 0, "all"), (s.Kind, s.Class, s.Tier, s.Scope)));
+        Assert.All(tab.Where(s => s.Id != "lamplighter"), s => Assert.Equal((SkillKind.Upgrade, "mercenary", 0, "all"), (s.Kind, s.Class, s.Tier, s.Scope)));
+        Assert.Equal((SkillKind.Toggle, "mercenary", 0, null), (tab[^1].Kind, tab[^1].Class, tab[^1].Tier, tab[^1].Scope));   // L26: switched on and off
         Assert.All(tab, s => Assert.NotNull(s.LevelFloor));
     }
 

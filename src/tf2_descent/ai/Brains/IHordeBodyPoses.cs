@@ -30,11 +30,12 @@ public interface IHordeOrders
 /// (HO12: the spy reads it); how far robots see him (<see cref="SightScale"/>, a multiplier on
 /// their range: his lamp and the dark) and whether they may recognise him at all
 /// (<see cref="Veil"/>: his respawn's grace); how far his lit lamp shows him in the dark
-/// (<see cref="LampReach"/>, units; 0 when it is out). The server decides them; the brains fold in
+/// (<see cref="LampReach"/>, units; 0 when it is out) and whether his Lamplighter is on (<see cref="Beacon"/>:
+/// robots see that lamp from farther, horde.json sight.beaconReachScale). The server decides them; the brains fold in
 /// his room's light and the vision reads them.
 /// </summary>
 public readonly record struct HeroPose(int Seat, AiVector Feet, AiVector Eye, int Room, float Yaw = 0f, float SightScale = 1f,
-                                       Senses.HeroVeil Veil = Senses.HeroVeil.None, float LampReach = 0f);
+                                       Senses.HeroVeil Veil = Senses.HeroVeil.None, float LampReach = 0f, bool Beacon = false);
 
 /// <summary>
 /// A sound the horde may hear (plan_tf2_rpg B.3): what it was, where, how far

@@ -24,29 +24,37 @@ public sealed class DeathRulesTests
     {
         var d = Rules.Content.Death;
 
-        Assert.Equal(new DeathDrops(true, true, true, true), d.Drops);
+        Assert.Equal(new DeathDrops(true, true, true), d.Drops);
         Assert.Equal(900, d.CorpseLingerSeconds);
         Assert.Equal(25, d.LostAndFoundFeePct);
         Assert.Equal(new DownedSettings(20, 5, 5, 3, 96, 30, 2, 6, 60), d.Downed);
     }
 
     [Fact]
-    public void A_death_drops_everything_equipped_backpack_belt_and_australium_to_the_corpse()
+    public void A_death_drops_everything_equipped_backpack_and_belt_to_the_corpse()
     {
         var corpse = Deaths.Die("hero", hardcore: false, Gear()).Corpse;
 
         Assert.Equal(["launcher", "shovel", "hat", "pack1", "pack2", "sandvich", "bonk"], corpse.Items.ToArray());
-        Assert.Equal(340, corpse.Australium);
         Assert.Equal("hero", corpse.Owner);
     }
 
+    /// <summary>The user, 2026-11-22 (plan L26): Australium never goes to the corpse; the hero keeps every coin.</summary>
     [Fact]
-    public void After_a_death_the_hero_keeps_nothing()
+    public void A_death_leaves_the_australium_with_the_hero()
+    {
+        var result = Deaths.Die("hero", hardcore: false, Gear());
+
+        Assert.Equal(340, result.Kept.Australium);
+        Assert.NotEmpty(result.Corpse.Items);   // the stimulus: the death dropped the rest
+    }
+
+    [Fact]
+    public void After_a_death_the_hero_keeps_no_item()
     {
         var kept = Deaths.Die("hero", hardcore: false, Gear()).Kept;
 
         Assert.Empty(kept.Items);
-        Assert.Equal(0, kept.Australium);
     }
 
     [Fact]
@@ -93,7 +101,6 @@ public sealed class DeathRulesTests
 
         Assert.NotNull(entry);
         Assert.Equal(corpse.Items.ToArray(), entry.Items.ToArray());
-        Assert.Equal(340, entry.Australium);
         Assert.Equal("hero", entry.Owner);
     }
 

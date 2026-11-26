@@ -35,7 +35,7 @@ public readonly record struct BodyEye(bool Present, AiVector Eye, float Yaw, flo
 /// is told) and velocity; <see cref="SightScale"/>, the multiplier on every robot's range for
 /// him (the dark and his room's light: 1 is a robot's own range); <see cref="Veil"/>, whether robots may
 /// recognise him at all this tick (his respawn's grace); <see cref="LampReach"/>, how far his lit
-/// lamp shows him however dark it is (0: out), up to a robot's own range.
+/// lamp shows him however dark it is (0: out; his Lamplighter folded in: <c>SightSenses.LampReach</c>), up to a robot's own range.
 /// </summary>
 public readonly record struct HeroTarget(bool Present, AiVector Eye, AiVector Chest, AiVector Feet, AiVector Velocity, float SightScale = 1f,
                                          HeroVeil Veil = HeroVeil.None, float LampReach = 0f);

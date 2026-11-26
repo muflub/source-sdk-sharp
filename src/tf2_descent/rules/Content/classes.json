@@ -3,63 +3,63 @@
     "id": "scout", "name": "Scout", "itemClassWords": ["scout"],
     "attributes": { "brawn": { "start": 15, "cap": 60 }, "smarts": { "start": 10, "cap": 60 }, "aim": { "start": 25, "cap": 110 }, "grit": { "start": 10, "cap": 80 } },
     "base": [ { "stat": "max_life", "amount": 125 }, { "stat": "max_mana", "amount": 20 }, { "stat": "move_speed", "amount": 400 } ],
-    "perLevel": [ { "stat": "max_life", "amount": 18 }, { "stat": "max_mana", "amount": 1 } ],
+    "perLevel": [ { "stat": "max_life", "amount": 14 }, { "stat": "max_mana", "amount": 1 } ],
     "perPoint": [ { "attribute": "grit", "stat": "max_life", "amount": 2.0 }, { "attribute": "smarts", "stat": "max_mana", "amount": 1.5 } ]
   },
   {
     "id": "soldier", "name": "Soldier", "itemClassWords": ["soldier"],
     "attributes": { "brawn": { "start": 20, "cap": 90 }, "smarts": { "start": 5, "cap": 50 }, "aim": { "start": 20, "cap": 90 }, "grit": { "start": 15, "cap": 80 } },
     "base": [ { "stat": "max_life", "amount": 200 }, { "stat": "max_mana", "amount": 20 }, { "stat": "move_speed", "amount": 240 } ],
-    "perLevel": [ { "stat": "max_life", "amount": 18 }, { "stat": "max_mana", "amount": 1 } ],
+    "perLevel": [ { "stat": "max_life", "amount": 22 }, { "stat": "max_mana", "amount": 1 } ],
     "perPoint": [ { "attribute": "grit", "stat": "max_life", "amount": 3.0 }, { "attribute": "smarts", "stat": "max_mana", "amount": 1.5 } ]
   },
   {
     "id": "pyro", "name": "Pyro", "itemClassWords": ["pyro"],
     "attributes": { "brawn": { "start": 20, "cap": 85 }, "smarts": { "start": 10, "cap": 75 }, "aim": { "start": 10, "cap": 60 }, "grit": { "start": 20, "cap": 90 } },
     "base": [ { "stat": "max_life", "amount": 175 }, { "stat": "max_mana", "amount": 20 }, { "stat": "move_speed", "amount": 300 } ],
-    "perLevel": [ { "stat": "max_life", "amount": 18 }, { "stat": "max_mana", "amount": 1 } ],
+    "perLevel": [ { "stat": "max_life", "amount": 19 }, { "stat": "max_mana", "amount": 1 } ],
     "perPoint": [ { "attribute": "grit", "stat": "max_life", "amount": 3.0 }, { "attribute": "smarts", "stat": "max_mana", "amount": 2.0 } ]
   },
   {
     "id": "demoman", "name": "Demoman", "itemClassWords": ["demoman"],
     "attributes": { "brawn": { "start": 20, "cap": 90 }, "smarts": { "start": 10, "cap": 60 }, "aim": { "start": 15, "cap": 80 }, "grit": { "start": 15, "cap": 80 } },
     "base": [ { "stat": "max_life", "amount": 175 }, { "stat": "max_mana", "amount": 20 }, { "stat": "move_speed", "amount": 280 } ],
-    "perLevel": [ { "stat": "max_life", "amount": 18 }, { "stat": "max_mana", "amount": 1 } ],
+    "perLevel": [ { "stat": "max_life", "amount": 19 }, { "stat": "max_mana", "amount": 1 } ],
     "perPoint": [ { "attribute": "grit", "stat": "max_life", "amount": 3.0 }, { "attribute": "smarts", "stat": "max_mana", "amount": 1.5 } ]
   },
   {
     "id": "heavy", "name": "Heavy", "itemClassWords": ["hwg", "heavy"],
     "attributes": { "brawn": { "start": 25, "cap": 110 }, "smarts": { "start": 5, "cap": 40 }, "aim": { "start": 10, "cap": 60 }, "grit": { "start": 20, "cap": 100 } },
     "base": [ { "stat": "max_life", "amount": 300 }, { "stat": "max_mana", "amount": 20 }, { "stat": "move_speed", "amount": 230 } ],
-    "perLevel": [ { "stat": "max_life", "amount": 18 }, { "stat": "max_mana", "amount": 1 } ],
+    "perLevel": [ { "stat": "max_life", "amount": 32 }, { "stat": "max_mana", "amount": 1 } ],
     "perPoint": [ { "attribute": "grit", "stat": "max_life", "amount": 4.0 }, { "attribute": "smarts", "stat": "max_mana", "amount": 1.0 } ]
   },
   {
     "id": "engineer", "name": "Engineer", "itemClassWords": ["engineer", "primary"],
     "attributes": { "brawn": { "start": 10, "cap": 60 }, "smarts": { "start": 25, "cap": 100 }, "aim": { "start": 15, "cap": 80 }, "grit": { "start": 10, "cap": 70 } },
     "base": [ { "stat": "max_life", "amount": 125 }, { "stat": "max_mana", "amount": 20 }, { "stat": "move_speed", "amount": 300 } ],
-    "perLevel": [ { "stat": "max_life", "amount": 18 }, { "stat": "max_mana", "amount": 1 } ],
+    "perLevel": [ { "stat": "max_life", "amount": 14 }, { "stat": "max_mana", "amount": 1 } ],
     "perPoint": [ { "attribute": "grit", "stat": "max_life", "amount": 2.0 }, { "attribute": "smarts", "stat": "max_mana", "amount": 2.5 } ]
   },
   {
     "id": "medic", "name": "Medic", "itemClassWords": ["medic"],
     "attributes": { "brawn": { "start": 10, "cap": 50 }, "smarts": { "start": 25, "cap": 110 }, "aim": { "start": 10, "cap": 70 }, "grit": { "start": 15, "cap": 80 } },
     "base": [ { "stat": "max_life", "amount": 150 }, { "stat": "max_mana", "amount": 20 }, { "stat": "move_speed", "amount": 320 } ],
-    "perLevel": [ { "stat": "max_life", "amount": 18 }, { "stat": "max_mana", "amount": 1 } ],
+    "perLevel": [ { "stat": "max_life", "amount": 16 }, { "stat": "max_mana", "amount": 1 } ],
     "perPoint": [ { "attribute": "grit", "stat": "max_life", "amount": 2.5 }, { "attribute": "smarts", "stat": "max_mana", "amount": 3.0 } ]
   },
   {
     "id": "sniper", "name": "Sniper", "itemClassWords": ["sniper"],
     "attributes": { "brawn": { "start": 10, "cap": 55 }, "smarts": { "start": 10, "cap": 70 }, "aim": { "start": 30, "cap": 120 }, "grit": { "start": 10, "cap": 65 } },
     "base": [ { "stat": "max_life", "amount": 125 }, { "stat": "max_mana", "amount": 20 }, { "stat": "move_speed", "amount": 300 } ],
-    "perLevel": [ { "stat": "max_life", "amount": 18 }, { "stat": "max_mana", "amount": 1 } ],
+    "perLevel": [ { "stat": "max_life", "amount": 14 }, { "stat": "max_mana", "amount": 1 } ],
     "perPoint": [ { "attribute": "grit", "stat": "max_life", "amount": 2.0 }, { "attribute": "smarts", "stat": "max_mana", "amount": 2.0 } ]
   },
   {
     "id": "spy", "name": "Spy", "itemClassWords": ["spy"],
     "attributes": { "brawn": { "start": 10, "cap": 60 }, "smarts": { "start": 20, "cap": 90 }, "aim": { "start": 20, "cap": 100 }, "grit": { "start": 10, "cap": 60 } },
     "base": [ { "stat": "max_life", "amount": 125 }, { "stat": "max_mana", "amount": 20 }, { "stat": "move_speed", "amount": 320 } ],
-    "perLevel": [ { "stat": "max_life", "amount": 18 }, { "stat": "max_mana", "amount": 1 } ],
+    "perLevel": [ { "stat": "max_life", "amount": 14 }, { "stat": "max_mana", "amount": 1 } ],
     "perPoint": [ { "attribute": "grit", "stat": "max_life", "amount": 2.0 }, { "attribute": "smarts", "stat": "max_mana", "amount": 2.5 } ]
   }
 ]

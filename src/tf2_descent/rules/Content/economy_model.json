@@ -30,7 +30,7 @@
     "partyMinTakenPct": 25, "partyMinSeconds": 60,
     "bands": [
       { "depth": 5, "minSeconds": 60, "maxSeconds": 240 },
-      { "depth": 10, "minSeconds": 600, "maxSeconds": 1200 },
+      { "depth": 10, "minSeconds": 90, "maxSeconds": 360 },
       { "depth": 15, "minSeconds": 120, "maxSeconds": 480 }
     ]
   },

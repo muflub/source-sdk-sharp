@@ -25,7 +25,9 @@ public sealed class HuntDeciderTests
         private readonly AiSession _s;
         private int _tick = 100;
 
-        public Sim(byte[] levels, AiVector post, HordeLevel? level = null, int weapon = HordeWeapons.RocketLauncher, IHordePaths? paths = null)
+        /// <summary>A robot standing at <paramref name="post"/>; with <paramref name="home"/> its home is there instead (format 8's home point: a roster post), its hunt on <paramref name="leash"/>.</summary>
+        public Sim(byte[] levels, AiVector post, HordeLevel? level = null, int weapon = HordeWeapons.RocketLauncher, IHordePaths? paths = null,
+                   HordeLeash leash = default, AiVector? home = null)
         {
             Level = level ?? Row(4, markers: 0);
             Weapon = weapon;
@@ -34,9 +36,9 @@ public sealed class HuntDeciderTests
                 TeamCallouts = false,
                 World = HordeBrains.World(0.015f),
                 Curves = HordeSkillMap.Curves(),
-                Deciders = HordeDeciders.For(Level, paths).Make,
+                Deciders = HordeDeciders.For(Level, paths, leash).Make,
             };
-            _s.AddBot(Bot, 42, levels);
+            _s.AddBot(Bot, 42, levels, home: home);
             At = post;
         }
 
@@ -308,5 +310,151 @@ public sealed class HuntDeciderTests
             Assert.False(i.Say.Says);
             Assert.Equal(ActionKind.None, i.Action.Kind);
         });
+    }
+
+    //-------------------------------------------------------------------------
+    // The leash (plan L25): three doors from home on a row of eight rooms
+    //-------------------------------------------------------------------------
+
+    private static readonly HordeLeash ThreeDoors = new(3);
+
+    /// <summary>A robot at home in room 0 of eight rooms in a row, on a leash of three doors, standing in <paramref name="room"/>.</summary>
+    private static Sim Leashed(int room, int weapon = HordeWeapons.RocketLauncher) =>
+        new(Levels.Eleven(), Centre(room), Row(8, markers: 0), weapon, leash: ThreeDoors, home: Centre(0));
+
+    [Fact]
+    public void A_hero_in_sight_within_its_leash_is_chased()
+    {
+        var sim = Leashed(0);
+        sim.Seen = Centre(3);
+
+        sim.Step(12);
+
+        Assert.Equal(HuntDecider.Node.Chase, sim.Node);
+        Assert.True(sim.At.X > Centre(0).X, "it came towards the hero");
+    }
+
+    [Fact]
+    public void A_hero_in_sight_past_its_leash_and_out_of_its_range_is_let_go_and_it_walks_home()
+    {
+        var sim = Leashed(2);
+        sim.Seen = Centre(4);
+        Assert.True(Centre(2).DistanceTo(Centre(4)) > HordeWeapons.EngageRange(HordeWeapons.RocketLauncher) * 1.5f, "out of its engage range");
+
+        sim.Step(12);
+
+        Assert.Equal(HuntDecider.Node.Home, sim.Node);
+        Assert.True(sim.At.X < Centre(2).X, $"it turned for home, at {sim.At}");
+    }
+
+    [Fact]
+    public void A_hero_it_chased_who_runs_past_its_leash_is_let_go()
+    {
+        var sim = Leashed(0);
+        sim.Seen = Centre(3);
+        sim.Step(60);
+        Assert.Equal(HuntDecider.Node.Chase, sim.Node);
+        float chased = sim.At.X;
+
+        sim.Seen = Centre(6);
+        sim.Step(12);
+
+        Assert.Equal(HuntDecider.Node.Home, sim.Node);
+        Assert.True(sim.At.X < chased, $"it turned for home from {chased}, at {sim.At}");
+    }
+
+    [Fact]
+    public void A_hero_it_fights_within_its_engage_range_past_its_leash_is_fought()
+    {
+        // Room 3, the hero 300 units on in room 4: past the leash, within a rocket's 640.
+        var sim = Leashed(3);
+        sim.Seen = Centre(3) + new AiVector(300f, 0f, 0f);
+        Assert.Equal(4, sim.Level.RoomAt(sim.Seen.Value));
+
+        sim.Step(12);
+
+        Assert.Equal(HuntDecider.Node.Engage, sim.Node);
+        Assert.Equal(LookKind.Actor, sim.Last.Look.Kind);
+    }
+
+    [Fact]
+    public void A_fight_past_its_leash_ends_when_the_hero_leaves_its_engage_range()
+    {
+        var sim = Leashed(3);
+        sim.Seen = Centre(3) + new AiVector(300f, 0f, 0f);
+        sim.Step(12);
+        Assert.Equal(HuntDecider.Node.Engage, sim.Node);
+
+        sim.Seen = Centre(6);
+        sim.Step(12);
+
+        Assert.Equal(HuntDecider.Node.Home, sim.Node);
+    }
+
+    [Fact]
+    public void A_hero_lost_from_sight_past_its_leash_is_not_looked_for()
+    {
+        var sim = Leashed(3);
+        var lastSeen = Centre(3) + new AiVector(300f, 0f, 0f);
+        sim.Seen = lastSeen;
+        sim.Push(AiEvent.SightGained(Bot, new Tick(sim.Tick + 1), HeroActor, lastSeen, default, 1f));
+        sim.Step(12);
+        Assert.Equal(HuntDecider.Node.Engage, sim.Node);
+
+        sim.Seen = null;
+        sim.Push(AiEvent.SightLost(Bot, new Tick(sim.Tick + 1), HeroActor, lastSeen, default));
+        sim.Step(30);
+
+        Assert.Equal(HuntDecider.Node.Home, sim.Node);
+        Assert.True(sim.At.X < Centre(3).X, $"it turned for home, at {sim.At}");
+    }
+
+    [Fact]
+    public void A_place_heard_past_its_leash_is_not_gone_to()
+    {
+        var sim = Leashed(1);
+        sim.Step(1);
+        sim.Push(AiEvent.SoundHeard(Bot, new Tick(sim.Tick), SoundKind.Unknown, Centre(5), 1f, HeroActor, -1));
+
+        sim.Step(30);
+
+        Assert.Equal(HuntDecider.Node.Home, sim.Node);
+        Assert.True(sim.At.X < Centre(1).X, $"it walked home, at {sim.At}");
+    }
+
+    [Fact]
+    public void A_place_heard_within_its_leash_is_gone_to()
+    {
+        var sim = Leashed(1);
+        sim.Step(1);
+        sim.Push(AiEvent.SoundHeard(Bot, new Tick(sim.Tick), SoundKind.Unknown, Centre(3), 1f, HeroActor, -1));
+
+        sim.Step(30);
+
+        Assert.Equal(HuntDecider.Node.Investigate, sim.Node);
+        Assert.True(sim.At.X > Centre(1).X, $"it went to look, at {sim.At}");
+    }
+
+    [Fact]
+    public void A_hero_in_its_home_room_is_hunted_from_past_its_leash()
+    {
+        // Room 6: the way home enters room 5, five doors out, but the hero stands in its own room.
+        var sim = Leashed(6);
+        sim.Seen = Centre(0);
+
+        sim.Step(12);
+
+        Assert.Equal(HuntDecider.Node.Chase, sim.Node);
+    }
+
+    [Fact]
+    public void A_hunt_with_no_leash_chases_a_hero_anywhere()
+    {
+        var sim = new Sim(Levels.Eleven(), Centre(2), Row(8, markers: 0), home: Centre(0));
+        sim.Seen = Centre(6);
+
+        sim.Step(12);
+
+        Assert.Equal(HuntDecider.Node.Chase, sim.Node);
     }
 }

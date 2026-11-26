@@ -52,7 +52,8 @@ public sealed class LampSightStatsTests
         var world = new World();
         _rig.Contributions.Add(new CeilingGear(_rig.Rules.Content.Lamp));
         _lamps = new HeroLamps(new ModeOn(), _rig.Heroes, _rig.Rules, world, _rig.Log);
-        _visibility = new HeroVisibility(_lamps, _rig.Heroes, world, _rig.Rules, DeclaredConVars.Holding<DescentDarkConVar>("-1"));
+        _visibility = new HeroVisibility(_lamps, _rig.Heroes, world, _rig.Rules, DeclaredConVars.Holding<DescentDarkConVar>("-1"),
+                                         new TF2.Descent.Server.Skills.SkillCasters());
     }
 
     private LampSettings Lamp => _rig.Rules.Content.Lamp;
@@ -95,11 +96,12 @@ public sealed class LampSightStatsTests
     }
 
     [Fact]
-    public void The_dev_print_says_the_lamps_stats_are_not_counted()
+    public void The_dev_print_names_the_lamps_reach_and_says_its_brightness_is_not_counted()
     {
         var invested = Hero(CeilingGear.Invested, lamp: true);
+        double radius = Lamp.Light.Radius * (1 + Lamp.Range.Max / 100);
 
-        Assert.Contains($"range {Lamp.Light.Radius * (1 + Lamp.Range.Max / 100):0} and brightness x{1 + Lamp.Brightness.Max / 100:0.##} not counted",
+        Assert.Contains($"its reach {radius:0} (radius {radius:0}; brightness x{1 + Lamp.Brightness.Max / 100:0.##} not counted), lamplighter off",
                         _visibility.Describe(invested.Player));
     }
 }

@@ -309,8 +309,8 @@
   },
   {
     "id": "lamplighter", "name": "Lamplighter", "class": "mercenary", "tab": "mercenary",
-    "kind": "upgrade", "maxRank": 5, "scope": "all", "levelFloor": { "perRank": 3 },
-    "effect": [ { "primitive": "passive", "stats": [
+    "kind": "toggle", "maxRank": 5, "levelFloor": { "perRank": 3 },
+    "effect": [ { "primitive": "toggle", "target": "self", "drain": 0, "conditions": [ "lamp_beacon" ], "stats": [
       { "stat": "lamp_radius_pct", "amount": { "perRank": 15 } },
       { "stat": "lamp_brightness_pct", "amount": { "perRank": 15 } } ] } ]
   }

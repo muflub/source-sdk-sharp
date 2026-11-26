@@ -57,10 +57,21 @@ public sealed record ShoveSettings(
 /// light L is seen at the range times <see cref="LightScale"/>: <c>clamp(L / FullLight,
 /// DarkScale, 1)</c>, <see cref="DarkScale"/> in a room dark by design, 1 in a room the level does
 /// not measure. <b>The lamp</b>: a hero whose lamp is lit is seen within its radius times
-/// <see cref="LampReachScale"/> however dark the room, up to the robot's own range.</para>
+/// <see cref="LampReachScale"/> however dark the room, up to the robot's own range.
+/// <b>Lamplighter</b> (the user's ruling L26, 2026-11-22: "robots notice it when on"): while a toggle
+/// carrying <c>lamp_beacon</c> is on, that reach is times <see cref="BeaconReachScale"/> as well
+/// (<see cref="LampReach"/>, the one place the horde's sight reads a lamp).</para>
 /// </summary>
-public sealed record SightSenses(double Range, double HalfConeDeg, double AroundRadius, double FullLight, double DarkScale, double LampReachScale)
+public sealed record SightSenses(double Range, double HalfConeDeg, double AroundRadius, double FullLight, double DarkScale, double LampReachScale,
+                                 double BeaconReachScale)
 {
+    /// <summary>
+    /// How far a lamp of <paramref name="radius"/> units (0: out) shows its hero however dark the
+    /// room, before the robot's own range caps it: the radius times <see cref="LampReachScale"/>,
+    /// and times <see cref="BeaconReachScale"/> while his Lamplighter is on (<paramref name="beacon"/>).
+    /// </summary>
+    public double LampReach(double radius, bool beacon) => radius * LampReachScale * (beacon ? BeaconReachScale : 1);
+
     /// <summary>The multiplier on a robot's range for a hero in a room of <paramref name="light"/> (null: unmeasured), <paramref name="darkByDesign"/> or not.</summary>
     public double LightScale(float? light, bool darkByDesign)
     {
@@ -104,8 +115,10 @@ public sealed record HordeSenses(SightSenses Sight, HearingSenses Hearing, doubl
 /// awake room with no hero near sleeps after <see cref="SleepDelaySeconds"/>; the far
 /// simulation ticks at <see cref="FarTickHz"/>; a patrolling far robot waits
 /// <see cref="PatrolDwellSeconds"/> at each marker; a pack forgets its last contact after
-/// <see cref="AlertMemorySeconds"/>; a far robot within <see cref="ArriveRadius"/> units of
-/// its goal has arrived. <see cref="Director"/> is the spawn director's, <see cref="Shove"/>
+/// <see cref="AlertMemorySeconds"/>; a robot hunting a hero gives up when the room it would go
+/// to next, or the hero's, is more than <see cref="LeashDoors"/> doors from its home room
+/// (plan L25, the leash: <c>HordeLeash</c>); a far robot within <see cref="ArriveRadius"/> units
+/// of its goal has arrived. <see cref="Director"/> is the spawn director's, <see cref="Shove"/>
 /// the door shove's, <see cref="Senses"/> the robots' sight and hearing.
 /// </summary>
 public sealed record HordeSettings(
@@ -118,6 +131,7 @@ public sealed record HordeSettings(
     double FarTickHz,
     double PatrolDwellSeconds,
     double AlertMemorySeconds,
+    int LeashDoors,
     double ArriveRadius,
     DoorQueueSettings DoorQueue,
     DirectorSettings Director,
@@ -148,7 +162,7 @@ public sealed class HordeTable : SingleTable<HordeSettings>
         var se = f.Obj("senses");
         var si = se.Obj("sight");
         var sight = new SightSenses(si.Num("range"), si.Num("halfConeDeg"), si.Num("aroundRadius"), si.Num("fullLight"), si.Num("darkScale"),
-                                    si.Num("lampReachScale"));
+                                    si.Num("lampReachScale"), si.Num("beaconReachScale"));
         si.End();
         var he = se.Obj("hearing");
         var hearing = new HearingSenses(he.Int("rooms"), he.Int("unownedRooms"), he.Num("gunfire"), he.Num("explosion"), he.Num("footstep"), he.Num("landing"), he.Num("pain"),
@@ -159,7 +173,7 @@ public sealed class HordeTable : SingleTable<HordeSettings>
         return new HordeSettings(
             f.Int("rosterCapacity"), f.Int("poolBodies"), f.Int("bossBodies"), f.Int("wakeRooms"),
             f.Num("demoteDelaySeconds"), f.Num("sleepDelaySeconds"), f.Num("farTickHz"),
-            f.Num("patrolDwellSeconds"), f.Num("alertMemorySeconds"), f.Num("arriveRadius"), queue, director, shove, senses);
+            f.Num("patrolDwellSeconds"), f.Num("alertMemorySeconds"), f.Int("leashDoors"), f.Num("arriveRadius"), queue, director, shove, senses);
     }
 
     /// <summary>
@@ -181,6 +195,7 @@ public sealed class HordeTable : SingleTable<HordeSettings>
         ContentChecks.Range(errors, t, null, "farTickHz", s.FarTickHz, 0.1, 10);
         ContentChecks.Range(errors, t, null, "patrolDwellSeconds", s.PatrolDwellSeconds, 0, 600);
         ContentChecks.Range(errors, t, null, "alertMemorySeconds", s.AlertMemorySeconds, 0, 3600);
+        ContentChecks.Range(errors, t, null, "leashDoors", s.LeashDoors, 1, 32);
         ContentChecks.Range(errors, t, null, "arriveRadius", s.ArriveRadius, 1, 1024);
         ContentChecks.Range(errors, t, null, "doorQueue.backoff", s.DoorQueue.Backoff, 0, 1024);
         ContentChecks.Range(errors, t, null, "doorQueue.spacing", s.DoorQueue.Spacing, 1, 1024);
@@ -212,6 +227,7 @@ public sealed class HordeTable : SingleTable<HordeSettings>
         ContentChecks.Range(errors, t, null, "senses.sight.fullLight", si.FullLight, 1, 1000);
         ContentChecks.Range(errors, t, null, "senses.sight.darkScale", si.DarkScale, 0.05, 1);
         ContentChecks.Range(errors, t, null, "senses.sight.lampReachScale", si.LampReachScale, 0, 4);
+        ContentChecks.Range(errors, t, null, "senses.sight.beaconReachScale", si.BeaconReachScale, 1, 4);   // L26: a lamplighter is never seen from nearer
         var he = s.Senses.Hearing;
         ContentChecks.Range(errors, t, null, "senses.hearing.rooms", he.Rooms, 0, 16);
         ContentChecks.Range(errors, t, null, "senses.hearing.unownedRooms", he.UnownedRooms, 0, he.Rooms);

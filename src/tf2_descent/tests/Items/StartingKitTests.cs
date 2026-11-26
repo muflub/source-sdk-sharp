@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using SourceSharp.Host.Contracts;
 using TF2.Descent.Rules;
 using TF2.Descent.Rules.Content;
 using TF2.Descent.Rules.Items;
@@ -46,6 +47,36 @@ public sealed class StartingKitTests
 
         Assert.Equal(["rocket_launcher", "shotgun", "shovel"], kit.Backpack);
         Assert.Equal(["health_small", "health_small", "mana_small"], kit.Belt);
+    }
+
+    /// <summary>
+    /// SDK 2.9 mints the kit at every softcore death (plan L26) and refuses the whole death with
+    /// rules_bad_kit when a kit item's slot is out of range, taken twice, or one PlaceRefusal
+    /// refuses; every minted item must replay at checkpoints. Every class's kit passes, at any level.
+    /// </summary>
+    [Theory]
+    [InlineData(1)]
+    [InlineData(30)]
+    public void Every_classs_kit_is_one_the_host_mints_at_a_death(int level)
+    {
+        IGameRules host = Rules;
+        foreach (var cls in Rules.Content.Classes.Rows.Select(c => c.Id))
+        {
+            var hero = Rules.Heroes.GainXp(Rules.Heroes.New(cls, "k"), Rules.Heroes.XpAtLevel(level)).Sheet;
+            var sheet = Rules.SheetCodec.Write(hero);
+            var kit = host.StartingKit(cls, sheet, 77);
+            var taken = new HashSet<(SourceSharp.Host.Contracts.ItemContainer, int)>();
+
+            Assert.NotEmpty(kit);
+            Assert.All(kit, k =>
+            {
+                Assert.InRange(k.Slot, 0, host.ContainerSlots(sheet, k.Container) - 1);
+                Assert.True(taken.Add((k.Container, k.Slot)), $"{cls}: {k.Container} slot {k.Slot} twice");
+                Assert.Null(host.PlaceRefusal(sheet, k.Item, k.Container, k.Slot));
+                Assert.True(host.Replays(k.Item), $"{cls}: {k.Item.BaseType} does not replay");
+                Assert.Equal(0, host.Price(k.Item, SourceSharp.Host.Contracts.PriceKind.Sell));
+            });
+        }
     }
 
     [Fact]

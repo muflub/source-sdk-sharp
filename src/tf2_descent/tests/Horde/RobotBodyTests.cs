@@ -58,6 +58,44 @@ public sealed class RobotBodyTests
         Assert.Equal(RobotLooks.MedicModel, rig.Lent("giant_medic").Body.Model);
     }
 
+    /// <summary>The user's ruling (2026-11-22, plan L26): a class with no giant model has a giant wearing its ordinary model, scaled up.</summary>
+    [Theory]
+    [InlineData("giant_engineer", RobotLooks.EngineerModel)]
+    [InlineData("giant_sniper", RobotLooks.SniperModel)]
+    [InlineData("giant_spy", RobotLooks.SpyModel)]
+    public void A_giant_of_a_class_with_no_giant_model_wears_the_ordinary_one_at_its_scale(string template, string model)
+    {
+        var rig = new ServerHordeRig();
+        var (_, body) = rig.Lent(template, 1.75);
+
+        Assert.Equal(model, rig.LastFor<string>("EntityRender.SetModel", body.Handle, 1));
+        Assert.Equal(1.75f, rig.LastFor<float>("EntityRender.SetModelScale", body.Handle, 1));
+    }
+
+    [Theory]
+    [InlineData("giant_engineer")]
+    [InlineData("giant_sniper")]
+    [InlineData("giant_spy")]
+    public void A_scaled_up_giants_hull_is_the_players_scaled_by_it(string template)
+    {
+        var rig = new ServerHordeRig();
+        var (_, body) = rig.Lent(template, 1.75);
+
+        var bounds = rig.Engine.AllOf("Entities.SetBounds").Last(c => c.ArgAs<EntityHandle>(0) == body.Handle);
+        Assert.Equal((new Vector(-42f, -42f, 0f), new Vector(42f, 42f, 143.5f)), (bounds.ArgAs<Vector>(1), bounds.ArgAs<Vector>(2)));
+    }
+
+    [Theory]
+    [InlineData("giant_engineer", RobotLooks.Shotgun)]
+    [InlineData("giant_sniper", RobotLooks.SniperRifle)]
+    [InlineData("giant_spy", RobotLooks.Knife)]
+    public void A_scaled_up_giant_holds_its_classs_ordinary_weapon(string template, string weapon)
+    {
+        var rig = new ServerHordeRig();
+
+        Assert.Equal(weapon, rig.Lent(template, 1.75).Body.Weapon!.Model);
+    }
+
     [Fact]
     public void A_lent_body_is_solid_and_drawn_with_its_weapon_in_hand()
     {

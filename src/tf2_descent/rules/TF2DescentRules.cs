@@ -219,6 +219,9 @@ public sealed class TF2DescentRules : IGameRules
     public ValidationResult ValidateCheckpoint(CharacterSheet before, CharacterSheet after, CheckpointEvidence evidence) =>
         Checkpoints.Validate(before, after, evidence);
 
+    /// <summary>An operator's edit (contract 1.3, plan X4): <see cref="CheckpointRules.ValidateEdit"/>, so an edit may raise XP and level.</summary>
+    public ValidationResult ValidateEdit(CharacterSheet before, CharacterSheet after) => Checkpoints.ValidateEdit(before, after);
+
     /// <summary>The host's last check of a confirmed trade (RU5, <see cref="Trades.Apply"/>).</summary>
     public TradeResult ApplyTrade(TradeState t) => Trades.Apply(t);
 

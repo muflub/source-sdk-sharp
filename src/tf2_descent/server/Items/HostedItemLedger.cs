@@ -636,22 +636,30 @@ public sealed class HostedItemLedger(IGameRules rules, IHooks<IItemLedgerHook> h
     // Death
     //-------------------------------------------------------------------------
 
-    /// <summary><c>IHostItems.RecordDeath</c> (the host link's); taken, everything the hero carried is the corpse's, here as there.</summary>
+    /// <summary>
+    /// <c>IHostItems.RecordDeath</c> (the host link's). SDK 2.9 (plan L26): taken, everything the
+    /// hero carried is the corpse's, his Australium stays his, and the host minted the class's
+    /// starting kit to him in the same write (a hardcore hero none). What he holds now is read back
+    /// from the host's backpack, so the ledger holds the host's kit and the game gives no second.
+    /// A read that fails leaves him holding nothing until the next read (his purse kept).
+    /// </summary>
     public override Task<bool> RecordDeath(string hero, Vector position) => Serial(hero, async () =>
     {
         bool taken = await host.RecordDeath(hero, position);
         if (taken && Find(hero) is { } h)
         {
-            Commit("death", h, h with
-            {
-                Inventory = h.Inventory with
+            var after = await Reloaded(h, []) is { After: { } read }
+                ? read
+                : h with
                 {
-                    Backpack = h.Inventory.Backpack.Clear(),
-                    Equipped = h.Inventory.Equipped.Clear(),
-                    Belt = h.Inventory.Belt.Clear(),
-                    Australium = 0,
-                },
-            }, []);
+                    Inventory = h.Inventory with
+                    {
+                        Backpack = h.Inventory.Backpack.Clear(),
+                        Equipped = h.Inventory.Equipped.Clear(),
+                        Belt = h.Inventory.Belt.Clear(),
+                    },
+                };
+            Commit("death", h, after, []);
         }
         return taken;
     });

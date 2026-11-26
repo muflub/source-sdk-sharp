@@ -125,11 +125,11 @@ internal sealed class BrainRig
     /// <summary>Whether the slide tells a brain its body arrived at its order's last corner (as the server's motion does).</summary>
     public bool TellArrivals { get; set; }
 
-    /// <summary>A far robot of <paramref name="template"/> at <paramref name="at"/> in its room: a pack of its own, or the newest pack's with <paramref name="joinLastPack"/>.</summary>
-    public RobotId Robot(AiVector at, string template = "soldier", ulong seed = 42, bool joinLastPack = false)
+    /// <summary>A far robot of <paramref name="template"/> at <paramref name="at"/> in its room, of <paramref name="scale"/>: a pack of its own, or the newest pack's with <paramref name="joinLastPack"/>.</summary>
+    public RobotId Robot(AiVector at, string template = "soldier", ulong seed = 42, bool joinLastPack = false, double scale = 1.0)
     {
         int room = Level.RoomAt(at);
-        var id = Roster.Add(template, 1.0, room, new PackMarker(at, 0f), seed, joinLastPack: joinLastPack);
+        var id = Roster.Add(template, scale, room, new PackMarker(at, 0f), seed, joinLastPack: joinLastPack);
         Assert.True(id.IsValid, "the roster is full");
         return id;
     }

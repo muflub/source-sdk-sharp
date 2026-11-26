@@ -320,4 +320,13 @@ public sealed class SkillRules
     public bool HoldsPassive(HeroSheet sheet, string condition) =>
         sheet.SkillRanks.Any(kv => kv.Value > 0 && Find(kv.Key) is { } s && OpenTo(sheet.ClassId, s)
             && s.Effect.Any(e => e.Primitive == Primitive.Passive && e.Conditions.Contains(condition)));
+
+    /// <summary>
+    /// Whether one of <paramref name="toggles"/> (the toggles a caster has on) is a skill the hero
+    /// holds a real rank in whose toggle carries <paramref name="condition"/> (Lamplighter's
+    /// <c>lamp_beacon</c>): a toggle the hero no longer holds counts for nothing.
+    /// </summary>
+    public bool ToggledOn(HeroSheet sheet, IEnumerable<string> toggles, string condition) =>
+        toggles.Any(id => RealRank(sheet, id) > 0 && Find(id) is { Kind: SkillKind.Toggle } s && OpenTo(sheet.ClassId, s)
+            && s.Effect.Any(e => e.Primitive == Primitive.Toggle && e.Conditions.Contains(condition)));
 }

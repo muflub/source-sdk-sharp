@@ -36,7 +36,7 @@ public sealed class LampSightTests
     private LampSight Sight => _rig.Rules.Content.Lamp.Sight;
 
     private HeroVisibility Visibility(string dark = "-1") =>
-        new(_lamps, _rig.Heroes, _world, _rig.Rules, DeclaredConVars.Holding<DescentDarkConVar>(dark));
+        new(_lamps, _rig.Heroes, _world, _rig.Rules, DeclaredConVars.Holding<DescentDarkConVar>(dark), new TF2.Descent.Server.Skills.SkillCasters());
 
     private (EntityHandle Player, int Index) Hero(bool lamp)
     {

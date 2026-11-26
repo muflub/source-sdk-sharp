@@ -32,6 +32,21 @@ public sealed class HeroKitSettleFacts
         Assert.Contains("first kit equipped: primary rocket_launcher", rig.Log.Text);
     }
 
+    /// <summary>A death gives the kit (plan L26); the settle adds none of its own: he holds one kit, the death's.</summary>
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public async Task A_death_leaves_one_kit_the_deaths_and_the_settle_adds_none()
+    {
+        var rig = new EquipmentRig();
+        int firstKits = rig.Log.Text.Split("first kit equipped").Length - 1;
+
+        Assert.True(await rig.Ledger.RecordDeath(EquipmentRig.Key, default));
+
+        Assert.Equal(1, firstKits);   // the stimulus: the settle put the first kit on once
+        Assert.Equal(firstKits, rig.Log.Text.Split("first kit equipped").Length - 1);
+        Assert.Equal(6, rig.Held.Inventory.Items.Count());
+        Assert.Empty(rig.Held.Inventory.Backpack);
+    }
+
     [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_first_kit_is_put_on_once()
     {

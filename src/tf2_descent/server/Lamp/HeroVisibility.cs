@@ -5,6 +5,7 @@ using SourceSharp.Abi;
 using TF2.Descent.Rules;
 using TF2.Descent.Rules.World;
 using TF2.Descent.Server.Hero;
+using TF2.Descent.Server.Skills;
 
 namespace TF2.Descent.Server.Lamp;
 
@@ -26,6 +27,13 @@ public interface IHeroVisibility
 
     /// <summary>How far <paramref name="hero"/>'s lit lamp shows him however dark it is: its radius, in units; 0 when it is out or he carries none.</summary>
     double LampReach(EntityHandle hero);
+
+    /// <summary>
+    /// Whether <paramref name="hero"/>'s lit lamp is a beacon: a toggle of his carrying
+    /// <c>lamp_beacon</c> is on (Lamplighter, the user's ruling L26), so robots see that lamp from
+    /// farther (horde.json <c>sight.beaconReachScale</c>). False while his lamp is out.
+    /// </summary>
+    bool Beacon(EntityHandle hero);
 }
 
 /// <summary>
@@ -45,17 +53,19 @@ public sealed class DescentDarkConVar : FloatConVar { }
 /// nothing there), or <see cref="DescentDarkConVar"/>'s when it is set. A player with no hero
 /// component carries no lamp: his lamp counts as out.
 ///
-/// <para><b>The lamp's range and brightness do not enter the fold</b> (the lampstat lane's
-/// choice, 2026-11-13). The design's darkness is a multiplier on a robot's range (B.3) and its
-/// row 11 rules the light radius "skip the stat, keep the mood"; the user's ruling builds the stat
-/// for the hero's view. A lit lamp already gives him away in full (<see cref="LampSight.LampOn"/>
-/// 1: a robot sees him from its own whole range), so a brighter lamp cannot make him harder to see,
-/// and a longer one lets HIM see further, not the robots: the fold reads only whether the lamp is
-/// lit. A ceiling lamp is seen exactly as a bare one; a lamp out is seen as lamp.json's
-/// <see cref="LampSight.LampOff"/> whatever its stats.</para>
+/// <para><b>The lamp's range and brightness do not enter the multiplier</b> (the lampstat lane's
+/// choice, 2026-11-13): a ceiling lamp's <see cref="SightScale"/> is a bare one's, and a lamp out
+/// is seen as lamp.json's <see cref="LampSight.LampOff"/> whatever its stats. <b>Its radius is
+/// its reach</b> (<see cref="LampReach"/>; the aggro lane's): however dark his room, a robot sees
+/// a lit lamp within that radius (horde.json <c>sight.lampReachScale</c>), up to its own range.
+/// <b>Lamplighter makes it a beacon</b> (the user's ruling L26, 2026-11-22): while a toggle of his
+/// carrying <see cref="BeaconCondition"/> is on, his lit lamp's radius has Lamplighter's bonus and
+/// the horde's sight reads it times <c>sight.beaconReachScale</c> (<see cref="Beacon"/>, carried on
+/// his pose so a replay reads what the game read).</para>
 /// </summary>
 [SideService(Side.Server, As = [typeof(IHeroVisibility)])]
-public sealed class HeroVisibility(HeroLamps lamps, Heroes heroes, ILampWorld world, TF2DescentRules rules, DescentDarkConVar dark) : IHeroVisibility
+public sealed class HeroVisibility(HeroLamps lamps, Heroes heroes, ILampWorld world, TF2DescentRules rules, DescentDarkConVar dark, SkillCasters casters)
+    : IHeroVisibility
 {
     private LampSettings Lamp => rules.Content.Lamp;
 
@@ -72,8 +82,15 @@ public sealed class HeroVisibility(HeroLamps lamps, Heroes heroes, ILampWorld wo
 
     public double LampReach(EntityHandle hero) => heroes.Of(hero.EntryIndex) is { } h && lamps.Lit(h) ? lamps.RadiusOf(h) : 0;
 
+    /// <summary>The condition word a toggle carries to make its hero's lit lamp a beacon to robots (Lamplighter's).</summary>
+    public const string BeaconCondition = "lamp_beacon";
+
+    public bool Beacon(EntityHandle hero) =>
+        heroes.Of(hero.EntryIndex) is { Sheet: { } sheet } h && lamps.Lit(h) && casters.Of(h.PlayerIndex) is { } caster
+        && rules.Skills.ToggledOn(sheet, caster.State.Toggles, BeaconCondition);
+
     public string Describe(EntityHandle hero) =>
         string.Create(CultureInfo.InvariantCulture,
             $"scale {SightScale(hero):0.00}: darkness {Darkness:0.00} ({(Overridden ? "tf2_descent_dark" : $"depth {world.Depth}, lamp.json")}), lamp {(Lit(hero) ? $"lit (x{Lamp.Sight.LampOn:0.00} in the black)" : $"out (x{Lamp.Sight.LampOff:0.00} in the black)")}" +
-            $"{(heroes.Of(hero.EntryIndex) is { } h ? $", its range {lamps.RadiusOf(h):0} and brightness x{lamps.BrightnessOf(h):0.##} not counted" : "")}");
+            $"{(heroes.Of(hero.EntryIndex) is { } h ? $", its reach {LampReach(hero):0} (radius {lamps.RadiusOf(h):0}; brightness x{lamps.BrightnessOf(h):0.##} not counted), lamplighter {(Beacon(hero) ? "on: a beacon" : "off")}" : "")}");
 }

@@ -13,17 +13,18 @@ namespace TF2.Descent.Server.Items;
 /// the session seed and what is rolled (a kill's sequence and its hero, a vendor, a recipe's
 /// count), every operation the rules' own transition, every hero kept in memory, keyed by hero,
 /// for the process's life: through respawns and map changes. A new hero starts with the
-/// class's <see cref="StartingKit"/>.
+/// class's <see cref="StartingKit"/>, and a death gives it again (plan L26).
 /// </summary>
 [SideService(Side.Server)]
 public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook> hooks, StartingKit kit)
     : ItemLedgerBase(rules as TF2DescentRules ?? throw new ArgumentException("the in-memory ledger needs TF2.Descent's own rules", nameof(rules)), hooks)
 {
     // Each corpse's items with where the hero carried them, so a loot puts them back (InventoryRules.Recover).
-    private readonly Dictionary<string, (List<CorpseItem> Items, long Australium)> _corpses = new(StringComparer.Ordinal);
+    // A corpse holds no Australium: it stays with the hero (the user, 2026-11-22, plan L26).
+    private readonly Dictionary<string, List<CorpseItem>> _corpses = new(StringComparer.Ordinal);
 
     // What the Lost & Found holds of each hero's: his corpses whose levels are gone, merged, places kept.
-    private readonly Dictionary<string, (List<CorpseItem> Items, long Australium)> _lost = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, List<CorpseItem>> _lost = new(StringComparer.Ordinal);
     private ulong _rolls;
 
     /// <summary>The class a new hero starts as (HE1's mode spawns heroes as Soldiers).</summary>
@@ -46,6 +47,27 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
         for (int i = 0; i < potions.Count; i++)
             inventory = inventory with { Belt = inventory.Belt.Add(i, KitItem(sheet, potions[i])) };
         return Task.FromResult<LedgerHero?>(new LedgerHero(hero, sheet, inventory, new StashState()));
+    }
+
+    /// <summary>
+    /// The class's starting kit given to a hero who has just died (the user, 2026-11-22, plan L26:
+    /// "respawn with default weapons"), as the host's <c>IGameRules.StartingKit</c> places it: each
+    /// weapon in the first free equipment slot its base takes, each potion on the belt, slot by
+    /// slot. Every item is new (the corpse keeps the old kit: both exist) and sells for nothing.
+    /// </summary>
+    private HeroInventory WithKit(HeroSheet sheet, HeroInventory inventory)
+    {
+        var slots = Rules.Content.InventorySettings.Equipment;
+        foreach (var b in kit.WeaponsOf(sheet.ClassId))
+        {
+            string accepts = Rules.Content.ItemBases[b].Slot;
+            if (slots.FirstOrDefault(s => s.Accepts == accepts && !inventory.Equipped.ContainsKey(s.Id)) is { } slot)
+                inventory = inventory with { Equipped = inventory.Equipped.Add(slot.Id, KitItem(sheet, b)) };
+        }
+        var potions = kit.PotionsOf(sheet.ClassId);
+        for (int i = 0; i < potions.Count; i++)
+            inventory = inventory with { Belt = inventory.Belt.Add(i, KitItem(sheet, potions[i])) };
+        return inventory;
     }
 
     /// <summary>A Stock item of <paramref name="baseId"/> at item level 1, rolled through the rules.</summary>
@@ -194,7 +216,12 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
         return new BreakAnswer(true, null, roll.Australium, items);
     }
 
-    /// <summary>Everything carried, and the Australium, onto the hero's corpse (as the host's RecordDeath), each item with where he carried it.</summary>
+    /// <summary>
+    /// Everything carried onto the hero's corpse (as the host's RecordDeath), each item with where he
+    /// carried it. His Australium stays in his purse, and, in the same write, after the corpse took
+    /// what he carried, he is given the class's starting kit (<see cref="WithKit"/>), so he respawns
+    /// with it; a hardcore hero gets none (he is fallen). The user, 2026-11-22, plan L26.
+    /// </summary>
     public override Task<bool> RecordDeath(string hero, Vector position) => Serial(hero, async () =>
     {
         if (await Ensure(hero) is not { } h)
@@ -203,27 +230,24 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
             .Concat(h.Inventory.Belt.Select(b => new CorpseItem(b.Value, Belt: b.Key)))
             .Concat(h.Inventory.Backpack.Values.Select(b => new CorpseItem(b)))
             .ToList();
-        (List<CorpseItem> Items, long Australium) corpse = _corpses.TryGetValue(hero, out var c) ? c : (new List<CorpseItem>(), 0L);
-        corpse.Items.AddRange(carried);
-        _corpses[hero] = (corpse.Items, corpse.Australium + h.Inventory.Australium);
-        var stripped = h with
+        var corpse = _corpses.TryGetValue(hero, out var c) ? c : [];
+        corpse.AddRange(carried);
+        _corpses[hero] = corpse;
+        var stripped = h.Inventory with
         {
-            Inventory = h.Inventory with
-            {
-                Backpack = h.Inventory.Backpack.Clear(),
-                Equipped = h.Inventory.Equipped.Clear(),
-                Belt = h.Inventory.Belt.Clear(),
-                Australium = 0,
-            },
+            Backpack = h.Inventory.Backpack.Clear(),
+            Equipped = h.Inventory.Equipped.Clear(),
+            Belt = h.Inventory.Belt.Clear(),
         };
-        Commit("death", h, stripped, []);
+        var after = h.Sheet.Hardcore ? stripped : WithKit(h.Sheet, stripped);
+        Commit("death", h, h with { Inventory = after }, []);
         return true;
     });
 
     /// <summary>
     /// The hero's own corpse back onto them (<see cref="InventoryRules.Recover"/>): what he wore back
     /// in its slot when it is free and still allowed, the belt's potions back on the belt, the rest
-    /// into the backpack as far as it fits; what does not fit stays. The Australium comes back.
+    /// into the backpack as far as it fits; what does not fit stays.
     /// </summary>
     public override Task<LootAnswer> LootCorpse(string hero) => Serial(hero, async () =>
     {
@@ -231,14 +255,13 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
             return new LootAnswer(false, 0, LedgerRefusals.NoHero);
         if (!_corpses.TryGetValue(hero, out var corpse))
             return new LootAnswer(false, 0, "no corpse");
-        var back = Rules.Inventory.Recover(h.Inventory, h.Sheet, corpse.Items);
+        var back = Rules.Inventory.Recover(h.Inventory, h.Sheet, corpse);
         var stowed = Stowing(h, new InventoryResult(back.Hero, h.Stash, [], null));
-        var inventory = stowed.Hero with { Australium = stowed.Hero.Australium + corpse.Australium };
         if (back.Left.Count == 0)
             _corpses.Remove(hero);
         else
-            _corpses[hero] = ([.. back.Left], 0);
-        Commit("loot_corpse", h, h with { Inventory = inventory }, [.. stowed.Left.Select(l => l.Id)]);
+            _corpses[hero] = [.. back.Left];
+        Commit("loot_corpse", h, h with { Inventory = stowed.Hero }, [.. stowed.Left.Select(l => l.Id)]);
         LastRecovery = back;
         return new LootAnswer(true, back.Recovered, "");
     });
@@ -246,9 +269,9 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
     /// <summary>The last loot's recovery, where each item went (the log line and the facts).</summary>
     public CorpseRecovery? LastRecovery { get; private set; }
 
-    /// <summary>The hero's corpse: its items in the order a loot takes them, and its Australium; null with none.</summary>
+    /// <summary>The hero's corpse: its items in the order a loot takes them, and no Australium (it stays with him); null with none.</summary>
     public override LedgerCorpse? Corpse(string hero) =>
-        _corpses.TryGetValue(hero, out var corpse) ? new LedgerCorpse([.. corpse.Items.Select(i => i.Item.Id)], corpse.Australium) : null;
+        _corpses.TryGetValue(hero, out var corpse) ? new LedgerCorpse([.. corpse.Select(i => i.Item.Id)], 0) : null;
 
     /// <summary>
     /// The level every corpse lies on is gone (unhosted, a level change: one process holds one map,
@@ -265,25 +288,24 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
             var corpse = _corpses[hero];
             _corpses.Remove(hero);
             var record = new global::TF2.Descent.Rules.Death.Corpse(hero, Find(hero)?.Sheet.Hardcore == true,
-                                                [.. corpse.Items.Select(i => i.Item.Id.ToString(System.Globalization.CultureInfo.InvariantCulture))],
-                                                corpse.Australium);
+                                                [.. corpse.Select(i => i.Item.Id.ToString(System.Globalization.CultureInfo.InvariantCulture))]);
             if (global::TF2.Descent.Rules.Death.DeathRules.ToLostAndFound(record) is null)
                 continue;
-            (List<CorpseItem> Items, long Australium) held = _lost.TryGetValue(hero, out var l) ? l : (new List<CorpseItem>(), 0L);
-            held.Items.AddRange(corpse.Items);
-            _lost[hero] = (held.Items, held.Australium + corpse.Australium);
+            var held = _lost.TryGetValue(hero, out var l) ? l : [];
+            held.AddRange(corpse);
+            _lost[hero] = held;
             moved.Add(hero);
         }
 
         return moved;
     }
 
-    /// <summary>What the Lost &amp; Found holds of the hero's: its items in the order a reclaim takes them, and its Australium; null with none.</summary>
+    /// <summary>What the Lost &amp; Found holds of the hero's: its items in the order a reclaim takes them, and no Australium; null with none.</summary>
     public override LedgerCorpse? LostAndFound(string hero) =>
-        _lost.TryGetValue(hero, out var lost) ? new LedgerCorpse([.. lost.Items.Select(i => i.Item.Id)], lost.Australium) : null;
+        _lost.TryGetValue(hero, out var lost) ? new LedgerCorpse([.. lost.Select(i => i.Item.Id)], 0) : null;
 
     /// <summary>The fee for everything the Lost &amp; Found holds of the hero's (a reclaim that cannot take all charges for what it takes).</summary>
-    public override long? ReclaimFee(string hero) => _lost.TryGetValue(hero, out var lost) ? Fee(lost.Items) : null;
+    public override long? ReclaimFee(string hero) => _lost.TryGetValue(hero, out var lost) ? Fee(lost) : null;
 
     /// <summary>D6's fee on items: the rules' share (death.json's 25 %) of what a vendor pays for them.</summary>
     private long Fee(IEnumerable<CorpseItem> items) =>
@@ -291,8 +313,8 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
 
     /// <summary>
     /// The hero's own from the Lost &amp; Found (<see cref="InventoryRules.Recover"/>, as a corpse is
-    /// looted): its Australium joins his purse, the fee for the items that go back is paid from it,
-    /// and what does not fit stays. Refused, nothing changed, when the purse cannot pay.
+    /// looted): the fee for the items that go back is paid from his purse, and what does not fit
+    /// stays. Refused, nothing changed, when the purse cannot pay.
     /// </summary>
     public override Task<LedgerResult> Reclaim(string hero) => Serial(hero, async () =>
     {
@@ -300,15 +322,15 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
             return LedgerResult.Refused(LedgerRefusals.NoHero);
         if (!_lost.TryGetValue(hero, out var lost))
             return LedgerResult.Refused(LedgerRefusals.NothingLost, h);
-        var back = Rules.Inventory.Recover(h.Inventory, h.Sheet, lost.Items);
-        long fee = Fee(lost.Items.Where(i => !back.Left.Contains(i)));
-        long purse = h.Inventory.Australium + lost.Australium;
+        var back = Rules.Inventory.Recover(h.Inventory, h.Sheet, lost);
+        long fee = Fee(lost.Where(i => !back.Left.Contains(i)));
+        long purse = h.Inventory.Australium;
         if (purse < fee)
             return LedgerResult.Refused(LedgerRefusals.LostAndFoundFee, h);
         if (back.Left.Count == 0)
             _lost.Remove(hero);
         else
-            _lost[hero] = ([.. back.Left], 0);
+            _lost[hero] = [.. back.Left];
         LastRecovery = back;
         LastReclaimFee = fee;
         var stowed = Stowing(h, new InventoryResult(back.Hero, h.Stash, [], null));

@@ -98,11 +98,18 @@ public enum FamilyNode : short
 /// goes on hunting, searching and walking home exactly as <see cref="HuntDecider"/> does), the
 /// view's heroes and pack-mates (<see cref="HordeView"/>), a seeded stream a decide, the trace
 /// and the doing record, and the intent. A family reads only what the core's recording writes.
+/// <para>The leash (plan L25): a hero in sight out of the robot's engage range (its weapon family's,
+/// times its <c>preferredRangeScale</c>) and past its leash (<see cref="HordeLeash"/>) is not
+/// fought: the robot hunts as if it had not seen him, and the hunt lets him go and walks home. A
+/// hero within its engage range is fought wherever he stands.</para>
 /// </summary>
 public abstract class FamilyDecider : IDecider, IHordeRouted
 {
     private readonly HuntDecider _hunt;
     private DoingRecord _doing;
+    private bool _started;
+    private int _homeRoom = -1;
+    private float _eyeHeight = HordeBrains.EyeHeight;
 
     protected FamilyDecider(BrainSetup setup, HordeRoutes routes, FamilyNumbers numbers)
     {
@@ -176,12 +183,27 @@ public abstract class FamilyDecider : IDecider, IHordeRouted
     {
         ArgumentNullException.ThrowIfNull(view);
         Trace.Begin(tick);
+        AiVector self = view.Self.Origin;
+        _eyeHeight = HordeBrains.EyeHeight * HordeView.Scale(view.Self);
+        if (!_started)
+        {
+            _started = true;
+            _homeRoom = Level.RoomAt(Setup.Home ?? self);
+        }
+
         // A hero in sight is the fight: what the robot heard and took before it is that fight (the
         // hunt's own sighted branch says so when it decides; a family fights without asking it), so
-        // once the fight ends, with the hero dead or gone, it is not a lead to go and search.
-        if (NearestHero(view, view.Self.Origin, out _))
+        // once the fight ends, with the hero dead or gone, it is not a lead to go and search. One
+        // out of its engage range and past its leash it lets go: the hunt walks it home.
+        if (NearestHero(view, self, out ActorFacts hero))
+        {
+            float engage = HordeWeapons.EngageRange(view.Self.ActiveWeapon) * Params.PreferredRangeScale;
+            if (Route.Leash.LetsGo(Level, _homeRoom, self, hero.Origin, engage))
+                return Hunt(tick, view, seq);
             _hunt.Fought(tick);
-        return Decide(tick, view, seq, view.Self.Origin);
+        }
+
+        return Decide(tick, view, seq, self);
     }
 
     /// <summary>The family's decide; <see cref="Hunt"/> for what it does with no fight of its own.</summary>
@@ -212,8 +234,13 @@ public abstract class FamilyDecider : IDecider, IHordeRouted
         return best < float.MaxValue;
     }
 
-    /// <summary>The robot's eye: its feet raised by the brains' eye height (scale 1; a family reads no scale).</summary>
-    protected static AiVector EyeOf(AiVector feet) => feet + new AiVector(0f, 0f, HordeBrains.EyeHeight);
+    /// <summary>
+    /// The robot's eye: its feet raised by the brains' eye height at the robot's scale (its view's,
+    /// <see cref="HordeView.Scale"/>), where the motion turns its look from, so an aim judged
+    /// from here is the look's own (a x1.75 sniper judged from a scale-1 eye was 2.4 degrees off
+    /// at 1300 units and never fired).
+    /// </summary>
+    protected AiVector EyeOf(AiVector feet) => feet + new AiVector(0f, 0f, _eyeHeight);
 
     /// <summary>A value in [0, 1) from the brain's seed, the tick and <paramref name="salt"/>: the same in every replay.</summary>
     protected float Roll(Tick tick, int salt)

@@ -56,6 +56,39 @@ public sealed class HostedLedgerFacts : LedgerFacts
     private IReadOnlyList<(int Slot, string Id)> Held(string hero) =>
         [.. _host.Owned(HostOwnerKind.Character, hero).Select(i => (i.Slot, i.Id)).OrderBy(p => p.Slot)];
 
+    /// <summary>SDK 2.9 (plan L26): a hosted death leaves the Australium on the character, and the ledger says so.</summary>
+    [Fact]
+    public async Task A_hosted_death_leaves_the_australium_with_the_hero()
+    {
+        await _ledger.Load(A);
+        await SetAustralium(A, 50);
+
+        Assert.True(await _ledger.RecordDeath(A, default));
+
+        Assert.Equal(50, _host.Australium[A]);   // the host's own shape
+        Assert.Equal(50, _ledger.Find(A)!.Inventory.Australium);
+    }
+
+    /// <summary>
+    /// SDK 2.9 (plan L26): the host mints the class's starting kit to the character in the death's
+    /// write; the ledger reads that kit back, so the hero respawns with the host's kit and no other.
+    /// </summary>
+    [Fact]
+    public async Task A_hosted_death_reads_back_the_kit_the_host_minted_and_gives_no_second()
+    {
+        await _ledger.Load(A);
+        var shovel = await Put(A, Roll("shovel"));
+
+        Assert.True(await _ledger.RecordDeath(A, default));
+
+        var kit = _host.Owned(HostOwnerKind.Character, A).Select(i => i.Id).Order().ToList();
+        var held = _ledger.Find(A)!.Inventory;
+        Assert.Equal(6, kit.Count);   // the stimulus: the host minted the Soldier's kit
+        Assert.Equal(kit, held.Items.Select(h => _ledger.HostIdOf(h.Id)).Order());
+        Assert.Equal(["rocket_launcher", "shotgun", "shovel"], new[] { "primary", "secondary", "melee" }.Select(s => held.Equipped[s].Item.BaseId));
+        Assert.DoesNotContain(held.Items, h => h.Id == shovel);
+    }
+
     [Fact]
     public async Task A_reserve_drop_answers_from_the_reserve_without_waiting_for_the_reveal()
     {

@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 using SourceSharp.Abi;
 using SourceSharp.Server;
 
@@ -94,28 +96,50 @@ public sealed class SkillCaster(int playerIndex, EntityHandle player)
     public IReadOnlyList<Contribution> HeldStats { get; set; } = [];
 }
 
-/// <summary>Every hero's <see cref="SkillCaster"/> by player index, from the attach to the detach.</summary>
+/// <summary>
+/// Every hero's <see cref="SkillCaster"/> by player index, from the attach to the detach. The
+/// toggles a hero has on when his caster leaves are kept for his slot and his next caster starts
+/// with them: a level change detaches every player and attaches him again on the next level, and a
+/// toggle (Lamplighter, the user's ruling L26) stays as he left it. His client leaving the server
+/// forgets them (<see cref="OnClientDisconnected"/>, after the core's detach).
+/// </summary>
 [SideService(Side.Server)]
-public sealed class SkillCasters
+public sealed class SkillCasters : IClientLifecycle
 {
+    /// <summary>In TF2 Descent's skills block, after the core's player components (which detach first).</summary>
+    public const int Order = ModStages.First + 650;
+
+    public int ClientLifecycleOrder => Order;
+
     private readonly Dictionary<int, SkillCaster> _byIndex = new();
+    private readonly Dictionary<int, ImmutableSortedSet<string>> _kept = new();
 
     public SkillCaster? Of(int playerIndex) => _byIndex.GetValueOrDefault(playerIndex);
 
     public IReadOnlyCollection<SkillCaster> All => _byIndex.Values;
 
+    /// <summary>The toggles kept for <paramref name="playerIndex"/> while he has no caster (none: empty).</summary>
+    public IReadOnlyCollection<string> KeptToggles(int playerIndex) => _kept.TryGetValue(playerIndex, out var t) ? t : [];
+
     public SkillCaster Enter(int playerIndex, EntityHandle player)
     {
         var caster = new SkillCaster(playerIndex, player);
+        if (_kept.Remove(playerIndex, out var toggles))
+            caster.State = caster.State with { Toggles = toggles };
         _byIndex[playerIndex] = caster;
         return caster;
     }
 
     public void Leave(int playerIndex, SkillCaster caster)
     {
-        if (_byIndex.TryGetValue(playerIndex, out var held) && ReferenceEquals(held, caster))
-            _byIndex.Remove(playerIndex);
+        if (!_byIndex.TryGetValue(playerIndex, out var held) || !ReferenceEquals(held, caster))
+            return;
+        _byIndex.Remove(playerIndex);
+        if (caster.State.Toggles.Count > 0)
+            _kept[playerIndex] = caster.State.Toggles;
     }
+
+    public void OnClientDisconnected(int entIndex) => _kept.Remove(entIndex);
 }
 
 /// <summary>

@@ -1,5 +1,6 @@
 using SourceSharp.Abi;
 
+using TF2.Descent.Rules.Inventory;
 using TF2.Descent.Server.Items;
 
 using Xunit;
@@ -22,17 +23,31 @@ public sealed class CorpseLostTests
     private static long[] Carried(DownedRig rig, int index) =>
         [.. rig.Ledger.Find(rig.Key(index))!.Inventory.Items.Select(h => h.Id).Order()];
 
-    /// <summary>A hero who carried his kit died at <see cref="There"/>, stood again, and the level changed (to the town).</summary>
+    /// <summary>
+    /// A bought shotgun in the hero's backpack: a kit item sells for nothing (plan L26), so the Lost
+    /// &amp; Found's fee needs something else to be a share of.
+    /// </summary>
+    private static void Bought(DownedRig rig, int index)
+    {
+        var held = rig.Ledger.Find(rig.Key(index))!;
+        var item = rig.Heroes.Rules.ItemRules.Roller.Roll(
+            new SourceSharp.Host.Contracts.ItemRollContext("soldier", 1, 0, 1, 0, "base:shotgun", "vendor:saxton"), 7) with { Identified = true };
+        int slot = held.Inventory.Backpack.IsEmpty ? 0 : held.Inventory.Backpack.Keys.Max() + 1;
+        rig.Ledger.Replace(held with { Inventory = held.Inventory with { Backpack = held.Inventory.Backpack.Add(slot, new Held(9001, item)) } });
+    }
+
+    /// <summary>A hero who carried his kit and a bought shotgun died at <see cref="There"/>, stood again, and the level changed (to the town).</summary>
     private static (DownedRig Rig, long[] Before) DiedAndLeft()
     {
         var rig = new DownedRig();
+        Bought(rig, A);
         long[] before = Carried(rig, A);
         Assert.NotEmpty(before);
         rig.Clock.Origins[PlayerOf(A)] = There;
         rig.Hit(A, 500);
         rig.RunTo(1200);
         rig.Clock.Respawn(PlayerOf(A));
-        Assert.Empty(Carried(rig, A));
+        Assert.Empty(Carried(rig, A).Intersect(before));   // he stands with the kit the death gave (plan L26)
         Assert.NotNull(rig.Graves.Of(rig.Key(A)));
 
         rig.Graves.OnLevelInit("tf2_descent_town");
@@ -54,7 +69,7 @@ public sealed class CorpseLostTests
         var answer = await rig.Ledger.Reclaim(rig.Key(A));
 
         Assert.True(answer.Ok, answer.Refusal);
-        Assert.Equal(before, Carried(rig, A));
+        Assert.Equal(before, Carried(rig, A).Intersect(before));
         Assert.Null(rig.Ledger.LostAndFound(rig.Key(A)));
     }
 
@@ -69,22 +84,38 @@ public sealed class CorpseLostTests
     }
 
     [Fact]
-    public async Task A_reclaim_pays_the_rules_fee_and_gives_back_the_australium_the_corpse_held()
+    public async Task A_reclaim_pays_the_rules_fee_from_the_purse_the_hero_kept()
     {
         var rig = new DownedRig();
+        Bought(rig, A);
         Give(rig, A, 40);
         rig.Hit(A, 500);
         rig.RunTo(1200);
         rig.Clock.Respawn(PlayerOf(A));
         rig.Graves.OnLevelInit("tf2_descent_town");
         long fee = rig.Ledger.ReclaimFee(rig.Key(A))!.Value;
-        Assert.True(fee > 0, "the control: the kit has no vendor value, so the fee is nothing");
-        Assert.Equal(40, rig.Ledger.LostAndFound(rig.Key(A))!.Australium);
-        Give(rig, A, fee);
+        Assert.True(fee > 0, "the control: the bought shotgun has a sell price, so the fee is something");
+        Assert.Equal(0, rig.Ledger.LostAndFound(rig.Key(A))!.Australium);
+        Assert.Equal(40, rig.Ledger.Find(rig.Key(A))!.Inventory.Australium);
+        Give(rig, A, 40 + fee);
 
         Assert.True((await rig.Ledger.Reclaim(rig.Key(A))).Ok);
 
         Assert.Equal(40, rig.Ledger.Find(rig.Key(A))!.Inventory.Australium);
+    }
+
+    /// <summary>A kit sells for nothing (plan L26), so reclaiming a lost kit alone costs nothing.</summary>
+    [Fact]
+    public void A_lost_starting_kit_alone_costs_nothing_to_reclaim()
+    {
+        var rig = new DownedRig();
+        rig.Hit(A, 500);
+        rig.RunTo(1200);
+        rig.Clock.Respawn(PlayerOf(A));
+        rig.Graves.OnLevelInit("tf2_descent_town");
+
+        Assert.NotEmpty(rig.Ledger.LostAndFound(rig.Key(A))!.Items);   // the stimulus: the kit is there
+        Assert.Equal(0, rig.Ledger.ReclaimFee(rig.Key(A)));
     }
 
     [Fact]
@@ -92,13 +123,14 @@ public sealed class CorpseLostTests
     {
         var (rig, before) = DiedAndLeft();
         long fee = rig.Ledger.ReclaimFee(rig.Key(A))!.Value;
+        Assert.True(fee > 0, "the control: the bought shotgun has a sell price");
         Give(rig, A, fee - 1);
 
         var answer = await rig.Ledger.Reclaim(rig.Key(A));
 
         Assert.False(answer.Ok);
         Assert.Equal(LedgerRefusals.LostAndFoundFee, answer.Refusal);
-        Assert.Empty(Carried(rig, A));
+        Assert.Empty(Carried(rig, A).Intersect(before));
         Assert.Equal(fee - 1, rig.Ledger.Find(rig.Key(A))!.Inventory.Australium);
         Assert.Equal(before, rig.Ledger.LostAndFound(rig.Key(A))!.Items.Order());
     }
@@ -107,8 +139,8 @@ public sealed class CorpseLostTests
     public void A_hardcore_heros_lost_corpse_never_reaches_the_lost_and_found()
     {
         var rig = new DownedRig();
-        var held = rig.Ledger.Find(rig.Key(A))!;
-        rig.Ledger.Replace(held with { Sheet = held.Sheet with { Hardcore = true } });
+        // The hero's own sheet: the death hands the ledger the sheet it left (HeroDeathCosts).
+        Assert.True(rig.Heroes.Sheets.Apply(A, s => s with { Hardcore = true }).Ok);
         rig.Hit(A, 500);
         rig.RunTo(1200);
 

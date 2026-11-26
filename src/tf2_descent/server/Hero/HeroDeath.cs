@@ -23,8 +23,8 @@ namespace TF2.Descent.Server.Hero;
 /// audited change (<see cref="HeroComponent.Apply"/>): a hardcore hero is
 /// fallen; a softcore sheet is unchanged. A death costs no XP (the rules
 /// take none) and no durability (D21).</item>
-/// <item>THE CORPSE: what the rules drop (<see cref="DeathRules.Die"/>: all
-/// of it, D6) goes to his corpse through the ledger
+/// <item>THE CORPSE: what the rules drop (<see cref="DeathRules.Die"/>: every
+/// item, D6; his Australium stays with him, plan L26) goes to his corpse through the ledger
 /// (<see cref="IItemLedger.RecordDeath"/>), unhosted; hosted,
 /// <c>DeathService</c> records the death with the host, as it did. The
 /// corpse's entity stands where he fell (<see cref="HeroCorpses.Place"/>).</item>
@@ -73,7 +73,7 @@ public sealed class HeroDeathCosts(IDescentModeState mode, Heroes heroes, HeroKe
         var dying = rules.Deaths.Die(key ?? "", hardcore, carried);
 
         LastCosts = string.Create(CultureInfo.InvariantCulture,
-            $"player {death.EntIndex} died carrying {dying.Corpse.Items.Length} item(s) [{string.Join(' ', dying.Corpse.Items)}] and {dying.Corpse.Australium} Australium to the corpse, "
+            $"player {death.EntIndex} died carrying {dying.Corpse.Items.Length} item(s) [{string.Join(' ', dying.Corpse.Items)}] to the corpse, "
             + $"kept {dying.Kept.Items.Count()} item(s) and {dying.Kept.Australium} Australium; XP {sheetBefore?.Xp ?? 0} -> {sheet?.Xp ?? 0} (a death costs none); "
             + $"durability unchanged (D21); sheet audit {(audit.Ok ? "ok" : audit.Rule)}{(sheet?.Fallen == true ? "; HARDCORE: fallen" : "")}");
         log.Msg($"[TF2Descent/Death] {LastCosts}\n");
@@ -87,6 +87,10 @@ public sealed class HeroDeathCosts(IDescentModeState mode, Heroes heroes, HeroKe
             return;
         }
         int index = death.EntIndex;
+        // The ledger's death reads the sheet to decide the kit (a hardcore hero gets none, plan L26):
+        // it is handed the sheet this death left, not whatever the stats watcher last wrote.
+        if (sheet is not null)
+            ledger.SetSheet(key, sheet);
         // The ledger takes a hero's operations in order: the wear lands on the items before they move.
         wear.FlushHero(key, "death");
         _ = Record(index, key, death.Origin, hardcore);

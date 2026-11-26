@@ -301,6 +301,32 @@ public sealed class SkillLoadErrorTests
     }
 
     [Fact]
+    public void A_shared_tab_toggle_that_drains_mana_is_a_load_error()
+    {
+        // L26: the shared tab's toggle is a passive switched on and off; Lamplighter itself loads clean (the control above).
+        var errors = Errors(Planted(ContentTables.Skills, t =>
+        {
+            var row = Copy(t, "lamplighter", "planted_toggle");
+            row["effect"]![0]!["drain"] = 1;
+            t.AsArray().Add(row);
+        }));
+
+        var e = Assert.Single(errors);
+        Assert.Equal((ContentRule.OutOfRange, "planted_toggle"), (e.Rule, e.Row));
+        Assert.Contains("drains no mana", e.Message);
+    }
+
+    [Fact]
+    public void A_shared_tab_toggle_that_costs_mana_is_a_load_error()
+    {
+        var errors = Errors(Planted(ContentTables.Skills, t => t.AsArray().Add(Copy(t, "lamplighter", "planted_toggle").Also(r => r["manaCost"] = 5))));
+
+        var e = Assert.Single(errors);
+        Assert.Equal((ContentRule.OutOfRange, "planted_toggle"), (e.Rule, e.Row));
+        Assert.Contains("costs no mana", e.Message);
+    }
+
+    [Fact]
     public void A_shared_tab_skill_with_a_tier_is_a_load_error()
     {
         var errors = Errors(Planted(ContentTables.Skills,

@@ -13,8 +13,8 @@
     <!-- The SDK's package version is its wire version (host 594b2b1): 2.x speaks
          sourcesharp.*.v1, and the host's Booting refuses any other major. The
          rules-module contract versions on its own. -->
-    <HostSdkVersion>2.8.1</HostSdkVersion>
-    <HostContractsVersion>1.2.0</HostContractsVersion>
+    <HostSdkVersion>2.9.0</HostSdkVersion>
+    <HostContractsVersion>1.3.0</HostContractsVersion>
     <!-- The restore sources are the repo's (Directory.Build.props: the host's
          packages and map-tools' feed). Setting them here dropped the feed, and
          SourceSharp.MapFormats then restored only from a warm cache. -->

@@ -363,6 +363,34 @@ public sealed class RemainingFamiliesTests
         Assert.All(fires, f => Assert.True(MathF.Abs(f.Look.Point.Z - (hero.At.Z + FamilyNumbers.HeadUnits)) < 8f, $"aimed at {f.Look.Point.Z:0}"));
     }
 
+    /// <summary>
+    /// Found live (2026-11-22, the giant sniper's first boot): a x1.75 sniper's look turns from its
+    /// own eye, 126 units up, but it judged its aim from a scale-1 eye (72 up), 2.4 degrees off at
+    /// 1300 units against a 1.5-degree tolerance, so it held "settling" and never fired.
+    /// </summary>
+    [Fact]
+    public void A_giant_sniper_judges_its_aim_from_its_own_eye_and_shoots_as_often_as_an_ordinary_one()
+    {
+        int ordinary = SniperFires(1f), giant = SniperFires(1.75f);
+
+        Assert.True(ordinary >= 10, $"the control: an ordinary sniper fired {ordinary} times");
+        Assert.True(Math.Abs(giant - ordinary) <= 1, $"a x1.75 sniper fired {giant} times, an ordinary one {ordinary}");
+    }
+
+    /// <summary>The shots a sniper of <paramref name="scale"/> fires in 300 ticks at an idle hero 1300 units off.</summary>
+    private static int SniperFires(float scale)
+    {
+        var sim = new FamilySim();
+        sim.Hero(Mid + At(1300, 0));
+        var sniper = sim.Robot(HordeWeapons.SniperRifle, Mid, Levels.Eleven(5, ("accuracy", 10)));
+        sniper.Scale = scale;
+
+        sim.Step(300);
+
+        Assert.Equal(FamilyNode.Aim, sniper.Node(sim));
+        return Fires(sim, sniper).Count;
+    }
+
     [Fact]
     public void A_rushed_sniper_relocates_and_holds_fire()
     {

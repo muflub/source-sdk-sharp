@@ -2,8 +2,11 @@ using TF2.Descent.Rules.Content;
 
 namespace TF2.Descent.Rules.Death;
 
-/// <summary>Which of a hero's possessions fall to the corpse on death (D6: all of them).</summary>
-public sealed record DeathDrops(bool Equipped, bool Backpack, bool Belt, bool Australium);
+/// <summary>
+/// Which of a hero's items fall to the corpse on death (D6: all of them). The Australium is not
+/// one: it stays with the hero (the user, 2026-11-22, plan L26).
+/// </summary>
+public sealed record DeathDrops(bool Equipped, bool Backpack, bool Belt);
 
 /// <summary>
 /// The downed window and the revive (R26): the first down on a level lasts
@@ -45,7 +48,7 @@ public sealed class DeathTable : SingleTable<DeathSettings>
         var corpse = f.Obj("corpse");
         var downed = f.Obj("downed");
         var settings = new DeathSettings(
-            new DeathDrops(drops.Bool("equipped"), drops.Bool("backpack"), drops.Bool("belt"), drops.Bool("australium")),
+            new DeathDrops(drops.Bool("equipped"), drops.Bool("backpack"), drops.Bool("belt")),
             corpse.Num("lingerSeconds"),
             corpse.Num("lostAndFoundFeePct"),
             new DownedSettings(

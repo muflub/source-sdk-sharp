@@ -86,6 +86,17 @@ public sealed class HordeViewTests
         Assert.Equal((float)self.Health / self.Armour, HordeView.Life(self), 5);
     }
 
+    /// <summary>Found live (2026-11-22): a x1.75 giant sniper aimed from a scale-1 eye and never settled, so a view carries the robot's scale.</summary>
+    [Fact]
+    public void A_view_carries_the_robots_scale()
+    {
+        var rig = new BrainRig();
+        int body = rig.Lend(rig.Robot(Centre(0), "giant_sniper", scale: 1.75));
+        rig.Tick(2);
+
+        Assert.Equal(1.75f, HordeView.Scale(ViewOf(rig, body).Self), 3);
+    }
+
     [Fact]
     public void A_view_carries_the_guns_look()
     {

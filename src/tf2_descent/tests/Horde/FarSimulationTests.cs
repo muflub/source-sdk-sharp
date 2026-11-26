@@ -3,6 +3,7 @@ using TF2.Descent.Ai.Far;
 using TF2.Descent.Ai.Level;
 using TF2.Descent.Ai.Roster;
 using TF2.Descent.Rules.Furniture;
+using TF2.Descent.Rules.Horde;
 using Xunit;
 using static TF2.Descent.Tests.Horde.HordeFixtures;
 
@@ -19,11 +20,12 @@ public sealed class FarSimulationTests
 
     private sealed class Far
     {
-        public Far(HordeLevel level, int party = 1)
+        /// <summary>The far simulation of <paramref name="level"/> on horde.json's numbers, or <paramref name="settings"/>.</summary>
+        public Far(HordeLevel level, int party = 1, HordeSettings? settings = null)
         {
             Level = level;
             Roster = RosterTests.Rolled(level, party);
-            Sim = FarSimulation.For(TheRules.Content.Horde, level, RosterTests.TicksPerSecond);
+            Sim = FarSimulation.For(settings ?? TheRules.Content.Horde, level, RosterTests.TicksPerSecond);
             Sight = new FakeSight(level);
         }
 
@@ -58,7 +60,7 @@ public sealed class FarSimulationTests
         public int[] Pack(int p) => [.. Enumerable.Range(Roster.PackFirst(p), Roster.PackSize(p))];
     }
 
-    /// <summary>Six rooms in a row, the only pack in room 5.</summary>
+    /// <summary>Six rooms in a row, the only pack in room 5 (room 2 is on its leash of three doors, room 1 past it).</summary>
     private static HordeLevel PackAtTheEnd(ulong seed = 11) =>
         HordeLevel.Create(seed, 4, Enumerable.Range(0, 6).Select(i => RowRoom(i, i == 5 ? 2 : 0)), Enumerable.Range(0, 5).Select(RowDoor));
 
@@ -166,15 +168,15 @@ public sealed class FarSimulationTests
     public void A_pack_alerted_by_sound_converges_on_it()
     {
         var far = new Far(PackAtTheEnd());
-        var contact = Centre(1);
+        var contact = Centre(2);
 
-        far.Call(1, contact);
+        far.Call(2, contact);
         for (int t = 0; t < 40; t++) far.Tick();
 
         Assert.True(far.Pack(0).Length >= 2);
         Assert.All(far.Pack(0), i =>
         {
-            Assert.Equal(1, far.Roster.Room(i));
+            Assert.Equal(2, far.Roster.Room(i));
             Assert.True(far.Roster.Position(i).DistanceTo(contact) <= TheRules.Content.Horde.ArriveRadius, $"robot {i} at {far.Roster.Position(i)}");
         });
     }
@@ -194,18 +196,18 @@ public sealed class FarSimulationTests
     public void A_far_robot_queues_at_the_door_of_a_room_a_hero_can_see_into_and_never_enters_it()
     {
         var far = new Far(PackAtTheEnd());
-        far.Sight.SeeInto[2] = true;
+        far.Sight.SeeInto[3] = true;
 
-        far.Call(1, Centre(1));
+        far.Call(2, Centre(2));
         for (int t = 0; t < 40; t++)
         {
             far.Tick();
-            Assert.All(far.Pack(0), i => Assert.NotEqual(2, far.Roster.Room(i)));
+            Assert.All(far.Pack(0), i => Assert.NotEqual(3, far.Roster.Room(i)));
         }
 
-        var door = far.Level.Doors[far.Level.DoorBetween(2, 3)];
+        var door = far.Level.Doors[far.Level.DoorBetween(3, 4)];
         var spots = far.Pack(0).Select(far.Roster.Position).ToArray();
-        Assert.All(far.Pack(0), i => Assert.Equal((3, FarActivity.Queue), (far.Roster.Room(i), far.Roster.Activity(i))));
+        Assert.All(far.Pack(0), i => Assert.Equal((4, FarActivity.Queue), (far.Roster.Room(i), far.Roster.Activity(i))));
         Assert.Equal(spots.Length, spots.Distinct().Count());
         var q = TheRules.Content.Horde.DoorQueue;
         Assert.All(spots, s => Assert.Equal(0, (s.DistanceTo(door.Position) - q.Backoff) % q.Spacing, 2));
@@ -215,15 +217,15 @@ public sealed class FarSimulationTests
     public void A_queue_moves_on_once_no_hero_can_see_into_the_room()
     {
         var far = new Far(PackAtTheEnd());
-        far.Sight.SeeInto[2] = true;
-        far.Call(1, Centre(1));
+        far.Sight.SeeInto[3] = true;
+        far.Call(2, Centre(2));
         for (int t = 0; t < 20; t++) far.Tick();
-        Assert.All(far.Pack(0), i => Assert.Equal(3, far.Roster.Room(i)));
+        Assert.All(far.Pack(0), i => Assert.Equal(4, far.Roster.Room(i)));
 
-        far.Sight.SeeInto[2] = false;
+        far.Sight.SeeInto[3] = false;
         for (int t = 0; t < 20; t++) far.Tick();
 
-        Assert.All(far.Pack(0), i => Assert.Equal(1, far.Roster.Room(i)));
+        Assert.All(far.Pack(0), i => Assert.Equal(2, far.Roster.Room(i)));
     }
 
     [Fact]
@@ -234,7 +236,7 @@ public sealed class FarSimulationTests
         int i = far.Pack(0)[0];
         var before = far.Roster.Position(i);
 
-        far.Call(1, Centre(1));
+        far.Call(2, Centre(2));
         for (int t = 0; t < 10; t++) far.Tick();
 
         Assert.Equal((before, FarActivity.Hold), (far.Roster.Position(i), far.Roster.Activity(i)));
@@ -244,14 +246,86 @@ public sealed class FarSimulationTests
     public void A_pack_forgets_its_contact_and_walks_home()
     {
         var far = new Far(PackAtTheEnd());
-        far.Call(1, Centre(1));
+        far.Call(2, Centre(2));
         for (int t = 0; t < 30; t++) far.Tick();
-        Assert.All(far.Pack(0), i => Assert.Equal(1, far.Roster.Room(i)));
+        Assert.All(far.Pack(0), i => Assert.Equal(2, far.Roster.Room(i)));
 
         for (int t = 0; t < 120; t++) far.Tick();
 
         Assert.Equal(AlertLevel.Calm, far.Roster.PackAlert(0));
         Assert.All(far.Pack(0), i => Assert.Equal(5, far.Roster.Room(i)));
+    }
+
+    //-------------------------------------------------------------------------
+    // The leash (plan L25): horde.json's three doors from the pack's room
+    //-------------------------------------------------------------------------
+
+    [Fact]
+    public void A_far_pack_whose_contact_is_past_its_leash_calms_and_stays_home()
+    {
+        var far = new Far(PackAtTheEnd());
+        Assert.Equal(4, far.Level.Distance(5, 1));
+
+        far.Call(1, Centre(1));
+        for (int t = 0; t < 40; t++) far.Tick();
+
+        Assert.Equal(AlertLevel.Calm, far.Roster.PackAlert(0));
+        Assert.All(far.Pack(0), i => Assert.Equal(5, far.Roster.Room(i)));
+    }
+
+    [Fact]
+    public void A_far_pack_whose_contact_is_on_its_leash_stays_alerted_and_goes_there()
+    {
+        var far = new Far(PackAtTheEnd());
+        Assert.Equal(3, far.Level.Distance(5, 2));
+
+        far.Call(2, Centre(2));
+        for (int t = 0; t < 40; t++) far.Tick();
+
+        Assert.Equal(AlertLevel.Alerted, far.Roster.PackAlert(0));
+        Assert.All(far.Pack(0), i => Assert.Equal((2, FarActivity.Converge), (far.Roster.Room(i), far.Roster.Activity(i))));
+    }
+
+    [Fact]
+    public void A_far_robot_whose_walk_would_enter_a_room_past_its_leash_calms_its_pack_and_turns_for_home()
+    {
+        // Room 0 is five doors from the pack's room; the contact in room 3 is two, but the walk there enters room 1, four out.
+        var far = new Far(PackAtTheEnd());
+        far.Roster.AlertPack(0, 3, Centre(3), far.Now, 0);
+        int i = far.Pack(0)[0];
+        far.Roster.SetPose(i, 0, Centre(0), 0);
+
+        far.Tick();
+
+        Assert.Equal(AlertLevel.Calm, far.Roster.PackAlert(0));
+        Assert.Equal(FarActivity.Return, far.Roster.Activity(i));
+        for (int t = 0; t < 60; t++) far.Tick();
+        Assert.Equal(5, far.Roster.Room(i));
+    }
+
+    [Fact]
+    public void The_boss_pack_alerted_past_its_leash_stays_alerted()
+    {
+        var far = new Far(Row(8, boss: new HordeBoss("major_crits", 7, new PackMarker(At(7 * RoomSize + 200, 200), 0))));
+        Assert.True(far.Roster.IsBoss(far.Roster.PackFirst(0)));
+
+        far.Roster.AlertPack(0, 1, Centre(1), far.Now, 0);
+        for (int t = 0; t < 4; t++) far.Tick();
+
+        Assert.Equal(AlertLevel.Alerted, far.Roster.PackAlert(0));
+    }
+
+    [Fact]
+    public void A_pack_of_the_same_level_alerted_past_its_leash_calms_where_the_boss_pack_does_not()
+    {
+        // The control of the boss's fact: the same level and contact, a pack that is not the boss's.
+        var far = new Far(Row(8, boss: new HordeBoss("major_crits", 7, new PackMarker(At(7 * RoomSize + 200, 200), 0))));
+        int pack = Enumerable.Range(1, far.Roster.PackCount - 1).First(p => far.Level.Distance(far.Roster.PackRoom(p), 1) > 3);
+
+        far.Roster.AlertPack(pack, 1, Centre(1), far.Now, 0);
+        for (int t = 0; t < 4; t++) far.Tick();
+
+        Assert.Equal(AlertLevel.Calm, far.Roster.PackAlert(pack));
     }
 
     //-------------------------------------------------------------------------
@@ -304,7 +378,7 @@ public sealed class FarSimulationTests
         int i = plain.Pack(0)[0];
         foreach (var far in new[] { plain, slowed })
         {
-            far.Call(1, Centre(1));
+            far.Call(2, Centre(2));
         }
         var start = slowed.Roster.Position(i);
         slowed.Roster.ApplyStatus(i, "slow", slowed.Now);
@@ -321,7 +395,7 @@ public sealed class FarSimulationTests
     public void A_stunned_far_robot_holds()
     {
         var far = new Far(PackAtTheEnd());
-        far.Call(1, Centre(1));
+        far.Call(2, Centre(2));
         int i = far.Pack(0)[0];
         far.Roster.ApplyStatus(i, "stun", far.Now);
         var before = far.Roster.Position(i);
@@ -352,7 +426,8 @@ public sealed class FarSimulationTests
     [Fact]
     public void A_thousand_steady_far_ticks_on_a_full_roster_allocate_nothing()
     {
-        var far = new Far(Row(40, markers: 3, seed: 3, depth: 15), 4);
+        // A leash longer than the way to room 20 from any pack: they converge for good.
+        var far = new Far(Row(40, markers: 3, seed: 3, depth: 15), 4, TheRules.Content.Horde with { LeashDoors = 32 });
         Assert.InRange(far.Roster.Count, far.Roster.Capacity - 16, far.Roster.Capacity);
         far.WakeAll();
         for (int p = 0; p < far.Roster.PackCount; p += 3) far.Roster.AlertPack(p, 20, Centre(20), far.Now + 1_000_000, 0);   // converging for good

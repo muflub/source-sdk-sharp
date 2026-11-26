@@ -145,9 +145,33 @@ public sealed class HeroSheetTests
     [Fact]
     public void Max_life_is_class_life_plus_life_per_grit_and_per_level()
     {
-        // Soldier: 200 life, 3 a Grit (15 at start), 18 a level (RU14's pacing: 2 was).
-        Assert.Equal(200 + 3 * 15 + 18 * 1, Heroes.Stats(Heroes.New("soldier", "t")).MaxLife, 9);
-        Assert.Equal(200 + 3 * 15 + 18 * 10, Heroes.Stats(AtLevel("soldier", 10)).MaxLife, 9);
+        // Soldier: 200 life, 3 a Grit (15 at start), 22 a level (plan L26: 200 x 0.108; 18 for all was RU14's).
+        Assert.Equal(200 + 3 * 15 + 22 * 1, Heroes.Stats(Heroes.New("soldier", "t")).MaxLife, 9);
+        Assert.Equal(200 + 3 * 15 + 22 * 10, Heroes.Stats(AtLevel("soldier", 10)).MaxLife, 9);
+    }
+
+    /// <summary>
+    /// The user, 2026-11-22 (plan L26): life per level scales with the class's base life, not 18 for
+    /// all nine. The default keeps the nine classes' average near 18: a level gives base x 0.108,
+    /// rounded (Scout 14, Soldier 22, Pyro 19, Demoman 19, Heavy 32, Engineer 14, Medic 16, Sniper 14, Spy 14).
+    /// </summary>
+    [Fact]
+    public void Life_per_level_is_the_classs_base_life_times_0_108_rounded()
+    {
+        Assert.All(Rules.Content.Classes.Rows, c =>
+        {
+            double baseLife = c.Base.Single(b => b.Stat == "max_life").Amount;
+            double perLevel = c.PerLevel.Single(b => b.Stat == "max_life").Amount;
+            Assert.True(Math.Round(baseLife * 0.108, MidpointRounding.AwayFromZero) == perLevel, $"{c.Id}: {perLevel} a level on {baseLife}");
+        });
+    }
+
+    [Fact]
+    public void A_heavy_at_level_10_has_700_life_and_a_scout_285()
+    {
+        // Heavy: 300 + 4 a Grit (20) + 32 a level; Scout: 125 + 2 a Grit (10) + 14 a level.
+        Assert.Equal(300 + 4 * 20 + 32 * 10, Heroes.Stats(AtLevel("heavy", 10)).MaxLife, 9);
+        Assert.Equal(125 + 2 * 10 + 14 * 10, Heroes.Stats(AtLevel("scout", 10)).MaxLife, 9);
     }
 
     //-------------------------------------------------------------------------
