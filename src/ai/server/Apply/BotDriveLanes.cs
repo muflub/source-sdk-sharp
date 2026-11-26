@@ -44,11 +44,14 @@ public readonly record struct DriveCounters(long Breaks, long BreaksGivenUp, lon
 /// driver. <see cref="BreakableCell"/> is the breakable the bot wants a line
 /// to, -1 for none: the trace is the main thread's, before the next step.
 /// <see cref="Link"/> is what the follower says of the route's next link
-/// (lane G5c-2b), which the main thread hands on to the game's brains.
+/// (lane G5c-2b), which the main thread hands on to the game's brains; <see cref="Dashes"/> the second presses in the air
+/// a jump on the route just ahead needs (round 2's S2, <see cref="BrainDriver.DashesAheadOf"/>), handed on likewise.
 /// </summary>
 public readonly record struct DriveOutput(IntentCommand Command, AiVector? Unreachable, string? StuckLine, int BreakableCell, DriveCounters Counters)
 {
     public NavLinkStep Link { get; init; }
+
+    public int Dashes { get; init; }
 }
 
 /// <summary>What <see cref="BotDriveLanes.Take"/> found for a bot.</summary>
@@ -367,6 +370,7 @@ public sealed class BotDriveLanes(Func<IAiTransport> transport, int slots)
                 _output = new DriveOutput(command, Driver.TakeUnreachable(slot), Driver.TakeStuckLine(slot), _aim.Wanted, Driver.CountersOf(_tally))
                 {
                     Link = Driver.LinkStepOf(slot),
+                    Dashes = Driver.DashesAheadOf(slot),
                 };
                 _fault = null;
                 if (_routeAsked)

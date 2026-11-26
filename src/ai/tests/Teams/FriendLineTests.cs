@@ -119,4 +119,18 @@ public sealed class FriendLineTests
     [Fact]
     public void AnEnemyInsideTheBlastDoesNot()
         => Assert.False(Blocked(View(new AiVector(600f, 120f, 0f), Theirs), AimEast, blast: 150f));
+
+    /// <summary>
+    /// The target itself never holds the fire at it (an unmasked Spy is drawn as a teammate: the suspicion hook), and another
+    /// teammate on the line still does (review 2, G4).
+    /// </summary>
+    [Fact]
+    public void TheTargetsOwnBodyDoesNotHoldTheFireAnotherTeammateStillDoes()
+    {
+        PerceivedView v = View(new AiVector(300f, 0f, 0f));
+        Assert.True(Blocked(v, AimEast));
+        Assert.False(FriendLine.Blocked(v, Eye, AimEast, 2048f, 0f, Eye, target: Mate));
+        v.AddSighted(new ActorFacts(new ActorId(3, 1), new AiVector(150f, 0f, 0f), default, -1, ActorActivity.None, 1f, Mine));
+        Assert.True(FriendLine.Blocked(v, Eye, AimEast, 2048f, 0f, Eye, target: Mate));
+    }
 }

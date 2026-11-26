@@ -323,7 +323,8 @@ public sealed class SkillCurves
                                   DangerLookChance: Optional("dangerLookChance", "alertness", 0.2f, 0.95f),
                                   DangerLookSeconds: Optional("dangerLookSeconds", "alertness", 0.5f, 1.4f),
                                   SpotTrust: Optional("spotTrust", "discipline", 0.1f, 0.95f),
-                                  FamilyTrust: Optional("familyTrust", "cunning", 0.1f, 0.95f));
+                                  FamilyTrust: Optional("familyTrust", "cunning", 0.1f, 0.95f),
+                                  ReflectChance: Optional("reflectChance", "agility", 0f, 1f));
     }
 }
 
@@ -400,7 +401,9 @@ public readonly record struct DecisionParams(
     float SpotTrust = 0.525f,
     // How readily an attacker takes the way into the enemy's base that its draw over what worked chose (G.4's outcomes,
     // lane G4b; Cunning).
-    float FamilyTrust = 0.525f);
+    float FamilyTrust = 0.525f,
+    // The share of seconds a Pyro reflects (and shoves) in (P7, the Pyro lane; stock's ladder by difficulty in TF2's curve).
+    float ReflectChance = 0.5f);
 
 /// <summary>What a streak changes while it lasts (§5.5): the aim's error and lead, the reaction, the recognition.</summary>
 public readonly record struct StreakParams(float AimErrorDeg, float LeadQuality, float ReactionMs, float RecognizeSeconds);

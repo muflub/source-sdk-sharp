@@ -57,11 +57,21 @@ public enum TFMateSeen : byte
     /// a place, no number. A Spy disguised as the bot's team calls as a teammate does, as stock's HUD has it.
     /// </summary>
     Calling = 1 << 1,
+
+    /// <summary>
+    /// The bot's own respawn glow lasts (stock's <c>TF_COND_TEAM_GLOWS</c>, <c>tf_spawn_glows_duration</c> seconds from its
+    /// respawn, tf_player.cpp:3636): its HUD outlines every living teammate through walls (tf_hud_spectator_extras.cpp:122-175,
+    /// under <c>tf_spec_xray</c>): a place, no number (round 2's S11; recorded from format 11). Only a teammate of the bot's
+    /// real team glows: stock force-transmits by real team, so an enemy Spy disguised as the bot's team is sent only in its
+    /// PVS and never outlined map-wide.
+    /// </summary>
+    Glowing = 1 << 2,
 }
 
 /// <summary>
 /// A teammate the bot's HUD shows, why, and where: the exact health only for the beam's patient (<see cref="TFMateSeen.HealTarget"/>);
-/// a caller's <see cref="Health"/> and <see cref="MaxHealth"/> are -1, the HUD shows only that they need a heal.
+/// a caller's or a glowing teammate's <see cref="Health"/> and <see cref="MaxHealth"/> are -1: the HUD shows only that they need
+/// a heal, or where they are.
 /// </summary>
 public readonly record struct TFMateHealth(int Slot, int Health, int MaxHealth, TFMateSeen Why, AiVector At);
 

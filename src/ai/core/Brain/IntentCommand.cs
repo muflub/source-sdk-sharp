@@ -193,6 +193,9 @@ public readonly record struct DecisionReason(
 /// <summary>
 /// A brain's output for one bot from one decide tick, valid until
 /// <see cref="ExpiresTick"/> (§2.4: <c>fromTick + 16</c>, about 240 ms).
+/// <see cref="HoldsAtFriend"/>: the brain holds Fire at a teammate on purpose (a Medic's beam, which heals only while held),
+/// said on every decide, one carrying a one-shot too: after a decide that held it, a decide with a one-shot (a voice line, the
+/// pop) that still says so keeps the trigger down; one that does not lets it go (round 2's S9). HL2MP never sets it.
 /// </summary>
 public readonly record struct IntentCommand(
     ActorId Bot,
@@ -203,7 +206,8 @@ public readonly record struct IntentCommand(
     LookIntent Look,
     ActionIntent Action,
     DecisionReason Reason,
-    SayIntent Say = default)
+    SayIntent Say = default,
+    bool HoldsAtFriend = false)
 {
     /// <summary>How many ticks an intent lives (§2.4).</summary>
     public const int LifetimeTicks = 16;

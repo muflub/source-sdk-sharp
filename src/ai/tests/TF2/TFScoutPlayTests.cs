@@ -377,17 +377,38 @@ public sealed class TFScoutPlayTests
     }
 
     /// <summary>
-    /// What a dry Scattergun does to the footwork: on the decide it is seen dry the shared fight backs the bot off ("launcher
-    /// dry"), and with the Pistol out the next decide is the Scout's own fight again (closing or holding, never backing off).
+    /// What a dry Scattergun does to the footwork with a loaded Pistol (round 2's S10, <c>ClassPlay.BacksOffDry</c>): on the
+    /// decide it is seen dry the shared fight does not back the bot off ("launcher dry"), and that decide and the next, with
+    /// the Pistol out, are the Scout's own fight (closing or holding, never backing off). Before S10 the first backed off.
     /// </summary>
     [Fact]
-    public void ADryScattergunBacksOffForOneDecideOnly()
+    public void ADryScattergunWithALoadedPistolDoesNotBackOff()
     {
         TFField f = Scout(Flanker());
         f.StepDrawn(Self(Scattergun, clip: 0), TFField.Ctf(), EnemyAt(500f));
-        Assert.Contains(f.Decider.Doing.Verdict, DryVerdicts);
+        Assert.Equal(("fight at range", true), (f.Decider.Doing.Leaf, new[] { "closing", "holding range" }.Contains(f.Decider.Doing.Verdict)));
         f.StepDrawn(Self(Pistol, clip: 12), TFField.Ctf(), EnemyAt(500f));
         Assert.Contains(f.Decider.Doing.Verdict, new[] { "closing", "holding range" });
+    }
+
+    /// <summary>A Soldier's dry launcher still backs it off on the first dry decide (the default <c>BacksOffDry</c>).</summary>
+    [Fact]
+    public void ADrySoldierStillBacksOff()
+    {
+        var f = new TFField(slot: 3, mates: [1, 2], weapons: Weapons);
+        f.StepDrawn(TFField.Self(Mid, clip: 0), TFField.Ctf(), EnemyAt(500f));
+        Assert.Equal("back off and load", f.Decider.Doing.Leaf);
+        Assert.Contains(f.Decider.Doing.Verdict, DryVerdicts);
+    }
+
+    /// <summary>The Bonk runner (no Pistol) with its Scattergun dry and the target within a swing (80 u) does not back off: it swings.</summary>
+    [Fact]
+    public void ADryScoutWithinASwingDoesNotBackOff()
+    {
+        TFField f = Scout(BonkKit(0f), TFScoutClass.Bonk);
+        f.StepDrawn(Self(Scattergun, clip: 0, reserve: 32), TFField.Ctf(), EnemyAt(80f));
+        Assert.NotEqual("back off and load", f.Decider.Doing.Leaf);
+        Assert.DoesNotContain(f.Decider.Doing.Verdict, DryVerdicts);
     }
 
     /// <summary>The Bonk runner (no Pistol) with its Scattergun dry, the target within a swing (80 u): the Bat, though the gun has shells in reserve.</summary>

@@ -61,6 +61,14 @@ public enum NavEdgeType : byte
     /// no graph holds one.
     /// </summary>
     Link,
+
+    /// <summary>
+    /// A rise past the double jump that a third jump in the air reaches (TF's Scout with the Atomizer, whose
+    /// <c>air_dash_count</c> is a second dash: round 2's S2): taken only by an agent whose
+    /// <see cref="NavObstacleState.Reach"/> has <see cref="JumpReach.Triple"/>. After <see cref="Link"/>, so the
+    /// numbers a cached graph stores for the types before it keep their meaning.
+    /// </summary>
+    TripleJump,
 }
 
 /// <summary>
@@ -78,6 +86,9 @@ public enum JumpReach : byte
 
     /// <summary>A blast jump: the links of <see cref="NavLinkKind.Blast"/> beside the graph (<see cref="NavLinks"/>).</summary>
     Blast = 1 << 1,
+
+    /// <summary>A third jump in the air (<see cref="NavEdgeType.TripleJump"/>).</summary>
+    Triple = 1 << 2,
 }
 
 /// <summary>A cell's flags beyond its clearance.</summary>
@@ -307,6 +318,7 @@ public sealed class NavGraph
     public bool Admits(in NavEdge e, ClearanceClass cls, NavObstacleState obstacles)
         => _cells[e.From].Admits(cls) && _cells[e.To].Admits(cls)
            && (e.Type != NavEdgeType.DoubleJump || (obstacles.Reach & JumpReach.Double) != 0)
+           && (e.Type != NavEdgeType.TripleJump || (obstacles.Reach & JumpReach.Triple) != 0)
            && (e.Obstacle < 0 || !obstacles.Blocking(e.Obstacle) || (obstacles.OpenDoors && e.Type == NavEdgeType.Door));
 
     /// <summary>
@@ -544,6 +556,20 @@ public sealed class NavObstacleState
     private NavLinkMask? _linksShut;
 
     /// <summary>
+    /// What this state's owner spends on each link of <see cref="Links"/>, by its index, in place of the link's own
+    /// <see cref="NavLink.Health"/> (round 2's S13: a bot whose kit makes its blast cheaper, the Gunboats, or free), or null
+    /// to spend what the links say; a list of another length than the links' is not read (<see cref="NavLinks.SpendOf"/>).
+    /// A <see cref="Shoved"/> copy follows its original's.
+    /// </summary>
+    public IReadOnlyList<float>? LinkSpends
+    {
+        get => _live is not null ? _live.LinkSpends : _linkSpends;
+        set => _linkSpends = value;
+    }
+
+    private IReadOnlyList<float>? _linkSpends;
+
+    /// <summary>
     /// How deadly each cell is for this state's owner's side (lane G4a: what players did there), or
     /// null for none: a search makes a step into a cell dearer by <see cref="NavCellHazard.Scale"/> at
     /// <see cref="HazardWeight"/>. A <see cref="Shoved"/> copy follows its original's.
@@ -597,6 +623,7 @@ public sealed class NavObstacleState
         LinkHealth = other.LinkHealth;
         Links = other.Links;
         LinksShut = other.LinksShut;
+        LinkSpends = other.LinkSpends;
         Hazard = other.Hazard;
         HazardWeight = other.HazardWeight;
         TeamCells = other.TeamCells;
@@ -606,7 +633,7 @@ public sealed class NavObstacleState
     /// <summary>A copy as the obstacles stand now, for a field built on a worker while the main thread keeps this one current.</summary>
     public NavObstacleState Clone()
     {
-        var copy = new NavObstacleState(_blocking.Length) { OpenDoors = OpenDoors, Reach = Reach, LinkHealth = LinkHealth, Links = Links, LinksShut = LinksShut, Hazard = Hazard, HazardWeight = HazardWeight, TeamCells = TeamCells };
+        var copy = new NavObstacleState(_blocking.Length) { OpenDoors = OpenDoors, Reach = Reach, LinkHealth = LinkHealth, Links = Links, LinksShut = LinksShut, LinkSpends = LinkSpends, Hazard = Hazard, HazardWeight = HazardWeight, TeamCells = TeamCells };
         _blocking.CopyTo(copy._blocking, 0);
         copy._shovable = _shovable;
         copy._cells = Cells;

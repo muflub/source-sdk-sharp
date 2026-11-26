@@ -229,11 +229,11 @@ public readonly record struct AiEvent(
     public static AiEvent AllyDied(ActorId bot, Tick tick, ActorId ally, AiVector at, ActorId killer)
         => new(AiEventKind.AllyDied, bot, tick, ally, at, default, 0f, killer.Slot, killer.Serial);
 
-    /// <summary><paramref name="hero"/> went down at <paramref name="at"/> (<paramref name="down"/>), or got up again.</summary>
     /// <summary>The bot's body touched <paramref name="other"/>, a player solid to it (<see cref="AiEventKind.Bumped"/>).</summary>
     public static AiEvent Bumped(ActorId bot, Tick tick, ActorId other, AiVector at)
         => new(AiEventKind.Bumped, bot, tick, other, at, default, 0f, 0, 0);
 
+    /// <summary><paramref name="hero"/> went down at <paramref name="at"/> (<paramref name="down"/>), or got up again.</summary>
     public static AiEvent HeroDowned(ActorId bot, Tick tick, ActorId hero, AiVector at, bool down)
         => new(AiEventKind.HeroDowned, bot, tick, hero, at, default, 0f, down ? 1 : 0, 0);
 

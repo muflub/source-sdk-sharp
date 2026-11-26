@@ -50,7 +50,7 @@ public enum TFThingType
 public sealed class TFBotGameView(ITFActorFacts actors, ITFPlayerData players, IEngineEntities entities, IEntityDirectory directory,
                                   TFDisguiseWeapons disguises, WeaponCatalog weapons, TFObjectiveFeed objectives,
                                   ITFRoundStateView rounds, TFPlayerMovementRestartFreezeConVar restartFreeze, TFHudReader hud,
-                                  TFPlayerLives lives) : IBotGameView
+                                  TFPlayerLives lives, TFAvoidTeammatesConVar avoidTeammates) : IBotGameView
 {
     /// <summary>How invisible a cloaked Spy is when a client draws nothing of him.</summary>
     public const float CloakHidden = 0.75f;
@@ -123,9 +123,12 @@ public sealed class TFBotGameView(ITFActorFacts actors, ITFPlayerData players, I
         return row.Alias;
     }
 
-    /// <summary>TF2's collision (TFTeamCollide): players of two game teams collide, teammates pass through; by the real teams, as the physics has them.</summary>
+    /// <summary>
+    /// TF2's collision (TFTeamCollide): players of two game teams collide and teammates pass through, by the real teams as the
+    /// physics has them; with tf_avoidteammates 0 teammates collide too, so a touch tells nothing and none is solid news.
+    /// </summary>
     public bool Solid(EntityHandle viewer, EntityHandle them)
-        => actors.TryRead(viewer.EntryIndex, out TFActorFacts own) && actors.TryRead(them.EntryIndex, out TFActorFacts other)
+        => avoidTeammates.Value && actors.TryRead(viewer.EntryIndex, out TFActorFacts own) && actors.TryRead(them.EntryIndex, out TFActorFacts other)
            && own.Team != other.Team && own.Team is TFTeam.Red or TFTeam.Blue && other.Team is TFTeam.Red or TFTeam.Blue;
 
     /// <summary>Whether a client of <paramref name="viewerTeam"/> draws <paramref name="them"/> as a disguise: anyone not on the Spy's team.</summary>
@@ -225,20 +228,40 @@ public sealed class TFBotGameView(ITFActorFacts actors, ITFPlayerData players, I
     }
 
     /// <summary>
-    /// A projectile's team and owner as its networked row carries them (every client's trail reads
-    /// them); an arrow and a syringe carry no row here, so their team reads 0 (docs/divergences.md).
+    /// A projectile's team and owner as the server knows them: the team its networked row carries (the deflector's after a
+    /// reflect), and the player who owns it now (stock's owner entity or thrower, re-pointed on a deflect:
+    /// <see cref="ITFOwnedProjectile"/>). An arrow and a syringe carry no team on their row here, so they are drawn in
+    /// their owner's (a client colours an arrow's trail by its shooter's team; docs/divergences.md). Who owns it reaches
+    /// only that owner's own view (<see cref="RenderThing"/>): a player knows his own projectiles, not whose another is.
     /// </summary>
-    private static (int Team, int Owner) TeamOf(ScriptedEntity e) => e switch
+    private (int Team, int Owner) TeamOf(ScriptedEntity e)
     {
-        TFRocket r => (r.State.TeamNumber, r.State.OwnerIndex),
-        TFPipebomb p => (p.State.TeamNumber, 0),
-        TFStickybomb s => (s.State.TeamNumber, 0),
-        TFFlare f => (f.State.TeamNumber, 0),
-        TFHealingBolt b => (b.State.TeamNumber, 0),
-        TFJar j => (j.State.TeamNumber, 0),
-        TFCleaver c => (c.State.TeamNumber, 0),
-        _ => (0, 0),
-    };
+        int wire = e switch
+        {
+            TFRocket r => r.State.TeamNumber,
+            TFPipebomb p => p.State.TeamNumber,
+            TFStickybomb s => s.State.TeamNumber,
+            TFFlare f => f.State.TeamNumber,
+            TFHealingBolt b => b.State.TeamNumber,
+            TFJar j => j.State.TeamNumber,
+            TFCleaver c => c.State.TeamNumber,
+            _ => 0,
+        };
+        return TeamOf(wire, e as ITFOwnedProjectile, owner => actors.TryRead(owner, out TFActorFacts f) ? (int)f.Team : 0);
+    }
+
+    /// <summary>
+    /// A projectile's drawn team and owner from its row's <paramref name="wireTeam"/> and <paramref name="owned"/>'s owner:
+    /// the row's team, else (only then is it asked) <paramref name="teamOf"/> the owner; the owner when it is a player's
+    /// slot, else 0 (an ownerless arrow's owner index is the empty handle's, past every player slot).
+    /// </summary>
+    public static (int Team, int Owner) TeamOf(int wireTeam, ITFOwnedProjectile? owned, Func<int, int> teamOf)
+    {
+        int index = owned?.OwnerIndex ?? 0;
+        int owner = index is > 0 and < SourceSharp.Abi.EngineLimits.MaxPlayerSlots ? index : 0;
+        int team = wireTeam != 0 ? wireTeam : owner > 0 ? teamOf(owner) : 0;
+        return (team, owner);
+    }
 
     private void Projectiles(List<ThingRead> into, string className, TFThingType type)
     {
@@ -276,6 +299,14 @@ public sealed class TFBotGameView(ITFActorFacts actors, ITFPlayerData players, I
 
     public bool RenderThing(EntityHandle viewer, ref ThingFacts facts)
     {
+        if (facts.Kind == ThingKind.Projectile)
+        {
+            // A player knows which projectiles are his own; whose another's is, he does not (review H1, 2026-11-21).
+            if (facts.OwnerSlot != viewer.EntryIndex)
+                facts = facts with { OwnerSlot = 0 };
+            return true;
+        }
+
         if (facts.Kind != ThingKind.Building)
             return true;
         bool seesHealth = actors.TryRead(viewer.EntryIndex, out TFActorFacts own) && ShowsBuildingHealth(in own, facts.Team);

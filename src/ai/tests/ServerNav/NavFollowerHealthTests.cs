@@ -116,4 +116,25 @@ public sealed class NavFollowerHealthTests
         Assert.False(r.Follower.LinkStep.NoWay);
         Assert.Equal(0f, r.Follower.LinkStep.Need);
     }
+
+    /// <summary>
+    /// Round 2's S13: a bot whose kit makes the link cost it 15 (its own spends) is told the link needs 15, not the link's 30,
+    /// and takes it again as soon as it has 15 to spend.
+    /// </summary>
+    [Fact]
+    public void TheNeedAndTheWayBackAreTheAgentsOwnSpend()
+    {
+        Rig r = Make(100f);
+        r.State.LinkSpends = [15f];
+        r.Follower.Next(r.At(3), out _);
+        Assert.True(r.Follower.LinkStep.IsLink);
+        r.State.LinkHealth = 10f;
+        r.Follower.Next(r.At(3), out _);
+        r.Follower.Next(r.At(3), out _);
+        Assert.Equal((true, 15f), (r.Follower.LinkStep.NoWay, r.Follower.LinkStep.Need));
+        r.State.LinkHealth = 15f;
+        r.Follower.Next(r.At(3), out FollowState state);
+        Assert.Equal(FollowState.Moving, state);
+        Assert.True(r.Follower.LinkStep.IsLink);
+    }
 }

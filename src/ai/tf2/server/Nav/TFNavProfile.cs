@@ -4,6 +4,7 @@ using SourceSharp.Ai.Server.Nav;
 using SourceSharp.Ai.TF2.Jump;
 using SourceSharp.Ai.TF2.Knowledge;
 using SourceSharp.Ai.TF2.Trees;
+using TF2.Server.Econ;
 using TF2.Server.Player;
 using TF2.Shared;
 using TF2.Shared.Combat;
@@ -24,6 +25,9 @@ namespace SourceSharp.Ai.TF2.Nav;
 /// it to 52.2 + 45 ≈ 97.2, the tuck not counted: live on cp_granary (P7 Scout lane,
 /// the dash pressed at the top) 148 of the Scouts' 165 stuck lines in 300 s were double jumps up 104-116 u, at a crate
 /// stack's cells, again and again.</item>
+/// <item>The Atomizer's third jump (its <c>air_dash_count</c> 1 over <c>tf_scout_air_dash_count</c>'s 1, stock
+/// <c>CTFPlayer::CanAirDash</c>) is a second dash from the first's top: 52.2 + 45 + 45 ≈ 142.2, the tuck again not counted
+/// (round 2's S2). A Scout's own kit says whether it has it (<see cref="TFJumpKit"/>).</item>
 /// <item>A landing under 650 u/s does no damage (<c>TFCombatDefs.PlayerMaxSafeFallSpeed</c>):
 /// 650² / 1600 ≈ 264 u of safe drop.</item>
 /// <item>A crouch-only place costs <see cref="CrouchOnlyCost"/> times a standing one to cross.</item>
@@ -44,8 +48,11 @@ namespace SourceSharp.Ai.TF2.Nav;
 /// </summary>
 [SideService(Side.Server, As = [typeof(INavProfile)])]
 public sealed class TFNavProfile(ITFActorFacts actors, ITFLevelEntities placed, IEngineEntities entities, TFBlastLinks links,
-                                  ExperienceRouteSlot? routes = null, TFRouteWeights? weights = null, TFRouteVariation? variation = null) : INavProfile
+                                  ExperienceRouteSlot? routes = null, TFRouteWeights? weights = null, TFRouteVariation? variation = null,
+                                  ITFOwnKit? kits = null) : INavProfile
 {
+    private readonly Dictionary<int, OwnKit> _kits = new();
+
     /// <summary>The derivation's numbers, worked from the mod's movement constants.</summary>
     public static NavNumbers ModNumbers
     {
@@ -56,7 +63,7 @@ public sealed class TFNavProfile(ITFActorFacts actors, ITFLevelEntities placed, 
             float tuck = body.HullMax.Z - body.DuckHullMax.Z, fall = TFCombatDefs.PlayerMaxSafeFallSpeed;
             return new NavNumbers(body.HullMax.X - body.HullMin.X, body.HullMax.Z, body.DuckHullMax.Z, body.StepSize,
                                   jump + body.StepSize, jump + tuck, fall * fall / (2f * g), jump + dash, WideHull: true,
-                                  CrouchOnlyCost: CrouchOnlyCost);
+                                  CrouchOnlyCost: CrouchOnlyCost, MaxTripleJumpRise: jump + 2f * dash);
         }
     }
 
@@ -69,9 +76,33 @@ public sealed class TFNavProfile(ITFActorFacts actors, ITFLevelEntities placed, 
 
     public NavNumbers Numbers(float fileJumpHeight) => ModNumbers;
 
-    /// <summary>The Scout double-jumps, the Soldier blast jumps; a player whose class is not known yet reaches no further than a crouch jump.</summary>
+    /// <summary>
+    /// The reach the player's own routes plan with: its class's, as its own kit has it (round 2's S2,
+    /// <see cref="TFJumpKit.ReachOf"/>: an Atomizer Scout's third jump, a Baby Face's Blaster Scout's none); the class's alone
+    /// with no kit to read. A player whose class is not known yet reaches no further than a crouch jump. The profile is asked
+    /// only for a player's own routes.
+    /// </summary>
     public JumpReach Reach(EntityHandle player)
-        => actors.TryRead(player.EntryIndex, out TFActorFacts facts) ? ReachOf(facts.Class) : JumpReach.None;
+        => !actors.TryRead(player.EntryIndex, out TFActorFacts facts) ? JumpReach.None : Own(player.EntryIndex, facts.Class)?.Reach ?? ReachOf(facts.Class);
+
+    /// <summary>What the player's kit says, read again only when it is handed a new kit or changes class; null with no kit service or no kit.</summary>
+    private OwnKit? Own(int entIndex, TFClass playerClass)
+    {
+        if (kits is null)
+            return null;
+        int version = kits.Version(entIndex);
+        lock (_kits)
+        {
+            if (_kits.TryGetValue(entIndex, out OwnKit? known) && known.Version == version && known.Class == playerClass)
+                return known.Empty ? null : known;
+            IReadOnlyList<TFOwnKitItem> kit = kits.KitOf(entIndex);
+            var read = new OwnKit(version, playerClass, kit.Count == 0, TFJumpKit.ReachOf(playerClass, kit), TFJumpBudget.CostShare(kit));
+            _kits[entIndex] = read;
+            return read.Empty ? null : read;
+        }
+    }
+
+    private sealed record OwnKit(int Version, TFClass Class, bool Empty, JumpReach Reach, float CostShare);
 
     /// <summary>The jump reaches of a player of <paramref name="playerClass"/>: the Scout's double jump, the Soldier's blast jump, else none.</summary>
     public static JumpReach ReachOf(TFClass playerClass) => playerClass switch
@@ -83,7 +114,8 @@ public sealed class TFNavProfile(ITFActorFacts actors, ITFLevelEntities placed, 
 
     /// <summary>
     /// A player with the blast reach takes the level's links (none while they are being found), spending on one no more
-    /// than its health over the jump's floor as it stands now (<see cref="LinkHealthOf"/>), and none of those the
+    /// than its health over the jump's floor as it stands now (<see cref="LinkHealthOf"/>), each costing what its own kit
+    /// pays for the blast (round 2's S13, <see cref="TFJumpBudget"/>: the Gunboats' 0.4, nothing for the Rocket Jumper), and none of those the
     /// experience's snapshot leaves out (lane G5e: the routes' <see cref="ExperienceRoutes.LinksShut"/>, when it is over
     /// this set); anyone else none.
     /// </summary>
@@ -92,7 +124,33 @@ public sealed class TFNavProfile(ITFActorFacts actors, ITFLevelEntities placed, 
         if ((Reach(player) & JumpReach.Blast) == 0 || links.Set is not { } set)
             return default;
         NavLinkMask? shut = routes?.Current.LinksShut is { } mask && mask.IsOver(set.Links) ? mask : null;
-        return new NavLinkAllowance(set.Links, LinkHealthOf(entities.GetHealth(player)), shut);
+        float share = actors.TryRead(player.EntryIndex, out TFActorFacts facts) && Own(player.EntryIndex, facts.Class) is { } own ? own.CostShare : 1f;
+        return new NavLinkAllowance(set.Links, LinkHealthOf(entities.GetHealth(player)), shut, SpendsOf(set, share));
+    }
+
+    private JumpLinkSet? _spendsSet;
+    private readonly Dictionary<float, float[]?> _spends = new();
+
+    /// <summary>
+    /// What a bot whose blasts cost <paramref name="share"/> of the stock's spends on each of <paramref name="set"/>'s links
+    /// (round 2's S13, <see cref="TFJumpBudget.Spends"/>), worked once per set and share; null for the stock share.
+    /// </summary>
+    private float[]? SpendsOf(JumpLinkSet set, float share)
+    {
+        if (share == 1f)
+            return null;
+        lock (_spends)
+        {
+            if (!ReferenceEquals(set, _spendsSet))
+            {
+                _spendsSet = set;
+                _spends.Clear();
+            }
+
+            if (!_spends.TryGetValue(share, out float[]? spends))
+                _spends[share] = spends = TFJumpBudget.Spends(set, share);
+            return spends;
+        }
     }
 
     /// <summary>

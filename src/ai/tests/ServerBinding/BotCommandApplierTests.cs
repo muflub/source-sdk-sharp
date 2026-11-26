@@ -827,6 +827,128 @@ public class BotCommandApplierTests
         Assert.DoesNotContain(wait, c => Down(c, InputButtons.Attack2) || Down(c, InputButtons.Attack));
     }
 
+    // ---- round 2's S9: a Fire held at a teammate on purpose (a Medic's beam) is kept down through a one-shot
+
+    /// <summary>The pop: a one-shot second trigger, as a Medic's Über goes.</summary>
+    private static readonly ActionIntent Pop = new(ActionKind.AltFire, FireStyle.Tap, 0, OneShotSeq: 1);
+
+    /// <summary>Holds Fire at the point ahead for <paramref name="ticks"/> decides, at a teammate on purpose or not.</summary>
+    private void FireAhead(int ticks, bool atFriend)
+    {
+        for (int i = 0; i < ticks; i++)
+        {
+            var from = new Tick(_tick);
+            _applier.Submit(new IntentCommand(Bot, from, ++_seq, from + IntentCommand.LifetimeTicks, MoveIntent.Hold, Ahead, FireHeld, default,
+                                              HoldsAtFriend: atFriend));
+            TickFollowingTheView();
+        }
+    }
+
+    /// <summary>
+    /// One decide carrying <paramref name="once"/>, and the commands of the <paramref name="ticks"/> ticks it lives;
+    /// <paramref name="asks"/>: the decide still asks to hold at the friend (<see cref="IntentCommand.HoldsAtFriend"/>).
+    /// </summary>
+    private List<UserCmd> OneShotDecide(ActionIntent once, int ticks = 8, bool asks = false)
+    {
+        var from = new Tick(_tick);
+        _applier.Submit(new IntentCommand(Bot, from, ++_seq, from + IntentCommand.LifetimeTicks, MoveIntent.Hold, Ahead, once, default, HoldsAtFriend: asks));
+        return [.. Enumerable.Range(0, ticks).Select(_ => TickFollowingTheView())];
+    }
+
+    /// <summary>A beam held at a teammate stays down through a decide carrying the pop: every command of it has Attack, and the pop goes.</summary>
+    [Fact]
+    public void ABeamHeldAtATeammateStaysDownThroughAOneShot()
+    {
+        FireAhead(5, atFriend: true);
+        List<UserCmd> popped = OneShotDecide(Pop, asks: true);
+        Assert.All(popped, c => Assert.True(Down(c, InputButtons.Attack), "the beam was let go for the one-shot"));
+        Assert.Single(popped, c => Down(c, InputButtons.Attack2));
+    }
+
+    /// <summary>
+    /// A Fire at a teammate still waiting for the eye (a new look 48° round, inside the reaction) held nothing down, so the
+    /// one-shot decide after it presses no Attack (the review's S9-1): before, the flag followed the intent and the pop's
+    /// decide pressed Attack for the first time, off aim. The control: the hands did wait (no Attack in the friend-fire).
+    /// </summary>
+    [Fact]
+    public void AFriendFireStillWaitingForTheEyeHoldsNothingThroughAOneShot()
+    {
+        var waiting = new List<UserCmd>();
+        for (int i = 0; i < 3; i++)
+        {
+            var from = new Tick(_tick);
+            _applier.Submit(new IntentCommand(Bot, from, ++_seq, from + IntentCommand.LifetimeTicks, MoveIntent.Hold, AtTheSide, FireHeld, default,
+                                              HoldsAtFriend: true));
+            waiting.Add(TickFollowingTheView());
+        }
+
+        Assert.DoesNotContain(waiting, c => Down(c, InputButtons.Attack));
+        Assert.DoesNotContain(OneShotDecide(Pop, ticks: 2, asks: true), c => Down(c, InputButtons.Attack));
+    }
+
+    /// <summary>A Fire at an enemy is let go through a one-shot, as before S9: no command of the one-shot's decide has Attack.</summary>
+    [Fact]
+    public void AFireAtAnEnemyIsLetGoThroughAOneShot()
+    {
+        FireAhead(5, atFriend: false);
+        Assert.True(Down(_runner.Queued[^1].Cmd, InputButtons.Attack), "the control: the Fire was down before the one-shot");
+        Assert.DoesNotContain(OneShotDecide(Pop), c => Down(c, InputButtons.Attack));
+    }
+
+    /// <summary>
+    /// A one-shot decide that no longer asks to hold at the friend (the beam let go to retarget, a weapon taken out) lets the
+    /// beam go and ends the hold (the review's S9-2): no command of it, nor of a later one-shot decide that asks, has Attack.
+    /// The control: the same one-shot decide asking keeps it (<see cref="ABeamHeldAtATeammateStaysDownThroughAOneShot"/>).
+    /// </summary>
+    [Fact]
+    public void AOneShotDecideThatStopsAskingLetsTheBeamGo()
+    {
+        FireAhead(5, atFriend: true);
+        Assert.DoesNotContain(OneShotDecide(Pop), c => Down(c, InputButtons.Attack));
+        Assert.DoesNotContain(OneShotDecide(Pop with { OneShotSeq = 2 }, asks: true), c => Down(c, InputButtons.Attack));
+    }
+
+    /// <summary>
+    /// The hold needs both halves (S9-2's rule): a one-shot decide that asks to hold at a friend after a decide whose Fire was
+    /// at an enemy (no friend held) presses no Attack. The control: the Fire was down before it.
+    /// </summary>
+    [Fact]
+    public void AnAskingOneShotAfterAFireAtAnEnemyHoldsNothing()
+    {
+        FireAhead(5, atFriend: false);
+        Assert.True(Down(_runner.Queued[^1].Cmd, InputButtons.Attack), "the control: the Fire was down before the one-shot");
+        Assert.DoesNotContain(OneShotDecide(Pop, asks: true), c => Down(c, InputButtons.Attack));
+    }
+
+    /// <summary>A beam held at death is not held through the next life's first one-shot.</summary>
+    [Fact]
+    public void ABeamHeldAtDeathIsNotHeldThroughTheNextLifesOneShot()
+    {
+        FireAhead(5, atFriend: true);
+        _self.Facts = _self.Facts with { Alive = false };
+        Tick();
+        _self.Facts = _self.Facts with { Alive = true };
+        Assert.DoesNotContain(OneShotDecide(Pop, asks: true), c => Down(c, InputButtons.Attack));
+    }
+
+    /// <summary>A beam held before a level change is not held through the new player's first one-shot.</summary>
+    [Fact]
+    public void ABeamHeldBeforeALevelChangeIsNotHeldThroughAOneShotAfterIt()
+    {
+        FireAhead(5, atFriend: true);
+        _applier.Rebind(Bot.Slot, new EntityHandle(0x0002_0003u));
+        Assert.DoesNotContain(OneShotDecide(Pop, asks: true), c => Down(c, InputButtons.Attack));
+    }
+
+    /// <summary>A decide that holds no Fire lets the beam go for good: the one-shot after it holds nothing.</summary>
+    [Fact]
+    public void ADecideWithoutFireEndsTheBeamsHold()
+    {
+        FireAhead(5, atFriend: true);
+        Hold(2, ActionIntent.None);
+        Assert.DoesNotContain(OneShotDecide(Pop, asks: true), c => Down(c, InputButtons.Attack));
+    }
+
     /// <summary>
     /// The aim's point moves at every decide while the target stays the same:
     /// one stimulus (§3.4.1). As a new stimulus each move restarted the

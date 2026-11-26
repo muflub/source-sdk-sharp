@@ -1629,6 +1629,26 @@ public sealed class TFArrow : FlyingProjectile, ITFOwnedProjectile
     /// through the launch's <see cref="FlyingProjectile.FiredBy"/>).</summary>
     public int OwnerIndex => Shooter.EntryIndex;
 
+    /// <summary>Whether a deflection sent it back (<c>IncrementDeflected</c>, tf_projectile_arrow.cpp:1173).</summary>
+    public bool Deflected { get; private set; }
+
+    /// <summary>
+    /// Sent back by <paramref name="deflector"/> (<c>CTFProjectile_Arrow::Deflected</c>, tf_projectile_arrow.cpp:1149-1180):
+    /// the new flight, the deflector's ownership (its team is its owner's) and launcher, and a crit when the deflector is
+    /// crit boosted.
+    /// </summary>
+    public void DeflectBy(EntityHandle deflector, Vector velocity, bool deflectorCritBoosted, string launcherName)
+    {
+        // The new owner first: Steer hands the mover its owner, and the sweep skips whatever that names, so steering
+        // first left the old shooter unhittable by his own arrow sent back.
+        Retarget(deflector);
+        Steer(velocity, GravityScale);
+        WeaponName = launcherName;
+        Deflected = true;
+        if (deflectorCritBoosted)
+            Critical = true;
+    }
+
     /// <summary>The stock bow's shot, scaled by its charge (<see cref="ArmedBy"/>).</summary>
     public float ShotDamage { get; private set; } = TFProjectileDefs.ArrowBaseDamage;
 
@@ -2674,6 +2694,33 @@ public sealed class TFFlare : FlyingProjectile, ITFOwnedProjectile
     /// <summary>The launcher's index, handed in at <see cref="ArmedBy"/>, as
     /// stock's flare keeps its owner.</summary>
     public int OwnerIndex { get; set; }
+
+    /// <summary>Whether a deflection sent it back (<c>IncrementDeflected</c>, tf_projectile_flare.cpp:613).</summary>
+    public bool Deflected { get; private set; }
+
+    /// <summary>
+    /// Sent back by <paramref name="deflector"/> (<c>CTFProjectile_Flare::Deflected</c>, tf_projectile_flare.cpp:589-615):
+    /// the new flight, the deflector's team, launcher and ownership (it leaves the old owner's detonation tray), a plain
+    /// flare's mode (a Scorch Shot's or a Detonator's sent back is neither), and a crit when the deflector is crit boosted.
+    /// </summary>
+    public void DeflectBy(EntityHandle deflector, Vector velocity, bool deflectorCritBoosted, string launcherName)
+    {
+        // The new owner first: Steer hands the mover its owner, and the sweep skips whatever that names.
+        Retarget(deflector);
+        Steer(velocity, GravityScale);
+        Tray.Unregister(OwnerIndex, this);
+        OwnerIndex = deflector.EntryIndex;
+        _team = Players.GetTeam(deflector);
+        WeaponName = launcherName;
+        // Stock re-points the launcher to the deflector's flamethrower (:596), and Explode reads the gun's mode through
+        // dynamic_cast<CTFFlareGun*>(GetLauncher()) (:225), null then: a reflected flare is a plain flare.
+        FlareMode = TFProjectileBehaviour.FlareNormal;
+        Deflected = true;
+        if (deflectorCritBoosted)
+            Critical = true;
+        State.TeamNumber = _team.Value;
+        State.Critical = Critical;
+    }
 
     /// <summary>
     /// The flare leaves the launcher's list with itself

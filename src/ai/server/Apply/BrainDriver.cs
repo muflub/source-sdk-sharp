@@ -610,6 +610,12 @@ public sealed class BrainDriver
     /// <summary>How far a bot off the field must move from where it was to count as moving.</summary>
     public const float ProgressRadius = 48f;
 
+    /// <summary>How far along a bot's route its next air jumps are looked for (<see cref="DashesAheadOf"/>): about a second of a Scout's run.</summary>
+    public const float DashLookahead = 384f;
+
+    /// <summary>The second presses in the air a jump on the bot's route within <see cref="DashLookahead"/> needs (round 2's S2): what its brain is told.</summary>
+    public int DashesAheadOf(int slot) => _driven.TryGetValue(slot, out Driven? d) ? d.Follower.DashesAhead(DashLookahead) : 0;
+
     /// <summary>The route's next link for the bot's follower, as its last move found it (lane G5c-2b): what its brain is told.</summary>
     public NavLinkStep LinkStepOf(int slot) => _driven.TryGetValue(slot, out Driven? d) ? d.Follower.LinkStep : NavLinkStep.None;
 

@@ -447,7 +447,9 @@ public sealed class BotMemory
                 break;
             case AiEventKind.Bumped:
                 // Solid to the bot: an enemy, whatever its client draws (stock's CTFBot::Touch, tf_bot.cpp:1445-1465).
-                if (Board.Of(e.Other, make: true) is { } bumped)
+                // Only a body drawn as a teammate: a real enemy touched is no news, and his mark would call "Spy!" at him
+                // if he were ever balanced onto the bot's team (review 2, G5).
+                if (Board.Of(e.Other, make: true) is { } bumped && !Foe(bumped))
                     bumped.UnmaskedAt = e.Tick;
                 break;
             case AiEventKind.HeroDowned:
@@ -507,6 +509,9 @@ public sealed class BotMemory
         bool wasFriend = IsFriend(a);
         a.Team = team;
         bool friend = IsFriend(a);
+        // A team change (an autobalance, a swap) is a new standing: a mark from the old one never names a real teammate a Spy.
+        if (friend != wasFriend)
+            a.UnmaskedAt = default;
         if (friend && !wasFriend)
         {
             a.Ammo.Reset();
@@ -640,6 +645,9 @@ public sealed class BotMemory
     {
         if (Board.Of(e.Other, make: true) is not { } a)
             return;
+        // Out of sight longer than the forget, a mark is gone: the disguise is a stranger again (KnownActor.UnmaskForgetSeconds).
+        if (a.UnmaskedAt.Value > 0 && !a.InSight && (e.Tick - a.LastSeenTick) * Dt >= KnownActor.UnmaskForgetSeconds)
+            a.UnmaskedAt = default;
         a.InSight = true;
         a.Dead = false;
         Seen(a, e.Position, e.Velocity, e.Tick);

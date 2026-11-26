@@ -294,4 +294,60 @@ public sealed class GameViewTests
         Assert.Equal([typeof(SnapshotBuilder).FullName!], IlCallCensus.Callers(m => m.DeclaringType == typeof(IBotGameView) && m.Name == nameof(IBotGameView.Render), binding));
         Assert.Equal([typeof(ThingSight).FullName!], IlCallCensus.Callers(m => m.DeclaringType == typeof(IBotGameView) && m.Name == nameof(IBotGameView.RenderThing), binding));
     }
+
+    /// <summary>The vision and the changes at <paramref name="tick"/>, the vision's events told first (AiSenses' order).</summary>
+    private List<AiEvent> TickAt(int tick)
+    {
+        var events = new List<AiEvent>();
+        var changes = new List<AiEvent>();
+        _pass.Run(new Tick(tick), 0.015f, [_bot], _w.Living(_bot), events);
+        foreach (AiEvent e in events)
+            _builder.Shown.Told(e, PlayerOf);
+        _builder.Shown.Refresh(new Tick(tick), [_bot], _pass, changes);
+        return changes;
+    }
+
+    /// <summary>The changes alone at <paramref name="tick"/>, over the vision as it last ran.</summary>
+    private List<AiEvent> RefreshAt(int tick)
+    {
+        var changes = new List<AiEvent>();
+        _builder.Shown.Refresh(new Tick(tick), [_bot], _pass, changes);
+        return changes;
+    }
+
+    /// <summary>
+    /// A new level starts the tick count again (review 2, G1): a pair that touched late in the last level is told its next
+    /// touch on the new one, once its sighting is told again. Before, the last level's stamp held it back for as long.
+    /// </summary>
+    [Fact]
+    public void ATouchIsToldAgainOnANewLevel()
+    {
+        _view.Solids = (_, _) => true;
+        _them.Origin = new AiVector(40f, 0f, 0f);
+        TickAt(_tick++);   // the vision reads them at the touch
+        ActorId real = _pass.ActorIn(2);
+        _builder.Shown.Told(AiEvent.SightGained(_bot.Id, new Tick(5000), real, default, default, 1f), PlayerOf);
+        Assert.Single(RefreshAt(5000), e => e.Kind == AiEventKind.Bumped);
+        Assert.DoesNotContain(RefreshAt(5001), e => e.Kind == AiEventKind.Bumped);   // the control: within the half second, not again
+        // The next level: its tick count from the start; the sighting told again.
+        RefreshAt(10);
+        _builder.Shown.Told(AiEvent.SightGained(_bot.Id, new Tick(10), real, default, default, 1f), PlayerOf);
+        Assert.Single(RefreshAt(11), e => e.Kind == AiEventKind.Bumped);
+    }
+
+    /// <summary>
+    /// The producer of the bump cue (review 2, G4): a held player whose hull touches the bot's and whom the game calls solid
+    /// is told Bumped, under the actor the bot takes him for. The HL2MP control: a view that calls nobody solid tells none.
+    /// </summary>
+    [Fact]
+    public void ARefreshTellsATouchOnlyOfABodyTheGameCallsSolid()
+    {
+        _them.Origin = new AiVector(40f, 0f, 0f);
+        ActorId real = _pass.ActorIn(2), alias = ActorId.Alias(2, 1);
+        _view.Shown = (_, _, _) => alias;
+        _builder.Shown.Told(AiEvent.SightGained(_bot.Id, new Tick(_tick), real, default, default, 1f), PlayerOf);
+        Assert.DoesNotContain(TickAt(_tick++), e => e.Kind == AiEventKind.Bumped);
+        _view.Solids = (_, _) => true;
+        Assert.Equal(alias, Assert.Single(TickAt(_tick++), e => e.Kind == AiEventKind.Bumped).Other);
+    }
 }

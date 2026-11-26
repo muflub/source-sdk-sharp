@@ -62,6 +62,9 @@ public sealed class FlowField
     /// </summary>
     public float HealthShort { get; private set; } = float.PositiveInfinity;
 
+    /// <summary>The key an edge from <paramref name="from"/> to <paramref name="to"/> has in a build's avoided edges (a follower's failed jumps).</summary>
+    public static long EdgeKey(int from, int to) => ((long)from << 32) | (uint)to;
+
     /// <summary>Whether <paramref name="a"/> beats <paramref name="b"/> as a next cell at equal cost.</summary>
     private static bool Nearer(NavGraph graph, int a, int b, AiVector target)
     {
@@ -80,7 +83,8 @@ public sealed class FlowField
     /// <paramref name="avoidedLinks"/> (a link refused or failed, for a while): an agent
     /// with none of their reaches builds the field it would with no links. With
     /// <see cref="NavObstacleState.Hazard"/> and a weight over 0, a step into a cell costs its own cost
-    /// times one and the cell's <see cref="NavCellHazard.Scale"/>; without, the field is the one before it.
+    /// times one and the cell's <see cref="NavCellHazard.Scale"/>; without, the field is the one before it. No step takes an
+    /// edge of <paramref name="avoidedEdges"/> (<see cref="EdgeKey"/>: a follower's triple jumps the body failed to fly).
     /// </summary>
     /// <para>
     /// With <paramref name="from"/> (the cell the bot stands in) the search
@@ -90,7 +94,7 @@ public sealed class FlowField
     /// cost there and asks again (<see cref="IsPartial"/>).
     /// </para>
     public void Build(NavGraph graph, CellId objective, ClearanceClass cls, NavObstacleState obstacles, IReadOnlySet<int>? avoided = null,
-                      CellId from = default, IReadOnlySet<int>? avoidedLinks = null)
+                      CellId from = default, IReadOnlySet<int>? avoidedLinks = null, IReadOnlySet<long>? avoidedEdges = null)
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(obstacles);
@@ -157,7 +161,7 @@ public sealed class FlowField
             float scale = hazard is null ? 0f : hazard.Scale(cell, weight);
             foreach (NavEdge e in graph.EdgesTo(cell))
             {
-                if (!graph.Admits(e, cls, obstacles))
+                if (!graph.Admits(e, cls, obstacles) || (avoidedEdges is not null && avoidedEdges.Contains(EdgeKey(e.From, e.To))))
                     continue;
                 float c = scale == 0f ? _cost[cell] + e.Cost + extra : _cost[cell] + (e.Cost * (1f + scale)) + extra;
                 if (c < _cost[e.From] || (c == _cost[e.From] && Nearer(graph, cell, _next[e.From], target)))
@@ -188,8 +192,8 @@ public sealed class FlowField
                 continue;
             if (!links.Admits(graph, index, cls, obstacles))
             {
-                if (links[index].Health < HealthShort && links.ShortOfHealth(graph, index, cls, obstacles))
-                    HealthShort = links[index].Health;
+                if (links.SpendOf(index, obstacles) < HealthShort && links.ShortOfHealth(graph, index, cls, obstacles))
+                    HealthShort = links.SpendOf(index, obstacles);
                 continue;
             }
 

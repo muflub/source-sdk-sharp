@@ -22,12 +22,16 @@ public sealed class ShownActors(IBotGame game)
     private static int Pair(int botSlot, int slot) => botSlot * VisionPass.Slots + slot;
 
     private readonly Tick[] _bumpAt = new Tick[VisionPass.Slots * VisionPass.Slots];
+    private Tick _lastRefresh;
 
     /// <summary>A touch is told again at most this often for one pair (half a second).</summary>
     public const int BumpEveryTicks = 33;
 
-    /// <summary>Two hulls touch: within two half widths (24 u) and a margin across, and overlapping in height.</summary>
-    public const float TouchAcross = 52f, TouchHeight = 72f;
+    /// <summary>
+    /// Two hulls touch: their 48 u boxes meet across (two half widths, with 1 u for a step's rounding) and overlap in height.
+    /// A body standing clear of another is no touch (review 2, G6: a 52 u box called a Spy 4 u away bumped).
+    /// </summary>
+    public const float TouchAcross = 49f, TouchHeight = 72f;
 
     /// <summary>Touches told: two bodies a solid pair, in contact.</summary>
     public int Bumps { get; private set; }
@@ -48,6 +52,15 @@ public sealed class ShownActors(IBotGame game)
     /// </summary>
     public void Refresh(Tick tick, ReadOnlySpan<SensedBot> bots, VisionPass vision, List<AiEvent> changes)
     {
+        // A new level starts its tick count again (AiSenses.OnLevelInitPostEntity): a stamp of the last level's would hold a
+        // pair's next touch back for as long as that level ran, and a held actor is the last level's (review 2, G1).
+        if (tick < _lastRefresh)
+        {
+            Array.Clear(_bumpAt);
+            Array.Clear(_held);
+        }
+
+        _lastRefresh = tick;
         foreach (ref readonly SensedBot b in bots)
         {
             if (vision.SightOf(b.Id.Slot) is not { } sight)

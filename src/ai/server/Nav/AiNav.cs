@@ -173,7 +173,7 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
             return null;
         state.Reach = profile.Reach(player);
         NavLinkAllowance links = profile.LinksFor(player);
-        (state.Links, state.LinkHealth, state.LinksShut) = (links.Links, links.Health, links.Shut);
+        (state.Links, state.LinkHealth, state.LinksShut, state.LinkSpends) = (links.Links, links.Health, links.Shut, links.Spends);
         int team = players.GetTeam(player);
         state.TeamCells = _teamBlockers.For(team);
         (state.Hazard, state.HazardWeight) = Current is { } loaded ? profile.HazardFor(player, team, loaded.Nav.Graph, state) : profile.HazardFor(player, team);

@@ -84,9 +84,32 @@ public sealed class NavHullsTests
         return Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bits))[..16];
     }
 
+    /// <summary>Numbers with no third jump are named by the ten numbers alone, as before there was one.</summary>
     [Fact]
-    public void WithNoHullsTF2sNameIsTheTenNumbersHash()
-        => Assert.Equal(KeyOfTheTenNumbers(TFNavProfile.ModNumbers), NavGraphCache.NumbersKey(With(TFNavProfile.ModNumbers), 56f));
+    public void WithNoHullsAndNoTripleJumpTheNameIsTheTenNumbersHash()
+    {
+        NavNumbers noTriple = With(TFNavProfile.ModNumbers) with { MaxTripleJumpRise = 0f };
+        Assert.Equal(KeyOfTheTenNumbers(noTriple), NavGraphCache.NumbersKey(noTriple, 56f));
+    }
+
+    /// <summary>
+    /// TF2's numbers have the Atomizer's third jump (round 2's S2): its rise and its rule's revision are bits after the ten,
+    /// so TF2's graphs took a new name with the triple-jump edges (and take another when the rule changes), and HL2MP's kept theirs.
+    /// </summary>
+    [Fact]
+    public void TF2sNameIsTheTenNumbersAndTheTripleJumpsRise()
+    {
+        NavNumbers n = TFNavProfile.ModNumbers;
+        Span<byte> bits = stackalloc byte[48];
+        ReadOnlySpan<float> values = [n.HullWidth, n.StandHeight, n.CrouchHeight, n.StepHeight, n.MaxJumpRise, n.MaxCrouchJumpRise, n.SafeDrop,
+                                      n.MaxDoubleJumpRise, n.WideHull ? 1f : 0f, n.CrouchOnlyCost, n.MaxTripleJumpRise];
+        for (int i = 0; i < values.Length; i++)
+            BinaryPrimitives.WriteSingleLittleEndian(bits[(i * 4)..], values[i]);
+        BinaryPrimitives.WriteInt32LittleEndian(bits[44..], NavGraphFromNav3d.TripleJumpRevision);
+        Assert.True(n.MaxTripleJumpRise > 0f);
+        Assert.Equal(Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bits))[..16], NavGraphCache.NumbersKey(With(n), 56f));
+        Assert.NotEqual(KeyOfTheTenNumbers(n), NavGraphCache.NumbersKey(n, 56f));
+    }
 
     [Fact]
     public void WithNoHullsHl2mpsNameIsEmpty() => Assert.Equal("", NavGraphCache.NumbersKey(With(NavNumbers.Stock(56f)), 56f));
@@ -121,12 +144,13 @@ public sealed class NavHullsTests
     /// <summary>
     /// After the hulls, the revision of the rule that admits them (<see cref="NavGraphFromNav3d.ExtraHullRevision"/>):
     /// a graph the extra hulls' old rule wrote is not served for the new one, and a name without hulls
-    /// keeps the ten numbers' hash (<see cref="WithNoHullsTF2sNameIsTheTenNumbersHash"/>).
+    /// keeps the ten numbers' hash (<see cref="WithNoHullsAndNoTripleJumpTheNameIsTheTenNumbersHash"/>). Numbers with no third
+    /// jump, so the revision is the last of the bits.
     /// </summary>
     [Fact]
     public void AHullListsNameCarriesTheRevisionOfTheRuleThatAdmitsThem()
     {
-        NavNumbers n = With(TFNavProfile.ModNumbers, Small, Giant);
+        NavNumbers n = With(TFNavProfile.ModNumbers with { MaxTripleJumpRise = 0f }, Small, Giant);
         Span<byte> bits = stackalloc byte[(10 + 4 + 1) * 4];
         ReadOnlySpan<float> values = [n.HullWidth, n.StandHeight, n.CrouchHeight, n.StepHeight, n.MaxJumpRise, n.MaxCrouchJumpRise, n.SafeDrop,
                                       n.MaxDoubleJumpRise, n.WideHull ? 1f : 0f, n.CrouchOnlyCost, Small.Width, Small.Height, Giant.Width, Giant.Height];

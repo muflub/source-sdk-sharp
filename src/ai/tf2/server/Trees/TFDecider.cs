@@ -148,6 +148,7 @@ public sealed partial class TFDecider : IDecider
         _lastHud = HudOf(view);
         _self = view.Self;
         _now = tick;
+        NoteDashFlight();
         _move = MoveIntent.Hold;
         _look = LookIntent.AlongPath;
         _action = ActionIntent.None;
@@ -217,7 +218,9 @@ public sealed partial class TFDecider : IDecider
         Trace.End(in reason);
         Tick expires = tick + IntentCommand.LifetimeTicks;
         Doing = WithPrefire(WithStreak(new DoingRecord(BranchName(), _leaf, _hasGoal, _goal, _target?.Id ?? ActorId.None, _verdict, 0f, 0f, 0f, 0f, 0f, 0f, expires)));
-        return new IntentCommand(_bot, tick, seq, expires, _move, _look, _action, reason, _say);
+        // A Fire held at a teammate on purpose (FireAtFriend: a beam) says so on every decide, a one-shot's too, so the applier
+        // keeps it down through a one-shot only while the play still asks (round 2's S9; the review's S9-2).
+        return new IntentCommand(_bot, tick, seq, expires, _move, _look, _action, reason, _say, _friendFire);
     }
 
     /// <summary>The doing record's branch: the subtree's name and the root's chosen child, made once per class, not per decide.</summary>
@@ -260,7 +263,7 @@ public sealed partial class TFDecider : IDecider
         static BtNode<TFDecider> If(string name, Func<TFDecider, bool> test) => new BtCondition<TFDecider>(name, test);
 
         var fight = new BtSelector<TFDecider>("fight",
-            new BtSequence<TFDecider>("dry", If("launcher dry", d => d.LauncherDry), Act("back off and load", d => d.BackOffDry())),
+            new BtSequence<TFDecider>("dry", If("launcher dry", d => d.LauncherDry && d._classPlay.BacksOffDry), Act("back off and load", d => d.BackOffDry())),
             new BtSequence<TFDecider>("hold", If("in sight", d => d._targetSighted || d.SightJustLost), Act("fight at range", d => d._classPlay.FightInSight())),
             Act("chase", d => d.ChaseTarget()));
 

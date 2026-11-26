@@ -182,8 +182,9 @@ public sealed class TFSpyTests
         var f = Field(Hud());
         f.StepDrawn(Spy(Mid), TFField.Ctf(), Enemy(5, Mid + new AiVector(500f, 100f, 0f), 0f, TFClass.Pyro), Enemy(6, Mid + new AiVector(500f, -100f, 0f), 0f, TFClass.Sniper));
         Assert.Equal(new ActorId(6, 1), f.Decider.Doing.Target);
-        // The control: a Soldier bot, with no Spy's order, takes the first it was offered.
-        var soldier = new TFField();
+        // The control: a Soldier bot on the general play (no class's order: the Soldier's own play has its own Sniper
+        // bonus since its lane) takes the first it was offered.
+        var soldier = new TFField(plays: (d, c) => c == TFClass.Soldier ? new GeneralSoldierPlay(d) : null);
         soldier.StepDrawn(TFField.Self(Mid), TFField.Ctf(), Enemy(5, Mid + new AiVector(500f, 100f, 0f), 0f, TFClass.Pyro), Enemy(6, Mid + new AiVector(500f, -100f, 0f), 0f, TFClass.Sniper));
         Assert.NotEqual(new ActorId(6, 1), soldier.Decider.Doing.Target);
     }
@@ -364,4 +365,6 @@ public sealed class TFSpyTests
             walking.StepDrawn(Spy(Mid), TFField.Ctf(), Enemy(5, Mid + new AiVector(55f, (n % 4) * 30f - 45f, 0f), 180f, TFClass.Medic));
         Assert.Equal(TFDecider.Fight, walking.Branch);
     }
+
+    private sealed class GeneralSoldierPlay(TFDecider d) : TFDecider.ClassPlay(d, TFClass.Soldier);
 }

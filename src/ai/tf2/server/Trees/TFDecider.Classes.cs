@@ -66,6 +66,13 @@ public sealed partial class TFDecider
         /// <summary>Whether the class keeps out of a sentry's range (the general play's: yes); a class that kills or saps one says no.</summary>
         public virtual bool AvoidsSentries => true;
 
+        /// <summary>
+        /// Whether the bot backs off and loads when its primary is dry with the target in sight (the shared fight's first
+        /// leaf, "launcher dry"): yes by default. A class with a loaded secondary, or a target within a swing, says no and
+        /// fights on with its own footwork while its hands swap (round 2's S10: the Scout).
+        /// </summary>
+        public virtual bool BacksOffDry => true;
+
         /// <summary>Whether the bot carries out the reflex <paramref name="verdict"/> names (a dodge, backing off an Über, a sentry's range): yes by default; a Pyro may shove the Über instead.</summary>
         public virtual bool TakesReflex(string verdict) => true;
 
@@ -81,6 +88,7 @@ public sealed partial class TFDecider
         /// <summary>
         /// Holds the trigger at teammate <paramref name="mate"/> on purpose (the Medic's beam, a Pyro's spy-check puff), aimed at
         /// <paramref name="at"/>: the friend gate lets it go this decide. Call it from <see cref="Engage"/> or <see cref="OneShots"/>.
+        /// Every friend-fire is a hold: a one-shot this decide keeps the trigger down; a decide that does not call it lets go.
         /// </summary>
         protected void FireAtFriend(ActorId mate, AiVector at) => D.FireAtFriend(mate, at);
 
@@ -153,6 +161,10 @@ public sealed partial class TFDecider
         var into = new List<KeyValuePair<string, long>>();
         foreach (ClassPlay? play in _plays)
             play?.Count(into);
+        // The general play's: decides whose team place read a teammate by his respawn glow (round 2's S11), once there is one.
+        if (_glowDecides > 0)
+            into.Add(new("team.glow_decides", _glowDecides));
+        CountDash(into);
         return into;
     }
 

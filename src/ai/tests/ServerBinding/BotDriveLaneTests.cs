@@ -352,6 +352,29 @@ public sealed class BotDriveLaneTests
         Assert.Equal(match.Bots.Bots.Count, notes.Notes.Where(n => n.Frame == match.TickNow).Select(n => n.Bot).Distinct().Count());
     }
 
+    /// <summary>What the main thread handed the game's route reports (round 2's S2), with the frame's tick it was handed on.</summary>
+    private sealed class RouteNotes : INavRouteReports
+    {
+        public readonly List<(ActorId Bot, int Stamp, int Frame, int Dashes)> Notes = [];
+        public Func<int> Frame { get; set; } = () => 0;
+
+        public void Dashes(ActorId bot, Tick stamp, int dashes) => Notes.Add((bot, stamp.Value, Frame(), dashes));
+    }
+
+    /// <summary>Each fresh step taken back goes to the game's route reports too, stamped as the link reports are.</summary>
+    [Fact]
+    public void EachStepTakenBackGoesToTheRouteReportsStampedWithTheTickItWasHandedOn()
+    {
+        var notes = new RouteNotes();
+        using var match = new Match(0, routes: notes);
+        notes.Frame = () => match.TickNow;
+        for (int i = 0; i < 30; i++)
+            match.Tick();
+        Assert.True(notes.Notes.Count > 0, "steps were taken back");
+        Assert.All(notes.Notes, n => Assert.Equal(n.Frame - 1, n.Stamp));
+        Assert.Equal(match.Bots.Bots.Count, notes.Notes.Where(n => n.Frame == match.TickNow).Select(n => n.Bot).Distinct().Count());
+    }
+
     // ---- The whole binding: AiBots with brains, a fake engine and a real pool -------------------
 
     private sealed class Quiet : ILog
@@ -481,14 +504,14 @@ public sealed class BotDriveLaneTests
         private readonly bool _pooled;
         private int _tick;
 
-        public Match(int threads, AiMainBudget? budget = null, INavLinkReports? reports = null)
+        public Match(int threads, AiMainBudget? budget = null, INavLinkReports? reports = null, INavRouteReports? routes = null)
         {
             _pooled = threads > 0;
             Ai = new ServerAiSession(_nav, TestGames.Hl2mp(), null!, Log,
             DeclaredConVars.Fresh<AiThreadsConVar>(), DeclaredConVars.Fresh<AiSyncConVar>());
             IEngineFrame frame = FakeEngine.Of<IEngineFrame>((m, _) => m.Name == "TickCount" ? _tick : throw FakeEngine.Unasked(m));
             Bots = new AiBots(World, World, World.Players(), World.Entities(), WeaponCatalog.Stock(), frame, _nav, TestGames.Hl2mp(), DispatchProxy.Create<IBotInventory, Defaults>(),
-                                 new Names(), new ScoreboardTags(), Log, Ai, null, budget, linkReports: reports);
+                                 new Names(), new ScoreboardTags(), Log, Ai, null, budget, linkReports: reports, routeReports: routes);
             var map = new MapKnowledge("grid", [new ItemSpawn(0, "item_healthkit", ItemKind.Health, new AiVector(880f, 880f, 0f), 30f)], [], Duel.Weapons);
             Ai.Session.World = new MemoryWorld(map, Grid.Graph, ServerAiSession.TickSeconds, id => id.ToString());
             Ai.Session.Curves = SourceSharp.Ai.Tests.Skills.Curves.Game();

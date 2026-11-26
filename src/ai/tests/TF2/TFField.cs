@@ -38,7 +38,7 @@ internal sealed class TFField
                    TFFeelSwitches? feel = null, SkillProfile? profile = null, SkillCurves? curves = null, int[]? mates = null,
                    SourceSharp.Ai.TF2.Jump.IJumpAdvisor? jumps = null, TeamZone[]? zones = null, ItemSpawn[]? packs = null, NavGraph? floor = null,
                    ICellSight? sight = null, ImmutableArray<TFCourseEnd> ends = default, WeaponKnowledge? weapons = null,
-                   Func<TFDecider, TFClass, TFDecider.ClassPlay?>? plays = null)
+                   Func<TFDecider, TFClass, TFDecider.ClassPlay?>? plays = null, SourceSharp.Ai.TF2.Nav.TFRouteDashes? routeDashes = null)
     {
         Bot = new ActorId(slot, 1);
         profile ??= SkillPresets.TryGet(preset, out SkillProfile? p) ? p! : throw new ArgumentException(preset);
@@ -60,7 +60,7 @@ internal sealed class TFField
         foreach (int mate in mates ?? [])
             Memory.Apply(AiEvent.ActorTeam(Bot, new Tick(1), new ActorId(mate, 1), Red, 0));
         Decider = new TFDecider(new BrainSetup(Bot, seed, Memory, Params, 0.015f),
-                                TFKnowledge.Classes(c => (300f, c == TFClass.Soldier ? 200 : 125))) { Feel = feel ?? TFFeelSwitches.All, Jumps = jumps, CourseEnds = ends, Plays = plays };
+                                TFKnowledge.Classes(c => (300f, c == TFClass.Soldier ? 200 : 125))) { Feel = feel ?? TFFeelSwitches.All, Jumps = jumps, CourseEnds = ends, Plays = plays, RouteDashes = routeDashes };
         Brain = new Brain(Bot, seed, Memory, Params, Decider);
     }
 

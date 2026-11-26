@@ -224,8 +224,8 @@ public sealed class TFSpawnGlowsDurationConVar : IntConVar { }
 // Stock declares the spectator xray in the same shared block
 // (tf_gamerules.cpp:747), the pair the glow arms read. Its reader is the
 // spectators' per-player client glow, deferred with the outline render it
-// gates (docs/plans/tf2/deferred.tsv, the spectator-glows row); nothing
-// reads it yet.
+// gates (docs/plans/tf2/deferred.tsv, the spectator-glows row); the bots'
+// HUD reads it for a respawned bot's view of its team (TFHudReader).
 [ConVar("tf_spec_xray", "1", Flags = ConVarFlags.Notify | ConVarFlags.Replicated,
         Help = "Allows spectators to see player glows. 1 = same team, 2 = both teams")]
 public sealed class TFSpecXrayConVar : IntConVar { }

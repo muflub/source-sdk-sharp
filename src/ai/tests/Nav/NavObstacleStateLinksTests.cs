@@ -39,4 +39,25 @@ public class NavObstacleStateLinksTests
         Assert.Equal(12f, shoved.LinkHealth);
         Assert.Same(links, shoved.Links);
     }
+
+    /// <summary>
+    /// Round 2's S13: what the agent spends on each link rides every copy too (the bot's lane takes its own copy each step,
+    /// BotDriveLanes' CopyFrom), and a shoved copy follows its original's.
+    /// </summary>
+    [Fact]
+    public void EveryCopyCarriesTheAgentsOwnSpends()
+    {
+        float[] spends = [12f];
+        var state = new NavObstacleState(0) { Links = Links(), LinkSpends = spends };
+        var copy = new NavObstacleState(0);
+        copy.CopyFrom(state);
+        Assert.Same(spends, state.Clone().LinkSpends);
+        Assert.Same(spends, copy.LinkSpends);
+        NavObstacleState shoved = new NavObstacleState(0).Shoved();
+        Assert.Null(shoved.LinkSpends);
+        var live = new NavObstacleState(0);
+        NavObstacleState follows = live.Shoved();
+        live.LinkSpends = spends;
+        Assert.Same(spends, follows.LinkSpends);
+    }
 }

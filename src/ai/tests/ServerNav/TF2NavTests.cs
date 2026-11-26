@@ -62,6 +62,19 @@ public sealed class TF2NavTests
     }
 
     /// <summary>
+    /// Round 2's S2: TF2's numbers have the Atomizer's third jump, so the shipped map has triple-jump edges, each a rise past
+    /// the double jump's 97.2 and up to 142.2.
+    /// </summary>
+    [PerTreeTFNavFact(Map)]
+    public void ItHasTripleJumpsBetweenTheDoubleJumpsReachAndTheTriples()
+    {
+        NavGraph g = Loaded.Value.Nav!.Nav.Graph;
+        var triples = Enumerable.Range(0, g.CellCount).SelectMany(c => g.EdgesFrom(c).ToArray()).Where(e => e.Type == NavEdgeType.TripleJump).ToArray();
+        Assert.True(triples.Length > 0, "no triple-jump edge");
+        Assert.All(triples, e => Assert.InRange(g.Cell(new CellId(e.To)).FloorZ - g.Cell(new CellId(e.From)).FloorZ, 97.2f, 142.3f));
+    }
+
+    /// <summary>
     /// Each team's spawn has a way to both flags, as a Soldier walks and drops (P6 step 6): live,
     /// before the stairs were places for TF2's wide body each spawn's component held neither flag,
     /// and before a wide body dropped past a ledge's lip a red spawn's way reached 13,792 cells,

@@ -158,12 +158,13 @@ public sealed partial class TFDecider
     /// for the double cap, Snipers and Demomen before Heavies and Pyros. By archetype: the FaN brawler fights closer and
     /// reloads its two shells in hand; the Bonk runner drinks at a sentry's edge (or to escape) and walks through the range
     /// phased; the BFB runner never spends its boost on an air dash and leans harder on the flag.
-    /// <para>A dry primary: the shared fight selector runs "launcher dry" before the class's footwork for every class
-    /// (TFDecider.cs's fight selector, <see cref="LauncherDry"/>), so on the decide the primary is first seen empty the bot
-    /// backs off toward cover. The hands answer on that same decide, past their spacing: the Pistol out, or the Bat within
-    /// <see cref="TFScoutClass.BatFrom"/>, or (the FaN within its reach) a reload in hand; from the next decide the fight is
-    /// the Scout's own. With neither (the Bonk runner past a swing's reach) the bot backs off and reloads, as stock does
-    /// a barrage weapon at clip 1 or less (tf_bot_tactical_monitor.cpp:266-281).</para>
+    /// <para>A dry primary: the shared fight selector runs "launcher dry" before the class's footwork, but the Scout says no
+    /// (<see cref="BacksOffDry"/>, round 2's S10) while its Pistol has shells or the target is within
+    /// <see cref="TFScoutClass.BatFrom"/>, so on the decide the primary is first seen empty the fight stays the Scout's own.
+    /// The hands answer on that same decide, past their spacing: the Pistol out, or the Bat within
+    /// <see cref="TFScoutClass.BatFrom"/>, or (the FaN within its reach) a reload in hand. With neither (the Bonk runner past
+    /// a swing's reach) the bot backs off and reloads, as stock does a barrage weapon at clip 1 or less
+    /// (tf_bot_tactical_monitor.cpp:266-281).</para>
     /// </summary>
     private sealed class ScoutPlay(TFDecider d) : ClassPlay(d, TFClass.Scout)
     {
@@ -194,6 +195,9 @@ public sealed partial class TFDecider
 
         /// <summary>Whether the primary in hand is the Force-a-Nature (its knockback attribute) or the Shortstop.</summary>
         private bool PrimaryIsFaN => Item(TFLoadoutSlot.Primary)?.Has("set_scattergun_has_knockback") ?? false;
+
+        /// <summary>A dry primary is no reason to back off while the Pistol has shells or the target is within a swing (round 2's S10).</summary>
+        public override bool BacksOffDry => !GunUsable && D._targetDist >= TFScoutClass.BatFrom;
 
         private bool PrimaryIsShortstop => Item(TFLoadoutSlot.Primary)?.ItemClass == "tf_weapon_handgun_scout_primary";
 

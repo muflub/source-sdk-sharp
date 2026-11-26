@@ -12,6 +12,8 @@ namespace SourceSharp.Ai.Server.Nav;
 /// up, and drops it past a ledge as the two-voxel body that clears the edge it leaves.
 /// <see cref="CrouchOnlyCost"/> multiplies what a crouch-only place costs to cross (1, HL2MP's: as any
 /// place), for a game whose players all but never duck to get round: TF2's.
+/// <see cref="MaxTripleJumpRise"/> is the highest rise a third jump in the air reaches (0 for a game without one: no
+/// edge is a <see cref="NavEdgeType.TripleJump"/>); a rise over the double jump's and up to it is one.
 /// A game's <see cref="INavProfile"/>
 /// publishes them; <c>Stock</c> (Ai.Server's StockNavNumbers, read from the movement code) is
 /// the core's default movement, HL2MP's (NavNumbersTests pins them).
@@ -28,7 +30,8 @@ public readonly record struct NavNumbers(
     float SafeDrop,
     float MaxDoubleJumpRise = 0f,
     bool WideHull = false,
-    float CrouchOnlyCost = 1f)
+    float CrouchOnlyCost = 1f,
+    float MaxTripleJumpRise = 0f)
 {
     /// <summary>
     /// The extra hulls, in order: hull i is <see cref="ClearanceClass"/> 2 + i
@@ -102,9 +105,9 @@ public readonly struct NavHulls : IEquatable<NavHulls>
 }
 
 /// <summary>What crossing each edge type adds to its distance (a jump's effort, a door's wait), in world units.</summary>
-public readonly record struct NavEdgeCosts(float Jump, float CrouchJump, float Drop, float Ladder, float DoorWait, float DoubleJump = 48f)
+public readonly record struct NavEdgeCosts(float Jump, float CrouchJump, float Drop, float Ladder, float DoorWait, float DoubleJump = 48f, float TripleJump = 64f)
 {
-    public static NavEdgeCosts Default => new(16f, 32f, 8f, 64f, 64f, 48f);
+    public static NavEdgeCosts Default => new(16f, 32f, 8f, 64f, 64f, 48f, 64f);
 
     /// <summary>What crossing an edge of <paramref name="type"/> adds to its distance.</summary>
     public float ExtraFor(NavEdgeType type) => type switch
@@ -115,6 +118,7 @@ public readonly record struct NavEdgeCosts(float Jump, float CrouchJump, float D
         NavEdgeType.Ladder => Ladder,
         NavEdgeType.Door => DoorWait,
         NavEdgeType.DoubleJump => DoubleJump,
+        NavEdgeType.TripleJump => TripleJump,
         _ => 0f,
     };
 }

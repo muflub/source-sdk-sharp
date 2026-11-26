@@ -1,4 +1,6 @@
 using SourceSharp.Abi;
+using SourceSharp.Shared;
+using SourceSharp.Server;
 using SourceSharp.Ai.TF2.Senses;
 using TF2.Server.Player;
 using TF2.Shared;
@@ -38,7 +40,8 @@ public sealed class TFSpyHonestyTests
     private readonly Facts _facts = new();
 
     // Only the actors' facts are asked of the view by ShownAs; the rest is never reached.
-    private TFBotGameView View() => new(_facts, null!, null!, null!, null!, null!, null!, null!, null!, null!, _lives);
+    private TFBotGameView View(string avoid = "1") => new(_facts, null!, null!, null!, null!, null!, null!, null!, null!, null!, _lives,
+        new ConVarRegistry(new NamedConVars(new Dictionary<string, string> { ["tf_avoidteammates"] = avoid })).Declare<TFAvoidTeammatesConVar>());
 
     private readonly TFPlayerLives _lives = new();
 
@@ -308,5 +311,120 @@ public sealed class TFSpyHonestyTests
         Assert.True(SourceSharp.Ai.Server.Senses.ShownActors.Touching(AiVector.Zero, new AiVector(48f, 10f, 0f)));
         Assert.False(SourceSharp.Ai.Server.Senses.ShownActors.Touching(AiVector.Zero, new AiVector(80f, 0f, 0f)));
         Assert.False(SourceSharp.Ai.Server.Senses.ShownActors.Touching(AiVector.Zero, new AiVector(10f, 0f, 90f)));
+    }
+
+    /// <summary>
+    /// The forget (review 2, G2): a mark is gone once the disguise was out of sight 5 s, as the same dress is a stranger to a
+    /// player; the control: back in sight after 2 s, still unmasked.
+    /// </summary>
+    [Theory]
+    [InlineData(2f, true)]
+    [InlineData(6f, false)]
+    public void AMarkIsForgottenFiveSecondsOutOfSight(float away, bool unmasked)
+    {
+        _facts.By[2] = Player(TFClass.Soldier, TFTeam.Red);
+        ActorFacts drawn = Dressed(View().ShownAs(Slot(2), Slot(5), SpyActor), Mid + new AiVector(300f, 0f, 0f));
+        TFField f = Knowing();
+        Seen(f, drawn);
+        f.StepHearing(TFField.Self(Mid), TFField.Ctf(), [AiEvent.Bumped(f.Bot, new Tick(f.Tick + 1), drawn.Id, drawn.Origin)], drawn);
+        f.StepHearing(TFField.Self(Mid), TFField.Ctf(), [AiEvent.SightLost(f.Bot, new Tick(f.Tick + 1), drawn.Id, drawn.Origin, default)]);
+        int decides = (int)(away / (DecideSchedule.Period * 0.015f));
+        for (int n = 0; n < decides; n++)
+            f.StepDrawn(TFField.Self(Mid), TFField.Ctf());
+        f.StepHearing(TFField.Self(Mid), TFField.Ctf(), [AiEvent.SightGained(f.Bot, new Tick(f.Tick + 1), drawn.Id, drawn.Origin, default, 1f)], drawn);
+        Assert.Equal(unmasked, f.Memory.Board.Of(drawn.Id, make: false)!.Unmasked(new Tick(f.Tick), 0.015f));
+    }
+
+    /// <summary>The bot's own hit landing on a body drawn as a teammate, with friendly fire off, unmasks it; with it on (the control) it does not.</summary>
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public void TheBotsOwnHitOnADrawnTeammateUnmasksItWithFriendlyFireOff(bool friendlyFire, bool unmasked)
+    {
+        _facts.By[2] = Player(TFClass.Soldier, TFTeam.Red);
+        ActorFacts drawn = Dressed(View().ShownAs(Slot(2), Slot(5), SpyActor), Mid + new AiVector(300f, 0f, 0f));
+        TFField f = Knowing();
+        f.Memory.Apply(AiEvent.FriendlyFireSet(f.Bot, new Tick(1), friendlyFire));
+        Seen(f, drawn);
+        f.StepHearing(TFField.Self(Mid), TFField.Ctf(), [AiEvent.DealtDamage(f.Bot, new Tick(f.Tick + 1), drawn.Id, 20, 105)], drawn);
+        Assert.Equal(unmasked, f.Memory.Board.Of(drawn.Id, make: false)!.Unmasked(new Tick(f.Tick), 0.015f));
+    }
+
+    /// <summary>"Spy!" on an unmasked disguise in sight (review 2, G4); the control: the same disguise unmarked draws no call.</summary>
+    [Fact]
+    public void AnUnmaskedDisguiseInSightIsCalledASpy()
+    {
+        _facts.By[2] = Player(TFClass.Soldier, TFTeam.Red);
+        ActorFacts drawn = Dressed(View().ShownAs(Slot(2), Slot(5), SpyActor), Mid + new AiVector(300f, 0f, 0f));
+        TFField quiet = Knowing();
+        Assert.DoesNotContain(SourceSharp.Ai.TF2.Knowledge.TFAbilities.VoiceSpy, Calls(quiet, drawn, bump: false));
+        TFField marked = Knowing();
+        Assert.Contains(SourceSharp.Ai.TF2.Knowledge.TFAbilities.VoiceSpy, Calls(marked, drawn, bump: true));
+    }
+
+    /// <summary>The ability rows a field's decides sent over two seconds with <paramref name="drawn"/> in sight, after a bump on it or not.</summary>
+    private static List<string> Calls(TFField f, ActorFacts drawn, bool bump)
+    {
+        Seen(f, drawn);
+        AiEvent[] events = bump ? [AiEvent.Bumped(f.Bot, new Tick(f.Tick + 1), drawn.Id, drawn.Origin)] : [];
+        var calls = new List<string>();
+        for (int n = 0; n < 22; n++)
+        {
+            IntentCommand i = f.StepHearing(TFField.Self(Mid), TFField.Ctf(), n == 0 ? events : [], drawn);
+            if (i.Action.Kind == ActionKind.Ability && SourceSharp.Ai.TF2.Knowledge.TFAbilities.Table().TryGet(AbilityCall.Row(i.Action.WeaponSlot), out AbilityRow row))
+                calls.Add(row.Name);
+        }
+
+        return calls;
+    }
+
+    /// <summary>A touch of a real enemy marks nothing (review 2, G5): only a body drawn as a teammate is unmasked by a bump.</summary>
+    [Fact]
+    public void ABumpOnAnEnemyMarksNothing()
+    {
+        TFField f = Knowing();
+        var enemy = new ActorFacts(new ActorId(7, 2), Mid + new AiVector(40f, 0f, 0f), AiVector.Zero, TFField.Shotgun, ActorActivity.None, 1f, Blue, NameSlot: 7);
+        Seen(f, enemy);
+        f.StepHearing(TFField.Self(Mid), TFField.Ctf(), [AiEvent.Bumped(f.Bot, new Tick(f.Tick + 1), enemy.Id, enemy.Origin)], enemy);
+        Assert.Equal(default, f.Memory.Board.Of(enemy.Id, make: false)!.UnmaskedAt);
+    }
+
+    /// <summary>A team change clears a mark (review 2, G5: an autobalance), so no real teammate is ever called a Spy; the control: before it, marked.</summary>
+    [Fact]
+    public void ATeamChangeClearsAMark()
+    {
+        _facts.By[2] = Player(TFClass.Soldier, TFTeam.Red);
+        ActorFacts drawn = Dressed(View().ShownAs(Slot(2), Slot(5), SpyActor), Mid + new AiVector(300f, 0f, 0f));
+        TFField f = Knowing();
+        Seen(f, drawn);
+        f.StepHearing(TFField.Self(Mid), TFField.Ctf(), [AiEvent.Bumped(f.Bot, new Tick(f.Tick + 1), drawn.Id, drawn.Origin)], drawn);
+        KnownActor row = f.Memory.Board.Of(drawn.Id, make: false)!;
+        Assert.NotEqual(default, row.UnmaskedAt);
+        f.StepDrawn(TFField.Self(Mid), TFField.Ctf(), drawn with { Team = Blue });
+        Assert.Equal(default, row.UnmaskedAt);
+    }
+
+    /// <summary>The hulls must meet (review 2, G6): 48 u apart touches, 50 u apart (standing clear) does not.</summary>
+    [Fact]
+    public void ABodyStandingClearIsNoTouch()
+    {
+        Assert.True(SourceSharp.Ai.Server.Senses.ShownActors.Touching(AiVector.Zero, new AiVector(48f, 0f, 0f)));
+        Assert.False(SourceSharp.Ai.Server.Senses.ShownActors.Touching(AiVector.Zero, new AiVector(50f, 0f, 0f)));
+    }
+
+    /// <summary>
+    /// TF2's solid: two game teams collide, teammates pass (review 2, G4/G6); with tf_avoidteammates 0 teammates collide too,
+    /// so no touch is news and none is solid.
+    /// </summary>
+    [Fact]
+    public void TheTF2ViewCallsEnemiesSolidUnlessTeammatesCollideToo()
+    {
+        _facts.By[2] = Player(TFClass.Soldier, TFTeam.Red);
+        _facts.By[3] = Player(TFClass.Pyro, TFTeam.Red);
+        _facts.By[5] = Spy();
+        TFBotGameView view = View();
+        Assert.True(view.Solid(Slot(2), Slot(5)));
+        Assert.False(view.Solid(Slot(2), Slot(3)));
+        Assert.False(View(avoid: "0").Solid(Slot(2), Slot(5)));
     }
 }

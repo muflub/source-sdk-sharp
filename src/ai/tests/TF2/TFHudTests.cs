@@ -7,6 +7,7 @@ using TF2.Server.Econ;
 using TF2.Server.Entities.Items;
 using TF2.Server.Medigun;
 using TF2.Shared;
+using TF2.Shared.Conditions;
 using Xunit;
 
 namespace SourceSharp.Ai.Tests.TF2;
@@ -52,6 +53,27 @@ public sealed class TFHudTests : IDisposable
     private int _patient = -1;
     private readonly Dictionary<int, int> _beams = new();
     private readonly Dictionary<int, global::TF2.Server.Player.TFActorFacts> _actors = new();
+    private readonly Dictionary<int, TFConditions> _conds = new();
+    private string _xray = "1";
+
+    /// <summary>A player's conditions as the server keeps them (expiring by <see cref="TFConditions.Tick"/>).</summary>
+    private sealed class Words : ITFCondWords
+    {
+        private TFCondMask _bits;
+
+        public TFCondMask Read() => _bits;
+
+        public void Write(in TFCondMask bits) => _bits = bits;
+    }
+
+    /// <summary>Player <paramref name="index"/> respawned <paramref name="secondsAgo"/> seconds ago: stock's TF_COND_TEAM_GLOWS for <c>tf_spawn_glows_duration</c> (10), counted down.</summary>
+    private void Respawned(int index, float secondsAgo)
+    {
+        var c = new TFConditions(authoritative: true, new Words());
+        c.Add(TFCond.TeamGlows, 10f);
+        c.Tick(secondsAgo, 0, default);
+        _conds[index] = c;
+    }
 
     private static int IndexOf(EntityHandle h) => h.EntryIndex;
 
@@ -63,6 +85,7 @@ public sealed class TFHudTests : IDisposable
             "ClassOf" => _people.TryGetValue(IndexOf((EntityHandle)a[0]!), out Person? p) ? p.Class : TFClass.Undefined,
             "Health" => _people[IndexOf((EntityHandle)a[0]!)].Health,
             "MaxHealth" => _people[IndexOf((EntityHandle)a[0]!)].Max,
+            "InCond" => _conds.TryGetValue(IndexOf((EntityHandle)a[0]!), out TFConditions? c) && c.Has((TFCond)a[1]!),
             _ => throw FakeEngine.Unasked(m),
         });
         IEnginePlayers players = FakeEngine.Of<IEnginePlayers>((m, a) => m.Name switch
@@ -74,7 +97,8 @@ public sealed class TFHudTests : IDisposable
         IEngineEntities entities = FakeEngine.Of<IEngineEntities>((m, a) => m.Name == "GetOrigin" ? _people[IndexOf((EntityHandle)a[0]!)].At : throw FakeEngine.Unasked(m));
         var classes = new TFClassTable(new TFBelievedSpeedTests.NoLog(), System.Reflection.DispatchProxy.Create<IEngineFiles, TFBelievedSpeedTests.Scripts>());
         classes.Load();
-        return new TFHudReader(_kits, new Hooks<ITFHudMeters>(meters), people, players, entities, _globals, new Actors(_actors), classes);
+        return new TFHudReader(_kits, new Hooks<ITFHudMeters>(meters), people, players, entities, _globals, new Actors(_actors), classes,
+                               DeclaredConVars.FreshAt<TFSpecXrayConVar>(_xray));
     }
 
     private TFMedigunMeters Medigun()
@@ -209,5 +233,84 @@ public sealed class TFHudTests : IDisposable
         Assert.Equal((5f, 0.6f), (healed.Meter(TFMedigunMeters.HealedBy), healed.Meter(TFMedigunMeters.HealerCharge)));
         _beams.Clear();
         Assert.Equal(-1f, Reader(Medigun()).Read(Bot).Meter(TFMedigunMeters.HealedBy));
+    }
+
+    // ---- round 2's S11: the bot's own respawn glow shows its teammates' places
+
+    /// <summary>
+    /// A bot respawned 5 s ago sees its teammates through walls (stock's xray while its own TF_COND_TEAM_GLOWS lasts): a
+    /// Soldier 3,000 u off, past any sight, is placed, with no number; at 11 s (the glow's 10 s are over) he is not.
+    /// </summary>
+    [Fact]
+    public void ABotRespawned5SecondsAgoPlacesItsTeammatesThroughWalls()
+    {
+        Me(TFClass.Soldier);
+        _people[3] = new Person(2, TFClass.Soldier, 200, 200, new Vector(3000f, 0f, 0f));
+        Respawned(BotIndex, 5f);
+        Assert.Equal([new TFMateHealth(3, -1, -1, TFMateSeen.Glowing, new AiVector(3000f, 0f, 0f))], Reader().Read(Bot).Mates.ToArray());
+        Respawned(BotIndex, 11f);
+        Assert.Empty(Reader().Read(Bot).Mates);
+    }
+
+    /// <summary>
+    /// An enemy never glows to the bot: not while the bot's glow lasts, and not for his own respawn (only the bot's own
+    /// condition is read; the respawned player is the one who sees). The control: a teammate beside him does glow.
+    /// </summary>
+    [Fact]
+    public void AnEnemysGlowIsNeverRead()
+    {
+        Me(TFClass.Soldier);
+        _people[3] = new Person(2, TFClass.Soldier, 200, 200, new Vector(900f, 0f, 0f));
+        _people[4] = new Person(3, TFClass.Soldier, 200, 200, new Vector(1000f, 0f, 0f));
+        Respawned(BotIndex, 2f);
+        Assert.Equal(3, Assert.Single(Reader().Read(Bot).Mates).Slot);
+        _conds.Clear();
+        Respawned(4, 2f);
+        Respawned(3, 2f);
+        Assert.Empty(Reader().Read(Bot).Mates);
+    }
+
+    /// <summary>
+    /// An enemy Spy the bot sees only by his disguise (dressed as its team) does not glow (the review's S11-1): stock
+    /// force-transmits the glowing player's team by real team, so the Spy is never outlined map-wide. The control: a real
+    /// teammate beside him glows; and the Spy is still shown as a teammate where stock's HUD shows him so (calling, to a Medic).
+    /// </summary>
+    [Fact]
+    public void ASpyShownOnlyByHisDisguiseDoesNotGlow()
+    {
+        Me(TFClass.Soldier);
+        _people[3] = new Person(3, TFClass.Spy, 125, 125, new Vector(800f, 0f, 0f));
+        _people[4] = new Person(2, TFClass.Soldier, 200, 200, new Vector(900f, 0f, 0f));
+        _actors[3] = new(TFClass.Spy, TFTeam.Blue, TFClass.Soldier, TFTeam.Red, 4, 0f, 0, false, false, false, true, false, false, DisguiseHealth: 50);
+        Respawned(BotIndex, 2f);
+        Assert.Equal(4, Assert.Single(Reader().Read(Bot).Mates).Slot);
+        Me(TFClass.Medic);
+        Assert.Equal(TFMateSeen.Calling, Reader(Medigun()).Read(Bot).Mates.Single(m => m.Slot == 3).Why);
+    }
+
+    /// <summary>With <c>tf_spec_xray</c> 0 no glow is drawn, so none is read.</summary>
+    [Fact]
+    public void WithTheXrayOffNoTeammateGlows()
+    {
+        Me(TFClass.Soldier);
+        _people[3] = new Person(2, TFClass.Soldier, 200, 200, new Vector(900f, 0f, 0f));
+        Respawned(BotIndex, 2f);
+        _xray = "0";
+        Assert.Empty(Reader().Read(Bot).Mates);
+    }
+
+    /// <summary>To a respawned Medic a calling teammate is both a caller and glowing; the beam's patient keeps his number and glows.</summary>
+    [Fact]
+    public void AGlowAddsToACallAndToThePatient()
+    {
+        Me(TFClass.Medic);
+        _people[3] = new Person(2, TFClass.Soldier, 100, 200, new Vector(500f, 0f, 0f));
+        _people[4] = new Person(2, TFClass.HeavyWeapons, 150, 300, new Vector(200f, 0f, 0f));
+        _patient = 4;
+        Respawned(BotIndex, 1f);
+        TFHud hud = Reader(Medigun()).Read(Bot);
+        Assert.Equal(new[] { new TFMateHealth(3, -1, -1, TFMateSeen.Calling | TFMateSeen.Glowing, new AiVector(500f, 0f, 0f)),
+                             new TFMateHealth(4, 150, 300, TFMateSeen.HealTarget | TFMateSeen.Glowing, new AiVector(200f, 0f, 0f)) },
+                     hud.Mates.ToArray());
     }
 }

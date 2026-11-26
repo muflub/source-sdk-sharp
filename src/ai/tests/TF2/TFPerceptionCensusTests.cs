@@ -24,6 +24,7 @@ public sealed class TFPerceptionCensusTests
         "ITFActorFacts::TryRead", "ITFPlayerData::Networked", "TFDisguiseWeapons::DressOf",
         "IEngineEntities::GetOrigin", "IEngineEntities::GetVelocity", "IEngineEntities::GetWorldSpaceCenter", "IEngineEntities::GetHealth",
         "IEntityDirectory::OfClass", "TFBaseObject::get_Health", "TFBaseObject::get_Level", "IEnginePlayers::GetTeam", "Arsenal::PoolOf",
+        "IEnginePlayers::GetActiveWeaponEntity",
     ];
 
     private static readonly string[] Forbidden =
@@ -31,6 +32,7 @@ public sealed class TFPerceptionCensusTests
         "IEnginePlayers::PlaceAtSpawn", "IEnginePlayers::SnapEyeAngles", "IEnginePlayers::Respawn",
         "IEnginePlayers::SetMoveType", "IEnginePlayers::ForceButtons", "IEnginePlayers::SetFrozen",
         "IEngineEntities::SetOrigin", "IEngineEntities::SetAngles", "IEngineEntities::SetVelocity", "IEngineEntities::Teleport",
+        "IWeaponGiver::GiveWeapon", "IWeaponGiver::GiveAmmo", "IWeaponGiver::AdvanceCarriedMeter",
     ];
 
     private static string Name(MethodBase m) => $"{m.DeclaringType?.Name}::{m.Name}";
@@ -41,11 +43,12 @@ public sealed class TFPerceptionCensusTests
         string[] callers = IlCallCensus.Callers(m => Reads.Contains(Name(m)), Binding);
         // The navigation profile reads the bot's own class, for the jumps it can make (P6 step 2); the
         // class pick the bot's own team, as its HUD shows it, to know it may pick a class (P6 step 7); the HUD reader the
-        // teams of the bot's mates, to show only teammates' health (P7, the A7 ruling). The class meter readers (P7) read
-        // only the bot's own networked meters, which its own HUD draws: the Scout's drink and hype, the Demoman's charge
-        // and heads.
-        // teams of the bot's mates, to show only teammates' health (P7, the A7 ruling); the Soldier's meter its own rage, as its
-        // own HUD's charge meter shows it (P7).
+        // teams of the bot's mates, to show only teammates' health (P7, the A7 ruling), and their places while the bot's own
+        // respawn glow lasts (round 2's S11: stock's xray outlines them through walls to the respawned player, anywhere he
+        // looks; the read is a place with no number, less than his screen shows). Each class's meter reader (P7) reads
+        // only the bot's own state, which its own HUD draws: the Scout's drink and hype, the Soldier's rage, the Demoman's
+        // charge and heads, the Engineer's own buildings, the Sniper's scope, charge and jar, the Spy's cloak and disguise;
+        // the Medic's target ID the player under the crosshair, by stock's trace (the A7 ruling's second exception).
         // The experience feed's game (Part G, G.3; Q-G1 as ruled: the store learns from every player's
         // state) reads each player's real team and class as the key of a stored row: it answers the
         // feed, which hands them to its worker, and nothing a bot's view is built from.
@@ -53,7 +56,9 @@ public sealed class TFPerceptionCensusTests
                              typeof(SourceSharp.Ai.TF2.Nav.TFNavProfile).FullName!, typeof(TFBotClassPick).FullName!,
                              typeof(SourceSharp.Ai.TF2.Senses.TFHudReader).FullName!,
                              typeof(SourceSharp.Ai.TF2.Trees.TFScoutMeters).FullName!, typeof(SourceSharp.Ai.TF2.Trees.TFDemomanMeters).FullName!,
-                             typeof(SourceSharp.Ai.TF2.Trees.TFSoldierMeters).FullName!,
+                             typeof(SourceSharp.Ai.TF2.Trees.TFSoldierMeters).FullName!, typeof(SourceSharp.Ai.TF2.Trees.TFEngineerMeters).FullName!,
+                             typeof(SourceSharp.Ai.TF2.Trees.TFSniperMeters).FullName!, typeof(SourceSharp.Ai.TF2.Trees.TFSpyMeters).FullName!,
+                             typeof(SourceSharp.Ai.TF2.Senses.TFTargetIdMeters).FullName!,
                              typeof(TFExperienceGame).FullName! }.Order(StringComparer.Ordinal), callers);
     }
 
@@ -99,11 +104,14 @@ public sealed class TFPerceptionCensusTests
     /// <summary>
     /// Another player's health is read by the HUD reader alone (the coordinator's A7 ruling, the review's census ask): only
     /// the beam's patient's and, to a Medic, the callers' (as a flag) reach a view; no decider and no other sense reads it.
-    /// The navigation profile reads the bot's own (its links' health floor, lane G5e).
+    /// The navigation profile reads the bot's own (its links' health floor, lane G5e). The target ID
+    /// (<see cref="SourceSharp.Ai.TF2.Senses.TFTargetIdMeters"/>, P7) reads the one player under the crosshair, by stock's
+    /// trace and its rules for whose health a player is shown: the ruling's crosshair exception.
     /// </summary>
     [Fact]
     public void OnlyTheHudReaderReadsAnotherPlayersHealth()
-        => Assert.Equal([typeof(SourceSharp.Ai.TF2.Nav.TFNavProfile).FullName!, typeof(SourceSharp.Ai.TF2.Senses.TFHudReader).FullName!],
+        => Assert.Equal([typeof(SourceSharp.Ai.TF2.Nav.TFNavProfile).FullName!, typeof(SourceSharp.Ai.TF2.Senses.TFHudReader).FullName!,
+                         typeof(SourceSharp.Ai.TF2.Senses.TFTargetIdMeters).FullName!],
                         IlCallCensus.Callers(m => m.Name is "Health" or "GetHealth" or "get_Health" && m.DeclaringType?.FullName is
                                                       "TF2.Server.Entities.Items.ITFMapPlayers" or "SourceSharp.Abi.IEngineEntities"
                                                       or "TF2.Shared.Player.PlayerResourceNetState" or "TF2.Server.Player.ITFPlayerResupply", Binding));

@@ -130,7 +130,11 @@ public sealed class KnownActor
     /// </summary>
     public Tick UnmaskedAt { get; internal set; }
 
-    /// <summary>How long an unmasked Spy out of sight is still known for one (stock's forget, tf_bot.cpp:60-61: 5 s).</summary>
+    /// <summary>
+    /// How long an unmasked Spy out of sight is still known for one: 5 s, the lane's rule (stock's bot outside MvM keeps a
+    /// realised Spy until he dies, cloaks fully or changes disguise out of sight, tf_bot_vision.cpp:39-58). Seen again in the
+    /// same dress after longer, he is a stranger to the bot, as the same name and class are to a player; the mark is gone.
+    /// </summary>
     public const float UnmaskForgetSeconds = 5f;
 
     /// <summary>Whether a cue unmasked it and the bot still holds it in sight, or lost it under <see cref="UnmaskForgetSeconds"/> ago.</summary>

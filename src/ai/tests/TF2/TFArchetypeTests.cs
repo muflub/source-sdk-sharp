@@ -106,6 +106,24 @@ public sealed class TFArchetypeTests
         Assert.Equal(-1, items.Choose(4, TFClass.Soldier, TFLoadoutSlot.Primary, launchers));
     }
 
+    /// <summary>
+    /// An <c>items=</c> pin (round 2's live proofs) puts its item in the slot whose works rows hold it, over the archetype's;
+    /// a slot whose rows hold none of them keeps the archetype's choice.
+    /// </summary>
+    [Fact]
+    public void AnItemsPinChoosesItsItemInTheSlotThatOffersIt()
+    {
+        var pins = new TFBotPins();
+        pins.Joined(Joined(3, 1, ("class", "scout"), ("items", "450")));
+        var items = new TFArchetypeItems(pins);
+        BotWorksItem[] melee = [new(0, "tf_weapon_bat", ""), new(450, "tf_weapon_bat", "air_dash_count;mult_single_wep_deploy_time;mult_dmg_vs_players")];
+        BotWorksItem[] primary = [new(13, "tf_weapon_scattergun", ""), new(772, "tf_weapon_pep_brawler_blaster", "hype_resets_on_jump")];
+        Assert.Equal(450, items.Choose(3, TFClass.Scout, TFLoadoutSlot.Melee, melee));
+        Assert.NotEqual(772, items.Choose(3, TFClass.Scout, TFLoadoutSlot.Primary, primary));
+        Assert.Null(pins.Check(new Dictionary<string, string> { ["items"] = "450,772" }));
+        Assert.Contains("no list of defindexes", pins.Check(new Dictionary<string, string> { ["items"] = "atomizer" }), StringComparison.Ordinal);
+    }
+
     /// <summary>The pin's checks: a class by its menu word (heavy too), an archetype only with a class and only one of its own.</summary>
     [Fact]
     public void ThePinsChecksNameWhatIsWrong()

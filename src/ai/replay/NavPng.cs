@@ -33,6 +33,7 @@ public static class NavPng
         NavEdgeType.Ladder => new SKColor(77, 230, 230),
         NavEdgeType.Door => new SKColor(242, 242, 242),
         NavEdgeType.DoubleJump => new SKColor(242, 220, 51),
+        NavEdgeType.TripleJump => new SKColor(51, 220, 120),
         _ => new SKColor(128, 128, 128),
     };
 

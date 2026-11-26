@@ -124,6 +124,7 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
             // What it had queued went with the old player and the old level.
             b.Waiting = 0;
             b.AltHeld = false;
+            b.HeldAtFriend = false;
             EndProgram(b, AbilityEnd.Died);
         }
     }
@@ -289,6 +290,7 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
             // An ability does not outlive the life that began it, nor a held spin (the next life may be another class).
             bot.AbilityTicks = 0;
             bot.AltHeld = false;
+            bot.HeldAtFriend = false;
             bot.Sequence = default;
             EndProgram(bot, AbilityEnd.Died, new AbilityBody(facts.Origin, facts.Velocity, bot.Motion.View, facts.OnGround));
             SetView(ref cmd, facts.View);
@@ -606,9 +608,24 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         return ++bot.JumpTicks % JumpCycle == 0 ? buttons & ~(int)InputButtons.Jump : buttons;
     }
 
-    /// <summary>The held action's buttons this tick: a spray or burst holds, a tap presses every other tick.</summary>
+    /// <summary>
+    /// The held action's buttons this tick: a spray or burst holds, a tap presses every other tick. A decide carrying a
+    /// one-shot holds nothing, unless the last decide without one held Fire at a teammate on purpose
+    /// (<see cref="IntentCommand.HoldsAtFriend"/>, round 2's S9) and this one still asks to: a Medic's beam heals only while
+    /// held, so a voice line or the pop keeps Attack down instead of dropping the patient until the next decide. A one-shot
+    /// decide that no longer asks (the beam let go to retarget, a weapon taken out) lets go and ends the hold (the review's
+    /// S9-2, ruled 2026-11-22). A Fire at an enemy is let go as before; HL2MP never holds at a friend. What was pressed, not the intent, as <see cref="BotState.AltHeld"/>: a Fire at a
+    /// friend still waiting for the eye held nothing, so the one-shot after it does not press Attack early, off aim, where a
+    /// medigun would latch whoever is under the crosshair (the review's S9-1).
+    /// </summary>
     private static int HeldAction(BotState bot, in ActionIntent action, in IntentCommand intent, in BotSelfFacts facts, float dt)
     {
+        if (intent.Action.OneShotSeq == 0)
+            bot.HeldAtFriend = intent.HoldsAtFriend && action.Kind == ActionKind.Fire;
+        else if (bot.HeldAtFriend && intent.HoldsAtFriend)
+            return (int)InputButtons.Attack;
+        else
+            bot.HeldAtFriend = false;
         if (action.OneShotSeq != 0)
             return 0;
 
@@ -984,6 +1001,9 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
 
         /// <summary>The second trigger was held down as a <see cref="FireStyle.Hold"/> (no shot: a minigun's spin) on the last command: it stays down while the first trigger waits for the eye.</summary>
         public bool AltHeld { get; set; }
+
+        /// <summary>The last decide without a one-shot held Fire at a teammate on purpose (<see cref="IntentCommand.HoldsAtFriend"/>): a one-shot decide that still asks keeps Attack down.</summary>
+        public bool HeldAtFriend { get; set; }
 
         public int JumpTicks { get; set; }
     }

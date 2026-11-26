@@ -42,15 +42,19 @@ public sealed class NavGraphCache(string directory, NavEdgeCosts costs)
     /// height each in their order, then the revision of the rule that admits them
     /// (<see cref="NavGraphFromNav3d.ExtraHullRevision"/>), and none when there are none: numbers
     /// without them are named as they were before a graph could be classed for more hulls, and a
-    /// change to the extra hulls' rule renames only the graphs that carry their bits.
+    /// change to the extra hulls' rule renames only the graphs that carry their bits. The triple jump's rise
+    /// (<see cref="NavNumbers.MaxTripleJumpRise"/>) and the revision of its rule (<see cref="NavGraphFromNav3d.TripleJumpRevision"/>)
+    /// are the last bits, and none at 0: numbers without one keep their names.
     /// </summary>
     public static string NumbersKey(NavNumbers numbers, float fileJumpHeight)
     {
         if (numbers == NavNumbers.Stock(fileJumpHeight))
             return "";
         NavHulls hulls = numbers.ExtraHulls;
-        Span<byte> bits = stackalloc byte[(11 + 2 * NavHulls.Max) * sizeof(float)];
-        bits = bits[..((10 + 2 * hulls.Count + (hulls.Count > 0 ? 1 : 0)) * sizeof(float))];
+        bool triple = numbers.MaxTripleJumpRise > 0f;
+        int body = 10 + 2 * hulls.Count + (hulls.Count > 0 ? 1 : 0);
+        Span<byte> bits = stackalloc byte[(13 + 2 * NavHulls.Max) * sizeof(float)];
+        bits = bits[..((body + (triple ? 2 : 0)) * sizeof(float))];
         ReadOnlySpan<float> values = [numbers.HullWidth, numbers.StandHeight, numbers.CrouchHeight, numbers.StepHeight,
                                       numbers.MaxJumpRise, numbers.MaxCrouchJumpRise, numbers.SafeDrop, numbers.MaxDoubleJumpRise,
                                       numbers.WideHull ? 1f : 0f, numbers.CrouchOnlyCost];
@@ -64,6 +68,11 @@ public sealed class NavGraphCache(string directory, NavEdgeCosts costs)
 
         if (hulls.Count > 0)
             BinaryPrimitives.WriteInt32LittleEndian(bits[((10 + 2 * hulls.Count) * sizeof(float))..], NavGraphFromNav3d.ExtraHullRevision);
+        if (triple)
+        {
+            BinaryPrimitives.WriteSingleLittleEndian(bits[(body * sizeof(float))..], numbers.MaxTripleJumpRise);
+            BinaryPrimitives.WriteInt32LittleEndian(bits[((body + 1) * sizeof(float))..], NavGraphFromNav3d.TripleJumpRevision);
+        }
 
         return Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bits))[..16];
     }

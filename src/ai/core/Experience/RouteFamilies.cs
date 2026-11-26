@@ -92,7 +92,7 @@ public sealed class RouteFamilies
                 continue;
             foreach (ref readonly NavEdge e in graph.EdgesTo(cell))
             {
-                if (e.Type == NavEdgeType.DoubleJump || !float.IsFinite(e.Cost))
+                if (e.Type is NavEdgeType.DoubleJump or NavEdgeType.TripleJump || !float.IsFinite(e.Cost))
                     continue;
                 float c = key.Cost + e.Cost;
                 if (c > roomCost || (cost.TryGetValue(e.From, out float known) && known <= c))
@@ -108,7 +108,7 @@ public sealed class RouteFamilies
         {
             foreach (ref readonly NavEdge e in graph.EdgesTo(cell))
             {
-                if (e.Type != NavEdgeType.DoubleJump && !settled.Contains(e.From))
+                if (e.Type is not (NavEdgeType.DoubleJump or NavEdgeType.TripleJump) && !settled.Contains(e.From))
                     frontier.Add(e.From);
             }
         }

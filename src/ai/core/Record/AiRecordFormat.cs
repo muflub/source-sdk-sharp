@@ -110,9 +110,12 @@ public static class AiRecordFormat
     /// (plan_bots_teams_tf2_part_g R.2 item 8); format 10 a third tail on the Snapshot record (plan_bots_teams_tf2 P7,
     /// review-p7f F1): each view's own class, conditions and metal, each sighted actor's class, conditions, borrowed name
     /// and facing, and the game's HUD (<see cref="GameHud.Recorded"/>: TF2's kit, meters and mates) when it changed
-    /// since the bot's last snapshot.
+    /// since the bot's last snapshot; format 11 (round 2's S9 and S11) the Intent record's action style byte's top bit,
+    /// <see cref="HoldsAtFriendBit"/> (<see cref="IntentCommand.HoldsAtFriend"/>, set only when it holds), and in TF2's
+    /// recorded HUD a mate's why byte's <c>TFMateSeen.Glowing</c> bit (4): both leave every older encoding byte for byte,
+    /// and the number is there so a format-10 build refuses a file whose style byte reads 0x82, not misreads it.
     /// </summary>
-    public const ushort Version = 10;
+    public const ushort Version = 11;
 
     /// <summary>The largest payload a reader accepts; anything bigger is a corrupt length.</summary>
     public const int MaxPayload = 1 << 24;
@@ -617,7 +620,7 @@ public static class AiRecordFormat
 
         ActionIntent a = i.Action;
         w.Write((byte)a.Kind);
-        w.Write((byte)a.Style);
+        w.Write((byte)((byte)a.Style | (i.HoldsAtFriend ? HoldsAtFriendBit : 0)));
         w.Write(a.WeaponSlot);
         w.Write(a.OneShotSeq);
 
@@ -652,13 +655,22 @@ public static class AiRecordFormat
                                   ReadVector(r), ReadVector(r), ReadVector(r), ReadVector(r), r.ReadBoolean(), r.ReadInt32());
         var look = new LookIntent((LookKind)r.ReadByte(), ReadVector(r), ReadActor(r), (AimPoint)r.ReadByte(),
                                   r.ReadSingle(), r.ReadInt32());
-        var action = new ActionIntent((ActionKind)r.ReadByte(), (FireStyle)r.ReadByte(), r.ReadInt32(), r.ReadInt32());
+        var kind = (ActionKind)r.ReadByte();
+        byte style = r.ReadByte();
+        var action = new ActionIntent(kind, (FireStyle)(style & ~HoldsAtFriendBit), r.ReadInt32(), r.ReadInt32());
         var reason = new DecisionReason(r.ReadInt32(), r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
         SayIntent say = More(r)
             ? new SayIntent((CalloutKind)r.ReadByte(), ReadVector(r), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadByte(), r.ReadBoolean())
             : default;
-        return new IntentCommand(bot, from, seq, expires, move, look, action, reason, say);
+        return new IntentCommand(bot, from, seq, expires, move, look, action, reason, say, (style & HoldsAtFriendBit) != 0);
     }
+
+    /// <summary>
+    /// The Intent record's action style byte's top bit (format 11): <see cref="IntentCommand.HoldsAtFriend"/> (round 2's
+    /// S9). No <see cref="FireStyle"/> comes near it, and an intent that does not hold at a friend (every HL2MP one, every
+    /// one recorded before) writes the byte as before; an older file never has it set.
+    /// </summary>
+    public const byte HoldsAtFriendBit = 0x80;
 
     public static void Write(BinaryWriter w, in AiUserCmd c)
     {

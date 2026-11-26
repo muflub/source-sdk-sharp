@@ -41,6 +41,8 @@ Entries by owner (the file keeps its order; this is the index):
 - **User directions waiting on a stage**: the usercmd wire format.
 - **Stock A/B** (tools/stock-ab): what running stock hl2mp beside the test
   mod found and this mod still does differently.
+- **TF2 AI, round 2** (the Scout's lane): a Baby Face's Blaster bot's reach by
+  its own boost meter.
 - **Not open work**: the rulings and divergences kept only here, and the
   closed entries still cited, in the last two sections.
 
@@ -53,6 +55,18 @@ Entries by owner (the file keeps its order; this is the index):
 after the dresser speedup (PR #43): the old code refuses it identically, and
 every other depth at both seeds lints clean. The facts dress seed 0, so
 nothing holds seed 1. Owner: the Descent map work.
+
+## A Baby Face's Blaster bot plans the double jump whatever its boost (2026-11-22)
+
+Stock spends 75 boost on each of a BFB Scout's dashes, the meter clamped at 0
+(tf_gamemovement.cpp:1008-1016; SetScoutHypeMeter, tf_player_shared.cpp:14129):
+free at spawn, dear with a full meter. The coordinator's ruling (2026-11-22,
+round 2 lane r2j) keeps the BFB planning `JumpReach.Double` as any Scout
+(TFJumpKit.ReachOf, src/ai/tf2/server/Nav/TFJumpKit.cs), the behaviour before
+r2j. Open: plan by the meter, `Double` while the bot's own hype is under a
+dash's cost and none above it, with hysteresis so NavFollower.ReachChanged
+does not rebuild on every flicker; the profile needs the bot's own meter
+(TFScoutMeters). Owner: the Scout's round 2 lane.
 
 ## The client prediction still walks through box-solid entities (2026-11-15)
 

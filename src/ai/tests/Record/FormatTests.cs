@@ -36,6 +36,25 @@ public class FormatTests
     public void AnIntentRoundTrips()
         => Assert.Equal(AnIntent, AiRecordFormat.ReadIntent(Reader(Encode(w => AiRecordFormat.Write(w, AnIntent)))));
 
+    /// <summary>
+    /// An intent holding Fire at a friend (round 2's S9) round-trips, with or without a say tail; one that does not encodes
+    /// byte for byte as before (the style byte's top bit is clear), so recordings made before compare.
+    /// </summary>
+    [Fact]
+    public void AnIntentHoldingAtAFriendRoundTripsAndOneThatDoesNotEncodesAsBefore()
+    {
+        IntentCommand beam = AnIntent with { Action = new ActionIntent(ActionKind.Fire, FireStyle.Spray, 0, 0), HoldsAtFriend = true };
+        Assert.Equal(beam, AiRecordFormat.ReadIntent(Reader(Encode(w => AiRecordFormat.Write(w, beam)))));
+        IntentCommand said = beam with { Say = new SayIntent(CalloutKind.Help, new AiVector(1, 2, 3), 1, 0, 4, 2, false) };
+        Assert.Equal(said, AiRecordFormat.ReadIntent(Reader(Encode(w => AiRecordFormat.Write(w, said)))));
+
+        byte[] held = Encode(w => AiRecordFormat.Write(w, beam)), plain = Encode(w => AiRecordFormat.Write(w, beam with { HoldsAtFriend = false }));
+        int[] differ = [.. Enumerable.Range(0, held.Length).Where(i => held[i] != plain[i])];
+        Assert.Equal(held.Length, plain.Length);
+        int at = Assert.Single(differ);
+        Assert.Equal(((byte)FireStyle.Spray, (byte)((byte)FireStyle.Spray | AiRecordFormat.HoldsAtFriendBit)), (plain[at], held[at]));
+    }
+
     [Fact]
     public void AUserCmdRoundTrips()
         => Assert.Equal(AUserCmd, AiRecordFormat.ReadUserCmd(Reader(Encode(w => AiRecordFormat.Write(w, AUserCmd)))));
@@ -74,9 +93,9 @@ public class FormatTests
     public void AnotherFormatVersionIsRefusedByNumber()
     {
         byte[] rec = Recordings.Make(_ => { });
-        rec[8] = 11;
+        rec[8] = 12;
         var e = Assert.Throws<InvalidDataException>(() => Recordings.Replay(rec));
-        Assert.Contains("format 11", e.Message, StringComparison.Ordinal);
+        Assert.Contains("format 12", e.Message, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -94,10 +113,11 @@ public class FormatTests
     [InlineData(7)]
     [InlineData(8)]
     [InlineData(9)]
+    [InlineData(10)]
     public void AnOlderFormatFileStillReads(byte version)
     {
         byte[] rec = Recordings.Make(s => s.AddBot(new ActorId(2, 1), 1, []));
-        Assert.Equal(10, rec[8]);
+        Assert.Equal(11, rec[8]);
         rec[8] = version;
         Assert.Equal(0, Recordings.Replay(rec).RecordedIntentCount);
     }

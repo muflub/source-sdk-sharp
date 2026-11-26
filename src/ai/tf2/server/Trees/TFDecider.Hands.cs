@@ -202,7 +202,8 @@ public sealed partial class TFDecider
 
     /// <summary>
     /// What the hands do beside the fire, by the bot's own kit: the secondary when the primary is dry with the target
-    /// near, the primary back in a lull, and a reload in a lull when the clip is not full. At most once a
+    /// near, the dash weapon for a triple jump just ahead (TFDecider.Dash.cs), else the primary back in a lull, and a reload
+    /// in a lull when the clip is not full. At most once a
     /// <see cref="ClassPlay.SwitchSeconds"/>.
     /// </summary>
     private void GeneralHands()
@@ -216,7 +217,9 @@ public sealed partial class TFDecider
             return;
         }
 
-        if (_targetSighted)
+        // The dash weapon only in a true lull: never with a target in sight or one the bot is hunting (out of sight, still
+        // believed near): the gun comes back for it, as it would with no jump near.
+        if (_targetSighted || (_target is null && DashHands()))
             return;
         if (primary >= 0 && _self.ActiveWeapon != primary)
         {
@@ -248,6 +251,8 @@ public sealed partial class TFDecider
     /// The trigger held at a teammate on purpose (P7, the Medic's A4: a heal beam, a Pyro's spy-check puff): the look on
     /// <paramref name="mate"/> at <paramref name="at"/>, the trigger held, and the friend gate (TFDecider.Feel.cs) lets it
     /// go this decide. A class play calls it from its <see cref="ClassPlay.Engage"/> or <see cref="ClassPlay.OneShots"/>.
+    /// Every friend-fire is a hold: the intent says so (<see cref="IntentCommand.HoldsAtFriend"/>), and a one-shot this decide
+    /// (a voice line, the pop) keeps the trigger down; a decide that does not call it lets go (round 2's S9).
     /// </summary>
     private void FireAtFriend(ActorId mate, AiVector at, FireStyle style = FireStyle.Spray)
     {
