@@ -90,16 +90,38 @@ public static class TFKnowledge
     /// </summary>
     public static float ProjectileGravity(TFProjectile projectile) => Gravity * projectile switch
     {
-        TFProjectile.Pipebomb or TFProjectile.PipebombRemote or TFProjectile.PipebombPractice => TFProjectileDefs.PipebombGravity,
-        // A jar is a grenade projectile (CTFProjectile_Jar over CTFWeaponBaseGrenadeProj): the game's own constant, the one its
-        // TFJar's GravityScale reads (TFProjectileEntities), never a copied number, so the aim follows the game's arc if it changes.
-        TFProjectile.Jar or TFProjectile.JarMilk or TFProjectile.FestiveJar => TFProjectileDefs.PipebombGravity,
+        // The Loose Cannon's ball is the pipebomb's body in its cannonball mode (tf_weapon_grenade_pipebomb.cpp:137-140,
+        // CTFGrenadePipebombProjectile::Create), falling as the pipe does.
+        TFProjectile.Pipebomb or TFProjectile.PipebombRemote or TFProjectile.PipebombPractice or TFProjectile.Cannonball
+            => TFProjectileDefs.GrenadeFallScale,
+        // A jar is a grenade projectile (CTFProjectile_Jar over CTFWeaponBaseGrenadeProj), a physics body as the pipe is: the
+        // game's own constant, never a copied number, so the aim follows the game's arc if it changes.
+        TFProjectile.Jar or TFProjectile.JarMilk or TFProjectile.FestiveJar => TFProjectileDefs.GrenadeFallScale,
         TFProjectile.Arrow or TFProjectile.FestiveArrow => TFProjectileDefs.ArrowGravity(TFProjectileDefs.ArrowChargeTime),
         TFProjectile.HealingBolt or TFProjectile.FestiveHealingBolt or TFProjectile.BuildingRepairBolt => TFProjectileDefs.CrossbowGravity,
         TFProjectile.Syringe => TFProjectileDefs.SyringeGravity,
         TFProjectile.Flare => TFProjectileDefs.FlareGravity,
         _ => 0f,
     };
+
+    /// <summary>
+    /// What a projectile's launch adds along the look's up, u/s: the pipes' and stickies' <c>+ up * 200</c>
+    /// (<see cref="TFProjectileDefs.PipeLaunchUp"/>, <c>FirePipeBomb</c>, tf_weaponbase_gun.cpp:687-688), which the lob takes
+    /// off the aim (<see cref="AimLead.LobLaunch"/>); 0 for every other launch.
+    /// </summary>
+    public static float LaunchUp(TFProjectile projectile) => projectile switch
+    {
+        TFProjectile.Pipebomb or TFProjectile.PipebombRemote or TFProjectile.PipebombPractice or TFProjectile.Cannonball
+            => TFProjectileDefs.PipeLaunchUp,
+        _ => 0f,
+    };
+
+    /// <summary>
+    /// The air's slowing of a thrown grenade (pipe or sticky), per unit: <c>a = -drag |v| v</c>, fitted to a stock grenade
+    /// launcher pipe's logged flight under VPhysics (within 7 u of its arc over 2 s). Short throws can leave it out (a pipe at
+    /// 900 u lands 22 u off without it); a sticky charged from a sentry's stand cannot (about 120 u short at 1,250 u).
+    /// </summary>
+    public const float GrenadeDrag = 1.48e-4f;
 
     /// <summary>
     /// The launch speed stock's launchers keep as C++ constants, which the mod's launch uses when the
@@ -149,7 +171,7 @@ public static class TFKnowledge
             : w.LaunchSpeed > 0f ? w.LaunchSpeed : TFProjectileDefs.Speed(primary.ProjectileSpeed, StockSpeed(projectile));
         float charge = projectile == TFProjectile.PipebombRemote ? TFProjectileBehaviour.MaxChargeTime : ChargeSeconds(w.Behaviour);
         return new WeaponFacts(kind, w.Name, w.ClipSize, w.Interval, reload, ReloadAudible: true, singly, speed,
-                               ProjectileGravity: ProjectileGravity(projectile), ChargeSeconds: charge);
+                               ProjectileGravity: ProjectileGravity(projectile), ChargeSeconds: charge, LaunchUp: LaunchUp(projectile));
     }
 
     /// <summary>

@@ -80,7 +80,7 @@ have a global cool down for all bots to not thrash".
   it happened in. A round that restarts straight back to Preround (waiting for players, about 31 s in) is not
   counted (2026-11-21).
 
-## Where it stands, 2026-11-23
+## Where it stands, 2026-11-25
 
 All of round 1 and round 2's shared hooks are on main:
 
@@ -92,12 +92,14 @@ All of round 1 and round 2's shared hooks are on main:
 | 8 | Pyro (the user's airblast tactics, death-pit pushes); S9, S10, S11; S2, S13, S3's sticky sim | `e2b68e996` |
 | 9 | S5, S7, S8; the game gaps (projectile convergence, Huntsman headshot, Steak lock, reflected mini-crits, Heatmaker, Quick-Fix jump share, kill feed names); the jump sim's convergence | `c0479fd35` |
 | 10 | server and client hitboxes agree: pose dials on the server, the networked eye pitch drawn each frame | `b310a2227` |
+| 11 | round 2 wave 2: S1 (the hands in flight: Market Gardener, B.A.S.E. Jumper), S4 (enemy conditions, recording format 12), S14 (CTF guards, defend spots, failed hops); the Engineer (Ready), Medic and Sniper class lanes; grenades fly as stock's (physics bodies, stock's spin, ray and contact rules), the Flying Guillotine, func_nobuild and trigger_hurt read | `597fd806a` |
 
-Ready (the composition fields them): Scout, Soldier, Pyro, Demoman, Heavy, Spy. Not ready, playing when pinned:
-Engineer, Medic, Sniper. Their leftovers and the open game gaps are in [round2.md](round2.md) §3 and §5.
+Ready (the composition fields them): Scout, Soldier, Pyro, Demoman, Heavy, Spy, Engineer. Not ready, playing when
+pinned: Medic, Sniper. Their leftovers and the open game gaps are in [round2.md](round2.md) §3, §5 and §8.
 
-Round 2's hook S4 (enemy conditions in the view, recording format 12), S1 (the hands in flight) and S14 (stuck
-carriers and guards) are not built. Round 2's class lanes have not started.
+Every round 2 shared hook (S1 to S14) is on main. S12's hurt zones are now read from `trigger_hurt`; granary and
+2fort have none, cp_foundry has four death pits. Round 2's class lanes so far: Engineer, Medic, Sniper (batch 11). Not started: Scout, Soldier,
+Pyro, Demoman, Heavy, Spy.
 
 ### More rulings, 2026-11-22
 

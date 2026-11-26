@@ -232,56 +232,79 @@ public sealed class TFSniperRound2Tests
     /// <summary>
     /// Where a jar thrown along <paramref name="look"/> from <paramref name="eye"/> comes down to <paramref name="floorZ"/>: the
     /// game's launch (forward at 1,000 u/s and 200 u/s along the view's up, TFProjectileEffects' Lob) under the pull it flies by:
-    /// the constant the game's TFJar takes its GravityScale from (TFProjectileDefs.PipebombGravity), whatever its value.
+    /// the game's grenade fall (TFProjectileDefs.GrenadeFallScale: the jar is a physics body, pulled by the world's whole gravity).
     /// </summary>
-    private static AiVector Lands(AiVector eye, AiVector look, float floorZ)
+    private static AiVector Lands(AiVector eye, AiVector look, float floorZ) => LandsAfter(eye, look, floorZ).At;
+
+    private static (AiVector At, float Seconds) LandsAfter(AiVector eye, AiVector look, float floorZ)
     {
         AiVector forward = (look - eye).Normalised();
         var worldUp = new AiVector(0f, 0f, 1f);
         float along = forward.X * worldUp.X + forward.Y * worldUp.Y + forward.Z * worldUp.Z;
         AiVector up = (worldUp - forward * along).Normalised();
         AiVector v = forward * 1000f + up * 200f, p = eye;
-        float g = global::TF2.Server.Projectiles.TFProjectileDefs.PipebombGravity * SourceSharp.Ai.TF2.Knowledge.TFKnowledge.Gravity;
-        for (int i = 0; i < 2000 && (v.Z > 0f || p.Z > floorZ); i++)
+        float g = global::TF2.Server.Projectiles.TFProjectileDefs.GrenadeFallScale * SourceSharp.Ai.TF2.Knowledge.TFKnowledge.Gravity;
+        int steps = 0;
+        for (; steps < 2000 && (v.Z > 0f || p.Z > floorZ); steps++)
         {
             p += v * 0.005f;
             v = new AiVector(v.X, v.Y, v.Z - g * 0.005f);
         }
 
-        return p;
+        return (p, steps * 0.005f);
     }
 
     /// <summary>
     /// A Jarate Sniper throws at two Soldiers together 400 u and 800 u off on the flat: the jar, flying as the game flies it, comes down
-    /// inside its 200 u splash of the pair (the r2s4 review: aimed under the world's whole pull, it landed 196 u and 994 u long).
+    /// inside half its 200 u splash of the pair (the r2s4 review: aimed under the world's whole pull, it landed 196 u and 994 u long).
     /// </summary>
     [Fact]
     public void AJarComesDownInsideItsSplash()
     {
-        float Miss(float distance)
+        float near = JarMiss(400f, default), far = JarMiss(800f, default);
+        Assert.True(near < 100f && far < 100f, $"lands {near:F0} u off at 400 u, {far:F0} u off at 800 u");
+    }
+
+    /// <summary>
+    /// The pair walking across the line at 240 u/s, 800 u off: the jar is aimed where they will be when it comes down, read
+    /// again up to the throw, and lands inside half its splash of where they are then (the re-review: the place was fixed when the
+    /// jar came out, and a walking pair was past the splash by the landing).
+    /// </summary>
+    [Fact]
+    public void AJarLeadsAWalkingPair()
+    {
+        float miss = JarMiss(800f, new AiVector(0f, 240f, 0f));
+        Assert.True(miss < 100f, $"lands {miss:F0} u off the walking pair");
+    }
+
+    /// <summary>How far from the pair (where it is when the jar lands) a throw at it <paramref name="distance"/> off comes down.</summary>
+    private static float JarMiss(float distance, AiVector walk)
+    {
         {
-            TFField f = new(seed: TFSniperPlayTests.SeedOf(TFSniperClass.Jarate), weapons: TFSniperPlayTests.Weapons);
+            TFField f = new(seed: TFSniperPlayTests.SeedOf(TFSniperClass.Jarate), weapons: TFSniperPlayTests.Weapons, tune: p => p with { LeadQuality = 1f });
             AiVector at = new(1024f, 256f, 0f);
-            ActorFacts a = TFSniperPlayTests.Drawn(Soldier, at + new AiVector(distance, -40f, 0f), TFClass.Soldier);
-            ActorFacts b = TFSniperPlayTests.Drawn(new ActorId(6, 0x4000_0001), at + new AiVector(distance, 40f, 0f), TFClass.Soldier);
+            float seconds = 0f;
             for (int n = 0; n < 12; n++)
             {
+                AiVector pair = at + new AiVector(distance, 0f, 0f) + walk * seconds;
+                ActorFacts a = new(Soldier, pair + new AiVector(0f, -40f, 0f), walk, TFSniperPlayTests.Rifle, ActorActivity.None, 1f, TFField.Blue, (int)TFClass.Soldier);
+                ActorFacts b = new(new ActorId(6, 0x4000_0001), pair + new AiVector(0f, 40f, 0f), walk, TFSniperPlayTests.Rifle, ActorActivity.None, 1f, TFField.Blue, (int)TFClass.Soldier);
                 f.Hud = TFSniperPlayTests.Kit(jar: true);
                 int weapon = n == 0 ? TFSniperPlayTests.Rifle : TFSniperPlayTests.JarKind;
                 IntentCommand i = f.StepDrawn(TFSniperPlayTests.Me(at, weapon), TFField.Ctf(), a, b);
-                if (f.Decider.Doing.Verdict == "jarate" && i.Look.Kind == LookKind.Point)
+                if (i.Action.Kind == ActionKind.Fire && f.Decider.Doing.Verdict == "jarate" && i.Look.Kind == LookKind.Point)
                 {
                     AiVector eye = at + new AiVector(0f, 0f, SourceSharp.Ai.TF2.Knowledge.TFKnowledge.AimHeight(AimPoint.Head, TFClass.Sniper).Standing);
-                    AiVector down = Lands(eye, i.Look.Point, 0f);
-                    return new AiVector(down.X - (at.X + distance), down.Y - at.Y, 0f).Length;
+                    (AiVector down, float flight) = LandsAfter(eye, i.Look.Point, 0f);
+                    AiVector then = pair + walk * flight;
+                    return new AiVector(down.X - then.X, down.Y - then.Y, 0f).Length;
                 }
+
+                seconds += DecideSchedule.Period * 0.015f;
             }
 
             throw new InvalidOperationException("never threw");
         }
-
-        float near = Miss(400f), far = Miss(800f);
-        Assert.True(near < 200f && far < 200f, $"lands {near:F0} u off at 400 u, {far:F0} u off at 800 u");
     }
 
     /// <summary>The kill counts the round flow's reset reaches depend on nothing: a dependency there closed a cycle through the weapons, and the server did not compose.</summary>

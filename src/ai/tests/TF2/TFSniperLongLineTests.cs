@@ -1,3 +1,4 @@
+using SourceSharp.Tests;
 using SourceSharp.Ai.Server.Nav;
 using SourceSharp.Ai.TF2.Trees;
 using Xunit;
@@ -183,4 +184,33 @@ public sealed class TFSniperLongLineTests
     [Fact]
     public void OnlyTF2AsksForTheLongPass()
         => Assert.Equal((true, false), (((INavProfile)new SourceSharp.Ai.TF2.Nav.TFNavProfile(null!, null!, null!, null!)).LongSightLines, ((INavProfile)new Plain()).LongSightLines));
+    /// <summary>
+    /// The game's three sight builds (AiNav's load, the nav build job, the room job) each ask the level's profile for the long
+    /// pass: every method of the server binding that calls NavSight.Build also reads INavProfile.LongSightLines (the re-review's
+    /// N1: a false at any one call site left TF2's Snipers with no long line and every fact green).
+    /// </summary>
+    [Fact]
+    public void TheGamesSightBuildsAskTheProfileForTheLongPass()
+    {
+        const System.Reflection.BindingFlags every = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic
+                                                     | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static
+                                                     | System.Reflection.BindingFlags.DeclaredOnly;
+        var builds = new List<string>();
+        var asks = new List<string>();
+        foreach (Type type in typeof(AiNav).Assembly.GetTypes())
+        {
+            foreach (System.Reflection.MethodBase m in type.GetMethods(every).Cast<System.Reflection.MethodBase>().Concat(type.GetConstructors(every)))
+            {
+                System.Reflection.MethodBase[] callees = [.. IlCallCensus.CalleesOf(m)];
+                if (!callees.Any(c => c.DeclaringType == typeof(NavSight) && c.Name == nameof(NavSight.Build)))
+                    continue;
+                builds.Add($"{type.Name}.{m.Name}");
+                if (callees.Any(c => c.DeclaringType == typeof(INavProfile) && c.Name == "get_" + nameof(INavProfile.LongSightLines)))
+                    asks.Add($"{type.Name}.{m.Name}");
+            }
+        }
+
+        Assert.True(builds.Count >= 3, $"sight builds found: {string.Join(", ", builds)}");
+        Assert.Equal(builds, asks);
+    }
 }

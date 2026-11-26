@@ -190,6 +190,7 @@ public sealed partial class TFDecider
         private int _jarPhase;
         private Tick _jarPhaseAt, _jarNextAt;
         private AiVector _jarAt;
+        private readonly List<ActorId> _jarOn = new();
 
         // Counters.
         private long _zooms, _rifleShots, _scopedShots, _chargedShots, _relocations, _spotDecides, _aliveDecides, _jarThrows, _behind, _smgPicks, _meleePicks, _smgReloads, _rifleHits;
@@ -984,10 +985,30 @@ public sealed partial class TFDecider
 
         private void EndJar() => (_jarPhase, _jarNextAt) = (0, After(JarEverySeconds));
 
-        /// <summary>The look while the jar is out: up the arc that lands it on the place it was taken out for (the jar leaves with 200 u/s of lift).</summary>
+        /// <summary>
+        /// The look while the jar is out: up the arc that lands it where the ones it was taken out for will be when it comes
+        /// down (the jar leaves with 200 u/s of lift). Their place is read again each decide and led by their run over the
+        /// flight (the re-review: fixed at the take-out, a walking pair was past the splash by the landing).
+        /// </summary>
         private void JarEngage()
         {
             AiVector eye = D.OwnEye;
+            AiVector now = _jarAt, run = default;
+            int seen = 0;
+            foreach (ref readonly ActorFacts a in D._view.Sighted)
+            {
+                if (_jarOn.Contains(a.Id))
+                    (now, run, seen) = (seen == 0 ? a.Origin : now + a.Origin, run + a.Velocity, seen + 1);
+            }
+
+            if (seen > 0)
+            {
+                now *= 1f / seen;
+                run *= 1f / seen;
+                float flight = new AiVector(now.X - eye.X, now.Y - eye.Y, 0f).Length / JarSpeed;
+                _jarAt = now + new AiVector(run.X, run.Y, 0f) * (flight * D.LeadNow);
+            }
+
             var at = new AiVector(_jarAt.X, _jarAt.Y, _jarAt.Z + TFKnowledge.FeetAim);
             float flat = new AiVector(at.X - eye.X, at.Y - eye.Y, 0f).Length;
             // The arc under the pull the jar flies by (0.4 of the world's, a grenade's): the whole pull put throws 196 u long at
@@ -1009,6 +1030,8 @@ public sealed partial class TFDecider
                 if (friend && (a.Conditions & ActorConditions.Burning) != 0 && d <= JarMateReach && d > 64f)
                 {
                     at = a.Origin;
+                    _jarOn.Clear();
+                    _jarOn.Add(a.Id);
                     return true;
                 }
 
@@ -1034,6 +1057,13 @@ public sealed partial class TFDecider
                 if (group >= 2)
                 {
                     at = sum * (1f / group);
+                    _jarOn.Clear();
+                    foreach (ref readonly ActorFacts b in D._view.Sighted)
+                    {
+                        if (!TeamRule.Friends(D._self.Team, b.Team) && b.Origin.DistanceTo(a.Origin) <= JarSplash)
+                            _jarOn.Add(b.Id);
+                    }
+
                     return true;
                 }
             }

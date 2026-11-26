@@ -163,6 +163,13 @@ public static class TFProjectileDefs
     public const float PipeFuse = 2.0f;
 
     /// <summary>
+    /// How often a grenade's fuse is looked at: <c>DetonateThink</c>'s <c>SetNextThink( gpGlobals-&gt;curtime + 0.2 )</c>
+    /// (<c>tf_weaponbase_grenadeproj.cpp:294</c>, :454), which detonates on the first look past the timer (:447), so a
+    /// 2 s pipe goes off at about 2.1 s (stock's measured flight was still in the air at 2.145 s).
+    /// </summary>
+    public const float FuseCheckSeconds = 0.2f;
+
+    /// <summary>
     /// <c>TF_WEAPON_PIPEBOMB_TIMER_DMG_REDUCTION</c> (<c>tf_weapon_grenade_pipebomb.cpp:47</c>):
     /// a pipe is created at this share of its damage and an enemy contact restores the full
     /// damage (<c>CTFGrenadePipebombProjectile::Create</c>, <c>PipebombTouch</c>).
@@ -262,6 +269,17 @@ public static class TFProjectileDefs
     /// <c>tf_weapon_grenade_pipebomb.cpp:43</c>), which the spawn path never reads.
     /// </summary>
     public const float PipebombGravity = 0.4f;
+
+    /// <summary>
+    /// The share of the world's gravity a grenade falls at: the pipe's, the sticky's and the jars' flight is a physics
+    /// body's (<c>VPhysicsInitNormal</c>, tf_weaponbase_grenadeproj.cpp:280), which the physics environment pulls at the
+    /// whole of <c>-GetCurrentGravity()</c> (physics.cpp:248); <see cref="PipebombGravity"/> is the entity's
+    /// <c>m_flGravity</c>, which no physics body reads (<c>PhysicsSimulate</c>'s <c>MOVETYPE_VPHYSICS</c> arm is empty,
+    /// physics_main_shared.cpp:1827-1830). Stock's flight and the port's both measured it (lane r2s4's A/B, 2026-11-24:
+    /// a pipe's vz 200 at the throw is -490 at 0.9 s, about 800 u/s² with the air's drag). The drag the body also feels is
+    /// the solver's, which a lob's sum here leaves out.
+    /// </summary>
+    public const float GrenadeFallScale = 1f;
 
     /// <summary>InitGrenade's <c>SetFriction( 0.2f )</c> (<c>tf_weaponbase_grenadeproj.cpp:246</c>).</summary>
     public const float PipebombFriction = 0.2f;

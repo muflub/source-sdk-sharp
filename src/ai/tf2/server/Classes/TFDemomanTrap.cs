@@ -201,7 +201,7 @@ public sealed partial class TFDecider
                 return;
             AiVector eye = D.OwnEye;
             AiVector aim = _trapSpot + new AiVector(0f, 0f, 4f);
-            AiVector point = AimLead.Lob(eye, aim, own.ProjectileSpeed, own.ProjectileGravity) ?? aim;
+            AiVector point = AimLead.LobLaunch(eye, aim, own.ProjectileSpeed, own.ProjectileGravity, own.LaunchUp) ?? aim;
             D._look = new LookIntent(LookKind.Point, point, ActorId.None, AimPoint.Feet, 0f, 0);
             if (D._self.Clip <= 0 || !LobSettled(point))
                 return;

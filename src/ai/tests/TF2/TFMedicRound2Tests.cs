@@ -251,6 +251,42 @@ public sealed class TFMedicRound2Tests
         Assert.Equal(1L, Counter(f, "medic.resist_cycles"));
     }
 
+    /// <summary>An enemy sentry in sight is a bullet threat, weighed double: with a Soldier not firing beside it and the resist on blast, the press goes (to bullet); without the sentry, none.</summary>
+    [Fact]
+    public void ASentryInSightIsABulletThreat()
+    {
+        bool Pressed(bool sentry)
+        {
+            TFField f = Field(Vacc(TFMedicClass.ResistBlast));
+            ThingFacts[] things = sentry ? [new ThingFacts(951, ThingKind.Building, (int)TFThingType.Sentry, East(800f), default, TFField.Blue)] : [];
+            return Reloads(f.StepSeeing(Me(), TFField.Ctf(), things, null, Patient(), Shooter(Enemy, 900f, TFClass.Soldier, firing: false)));
+        }
+
+        Assert.Equal((true, false), (Pressed(true), Pressed(false)));
+    }
+
+    /// <summary>The threat is read within 1,500 u: Soldiers firing 1,600 u off with the resist on bullets press nothing; at 1,400 u they do.</summary>
+    [Fact]
+    public void TheThreatIsReadWithinReach()
+    {
+        bool Pressed(float at)
+        {
+            TFField f = Field(Vacc(TFMedicClass.ResistBullet));
+            return Reloads(f.StepDrawn(Me(), TFField.Ctf(), Patient(), Shooter(Enemy, at, TFClass.Soldier)));
+        }
+
+        Assert.Equal((false, true), (Pressed(1600f), Pressed(1400f)));
+    }
+
+    /// <summary>The resist is pressed only with the medigun out: the syringe gun in hand, Soldiers firing and the resist on bullets, no press.</summary>
+    [Fact]
+    public void TheResistIsPressedWithTheMedigunOutOnly()
+    {
+        TFField f = Field(Vacc(TFMedicClass.ResistBullet));
+        IntentCommand i = f.StepDrawn(Me(weapon: Syringe), TFField.Ctf(), Patient(), Shooter(Enemy, 900f, TFClass.Soldier));
+        Assert.False(Reloads(i));
+    }
+
     /// <summary>The bubble (its own row) when the Medic was just hurt, the resist on the threat; unhurt, none.</summary>
     [Fact]
     public void TheBubbleGoesWhenHurtWithTheResistOnTheThreat()
@@ -465,6 +501,30 @@ public sealed class TFMedicRound2Tests
         Assert.NotEqual(TFMedicClass.UntakenVerdict, Verdict(handed: false));
     }
 
+    /// <summary>
+    /// Fetching and guarding weigh nothing while a teammate lives (the coordinator's rule): weighed by a Medic with a teammate on the
+    /// scoreboard, both are 0; by one with none, both stand.
+    /// </summary>
+    [Fact]
+    public void FetchAndGuardWeighNothingWithATeammateAlive()
+    {
+        TFField alone = new(weapons: Weapons, mates: []) { Hud = TFMedicTests.Hud() };
+        TFField mated = Field(TFMedicTests.Hud());
+        alone.StepDrawn(Me(), TFField.Ctf());
+        mated.StepDrawn(Me(), TFField.Ctf());
+        Assert.Equal((0f, 0f), (mated.Decider.Weigh(TFDecider.Fetch, 0.5f), mated.Decider.Weigh(TFDecider.Guard, 0.5f)));
+        Assert.True(alone.Decider.Weigh(TFDecider.Fetch, 0.5f) > 0f && alone.Decider.Weigh(TFDecider.Guard, 0.5f) > 0f, "alone, both stand");
+    }
+
+    /// <summary>Only the carrier hands off: the flag carried by the Soldier beside him, the Medic sends no drop.</summary>
+    [Fact]
+    public void OnlyTheCarrierHandsOff()
+    {
+        TFField f = Field(TFMedicTests.Hud());
+        ObjectiveKnowledge carried = TFField.Ctf(blue: ObjectiveState.Carried, blueAt: East(200f), blueCarrier: Soldier.Slot);
+        Assert.False(IsRow(f, f.StepDrawn(Me(), carried, TFMedicTests.Mate(Soldier, East(200f), TFClass.Soldier)), TFMedicClass.DropFlag));
+    }
+
     /// <summary>A hand-off goes to no Medic: a teammate Medic 200 u off gets no flag.</summary>
     [Fact]
     public void NoHandOffToAMedic()
@@ -473,6 +533,30 @@ public sealed class TFMedicRound2Tests
         ObjectiveKnowledge carried = TFField.Ctf(blue: ObjectiveState.Carried, blueAt: Mid, blueCarrier: f.Bot.Slot);
         IntentCommand i = f.StepDrawn(Me(), carried, TFMedicTests.Mate(Soldier, East(200f), TFClass.Medic));
         Assert.False(IsRow(f, i, TFMedicClass.DropFlag));
+    }
+
+    /// <summary>The guess along the way is capped at 2 s: out of sight 5 s, the patient last seen walking east at 240 u/s is looked for about 480 u on, not 1,200.</summary>
+    [Fact]
+    public void TheWayHeWentIsGuessedTwoSecondsAtMost()
+    {
+        TFField f = Field(TFMedicTests.Hud());
+        f.StepDrawn(Me(), TFField.Ctf(), new ActorFacts(Soldier, East(400f), new AiVector(240f, 0f, 0f), TFField.Launcher, ActorActivity.None, 1f, TFField.Red, (int)TFClass.Soldier));
+        for (int k = 0; k < 56; k++)
+            f.StepDrawn(Me(), TFField.Ctf());
+        float x = f.Decider.Doing.Goal.X;
+        Assert.True(x > East(400f).X + 400f && x < East(400f).X + 560f, $"goal x {x}");
+    }
+
+    /// <summary>The guess needs a floor: a patient last seen walking north off the level's floor is looked for where he was last seen.</summary>
+    [Fact]
+    public void TheWayHeWentNeedsAFloor()
+    {
+        TFField f = Field(TFMedicTests.Hud());
+        AiVector last = Mid + new AiVector(300f, 200f, 0f);
+        f.StepDrawn(Me(), TFField.Ctf(), new ActorFacts(Soldier, last, new AiVector(0f, 240f, 0f), TFField.Launcher, ActorActivity.None, 1f, TFField.Red, (int)TFClass.Soldier));
+        for (int k = 0; k < 12; k++)
+            f.StepDrawn(Me(), TFField.Ctf());
+        Assert.True(f.Decider.Doing.Goal.DistanceTo(last) < 48f, $"goal {f.Decider.Doing.Goal}");
     }
 
     /// <summary>
@@ -532,6 +616,31 @@ public sealed class TFMedicRound2Tests
         TFField stock = Field(TFMedicTests.Hud(charge: 0.3f, beam: Soldier.Slot, mates: [TFMedicTests.Panel(Soldier, 200, 200, East(200f))]));
         IntentCommand s = stock.StepDrawn(Me(), TFField.Ctf(), Patient(), TFMedicTests.Foe(Enemy, East(-500f)));
         Assert.Equal((true, false), (TakesPrimary(b, Syringe), TakesPrimary(s, Syringe)));
+    }
+
+    /// <summary>The Battle Medic weighs the fight as a fighter, twice the Medic's half: the Blutsauger kit's Fight weight is double the stock kit's.</summary>
+    [Fact]
+    public void TheBattleMedicWeighsTheFightAsAFighter()
+    {
+        TFField battle = Field(BattleHud());
+        TFField stock = Field(TFMedicTests.Hud(charge: 0.3f, beam: Soldier.Slot, mates: [TFMedicTests.Panel(Soldier, 200, 200, East(200f))]));
+        battle.StepDrawn(Me(), TFField.Ctf(), Patient());
+        stock.StepDrawn(Me(), TFField.Ctf(), Patient());
+        Assert.Equal(2f * stock.Decider.Weigh(TFDecider.Fight, 0.3f), battle.Decider.Weigh(TFDecider.Fight, 0.3f), 3);
+    }
+
+    /// <summary>The Battle Medic keeps the medigun out with the charge ready: an enemy 500 u off and a full bar, no primary.</summary>
+    [Fact]
+    public void TheBattleMedicDoesNotFightWithAChargeReady()
+    {
+        TFHud full = BattleHud();
+        full = new TFHud(full.Kit, [.. full.Meters.Select(m => m.Name == TFMedigunMeters.Charge ? new TFMeter(m.Name, 1f) : m)], full.Mates);
+        TFField f = Field(full);
+        // Past the first decide's "ÜberCharge ready!" (a one-shot that holds the hands that decide).
+        var taken = new List<bool>();
+        for (int k = 0; k < 5; k++)
+            taken.Add(TakesPrimary(f.StepDrawn(Me(), TFField.Ctf(), Patient(), TFMedicTests.Foe(Enemy, East(-500f))), Syringe));
+        Assert.DoesNotContain(true, taken);
     }
 
     /// <summary>The Battle Medic's patient hurt (his panel at half): the medigun stays on him.</summary>

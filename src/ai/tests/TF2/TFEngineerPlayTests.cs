@@ -1089,15 +1089,60 @@ public sealed class TFEngineerPlayTests
         float step = DecideSchedule.Period * 0.015f;
         f.Step(Engineer(held, metal: 200), PointPair(ownOpen: false));
         Assert.Equal("to the exit spot", f.Decider.Doing.Verdict);
-        bool gaveUp = false;
-        for (int n = 0; n < (int)(45f / step) && !gaveUp; n++)
+        int n = 0, gaveUpAt = -1;
+        for (; n < (int)(45f / step) && gaveUpAt < 0; n++)
         {
             f.Step(Engineer(held, metal: 200), PointPair(ownOpen: false));
-            gaveUp = f.Decider.Doing.Verdict != "to the exit spot";
+            if (f.Decider.Doing.Verdict != "to the exit spot")
+                gaveUpAt = n;
         }
 
-        Assert.True(gaveUp, "still walking at the exit's stand after 45 s");
+        Assert.True(gaveUpAt >= 0, "still walking at the exit's stand after 45 s");
+        Assert.True(gaveUpAt * step >= TFEngineerPatienceSeconds - 1f, $"given up at {gaveUpAt * step} s, before the patience");
+        // Given up, not a one-decide blink: off the walk to the exit for stock's 30 s retry (checked to 20 s on) ...
+        for (int k = 0; k < (int)(20f / step); k++)
+        {
+            f.Step(Engineer(held, metal: 200), PointPair(ownOpen: false));
+            Assert.NotEqual("to the exit spot", f.Decider.Doing.Verdict);
+        }
+
+        // ... and back on it once the retry is done.
+        bool again = false;
+        for (int k = 0; k < (int)(15f / step) && !again; k++)
+        {
+            f.Step(Engineer(held, metal: 200), PointPair(ownOpen: false));
+            again = f.Decider.Doing.Verdict == "to the exit spot";
+        }
+
+        Assert.True(again, "never walked to the exit again after stock's 30 s retry");
     }
+
+    /// <summary>The entrance's twin: an entrance stand never reached is given up for the life, not walked at again a decide later.</summary>
+    [Fact]
+    public void AnEntranceStandNeverReachedIsGivenUpForTheLife()
+    {
+        var f = RoomField(Hud());
+        float step = DecideSchedule.Period * 0.015f;
+        f.Step(Engineer(InTheRoom), PointPair(ownOpen: false));
+        Assert.Equal("to the entrance spot", f.Decider.Doing.Verdict);
+        int gaveUpAt = -1;
+        for (int n = 0; n < (int)(45f / step) && gaveUpAt < 0; n++)
+        {
+            f.Step(Engineer(InTheRoom), PointPair(ownOpen: false));
+            if (f.Decider.Doing.Verdict != "to the entrance spot")
+                gaveUpAt = n;
+        }
+
+        Assert.True(gaveUpAt >= 0, "still walking at the entrance's stand after 45 s");
+        for (int k = 0; k < (int)(40f / step); k++)
+        {
+            f.Step(Engineer(InTheRoom), PointPair(ownOpen: false));
+            Assert.NotEqual("to the entrance spot", f.Decider.Doing.Verdict);
+        }
+    }
+
+    /// <summary>The sentry spot's patience a pad stand takes (EngineerPlay's SpotPatienceSeconds).</summary>
+    private const float TFEngineerPatienceSeconds = 30f;
 
     [Fact]
     public void WithNoEntranceHeBuildsNoExit()

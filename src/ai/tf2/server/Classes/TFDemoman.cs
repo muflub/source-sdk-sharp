@@ -107,6 +107,56 @@ public static class TFDemomanClass
     public const float SentryReach = 2500f, SentryStandOff = 150f, SentryNear = 120f, SentryGiveUpSeconds = 20f, SentryHealthShare = 0.4f,
                        SentryUtility = 0.7f;
 
+    // SentryReach is how far off a seen sentry the bot will go to its stand: every stand is SentryStandOff past the sentry's
+    // range, where a tap falls short (StickyLevelReach) and the throw is charged. A full charge still has an arc onto a
+    // sentry at SentryReach itself, with the game's launch, fall and drag (AFullChargeHasAnArcOntoASentryAtTheSentryReach).
+
+    /// <summary>
+    /// How far a sticky launched at <paramref name="speed"/> lands on level ground at its best angle, drag left out: the
+    /// launch's speed with the game's up-kick (<c>forward * speed + up * 200</c>, <see cref="TFProjectileDefs.PipeLaunchUp"/>)
+    /// squared over the grenade's fall (<see cref="TFKnowledge.ProjectileGravity"/>). An uncharged sticky (900 u/s) reaches
+    /// about 1,060 u, short of a stand (1,250 u); a full charge (2,400 u/s) about 7,250, which the air's drag cuts well short.
+    /// </summary>
+    public static float StickyLevelReach(float speed)
+        => (speed * speed + TFProjectileDefs.PipeLaunchUp * TFProjectileDefs.PipeLaunchUp)
+           / Knowledge.TFKnowledge.ProjectileGravity(TFProjectile.PipebombRemote);
+
+    /// <summary>
+    /// Seconds a sticky launcher is held to throw at <paramref name="speed"/>: the inverse of the game's charge
+    /// (<see cref="TFProjectileDefs.StickySpeed"/>, 900 to 2,400 u/s over <paramref name="chargeSeconds"/>).
+    /// </summary>
+    public static float StickyChargeFor(float speed, float chargeSeconds)
+        => Math.Clamp((speed - TFProjectileDefs.StickyMinChargeSpeed) / (TFProjectileDefs.StickyMaxChargeSpeed - TFProjectileDefs.StickyMinChargeSpeed),
+                      0f, 1f) * chargeSeconds;
+
+    /// <summary>
+    /// What a charged throw at a sentry adds to the least speed that reaches it: the port's own margin, so the throw is
+    /// never at its speed's furthest reach, where the arc is steepest and least forgiving. Stock's tf_bot instead holds the
+    /// trigger 1.1 times the charge time its search found and keeps that aim, to overshoot (tf_bot_stickybomb_sentrygun.cpp:183-196);
+    /// here the arc is solved again for the margined speed, a flatter arc, not an overshoot.
+    /// </summary>
+    public const float SentryChargeMargin = 1.08f;
+
+    /// <summary>
+    /// The sticky thrown from <paramref name="eye"/> at a sentry's <paramref name="aim"/>: the least speed, from a tap's to a
+    /// full charge's in 25 u/s steps, whose arc (the game's launch) lands on it, times <see cref="SentryChargeMargin"/>, and
+    /// the look that lands it at that speed with the air's drag flown (<see cref="AimLead.LobLaunchDragged"/>). Null when no
+    /// speed to a full charge reaches it.
+    /// </summary>
+    public static (float Speed, AiVector Look)? SentryThrow(AiVector eye, AiVector aim, in WeaponFacts own)
+    {
+        for (float s = own.ProjectileSpeed; s <= TFProjectileDefs.StickyMaxChargeSpeed; s += 25f)
+        {
+            if (AimLead.LobLaunch(eye, aim, s, own.ProjectileGravity, own.LaunchUp) is null)
+                continue;
+            float margined = MathF.Min(TFProjectileDefs.StickyMaxChargeSpeed, s * SentryChargeMargin);
+            if (AimLead.LobLaunchDragged(eye, aim, margined, own.ProjectileGravity, own.LaunchUp, Knowledge.TFKnowledge.GrenadeDrag) is { } look)
+                return (margined, look);
+        }
+
+        return null;
+    }
+
     public const int SentryStickies = 3;
 
     /// <summary>A lob at a place (a trap's spot, a sentry) goes once the view has held it this long (a reaction and a flick), the place within this of where it was.</summary>
@@ -193,7 +243,7 @@ public static class TFDemomanClass
 /// <see cref="TFHud.Kit"/>), so a pinned or hand-picked loadout plays right whatever its archetype's name.
 /// </summary>
 public sealed record TFDemomanKit(bool Pipes, bool Stickies, bool Shield, bool InViewDetonate, bool NoRoll, bool Shatter, bool Sword, bool TideTurner,
-                                  int MaxStickies, float ArmSeconds)
+                                  int MaxStickies, float ArmSeconds, float StickyChargeSeconds = TFProjectileBehaviour.MaxChargeTime)
 {
     public const string GrenadeLauncher = "tf_weapon_grenadelauncher", Cannon = "tf_weapon_cannon", StickyLauncher = "tf_weapon_pipebomblauncher",
                         ShieldClass = "tf_wearable_demoshield", SwordClass = "tf_weapon_sword", KatanaClass = "tf_weapon_katana";
@@ -216,9 +266,14 @@ public sealed record TFDemomanKit(bool Pipes, bool Stickies, bool Shield, bool I
         bool inView = stickies && (int)secondary.Attribute("set_detonate_mode", 0f) == TFProjectileDefs.DetonateModeDot;
         int most = stickies ? TFProjectileDefs.MaxStickies + (int)secondary.Attribute("add_max_pipebombs", 0f) : 0;
         float arm = TFProjectileDefs.StickyArmTime + (stickies ? secondary.Attribute("sticky_arm_time", 0f) : 0f);
+        // GetChargeMaxTime (tf_weapon_pipebomblauncher.cpp): 4 s through the stickybomb_charge_rate hook, an inverted
+        // percentage the window is multiplied by (the Quickiebomb's 0.3: 1.2 s).
+        float charge = TFProjectileBehaviour.MaxChargeTime
+                       * (stickies ? secondary.Attribute(TFProjectileBehaviour.ChargeRateAttribute, 1f) : 1f);
         return new TFDemomanKit(pipes, stickies, shield, inView, pipes && primary.Has("grenade_no_bounce"),
                                 pipes && (int)primary.Attribute("set_detonate_mode", 0f) == TFProjectileDefs.DetonateModeAir, sword,
-                                shield && worn.Has("lose_demo_charge_on_damage_when_charging"), most, MathF.Max(0.1f, arm));
+                                shield && worn.Has("lose_demo_charge_on_damage_when_charging"), most, MathF.Max(0.1f, arm),
+                                MathF.Max(0.1f, charge));
     }
 }
 
@@ -440,7 +495,8 @@ public sealed partial class TFDecider
 
         /// <summary>
         /// A sticky at the target in sight: lobbed on the low arc at its feet (on the ground) or its body, led by the flight,
-        /// tapped (an uncharged sticky, 900 u/s, lobs to 2,500 u); never inside <see cref="TFDemomanClass.PointBlank"/>, where
+        /// tapped (an uncharged sticky, 900 u/s, lands at most about 1,060 u off on level ground: <see cref="TFDemomanClass.StickyLevelReach"/>);
+        /// never inside <see cref="TFDemomanClass.PointBlank"/>, where
         /// the blast would take the bot too.
         /// </summary>
         private void StickyAtTarget()
@@ -451,7 +507,7 @@ public sealed partial class TFDecider
             var aim = new AiVector(D._targetPos.X, D._targetPos.Y, D.AimHeight(feet));
             AiVector eye = D.OwnEye;
             AiVector led = AimLead.Point(eye, aim, D._targetVel, own.ProjectileSpeed, D.LeadNow);
-            AiVector lobbed = AimLead.Lob(eye, led, own.ProjectileSpeed, own.ProjectileGravity) ?? led;
+            AiVector lobbed = AimLead.LobLaunch(eye, led, own.ProjectileSpeed, own.ProjectileGravity, own.LaunchUp) ?? led;
             AiVector point = lobbed + D.AimError(lobbed, feet);
             D._look = new LookIntent(LookKind.Actor, point, D._target!.Id, feet ? AimPoint.Feet : AimPoint.Body, (led - aim).Length, 0);
             if (D._targetDist < TFDemomanClass.PointBlank || D._self.Clip <= 0)
@@ -931,22 +987,66 @@ public sealed partial class TFDecider
             return false;
         }
 
-        /// <summary>Stickies lobbed onto the sentry in sight from past its range, until enough lie by it (the detonation waits for them at rest).</summary>
+        /// <summary>
+        /// Stickies lobbed onto the sentry in sight from past its range, until enough lie by it (the detonation waits for them at
+        /// rest). From the stand a tap cannot reach (<see cref="TFDemomanClass.StickyLevelReach"/>), so the throw is charged as
+        /// stock's tf_bot charges it (<c>CTFBotStickybombSentrygun</c>, tf_bot_stickybomb_sentrygun.cpp:183-200, 225-259): the
+        /// least speed whose arc lands on it, with <see cref="TFDemomanClass.SentryChargeMargin"/>, held for its charge
+        /// (<see cref="TFDemomanClass.StickyChargeFor"/>) and let go; the look is that speed's arc, the air's drag flown
+        /// (<see cref="AimLead.LobLaunchDragged"/>: a drag-free aim falls about 120 u short from the stand). No speed reaching it, no throw.
+        /// </summary>
         private void StickyAtSentry(AiVector sentry)
         {
             if (!D.HeldFacts(out WeaponFacts own) || own.ProjectileSpeed <= 0f)
                 return;
             AiVector eye = D.OwnEye;
             AiVector aim = sentry + new AiVector(0f, 0f, 8f);
-            AiVector point = AimLead.Lob(eye, aim, own.ProjectileSpeed, own.ProjectileGravity) ?? aim;
+            if (TFDemomanClass.SentryThrow(eye, aim, in own) is not (float speed, AiVector point))
+            {
+                _chargeSince = new Tick(-1);
+                D._look = new LookIntent(LookKind.Point, aim, ActorId.None, AimPoint.Body, 0f, 0);
+                D._verdict = "no arc reaches the sentry";
+                return;
+            }
+
             D._look = new LookIntent(LookKind.Point, point, ActorId.None, AimPoint.Body, 0f, 0);
             int near = 0;
             for (int i = 0; i < _outCount; i++)
                 near += Flat(_out[i].At - _sentryAt) <= TFDemomanClass.SentryNear ? 1 : 0;
             if (near >= SentryNeed || D._self.Clip <= 0 || Flat(eye - sentry) < Knowledge.TFKnowledge.SentryRange || !LobSettled(point))
+            {
+                _chargeSince = new Tick(-1);
                 return;
-            Fire(aim, eye, own.ProjectileSpeed);
+            }
+
+            // The held launcher's own full-charge time (the kit's GetChargeMaxTime), not the catalog's 4 s for every sticky launcher.
+            float hold = TFDemomanClass.StickyChargeFor(speed, Kit.StickyChargeSeconds);
+            if (hold <= 0f)
+            {
+                Fire(aim, eye, speed);
+                return;
+            }
+
+            // The charge: the trigger held from the first decide that settled on the arc, let go once the charge is in.
+            if (_chargeSince.Value < 0 || D._now - _chargeSeenAt > DecideSchedule.Period * 2)
+                _chargeSince = D._now;
+            _chargeSeenAt = D._now;
+            if ((D._now - _chargeSince) * D._tick < hold)
+            {
+                D._action = new ActionIntent(ActionKind.Fire, FireStyle.Spray, 0, 0);
+                D._verdict = "charging a sticky at a sentry";
+                return;
+            }
+
+            // Let go: no fire this decide throws it; booked as the shot the clip's drop names.
+            _chargeSince = new Tick(-1);
+            D.Shots++;
+            _aimedSticky = true;
+            _stickyAim = aim;
+            _stickyFlight = eye.DistanceTo(aim) / MathF.Max(1f, speed) * 1.2f + 0.1f;
         }
+
+        private Tick _chargeSince = new(-1), _chargeSeenAt;
 
         /// <summary>Pipes lobbed at the sentry in sight from past its range (a kit with no stickies, or none loaded).</summary>
         private void PipeAtSentry(AiVector sentry)
@@ -955,7 +1055,8 @@ public sealed partial class TFDecider
                 return;
             AiVector eye = D.OwnEye;
             AiVector aim = sentry + new AiVector(0f, 0f, 24f);
-            AiVector point = AimLead.Lob(eye, aim, own.ProjectileSpeed, own.ProjectileGravity) ?? aim;
+            AiVector point = AimLead.LobLaunchDragged(eye, aim, own.ProjectileSpeed, own.ProjectileGravity, own.LaunchUp, Knowledge.TFKnowledge.GrenadeDrag)
+                             ?? AimLead.LobLaunch(eye, aim, own.ProjectileSpeed, own.ProjectileGravity, own.LaunchUp) ?? aim;
             D._look = new LookIntent(LookKind.Point, point, ActorId.None, AimPoint.Body, 0f, 0);
             if ((own.HasClip && D._self.Clip <= 0) || Flat(eye - sentry) < Knowledge.TFKnowledge.SentryRange || !LobSettled(point))
                 return;

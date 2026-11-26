@@ -1550,3 +1550,23 @@ boundary-design task). **Owner:** the live gate / the physics boundary.
 **Next:** check in stock whether those debris settle against the fan (the
 A/B probe technique); if they rub there too, batch Friction natively into
 the event ring rather than one crossing per report.
+
+## TF2: the spawner's generic pipe is born unfaced and unspun (2026-11-24)
+
+From the r2s4 review (lane r2s4, worktree ss-r2-s4). `ITFProjectileSpawner.Spawn` (`TFProjectileSpawner.cs`, the
+pipe arm of its switch), the launch Descent's robots use, creates the pipe with `Born(className, origin)`: facing
+(0, 0, 0) and with no spin. The weapons' own launch (`TFProjectileEffects`) was fixed in `ba5c8d873a` to stock's
+`CreateNoSpawn( class, position, angEyes, owner )` and the doubled `AngularImpulse( 600, rand, 0 )` in the body's
+own axes (`TFProjectileEffects.GrenadeSpin`); without them a pipe thrown along y flies broadside and takes about
+1.6 times stock's air drag. Born it facing the request's velocity (or angles the request carries) and spin it
+through `GrenadeSpin`, with a fact on the spawner's pipe.
+
+## tools/stock-ab/build-stock: this repo's render tracer no longer compiles in stock's TF client (2026-11-24)
+
+Found by lane r2s4 (stock A/B of the grenade arc). `build-stock` copies `shell_render_trace_client.cpp` and its
+headers into the clone's gitignored `src/game/client/ss_ab/` on every build, and stock's client then fails:
+`shell_client_engine_interfaces.h: No such file or directory` and `ss_ab_client.cpp:184: too few arguments to
+function 'bool RenderTrace::Begin(const CClientEngineInterfaces&)'`. The lane built stock's server alone (a copy
+of the script that runs `ninja ... server_tf` and skips the copy). A shim patch in `tools/stock-ab/patches` that
+carries the new include and `Begin`'s argument, as patch 0007 did for `client_entity.h`, fixes it.
+

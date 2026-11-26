@@ -181,7 +181,7 @@ public sealed partial class TFDecider
         {
             AiVector led = AimLead.Point(eye, aim, _targetVel, own.ProjectileSpeed, LeadNow);
             // A falling projectile goes up the arc that brings it down on the led point (none when the speed cannot reach it).
-            if (own.ProjectileGravity > 0f && AimLead.Lob(eye, led, own.ProjectileSpeed, own.ProjectileGravity) is { } lobbed)
+            if (own.ProjectileGravity > 0f && AimLead.LobLaunch(eye, led, own.ProjectileSpeed, own.ProjectileGravity, own.LaunchUp) is { } lobbed)
                 led = lobbed;
             lead = (led - aim).Length;
             aim = led;

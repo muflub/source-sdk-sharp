@@ -533,10 +533,21 @@ public sealed class TFPipebomb : ScriptedEntity, ITFOwnedProjectile
 
         // Spawn's fuse booking (tf_weapon_grenade_pipebomb.cpp:521) through
         // SetDetonateTimerLength (tf_weaponbase_grenadeproj.cpp:481-490): the
-        // 2 s scale under the launcher's fuse_mult — the Iron Bomber's 0.7.
-        SetNextThink(TFProjectileDefs.PipeFuse * Attributes.Float(1f, "fuse_mult",
-                                                                Owners.ItemOf(_ownerIndex, WeaponName)));
+        // 2 s scale under the launcher's fuse_mult — the Iron Bomber's 0.7 —
+        // looked at by DetonateThink every 0.2 s from the spawn (:293-294).
+        _detonateAt = Clock.Now + TFProjectileDefs.PipeFuse * Attributes.Float(1f, "fuse_mult",
+                                                                             Owners.ItemOf(_ownerIndex, WeaponName));
+        SetNextThink(TFProjectileDefs.FuseCheckSeconds);
     }
+
+    /// <summary>Stock's <c>m_flDetonateTime</c>: when the next look at the fuse sets it off.</summary>
+    private float _detonateAt;
+
+    /// <summary>When the fuse is due: the first <see cref="OnThink"/> after it sets the pipe off.</summary>
+    public float DetonateAt => _detonateAt;
+
+    /// <summary>A collision's <c>SetThink( Detonate )</c> for this frame (tf_weapon_grenade_pipebomb.cpp:872-873).</summary>
+    private bool _detonateNow;
 
     /// <summary>
     /// <c>FireProjectileInternal</c>'s charged fuse
@@ -552,8 +563,8 @@ public sealed class TFPipebomb : ScriptedEntity, ITFOwnedProjectile
     {
         if (remaining > 0f)
         {
-            SetNextThink(remaining * Attributes.Float(1f, "fuse_mult",
-                                                    Owners.ItemOf(_ownerIndex, WeaponName)));
+            _detonateAt = Clock.Now + remaining * Attributes.Float(1f, "fuse_mult",
+                                                                Owners.ItemOf(_ownerIndex, WeaponName));
             return;
         }
 
@@ -563,14 +574,16 @@ public sealed class TFPipebomb : ScriptedEntity, ITFOwnedProjectile
 
     /// <summary>
     /// <c>CTFWeaponBaseGrenadeProj::VPhysicsUpdate</c>'s server branch
-    /// (<c>tf_weaponbase_grenadeproj.cpp:716-795</c>), which stock shares
-    /// between both bombs: the ray one tick ahead stops the pipe at closed
-    /// doors and other brushes the solver's pair table does not, reflecting
-    /// the velocity off the hit normal (:781), absorbing
-    /// <see cref="TFProjectileDefs.PipebombElasticity"/> (:784), an enemy hit
-    /// half again (:786-789), the angular velocity reversed and halved
-    /// (:791). Same gate as the sticky's: a named enemy, or a teammate past
-    /// <see cref="CanCollideWithTeammates"/>; the thrower is a miss.
+    /// (<c>tf_weaponbase_grenadeproj.cpp:716-795</c>, <see cref="TFGrenadeRay"/>):
+    /// the ray one tick ahead returns a player or a building, touches it first
+    /// (:774, the pipe's <see cref="OnTouch"/>: an enemy sets an unlatched
+    /// pipe off), and, the pipe still there, bounces it off an enemy or a
+    /// teammate past <see cref="CanCollideWithTeammates"/>: the velocity
+    /// reflected off the hit normal (:781), times
+    /// <see cref="TFProjectileDefs.PipebombElasticity"/> (:784), an enemy half
+    /// again (:786-789), the angular velocity reversed and halved (:791). The
+    /// thrower is a miss. Most player contacts reach the pipe as the engine's
+    /// touch after the solver's collision instead (docs/divergences.md).
     /// </summary>
     public override void OnPhysicsUpdate()
     {
@@ -578,30 +591,24 @@ public sealed class TFPipebomb : ScriptedEntity, ITFOwnedProjectile
             return;
 
         Vector velocity = Entities.GetVelocity(Handle);
-        Vector start = Origin;
-        TraceResult hit = World.TraceLine(start, start + velocity * Frame.GetFrameTime(),
-                                          TraceMask.Shot, Handle);
+        if (TFGrenadeRay.Struck(World, Entities, Players, Directory, Handle, _thrower, Origin, velocity, Frame.GetFrameTime()) is not { } hit)
+            return;
 
-        if (hit.Entity == EntityHandle.None || hit.Entity == _thrower)
+        // Touch( tr.m_pEnt ) first (:774): an enemy's sets the pipe off at full damage (PipebombTouch). A pipe gone is not
+        // bounced (stock's bounce lands on an entity its deferred remove has already taken).
+        OnTouch(hit.Entity);
+        if (_spent)
             return;
 
         int myTeam = MyTeam();
-        int hitTeam = Players.GetTeam(hit.Entity);
-        bool hitEnemy = hitTeam != 0 && myTeam != 0 && hitTeam != myTeam;
+        int hitTeam = TFGrenadeRay.TeamOf(Entities, Players, Directory, hit.Entity);
+        bool hitEnemy = TFGrenadeRay.IsEnemy(hitTeam, myTeam);
         bool hitFriendly = hitTeam == myTeam && CanCollideWithTeammates;
 
         if (!hitEnemy && !hitFriendly)
             return;
 
-        // reflect velocity around normal (:781), then absorb 55% (:784).
-        Vector reflected = -2f * hit.Normal * velocity.Dot(hit.Normal) + velocity;
-        reflected *= TFProjectileDefs.PipebombElasticity;
-
-        if (hitEnemy)
-            reflected *= 0.5f;
-
-        Entities.SetVelocity(Handle, reflected);
-        Entities.SetAngularVelocity(Handle, Entities.GetAngularVelocity(Handle) * -0.5f);
+        TFGrenadeRay.BounceOff(Entities, Handle, velocity, in hit, hitEnemy);
         Log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Pipebomb} bounced off " +
                 $"{Entities.GetClassName(hit.Entity)} at {Origin}\n");
     }
@@ -643,13 +650,105 @@ public sealed class TFPipebomb : ScriptedEntity, ITFOwnedProjectile
         Skins.SetSkin(Handle, team == (int)TFTeam.Blue ? 1 : 0);
     }
 
-    /// <summary>The fuse: the blast at the timer's reduced damage (<c>:476</c>).</summary>
+    /// <summary>
+    /// <c>DetonateThink</c> (<c>tf_weaponbase_grenadeproj.cpp:439-455</c>): past the timer, or when a collision asked for
+    /// it, the blast at the timer's reduced damage (<c>:476</c>); else the fuse is looked at again in 0.2 s.
+    /// </summary>
     public override void OnThink()
     {
         if (_spent)
             return;
+        if (!_detonateNow && Clock.Now <= _detonateAt)
+        {
+            SetNextThink(TFProjectileDefs.FuseCheckSeconds);
+            return;
+        }
+
         _spent = true;
         Explode(_fuseDamage, directVictim: EntityHandle.None);
+    }
+
+    /// <summary>
+    /// <c>CTFGrenadePipebombProjectile::VPhysicsCollision</c>'s regular arm (<c>tf_weapon_grenade_pipebomb.cpp:849-901</c>),
+    /// the solver's impact (the router's, as the sticky's): on anything it names, the world's static side or an entity, the
+    /// wall shatter; a grenade-taking training prop sets it off this frame while it is untouched; the first impact scales the
+    /// fuse's damage and sinks a no-bounce launcher's bounce; every impact marks it touched, after which a touch no longer
+    /// sets it off. A side that names nothing and is not static is no one's (<c>!pHitEntity</c>, :856-857). Stock's arm for an
+    /// enemy body that takes damage (:877-881) waits on a team and take-damage seam for every entity.
+    /// </summary>
+    public override void OnVPhysicsCollision(in PhysicsEvent ev, int index)
+    {
+        if (_spent || index is not (0 or 1))
+            return;
+
+        bool mine = index == 0;
+        uint other = mine ? ev.Entity1 : ev.Entity0;
+        EntityHandle hit = other == PhysicsEvent.NoEntity ? EntityHandle.None : new EntityHandle(other);
+        if (hit == EntityHandle.None && (mine ? ev.Static1 : ev.Static0) == 0)
+            return;
+        // A player's side is no impact: stock's grenades never collide with players (tf_gamerules.cpp:18053-18060), whose
+        // contact is the ray's touch (OnPhysicsUpdate) and the touch. The port's solver, with no TF collision groups, does
+        // collide them; that collision neither latches nor scales the pipe.
+        if (hit != EntityHandle.None && Entities.IsPlayer(hit))
+            return;
+
+        if (hit != EntityHandle.None && TakesGrenades(hit))
+        {
+            if (!_touched)
+                DetonateNow();
+        }
+        else if (hit != EntityHandle.None && IsEnemyItCanDamage(hit))
+        {
+            // Blow up if we hit an enemy we can damage (:877-881): Detonate at the next think, at the fuse's damage, the
+            // touch's full-damage restore (:824) not taken.
+            DetonateNow();
+        }
+
+        SolvedImpact();
+    }
+
+    private void DetonateNow()
+    {
+        _detonateNow = true;
+        SetNextThink(0f);
+    }
+
+    /// <summary>Stock's "an enemy we can damage" (:877): <see cref="TFGrenadeRay.IsEnemy"/> over <see cref="TFGrenadeRay.TeamOf"/>.</summary>
+    private bool IsEnemyItCanDamage(EntityHandle hit)
+    {
+        return TFGrenadeRay.IsEnemy(TFGrenadeRay.TeamOf(Entities, Players, Directory, hit), MyTeam());
+    }
+
+    /// <summary><c>PropDynamic_CollidesWithGrenades</c> (<c>tf_gamerules.cpp:19308-19320</c>): a training prop with the spawnflag.</summary>
+    private bool TakesGrenades(EntityHandle prop)
+        => Entities.GetClassName(prop) == "training_prop_dynamic"
+           && (Entities.GetSpawnFlags(prop) & TFStickybomb.GrenadeCollisionSpawnFlag) != 0;
+
+    /// <summary>
+    /// The impact's own arms (<c>VPhysicsCollision</c> :859-899): the Loch-n-Load's wall shatter — the armed pipe's first
+    /// collision is Fizzle then Detonate, which land in the m_bFizzle arm (:606-617): sparks and gone, no blast (the sparks
+    /// are the client's; the port's fizzle is the removal) — then the first impact's damage scale
+    /// (<c>SetDamage( GetDamageScaleOnWorldContact() * GetDamage() )</c>) and the Iron Bomber's <c>grenade_no_bounce</c>,
+    /// which sinks it to a tenth of its velocity, the spin untouched; and the touched latch (:900).
+    /// </summary>
+    private void SolvedImpact()
+    {
+        if (WallShatter)
+        {
+            _spent = true;
+            Log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Pipebomb} shattered at {Origin}\n");
+            Remove();
+            return;
+        }
+
+        if (!_touched)
+        {
+            _fuseDamage *= WorldContactDamageScale();
+            if (Attributes.Int(0, "grenade_no_bounce", Owners.ItemOf(_ownerIndex, WeaponName)) == 1)
+                Entities.SetVelocity(Handle, Entities.GetVelocity(Handle) * 0.1f);
+        }
+
+        _touched = true;
     }
 
     public override void OnTouch(EntityHandle toucher)
@@ -677,37 +776,11 @@ public sealed class TFPipebomb : ScriptedEntity, ITFOwnedProjectile
             }
         }
 
-        // World contact (the port's model of VPhysicsCollision :883-885): the
-        // first one scales the fuse's stored damage the way stock's
-        // SetDamage(GetDamageScaleOnWorldContact() * GetDamage()) does, and
-        // marks m_bTouched — after that the pipe no longer explodes on
-        // contact (:753-754); it waits for its fuse.
+        // A world contact that reaches the touch is the solved impact's (the physics collision is its route,
+        // OnVPhysicsCollision): the same arms.
         if (toucher == EntityHandle.None)
         {
-            // The wall shatter (VPhysicsCollision :859-864): the armed pipe's
-            // first collision is Fizzle then Detonate, which land in the
-            // m_bFizzle arm (:606-617) — sparks and gone, no blast. The
-            // sparks are the client's particles; the port's fizzle is the
-            // removal.
-            if (WallShatter)
-            {
-                _spent = true;
-                Log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Pipebomb} shattered at {Origin}\n");
-                Remove();
-                return;
-            }
-
-            if (!_touched)
-            {
-                _touched = true;
-                _fuseDamage *= WorldContactDamageScale();
-
-                // VPhysicsCollision's no-bounce arm (:887-899): the launcher's
-                // grenade_no_bounce — the Iron Bomber's — sinks the first
-                // bounce to a tenth of the velocity, the spin untouched.
-                if (Attributes.Int(0, "grenade_no_bounce", Owners.ItemOf(_ownerIndex, WeaponName)) == 1)
-                    Entities.SetVelocity(Handle, Entities.GetVelocity(Handle) * 0.1f);
-            }
+            SolvedImpact();
             return;
         }
 
@@ -718,9 +791,7 @@ public sealed class TFPipebomb : ScriptedEntity, ITFOwnedProjectile
         // Blow up if we hit an enemy we can damage (:759): the full damage is
         // restored first (:824), because the fuse would have taken 40% off —
         // unless the cannonball's push takes the touch first (:772-817).
-        int toucherTeam = Players.GetTeam(toucher);
-        int myTeam = MyTeam();
-        if (toucherTeam != 0 && myTeam != 0 && toucherTeam != myTeam && Hurtable(toucher))
+        if (IsEnemyItCanDamage(toucher))
         {
             if (PipebombMode == TFProjectileDefs.GrenadeModeCannonball && CannonballPush(toucher))
                 return;
@@ -793,15 +864,6 @@ public sealed class TFPipebomb : ScriptedEntity, ITFOwnedProjectile
     private float WorldContactDamageScale()
         => Attributes.Float(1f, "grenade_damage_reduction_on_world_contact",
                             Owners.ItemOf(_ownerIndex, WeaponName));
-
-    /// <summary>
-    /// <c>pOther-&gt;m_takedamage != DAMAGE_NO</c> (:759): a player always
-    /// answers yes, anything else through its managed entity's
-    /// <see cref="ScriptedEntity.TakesDamage"/> (as the bolt asks at
-    /// <c>Bolt.cs:200</c>); nothing in the directory takes none.
-    /// </summary>
-    private bool Hurtable(EntityHandle toucher)
-        => Entities.IsPlayer(toucher) || Directory.Get(toucher) is { TakesDamage: true };
 
     private void Explode(float damage, EntityHandle directVictim)
     {
@@ -1122,30 +1184,19 @@ public sealed class TFStickybomb : ScriptedEntity, ITFOwnedProjectile
             return;
 
         Vector velocity = Entities.GetVelocity(Handle);
-        Vector start = Origin;
-        TraceResult hit = World.TraceLine(start, start + velocity * Frame.GetFrameTime(),
-                                          TraceMask.Shot, Handle);
-
-        if (hit.Entity == EntityHandle.None || hit.Entity == _thrower)
+        if (TFGrenadeRay.Struck(World, Entities, Players, Directory, Handle, _thrower, Origin, velocity, Frame.GetFrameTime()) is not { } hit)
             return;
 
+        // Stock's Touch( tr.m_pEnt ) (:774) lands in StickybombTouch, a raid-mode boss's only (tf_weapon_grenade_pipebomb.cpp:698-715).
         int myTeam = Entities.IsValid(_thrower) ? Players.GetTeam(_thrower) : 0;
-        int hitTeam = Players.GetTeam(hit.Entity);
-        bool hitEnemy = hitTeam != 0 && myTeam != 0 && hitTeam != myTeam;
+        int hitTeam = TFGrenadeRay.TeamOf(Entities, Players, Directory, hit.Entity);
+        bool hitEnemy = TFGrenadeRay.IsEnemy(hitTeam, myTeam);
         bool hitFriendly = hitTeam == myTeam && CanCollideWithTeammates;
 
         if (!hitEnemy && !hitFriendly)
             return;
 
-        // reflect velocity around normal (:781), then absorb 55% (:784).
-        Vector reflected = -2f * hit.Normal * velocity.Dot(hit.Normal) + velocity;
-        reflected *= TFProjectileDefs.PipebombElasticity;
-
-        if (hitEnemy)
-            reflected *= 0.5f;
-
-        Entities.SetVelocity(Handle, reflected);
-        Entities.SetAngularVelocity(Handle, Entities.GetAngularVelocity(Handle) * -0.5f);
+        TFGrenadeRay.BounceOff(Entities, Handle, velocity, in hit, hitEnemy);
         Log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Stickybomb} bounced off " +
                 $"{Entities.GetClassName(hit.Entity)} at {Origin}\n");
     }
@@ -3227,12 +3278,15 @@ public sealed class TFJar : ScriptedEntity, ITFOwnedProjectile
     private readonly AttributeHooks Hooks;
     private readonly IEntityDirectory Directory;
     private readonly IGameClock Clock;
+    private readonly IEngineFrame Frame;
 
     public TFJar(IEngineEntityPhysics physics, IEngineWorldQuery world,
                  ITFPlayerConditions conditions, IEnginePlayers players,
                  ITempEnts temps, IEnginePrecache precache, IEngineSound sound,
-                 ITFWeaponOwners owners, AttributeHooks hooks, IEntityDirectory directory, IGameClock clock)
+                 ITFWeaponOwners owners, AttributeHooks hooks, IEntityDirectory directory, IGameClock clock,
+                 IEngineFrame frame)
     {
+        Frame = frame;
         Physics = physics;
         World = world;
         Conditions = conditions;
@@ -3312,6 +3366,33 @@ public sealed class TFJar : ScriptedEntity, ITFOwnedProjectile
         _thrownAt = Clock.Now;
         Entities.SetOwner(Handle, thrower);
         Entities.SetVelocity(Handle, velocity);
+
+        // A regular pipebomb's fuse (Spawn's SetDetonateTimerLength( TF_WEAPON_GRENADE_DETONATE_TIME ),
+        // tf_weapon_grenade_pipebomb.cpp:521), looked at every 0.2 s (DetonateThink).
+        _detonateAt = Clock.Now + TFProjectileDefs.PipeFuse;
+        SetNextThink(TFProjectileDefs.FuseCheckSeconds);
+    }
+
+    private float _detonateAt;
+
+    /// <summary>Stock's <c>m_bTouched</c>: a solved impact has happened, so no touch sets it off any more (:555-556).</summary>
+    private bool _touched;
+
+    /// <summary>
+    /// <c>DetonateThink</c> (<c>tf_weaponbase_grenadeproj.cpp:439-455</c>): past the fuse, <c>Detonate</c> into the jar's
+    /// <c>Explode</c> — the splash where it lies; else looked at again in 0.2 s.
+    /// </summary>
+    public override void OnThink()
+    {
+        if (_spent)
+            return;
+        if (Clock.Now <= _detonateAt)
+        {
+            SetNextThink(TFProjectileDefs.FuseCheckSeconds);
+            return;
+        }
+
+        Burst("at its fuse");
     }
 
     /// <summary>The shatter's particle, stock's <c>GetImpactEffect</c>.</summary>
@@ -3336,7 +3417,26 @@ public sealed class TFJar : ScriptedEntity, ITFOwnedProjectile
             && !Conditions.InCond(toucher, TFCond.Burning))
             return;
 
-        Shatter();
+        // Handle hitting skybox (:536-552): a jar that would shatter on the sky is simply gone, no splash.
+        Vector velocity = Entities.GetVelocity(Handle);
+        if (velocity.LengthSquared > 0f)
+        {
+            Vector dir = velocity.Normalized;
+            Vector spot = Origin - dir * 32f;
+            SurfaceTraceResult sky = World.TraceLineSurface(spot, spot + dir * 64f, TraceMask.Solid, Handle);
+            if (sky.Fraction < 1f && (sky.SurfaceFlags & JarSkySurface) != 0)
+            {
+                _spent = true;
+                Remove();
+                return;
+            }
+        }
+
+        // If we already touched a surface then we're not exploding on contact anymore (:555-556).
+        if (_touched)
+            return;
+
+        Burst(toucher == EntityHandle.None ? "on the world" : "on player " + toucher.EntryIndex);
     }
 
     /// <summary>
@@ -3354,35 +3454,63 @@ public sealed class TFJar : ScriptedEntity, ITFOwnedProjectile
         uint other = mine ? ev.Entity1 : ev.Entity0;
         if (other == PhysicsEvent.NoEntity)
         {
-            if ((mine ? ev.Static1 : ev.Static0) != 0)
-                Shatter();
+            // The world's static side; a side that names nothing and moves is no one's (!pHitEntity).
+            if ((mine ? ev.Static1 : ev.Static0) == 0)
+                return;
+            _touched = true; // the pipebomb base's latch on any impact (tf_weapon_grenade_pipebomb.cpp:900)
+            Burst("on the world");
             return;
         }
 
-        if (Entities.GetClassName(new EntityHandle(other)) is "prop_dynamic" or "prop_dynamic_overridden")
-            Shatter();
+        // A player's side is no impact (the pipe's arm: stock's grenades never collide with players).
+        var hit = new EntityHandle(other);
+        if (Entities.IsPlayer(hit))
+            return;
+
+        // The pipebomb base's enemy arm first (tf_weapon_grenade_pipebomb.cpp:877-881): an enemy it can damage sets it off,
+        // Detonate's Explode the burst; then the latch (:900) and the jar's own dynamic-prop arm.
+        bool enemy = TFGrenadeRay.IsEnemy(TFGrenadeRay.TeamOf(Entities, Players, Directory, hit), ThrowerTeam());
+        _touched = true;
+        if (enemy)
+            Burst("on an enemy " + Entities.GetClassName(hit));
+        else if (Entities.GetClassName(hit) is "prop_dynamic" or "prop_dynamic_overridden")
+            Burst("on a dynamic prop");
+    }
+
+    private int ThrowerTeam() => Entities.IsValid(_thrower) ? Players.GetTeam(_thrower) : 0;
+
+    /// <summary>
+    /// <c>CTFWeaponBaseGrenadeProj::VPhysicsUpdate</c>'s ray (<see cref="TFGrenadeRay"/>), which the jar inherits: what it
+    /// strikes is touched first (:774, the jar's <see cref="OnTouch"/>: a player bursts it), then a friend past the teammate
+    /// delay or an enemy bounces it.
+    /// </summary>
+    public override void OnPhysicsUpdate()
+    {
+        if (_spent)
+            return;
+        Vector velocity = Entities.GetVelocity(Handle);
+        if (TFGrenadeRay.Struck(World, Entities, Players, Directory, Handle, _thrower, Origin, velocity, Frame.GetFrameTime()) is not { } hit)
+            return;
+
+        OnTouch(hit.Entity);
+        if (_spent)
+            return;
+
+        int myTeam = ThrowerTeam(), hitTeam = TFGrenadeRay.TeamOf(Entities, Players, Directory, hit.Entity);
+        bool enemy = TFGrenadeRay.IsEnemy(hitTeam, myTeam);
+        bool friend = hitTeam == myTeam && Clock.Now - _thrownAt >= TFProjectileDefs.CollideWithTeammatesDelay;
+        if (enemy || friend)
+            TFGrenadeRay.BounceOff(Entities, Handle, velocity, in hit, enemy);
     }
 
     /// <summary>
-    /// The burst: <c>PipebombTouch</c>'s sky check (:536-552) first — a jar that would shatter on the sky is simply gone,
-    /// no splash — then the splash (<see cref="Splash"/>) and the jar's removal (<c>Explode</c>'s <c>SUB_Remove</c>).
+    /// The burst (<c>Explode</c>, tf_weapon_jar.cpp:479-503): the splash (<see cref="Splash"/>) and the jar's removal
+    /// (<c>SUB_Remove</c>). The collision's and the fuse's route have no sky check; only the touch does (:536-552).
     /// </summary>
-    private void Shatter()
+    private void Burst(string where)
     {
+        Log.Msg($"[TF2/Projectiles] {ClassName} burst {where} at {Origin}\n");
         _spent = true;
-        Vector velocity = Entities.GetVelocity(Handle);
-        if (velocity.LengthSquared > 0f)
-        {
-            Vector dir = velocity.Normalized;
-            Vector spot = Origin - dir * 32f;
-            SurfaceTraceResult sky = World.TraceLineSurface(spot, spot + dir * 64f, TraceMask.Solid, Handle);
-            if (sky.Fraction < 1f && (sky.SurfaceFlags & JarSkySurface) != 0)
-            {
-                Remove();
-                return;
-            }
-        }
-
         Splash();
         Remove();
     }
@@ -3594,13 +3722,17 @@ public sealed class TFCleaver : ScriptedEntity, ITFOwnedProjectile
     private readonly IEngineSound Sound;
     private readonly IEnginePrecache Precache;
     private readonly IWeaponGiver Arsenal;
+    private readonly IEngineFrame Frame;
+    private readonly IEntityDirectory Directory;
 
     public TFCleaver(IEngineEntityPhysics physics, IEngineWorldQuery world,
                      IEngineDamage damage, DamageHitGroups hitGroups, TFDamageScopes scopes,
                      TFBleeds bleeds, IEnginePlayers players, ITFPlayerConditions conditions,
                      IGameClock clock, IEngineSound sound, IEnginePrecache precache,
-                     IWeaponGiver arsenal)
+                     IWeaponGiver arsenal, IEngineFrame frame, IEntityDirectory directory)
     {
+        Frame = frame;
+        Directory = directory;
         Physics = physics;
         World = world;
         Damage = damage;
@@ -3669,7 +3801,16 @@ public sealed class TFCleaver : ScriptedEntity, ITFOwnedProjectile
         _thrownAt = Clock.Now;
         Entities.SetOwner(Handle, thrower);
         Entities.SetVelocity(Handle, velocity);
+
+        // A regular pipebomb's fuse, as the jar's (tf_weapon_grenade_pipebomb.cpp:521), looked at every 0.2 s.
+        _detonateAt = Clock.Now + TFProjectileDefs.PipeFuse;
+        SetNextThink(TFProjectileDefs.FuseCheckSeconds);
     }
+
+    private float _detonateAt;
+
+    /// <summary>Stock's <c>m_bTouched</c>: a solved impact has happened, so no touch sets it off any more (:555-556).</summary>
+    private bool _touched;
 
     /// <summary>The jar's <c>PipebombTouch</c> (tf_weapon_jar.cpp:505-560) with the cleaver's <c>OnHit</c> and <c>Explode</c>.</summary>
     public override void OnTouch(EntityHandle toucher)
@@ -3708,6 +3849,10 @@ public sealed class TFCleaver : ScriptedEntity, ITFOwnedProjectile
             }
         }
 
+        // If we already touched a surface then we're not exploding on contact anymore (:555-556).
+        if (_touched)
+            return;
+
         // OnHit's first lines (:995-996): unseen and not solid, whatever it struck.
         _spent = true;
         SetVisible(false);
@@ -3735,20 +3880,47 @@ public sealed class TFCleaver : ScriptedEntity, ITFOwnedProjectile
         uint other = mine ? ev.Entity1 : ev.Entity0;
         if (other == PhysicsEvent.NoEntity)
         {
-            if ((mine ? ev.Static1 : ev.Static0) != 0)
-                Missed(showing: true);
+            if ((mine ? ev.Static1 : ev.Static0) == 0)
+                return;
+            _touched = true; // the pipebomb base's latch on any impact (tf_weapon_grenade_pipebomb.cpp:900)
+            Missed(showing: true);
             return;
         }
 
-        if (Entities.GetClassName(new EntityHandle(other)) is "prop_dynamic" or "prop_dynamic_overridden")
+        // A player's side is no impact (the pipe's arm: stock's grenades never collide with players); his contact is the
+        // ray's touch and the touch, where OnHit wounds.
+        var hit = new EntityHandle(other);
+        if (Entities.IsPlayer(hit))
+            return;
+
+        // The pipebomb base's enemy arm (tf_weapon_grenade_pipebomb.cpp:877-881): Detonate, the cleaver's (tf_weapon_jar.cpp:1101-1111),
+        // is its Explode, the miss when no player was hit (:1083-1096); then the latch (:900) and the jar's dynamic-prop arm.
+        bool enemy = TFGrenadeRay.IsEnemy(TFGrenadeRay.TeamOf(Entities, Players, Directory, hit), OwnerTeam());
+        _touched = true;
+        if (enemy || Entities.GetClassName(hit) is "prop_dynamic" or "prop_dynamic_overridden")
             Missed(showing: true);
     }
 
-    /// <summary>The linger's end (<c>SUB_Remove</c>).</summary>
+    /// <summary>
+    /// The linger's end (<c>SUB_Remove</c>) once it has struck; before that <c>DetonateThink</c> (tf_weaponbase_grenadeproj.cpp
+    /// :439-455): past the fuse, the cleaver's <c>Detonate</c> into <c>Explode</c>'s miss (tf_weapon_jar.cpp:1101-1112), else
+    /// looked at again in 0.2 s.
+    /// </summary>
     public override void OnThink()
     {
         if (_spent)
+        {
             Remove();
+            return;
+        }
+
+        if (Clock.Now <= _detonateAt)
+        {
+            SetNextThink(TFProjectileDefs.FuseCheckSeconds);
+            return;
+        }
+
+        Missed(showing: true);
     }
 
     /// <summary>
@@ -3768,6 +3940,7 @@ public sealed class TFCleaver : ScriptedEntity, ITFOwnedProjectile
 
         // "just do the bleed effect directly since the bleed attribute comes
         // from the inflictor, which is the cleaver" (:1034-1036).
+        Log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Cleaver} hit player {victim.EntryIndex}\n");
         Bleeds.Of(victim.EntryIndex)?.Make(Clock.Now, Players.IsAlive(victim), _thrower,
                                            TFWeaponId.Cleaver, WeaponName,
                                            TFProjectileDefs.CleaverBleedSeconds);
@@ -3817,6 +3990,28 @@ public sealed class TFCleaver : ScriptedEntity, ITFOwnedProjectile
                  || conds.Has(TFCond.InvulnerableWearingoff));
 
     private int OwnerTeam() => Entities.IsValid(_thrower) ? Players.GetTeam(_thrower) : 0;
+
+    /// <summary>
+    /// <c>CTFWeaponBaseGrenadeProj::VPhysicsUpdate</c>'s ray (<see cref="TFGrenadeRay"/>), which the cleaver inherits: what it
+    /// strikes is touched first (:774, <see cref="OnTouch"/>: an enemy player is wounded), then a friend past the teammate
+    /// delay or an enemy bounces it.
+    /// </summary>
+    public override void OnPhysicsUpdate()
+    {
+        if (_spent)
+            return;
+        Vector velocity = Entities.GetVelocity(Handle);
+        if (TFGrenadeRay.Struck(World, Entities, Players, Directory, Handle, _thrower, Origin, velocity, Frame.GetFrameTime()) is not { } hit)
+            return;
+
+        OnTouch(hit.Entity);
+
+        int myTeam = OwnerTeam(), hitTeam = TFGrenadeRay.TeamOf(Entities, Players, Directory, hit.Entity);
+        bool enemy = TFGrenadeRay.IsEnemy(hitTeam, myTeam);
+        bool friend = hitTeam == myTeam && Clock.Now - _thrownAt >= TFProjectileDefs.CollideWithTeammatesDelay;
+        if (enemy || friend)
+            TFGrenadeRay.BounceOff(Entities, Handle, velocity, in hit, enemy);
+    }
 }
 
 /// <summary>

@@ -93,6 +93,78 @@ public static class AimLead
         return new AiVector(target.X, target.Y, from.Z + tan * d);
     }
 
+    /// <summary>
+    /// <see cref="Lob"/> for a launch that adds <paramref name="launchUp"/> along the look's own up to <paramref name="speed"/>
+    /// along it (a TF2 grenade's <c>forward * speed + up * 200</c>): it leaves at <c>sqrt(speed² + up²)</c>, tilted
+    /// <c>atan(up / speed)</c> above the look, so the look is the arc's angle less that tilt. With no up-kick it is
+    /// <see cref="Lob"/> itself.
+    /// </summary>
+    public static AiVector? LobLaunch(AiVector from, AiVector target, float speed, float gravity, float launchUp)
+    {
+        if (launchUp == 0f)
+            return Lob(from, target, speed, gravity);
+        float d = new AiVector(target.X - from.X, target.Y - from.Y, 0f).Length;
+        if (d < 1f || gravity <= 0f)
+            return target;
+        if (Lob(from, target, MathF.Sqrt(speed * speed + launchUp * launchUp), gravity) is not { } arc)
+            return null;
+        float angle = MathF.Atan2(arc.Z - from.Z, d) - MathF.Atan2(launchUp, speed);
+        return new AiVector(target.X, target.Y, from.Z + MathF.Tan(angle) * d);
+    }
+
+    /// <summary>
+    /// <see cref="LobLaunch"/> for a body the air slows (<c>a = -drag |v| v</c>, per unit), for throws long enough that the
+    /// drag-free arc falls short: the arc is flown (<see cref="LandsAt"/>) and its aim moved on along the ground by what it
+    /// fell short, until it lands within a few units. Null when no arc reaches the aim. With no drag it is <see cref="LobLaunch"/>.
+    /// </summary>
+    public static AiVector? LobLaunchDragged(AiVector from, AiVector target, float speed, float gravity, float launchUp, float drag)
+    {
+        if (drag <= 0f)
+            return LobLaunch(from, target, speed, gravity, launchUp);
+        AiVector aimAt = target;
+        for (int i = 0; i < 8; i++)
+        {
+            if (LobLaunch(from, aimAt, speed, gravity, launchUp) is not { } look)
+                return null;
+            if (LandsAt(from, look, speed, gravity, launchUp, drag, target.Z) is not { } landed)
+                return null;
+            var shortBy = new AiVector(target.X - landed.X, target.Y - landed.Y, 0f);
+            if (shortBy.Length < 4f)
+                return look;
+            aimAt += shortBy;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Where a body launched from <paramref name="from"/> looking at <paramref name="look"/> (forward at <paramref name="speed"/>
+    /// plus <paramref name="launchUp"/> along the look's up) comes down through <paramref name="floorZ"/>, falling at
+    /// <paramref name="gravity"/> with quadratic <paramref name="drag"/>: a 100 Hz flight of at most 5 s. Null when it never does.
+    /// </summary>
+    public static AiVector? LandsAt(AiVector from, AiVector look, float speed, float gravity, float launchUp, float drag, float floorZ)
+    {
+        AiVector forward = (look - from).Normalised();
+        AiVector upAxis = (new AiVector(0f, 0f, 1f) - forward * forward.Z).Normalised();
+        AiVector v = forward * speed + upAxis * launchUp;
+        AiVector p = from;
+        const float dt = 0.01f;
+        for (int i = 0; i < 500; i++)
+        {
+            AiVector next = p + v * dt;
+            if (v.Z < 0f && next.Z <= floorZ)
+            {
+                float t = (p.Z - floorZ) / MathF.Max(1e-4f, p.Z - next.Z);
+                return p + (next - p) * t;
+            }
+
+            v += new AiVector(0f, 0f, -gravity * dt) - v * (drag * v.Length * dt);
+            p = next;
+        }
+
+        return null;
+    }
+
     /// <summary>The point to aim at.</summary>
     public static AiVector Point(AiVector from, AiVector target, AiVector velocity, float projectileSpeed, float leadQuality)
     {

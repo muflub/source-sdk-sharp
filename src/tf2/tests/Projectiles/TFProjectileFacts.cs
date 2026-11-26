@@ -273,7 +273,7 @@ internal sealed class ProjectileRig
     /// <summary>A jar with its areas bound, over <see cref="Wet"/> and the temp sink.</summary>
     public TFJar Jar()
     {
-        var jar = new TFJar(Engine, Engine, Wet, Engine, Temps, Engine, Engine, Owners, Hooks, Directory, Engine);
+        var jar = new TFJar(Engine, Engine, Wet, Engine, Temps, Engine, Engine, Owners, Hooks, Directory, Engine, Engine);
         jar.RegisteredKind = ScriptedEntityKind.Prop; // a physics body, as the registration says
         jar.BindAreas(TestServices.Areas(Engine));
         return BindStates(jar);
@@ -2914,7 +2914,7 @@ public class TFProjectileEffectsFacts
 
         rig.Effects.Projectile(Attack(3), CannonballScript(Script("tf_weapon_grenadelauncher")), default, 0.5f);
 
-        Assert.Equal(1.5f, Assert.Single(thinks.Bookings()).Time, 3);
+        Assert.Equal(1.5f, ball.DetonateAt - rig.Engine.Answer<float>("Clock.Now"), 3);
     }
 
     [Fact]

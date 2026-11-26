@@ -43,7 +43,7 @@ public readonly record struct AltFireFacts(AltFireKind Kind, float Speed = 0f, f
 /// </summary>
 public readonly record struct WeaponFacts(int Kind, string Name, int ClipSize, float CadenceSeconds, float ReloadSeconds, bool ReloadAudible,
                                           bool ShellByShell, float ProjectileSpeed, AltFireFacts Alt = default, float ProjectileGravity = 0f,
-                                          float ChargeSeconds = 0f)
+                                          float ChargeSeconds = 0f, float LaunchUp = 0f)
 {
     /// <summary>Whether the weapon has a clip to estimate (a melee weapon, a grenade or the RPG fires from its reserve).</summary>
     public bool HasClip => ClipSize > 0;

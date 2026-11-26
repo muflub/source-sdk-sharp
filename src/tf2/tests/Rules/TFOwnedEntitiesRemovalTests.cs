@@ -247,7 +247,7 @@ public sealed class TFOwnedEntitiesRemovalTests
     {
         var cleaver = new TFCleaver(rig.Engine, rig.Engine, rig.Engine, rig.HitGroups, rig.Scopes,
                                     bleeds, rig.Engine, rig.Conditions, rig.Engine, rig.Engine, rig.Engine,
-                                    new SpyGiver());
+                                    new SpyGiver(), rig.Engine, rig.Directory);
         cleaver.Handle = handle;
         cleaver.BindAreas(TestServices.Areas(rig.Engine));
         cleaver.NetStates = NetStateBinding.AttachLocal(cleaver, cleaver.Handle,

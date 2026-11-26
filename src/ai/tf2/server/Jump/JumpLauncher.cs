@@ -71,7 +71,7 @@ public readonly record struct JumpLauncher(TFWeaponId Weapon, float Damage, floa
     /// The fall is what this port's sticky flies: <c>TFStickybomb</c> is a <c>ScriptedEntityKind.Prop</c>, moved by the physics
     /// solver, and its <c>SetGravity(0.4)</c> (<see cref="TFProjectileDefs.PipebombGravity"/>, stock's own call) is the
     /// entity's gravity, which the physics solver does not read: it falls at the physics environment's, the world's 800
-    /// (<see cref="GravityScale"/> 1), as stock's does (Valve's own estimate, <c>EstimateProjectileImpactPosition</c>, uses the
+    /// (<see cref="GravityScale"/> <see cref="TFProjectileDefs.GrenadeFallScale"/>, 1), as stock's does (Valve's own estimate, <c>EstimateProjectileImpactPosition</c>, uses the
     /// full gravity). The solver's air drag is not simulated: a look-down tap flies some 0.07 s, where drag is nothing; a lob
     /// wants a live measure before a plan leans on it.
     /// </summary>
@@ -82,7 +82,7 @@ public readonly record struct JumpLauncher(TFWeaponId Weapon, float Damage, floa
         {
             Kind = JumpProjectile.Sticky,
             LaunchUp = TFProjectileDefs.PipeLaunchUp,
-            GravityScale = 1f,
+            GravityScale = TFProjectileDefs.GrenadeFallScale,
             ArmSeconds = armSeconds,
         };
 

@@ -9,6 +9,7 @@ using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
 using TF2.Tests.Weapons;
 
+using TF2.Tests.Buildings;
 using Xunit;
 
 namespace TF2.Tests.Projectiles;
@@ -592,6 +593,269 @@ public sealed class TFJarFacts
         rig.Engine.Returns("Entities.GetClassName", "prop_physics");
         PhysicsEvent ev = BodyCollision(jar);
         jar.OnVPhysicsCollision(in ev, 0);
+        Assert.Equal(0, rig.Engine.CountOf("Entities.Remove"));
+    }
+
+    // ---- the review's holes (r2s4-2): the thrower, the collision's sides, a second contact
+
+    /// <summary>The thrower's own touch never shatters the jar (PipebombTouch :507).</summary>
+    [Fact]
+    public void The_throwers_own_touch_never_shatters_the_jar()
+    {
+        var (rig, jar) = LandedJar();
+        rig.Engine.Returns("Entities.IsPlayer", true); // the thrower is a player like any other
+        rig.Engine.Returns("Clock.Now", 10f + TFProjectileDefs.CollideWithTeammatesDelay + 0.05f); // past the grace
+        jar.OnTouch(ProjectileRig.Player);
+        Assert.Equal(0, rig.Engine.CountOf("Entities.Remove"));
+    }
+
+    /// <summary>The jar on the event's side 1 reads side 0 for the world: the static world there shatters it.</summary>
+    [Fact]
+    public void A_world_collision_with_the_jar_on_side_one_shatters_it()
+    {
+        var (rig, jar) = LandedJar();
+        var ev = new PhysicsEvent
+        {
+            KindRaw = (uint)PhysicsEventKind.PostCollision,
+            Flags = PhysicsEvent.FlagCollision,
+            Entity0 = PhysicsEvent.NoEntity,
+            Entity1 = jar.Handle.Value,
+            Static0 = 1,
+        };
+        jar.OnVPhysicsCollision(in ev, 1);
+        Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
+    }
+
+    /// <summary>A side that names no entity and is not static is no one's (stock's <c>!pHitEntity</c>, :599-600): no shatter.</summary>
+    [Fact]
+    public void A_sideless_moving_body_does_not_shatter_the_jar()
+    {
+        var (rig, jar) = LandedJar();
+        var ev = new PhysicsEvent
+        {
+            KindRaw = (uint)PhysicsEventKind.PostCollision,
+            Flags = PhysicsEvent.FlagCollision,
+            Entity0 = jar.Handle.Value,
+            Entity1 = PhysicsEvent.NoEntity,
+            Static1 = 0,
+        };
+        jar.OnVPhysicsCollision(in ev, 0);
+        Assert.Equal(0, rig.Engine.CountOf("Entities.Remove"));
+    }
+
+    /// <summary>A shattered jar is spent: a touch after the collision splashes no second time.</summary>
+    [Fact]
+    public void A_spent_jar_splashes_once()
+    {
+        var (rig, jar) = LandedJar();
+        EnemyInTheOpen(rig);
+        var ev = new PhysicsEvent
+        {
+            KindRaw = (uint)PhysicsEventKind.PostCollision,
+            Flags = PhysicsEvent.FlagCollision,
+            Entity0 = jar.Handle.Value,
+            Entity1 = PhysicsEvent.NoEntity,
+            Static1 = 1,
+        };
+        jar.OnVPhysicsCollision(in ev, 0);
+        jar.OnTouch(ProjectileRig.Victim);
+        Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
+        Assert.Single(rig.Wet.Added);
+    }
+
+    // ---- stock's fuse and touched latch (review r2s4-2 item 3)
+
+    /// <summary>
+    /// Past the 2 s fuse (a regular pipebomb's, tf_weapon_grenade_pipebomb.cpp:521) the jar bursts where it lies, as stock's
+    /// <c>Detonate</c> into its <c>Explode</c>: a jar resting on a door or a cart does not lie live for ever.
+    /// </summary>
+    [Fact]
+    public void Past_the_fuse_the_jar_bursts_where_it_lies()
+    {
+        var (rig, jar) = LandedJar();
+        EnemyInTheOpen(rig);
+        rig.Engine.Returns("Clock.Now", 10f + TFProjectileDefs.PipeFuse + 0.05f);
+        jar.OnThink();
+        Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
+        Assert.Single(rig.Wet.Added);
+    }
+
+    /// <summary>Before the fuse the look waits another fifth of a second (DetonateThink).</summary>
+    [Fact]
+    public void Before_the_fuse_the_jars_look_waits()
+    {
+        var (rig, jar) = LandedJar();
+        var thinks = new ThinkScheduler();
+        jar.BindThinks(thinks);
+        rig.Engine.Returns("Clock.Now", 11f);
+        jar.OnThink();
+        Assert.Equal(0, rig.Engine.CountOf("Entities.Remove"));
+        Assert.Equal(TFProjectileDefs.FuseCheckSeconds, Assert.Single(thinks.Bookings()).Time, 3);
+    }
+
+    /// <summary>After a solved impact on any body (a physics prop) a player's touch no longer bursts it (the touched latch, :555-556).</summary>
+    [Fact]
+    public void After_a_bounce_a_players_touch_no_longer_bursts_the_jar()
+    {
+        var (rig, jar) = LandedJar();
+        EnemyInTheOpen(rig);
+        rig.Engine.Returns("Entities.GetClassName", "prop_physics");
+        PhysicsEvent ev = BodyCollision(jar);
+        jar.OnVPhysicsCollision(in ev, 0);
+        jar.OnTouch(ProjectileRig.Victim);
+        Assert.Equal(0, rig.Engine.CountOf("Entities.Remove"));
+    }
+
+    // ---- the enemy's contact (lane r2s4)
+
+    /// <summary>The jar's ray one tick ahead (the grenade base's VPhysicsUpdate, :774) touches an enemy player first: the burst wets him.</summary>
+    [Fact]
+    public void The_jars_ray_touches_an_enemy_player_and_bursts_on_him()
+    {
+        var (rig, jar) = LandedJar();
+        EnemyInTheOpen(rig);
+        rig.Engine.Returns("Frame.GetFrameTime", 1f / 66f);
+        rig.Engine.Returns("Entities.GetVelocity", new Vector(1000f, 0f, 0f));
+        rig.Engine.Returns("Entities.GetClassName", "player");
+        rig.Engine.Returns("Entities.GetAngularVelocity", default(Vector));
+        rig.Engine.Returns("WorldQuery.TraceLineSurface", new SurfaceTraceResult(true, 1f, default, default, EntityHandle.None, 0, 0));
+        rig.Engine.Returns("WorldQuery.TraceLine", new TraceResult(true, 0.5f, new Vector(10f, 0f, 0f), new Vector(-1f, 0f, 0f), ProjectileRig.Victim));
+
+        jar.OnPhysicsUpdate();
+
+        Assert.Equal(ProjectileRig.Victim, Assert.Single(rig.Wet.Added).Player);
+        Assert.Equal(0, rig.Engine.CountOf("Entities.SetAngularVelocity")); // burst, so not bounced
+    }
+
+    private static PhysicsEvent WithBody(TFJar jar, EntityHandle body) => new()
+    {
+        KindRaw = (uint)PhysicsEventKind.PostCollision,
+        Flags = PhysicsEvent.FlagCollision,
+        Entity0 = jar.Handle.Value,
+        Entity1 = body.Value,
+    };
+
+    /// <summary>A player's physics collision is no impact (stock's grenades never collide with players): no latch, so his touch still bursts it.</summary>
+    [Fact]
+    public void A_players_collision_leaves_the_jar_for_his_touch()
+    {
+        var (rig, jar) = LandedJar();
+        EnemyInTheOpen(rig);
+        rig.Engine.Returns("Entities.GetClassName", "player");
+        PhysicsEvent ev = WithBody(jar, ProjectileRig.Victim);
+
+        jar.OnVPhysicsCollision(in ev, 0);
+        jar.OnTouch(ProjectileRig.Victim);
+
+        Assert.Equal(ProjectileRig.Victim, Assert.Single(rig.Wet.Added).Player);
+    }
+
+    private sealed class DamageableBody : ScriptedEntity
+    {
+        public override bool TakesDamage => true;
+    }
+
+    /// <summary>The jar of a Blue thrower against a building of <paramref name="team"/>, the server answering teams.</summary>
+    private static (ProjectileRig Rig, TFJar Jar, TestBuilding Building) JarAgainst(TFTeam team)
+    {
+        var (rig, jar) = LandedJar();
+        GrenadeContacts.ServerTeams(rig.Engine, (ProjectileRig.Player, TFTeam.Blue), (ProjectileRig.Victim, TFTeam.Red));
+        TestBuilding building = GrenadeContacts.PlacedBuilding(team);
+        rig.Directory.Holds(building.Handle, building);
+        rig.Engine.Returns("Entities.GetClassName", "obj_sentrygun");
+        return (rig, jar, building);
+    }
+
+    /// <summary>An enemy building bursts the jar (the pipebomb base's arm, :877-881: Detonate's Explode is the burst).</summary>
+    [Fact]
+    public void An_enemy_building_bursts_the_jar()
+    {
+        var (rig, jar, building) = JarAgainst(TFTeam.Red);
+        PhysicsEvent ev = WithBody(jar, building.Handle);
+
+        jar.OnVPhysicsCollision(in ev, 0);
+
+        Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
+    }
+
+    /// <summary>A building of the thrower's team is a bounce for the jar.</summary>
+    [Fact]
+    public void A_friendly_building_does_not_burst_the_jar()
+    {
+        var (rig, jar, building) = JarAgainst(TFTeam.Blue);
+        PhysicsEvent ev = WithBody(jar, building.Handle);
+
+        jar.OnVPhysicsCollision(in ev, 0);
+
+        Assert.Equal(0, rig.Engine.CountOf("Entities.Remove"));
+    }
+
+    /// <summary>A Prop-kind prop_physics takes damage and has no team: no enemy, no burst (the server's GetTeam answers -1).</summary>
+    [Fact]
+    public void A_prop_physics_that_takes_damage_does_not_burst_the_jar()
+    {
+        var (rig, jar) = LandedJar();
+        GrenadeContacts.ServerTeams(rig.Engine, (ProjectileRig.Player, TFTeam.Blue));
+        rig.Directory.Instance = new DamageableBody();
+        rig.Engine.Returns("Entities.GetClassName", "prop_physics");
+        PhysicsEvent ev = BodyCollision(jar);
+
+        jar.OnVPhysicsCollision(in ev, 0);
+
+        Assert.Equal(0, rig.Engine.CountOf("Entities.Remove"));
+    }
+
+    // ---- the jar's ray bounce (lane r2s4, review r2s4-3 item 5)
+
+    /// <summary>A jar in flight whose ray strikes the victim one tick ahead, the victim on <paramref name="victimTeam"/>.</summary>
+    private static (ProjectileRig Rig, TFJar Jar) JarRaying(TFTeam victimTeam, float now, bool latched)
+    {
+        var (rig, jar) = LandedJar();
+        GrenadeContacts.ServerTeams(rig.Engine, (ProjectileRig.Player, TFTeam.Blue), (ProjectileRig.Victim, victimTeam));
+        if (latched)
+        {
+            rig.Engine.Returns("Entities.GetClassName", "prop_physics");
+            PhysicsEvent bounce = BodyCollision(jar);
+            jar.OnVPhysicsCollision(in bounce, 0); // a solved impact on a prop: the latch
+        }
+
+        rig.Engine.Returns("Clock.Now", now);
+        rig.Engine.Returns("Frame.GetFrameTime", 1f / 66f);
+        rig.Engine.Returns("Entities.GetVelocity", new Vector(1000f, 0f, 0f));
+        rig.Engine.Returns("Entities.GetAngularVelocity", new Vector(40f, 0f, 0f));
+        rig.Engine.Returns("WorldQuery.TraceLineSurface", new SurfaceTraceResult(true, 1f, default, default, EntityHandle.None, 0, 0));
+        rig.Engine.Returns("WorldQuery.TraceLine", new TraceResult(true, 0.5f, new Vector(10f, 0f, 0f), new Vector(-1f, 0f, 0f), ProjectileRig.Victim));
+        return (rig, jar);
+    }
+
+    private static Vector LastVelocity(ProjectileRig rig) => EngineCallFacts.ArgAs<Vector>(rig.Engine.Last("Entities.SetVelocity"), 1);
+
+    /// <summary>A latched jar's ray bounces it off an enemy: reflected, times 0.45, halved (:781-789); the spin reversed and halved (:791).</summary>
+    [Fact]
+    public void A_latched_jars_ray_bounces_it_off_an_enemy_halved()
+    {
+        var (rig, jar) = JarRaying(TFTeam.Red, 11f, latched: true);
+        jar.OnPhysicsUpdate();
+        Assert.Equal(new Vector(-225f, 0f, 0f), LastVelocity(rig));
+        Assert.Equal(new Vector(-20f, 0f, 0f), EngineCallFacts.ArgAs<Vector>(rig.Engine.Last("Entities.SetAngularVelocity"), 1));
+    }
+
+    /// <summary>A teammate past the 0.25 s pass bounces a latched jar at the elasticity alone.</summary>
+    [Fact]
+    public void A_latched_jars_ray_bounces_it_off_a_late_teammate()
+    {
+        var (rig, jar) = JarRaying(TFTeam.Blue, 11f, latched: true);
+        jar.OnPhysicsUpdate();
+        Assert.Equal(new Vector(-450f, 0f, 0f), LastVelocity(rig));
+    }
+
+    /// <summary>A teammate inside the pass: the touch passes him and the ray does not bounce the jar.</summary>
+    [Fact]
+    public void A_teammate_inside_the_pass_neither_bursts_nor_bounces_the_jar()
+    {
+        var (rig, jar) = JarRaying(TFTeam.Blue, 10.1f, latched: false);
+        jar.OnPhysicsUpdate();
+        Assert.Equal(0, rig.Engine.CountOf("Entities.SetAngularVelocity"));
         Assert.Equal(0, rig.Engine.CountOf("Entities.Remove"));
     }
 }

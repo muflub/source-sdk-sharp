@@ -97,12 +97,17 @@ public sealed class TFConditionTargetTests
         Assert.Equal(High, Pick(ActorConditions.BlastAirborne, Kit(miniCritAirborne: true)).Target);
     }
 
-    /// <summary>The control: the same launcher without the attribute, or the attribute's weapon not in hand, earns the airborne enemy nothing.</summary>
+    /// <summary>The same launcher without <c>mini_crit_airborne</c> earns an airborne enemy nothing.</summary>
     [Fact]
-    public void WithoutTheAttributeInHandAnAirborneEnemyEarnsNothing()
-    {
-        Assert.Equal(Low, Pick(ActorConditions.BlastAirborne, Kit(miniCritAirborne: false)).Target);
-        Assert.Equal(Low, Pick(ActorConditions.BlastAirborne, Kit(miniCritAirborne: true), weapon: TFField.Shotgun).Target);
-        Assert.Equal(Low, Pick(ActorConditions.BlastAirborne).Target);
-    }
+    public void ALauncherWithoutTheAttributeEarnsAnAirborneEnemyNothing()
+        => Assert.Equal(Low, Pick(ActorConditions.BlastAirborne, Kit(miniCritAirborne: false)).Target);
+
+    /// <summary>The attribute's launcher carried but not in hand (the shotgun out) earns an airborne enemy nothing.</summary>
+    [Fact]
+    public void TheAttributesWeaponNotInHandEarnsAnAirborneEnemyNothing()
+        => Assert.Equal(Low, Pick(ActorConditions.BlastAirborne, Kit(miniCritAirborne: true), weapon: TFField.Shotgun).Target);
+
+    /// <summary>With no kit read (a replay, a fact with no HUD) an airborne enemy earns nothing.</summary>
+    [Fact]
+    public void WithNoKitAnAirborneEnemyEarnsNothing() => Assert.Equal(Low, Pick(ActorConditions.BlastAirborne).Target);
 }

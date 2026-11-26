@@ -80,6 +80,10 @@ marking `partial` (§3).
 | A pit or fall death is credited to the world, not to the player who pushed (stock credits the last airblaster) | Pyro env kills | open (the Pyro lane, 2026-11-22) |
 | cp_foundry's nav build refuses it (5.99M leaves, over `ai_nav_build_max_leaves` 4M) | live pit pushes | open |
 | The Quick-Fix does not mirror its patient's blast jump | Medic | open |
+| Grenades (pipe, sticky, jar, milk, gas, cleaver) flew a flat, spin-free arc; jars and cleavers had no fuse, latch or contact rules | Demoman, Sniper Jarate, Scout cleaver | fixed in batch 11 (stock's arc to 0.01 u in an A/B) |
+| Grenades bounce off players physically, and meet them on the bounding box, where stock's pass through (ShouldCollide) and hit hitboxes | Demoman, Sniper Jarate | in docs/divergences.md; needs TF collision groups (an ABI vocabulary change, or a managed pair-veto service in src/server/managed): to schedule |
+| Buildings took model bounds after each model change and trapped the Engineer | Engineer | fixed in batch 11 |
+| `func_nobuild` and `trigger_hurt` not read into map knowledge | Engineer, Pyro (S12) | fixed in batch 11 |
 
 Each is a small port with a fact, owned by the class whose game code it is. A shared game base (`CanHolster`, the
 arrow's hitbox) goes to the shared lane.
@@ -315,6 +319,21 @@ Held until the lane editing their files lands:
 - S6 (the Engineer lane builds it);
 - S12 (the Pyro lane builds it).
 
+**Wave 2, 2026-11-24** (the user: "yes start"): S1, S4 and S14 with the Engineer, Medic and Sniper lanes, landed
+as batch 11 (`597fd806a`, 120 commits). Open after it:
+- **Engineer** (Ready): the dispenser stand's stall under a ledge (no patience starts outside 96 u); the granary
+  teleporter entrance off the Soldiers' walks (they pass 369-377 u from it); a stand's hold surviving decides that
+  are not the stand's; the pad clock running through a repair; no list of given-up pad spots; a parented or
+  team-filtered `trigger_hurt` read as everyone's fixed pit; the sentry covering flank routes.
+- **Medic** (not Ready: granary's blue captures fell outside the control's spread): the Pocket; the class keep.
+- **Sniper** (not Ready: kills, damage and first-on-objective well under the Soldier control): the Bushwacka (S4 is
+  in); draws far outnumber arrows; the human-aim core waits on the user's recorded sessions.
+- **S1:** the Market Gardener's air swing shown only in facts (0 live swings); the parachute's live repeat; the
+  Thermal Thruster.
+- **S14:** the Survive dither on red's 2fort stairs (a heal-place latch); bridge-end and spawn-door hop hot spots.
+- **Grenades:** the Scout bot never throws the Flying Guillotine, so no live cleaver hit is shown; the generic
+  `ITFProjectileSpawner.Spawn` pipe is unfaced and unspun; the stock-ab render tracer no longer compiles.
+
 ## 9. Decisions
 
 - **2026-11-22, user:** "can you review this doc and plan a second round for each class
@@ -329,3 +348,8 @@ Held until the lane editing their files lands:
   - the guide's trolling and non-playing subclasses are out of scope;
   - the Trolldier is pin-only at weight 0;
   - the guide's tiers and counters are advice, and stock's and the wiki's numbers win.
+- **2026-11-24, user:** "yes start" (round 2 wave 2: S1, S4, S14 and the Engineer, Medic and Sniper lanes).
+- **2026-11-24, coordinator:**
+  - the Ninjaneer is pin-only at weight 0, the Battle Engie 0.05;
+  - grenades that lost their contact with players in the move to physics bodies get stock's ray and contact rules
+    now, not a todo row (a regression from the same lane and a divergence from stock).

@@ -59,15 +59,19 @@ public sealed class RecordFormatTwelveTests
         Assert.Equal([(byte)((int)SelfHas >> 8), (byte)((int)SeenHas >> 8), (byte)((int)OtherHas >> 8)], high[eleven.Length..]);
     }
 
-    /// <summary>A snapshot whose views hold no condition past format 10's byte writes no tail at all.</summary>
+    /// <summary>
+    /// A snapshot whose views hold no condition past format 10's byte writes no tail at all: it is the tail's three bytes
+    /// shorter than the same snapshot with one high bit, and as long as one with no conditions.
+    /// </summary>
     [Fact]
     public void NoHighConditionWritesNoTail()
     {
         AiSnapshot low = Snapshot(Low(SelfHas), Low(SeenHas), Low(OtherHas));
+        AiSnapshot oneHigh = Snapshot(Low(SelfHas), Low(SeenHas), Low(OtherHas) | ActorConditions.MarkedForDeath);
         Assert.False(AiRecordFormat.HasHighConditions(low));
-        Assert.True(AiRecordFormat.HasHighConditions(Snapshot(ActorConditions.None, ActorConditions.None, ActorConditions.MarkedForDeath)));
-        AiSnapshot none = Snapshot(ActorConditions.None, ActorConditions.None, ActorConditions.None);
-        Assert.Equal(Encode(none).Length, Encode(low).Length);
+        Assert.True(AiRecordFormat.HasHighConditions(oneHigh));
+        Assert.Equal(Encode(oneHigh).Length - 3, Encode(low).Length);
+        Assert.Equal(Encode(Snapshot(ActorConditions.None, ActorConditions.None, ActorConditions.None)).Length, Encode(low).Length);
     }
 
     /// <summary>A format 11 snapshot (format 12's bytes cut before the tail, as a format 11 build wrote them) reads its byte's conditions and none past it.</summary>
