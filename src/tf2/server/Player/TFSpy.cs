@@ -74,6 +74,14 @@ public sealed class TFSpyComponent(
     /// home is <see cref="TFInvisibility.InvisMotionCloakMode"/>.</summary>
     public const int InvisMotionCloakMode = TFInvisibility.InvisMotionCloakMode;
 
+    /// <summary>
+    /// The watch's script: its <c>set_weapon_mode</c> is read off the watch itself, as stock's <c>tf_weapon_invis.h:66</c>
+    /// asks the weapon (and this port's client, TFPlayerPrediction.FeignDeathWatched). Off the player's manager the mode is
+    /// every carried item's sum, so the Ambassador's 1 beside a Dead Ringer read 2 (a motion cloak) and beside the Invis
+    /// Watch 1 (a feign): the Spy lane's review, F2.
+    /// </summary>
+    public const string WatchScript = "tf_weapon_invis";
+
     /// <summary><c>tf_feign_death_duration</c>'s stock default
     /// (tf_player_shared.cpp:180): the seconds the feign condition rides.</summary>
     public const float FeignDeathSeconds = 3.0f;
@@ -204,7 +212,7 @@ public sealed class TFSpyComponent(
             if (consumeFactor < 1f)
                 consumeFactor = 1f / (2f - consumeFactor);
 
-            bool motionCloak = hooks.Int(0, "set_weapon_mode", owners.ManagerOf(_index)) == InvisMotionCloakMode;
+            bool motionCloak = hooks.Int(0, "set_weapon_mode", owners.ItemOf(_index, WatchScript)) == InvisMotionCloakMode;
 
             if (motionCloak)
             {
@@ -333,7 +341,7 @@ public sealed class TFSpyComponent(
         {
             FadeInvis(1f, now);
         }
-        else if (hooks.Int(0, "set_weapon_mode", owners.ManagerOf(_index)) == InvisFeignDeathMode)
+        else if (hooks.Int(0, "set_weapon_mode", owners.ItemOf(_index, WatchScript)) == InvisFeignDeathMode)
         {
             // The HasFeignDeath arm (tf_weapon_invis.cpp:230-242): the Dead
             // Ringer's watch toggles its ready bit instead of cloaking — off

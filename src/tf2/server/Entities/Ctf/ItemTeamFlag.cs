@@ -11,6 +11,7 @@ using SourceSharp.Server;
 using SourceSharp.Shared;
 
 using TF2.Server.Entities.Rooms;
+using TF2.Server.Player;
 using TF2.Server.Rules;
 using TF2.Shared;
 using TF2.Shared.Conditions;
@@ -35,7 +36,7 @@ namespace TF2.Server.Entities.Ctf;
 /// a dropped flag (the ring's art itself is the client's; the countdown
 /// shows in the HUD's flag row).
 /// <b>Not ported</b> (docs/plans/tf2/deferred.tsv): the glow's outline shader
-/// (<c>CGlowObject</c>, drawn by the client registry off <see cref="GlowEnabled"/> and <see cref="TFFlagNetState.Team"/>), the stats, MvM,
+/// (<c>CGlowObject</c>, drawn by the client registry off <see cref="GlowEnabled"/> and <see cref="TFFlagNetState.Team"/>), the currency, MvM,
 /// robot/player destruction's points, powerup mode's poison, the initial
 /// parent, and the <c>DT_CaptureFlag</c> fields with no client reader (the
 /// HUD reads the objective resource).
@@ -58,7 +59,8 @@ public sealed class ItemTeamFlag(
     IServerSkins skins,
     ITFRespawnRooms respawnRooms,
     IFlagCarrierEffects effects,
-    IFlagDetectionZoneDispatch zones) : ScriptedEntity
+    IFlagDetectionZoneDispatch zones,
+    ITFPlayerStats stats) : ScriptedEntity
 {
     public const string MapClass = "item_teamflag";
 
@@ -635,6 +637,9 @@ public sealed class ItemTeamFlag(
         {
             Reset();
             ResetMessage();
+
+            // CTFGameStats::Event_PlayerReturnedFlag (tf_gamestats.cpp:1473-1477).
+            stats.Increment(other, TFStat.Flagreturns);
         }
         else
         {
@@ -788,17 +793,26 @@ public sealed class ItemTeamFlag(
                 effects.CaptureBonus(playerTeam);
             }
 
+            // Reward the player, and the stealer too (entity_capture_flag.cpp:1551-1562).
+            RewardCappers(player, creditStealer: true);
+
             // Reward the team
             rules.RewardTeam(playerTeam, asCapture: settings.CapsPerRound > 0, CapturedTeamScore);
         }
         else if (Type == TFFlagType.Invade)
         {
+            // Reward the player (entity_capture_flag.cpp:1626-1627)
+            RewardCappers(player, creditStealer: false);
+
             // Reward the team
             bool asCapture = Vars.ScoringType == InvadeScoringCaptureCount && settings.CapsPerRound > 0;
             rules.RewardTeam(playerTeam, asCapture, CapturedTeamScore);
         }
         else if (Type == TFFlagType.ResourceControl)
         {
+            // Reward the player, and the stealer too (entity_capture_flag.cpp:1667-1675).
+            RewardCappers(player, creditStealer: true);
+
             // Reward the team
             rules.RewardTeam(playerTeam, asCapture: settings.CapsPerRound > 0, CapturedTeamScore);
         }
@@ -807,6 +821,9 @@ public sealed class ItemTeamFlag(
             // The per-team lines and the broadcast sting; no caps-per-round
             // mute and no bonus (entity_capture_flag.cpp:1574-1609).
             announcer.AttackDefendCaptured(Handle, playerTeam, player);
+
+            // Reward the player (entity_capture_flag.cpp:1605-1606)
+            RewardCappers(player, creditStealer: false);
         }
         panelCappers.NoteCapper(players.Index(player));
 
@@ -853,6 +870,27 @@ public sealed class ItemTeamFlag(
             // whoever capped the flag is the winner, give them enough caps to win
             if (rules.FlagCaptures(playerTeam) < settings.CapsPerRound)
                 rules.SetFlagCaptures(playerTeam, settings.CapsPerRound);
+        }
+    }
+
+    /// <summary>
+    /// A capture's stats (CTFGameStats::Event_PlayerCapturedPoint,
+    /// tf_gamestats.cpp:1458-1461): one capture to the carrier and, where
+    /// <paramref name="creditStealer"/>, one to the player who first took the
+    /// flag from home if that was someone else and they are still here
+    /// (<c>m_hInitialPlayer</c>), who is then forgotten. The currency arms
+    /// beside them are deferred (docs/plans/tf2/deferred.tsv).
+    /// </summary>
+    private void RewardCappers(EntityHandle player, bool creditStealer)
+    {
+        stats.Increment(player, TFStat.Captures);
+
+        // if someone else stole the flag, give them credit, too
+        if (creditStealer && _initialPlayer != EntityHandle.None && _initialPlayer != player)
+        {
+            if (players.IsPlayer(_initialPlayer))
+                stats.Increment(_initialPlayer, TFStat.Captures);
+            _initialPlayer = EntityHandle.None;
         }
     }
 

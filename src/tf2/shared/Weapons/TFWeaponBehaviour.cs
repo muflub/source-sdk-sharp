@@ -1007,6 +1007,13 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks attributes) :
     }
 
     /// <summary>
+    /// The chain's <c>CanHolster</c>: <c>CBaseCombatWeapon::CanHolster</c>'s
+    /// base true for every TF row but those whose stock class overrides it
+    /// (the melee base's lock, <see cref="TFMeleeBehaviour.CanHolster"/>).
+    /// </summary>
+    public virtual bool CanHolster(in WeaponAttackContext attack) => true;
+
+    /// <summary>
     /// <c>CTFShotgun_Revenge::Holster</c> (tf_weapon_shotgun.cpp:168-179): the
     /// Justice leaving the hands takes its boost with it — the condition out
     /// while the count stands, so the weapon drawn next swings plain until

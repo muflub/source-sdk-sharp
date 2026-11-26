@@ -40,11 +40,11 @@ public sealed record TFObjectInfo(TFObjectType Type, int Cost, float BuildTime, 
     public static TFObjectInfo? Of(TFObjectType type) => type switch
     {
         TFObjectType.Dispenser => new TFObjectInfo(TFObjectType.Dispenser, Cost: 100, BuildTime: 20f, MaxObjects: 1, Modes: 1,
-                                                   UpgradeCost: 200, UpgradeDuration: 20f),
+                                                   UpgradeCost: 200, UpgradeDuration: 1.5f),
         TFObjectType.Teleporter => new TFObjectInfo(TFObjectType.Teleporter, Cost: 50, BuildTime: 20f, MaxObjects: 1, Modes: 2,
-                                                    UpgradeCost: 100, UpgradeDuration: 20f),
+                                                    UpgradeCost: 200, UpgradeDuration: 1.5f),
         TFObjectType.Sentrygun => new TFObjectInfo(TFObjectType.Sentrygun, Cost: 130, BuildTime: 10f, MaxObjects: 1, Modes: 1,
-                                                   UpgradeCost: 200, UpgradeDuration: 10f),
+                                                   UpgradeCost: 200, UpgradeDuration: 1.5f),
         _ => null,
     };
 }

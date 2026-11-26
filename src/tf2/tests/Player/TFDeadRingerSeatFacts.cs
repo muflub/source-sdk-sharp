@@ -74,6 +74,16 @@ public sealed class TFDeadRingerSeatFacts
                      hooks.Int(0, "set_weapon_mode", owners.ManagerOf(PlayerRig.Index)));
     }
 
+    /// <summary>The press reads the watch item itself (TFSpyComponent.WatchScript): the equipped Dead Ringer's seat answers 1 there too.</summary>
+    [Fact]
+    public void The_equipped_dead_ringer_reads_mode_one_off_the_watch()
+    {
+        var (owners, hooks) = Seated(ringer: true);
+
+        Assert.Equal(TFSpyComponent.InvisFeignDeathMode,
+                     hooks.Int(0, "set_weapon_mode", owners.ItemOf(PlayerRig.Index, TFSpyComponent.WatchScript)));
+    }
+
     /// <summary>The seat's control: the base watch's kit reads no mode through
     /// the same walk, so the mode-one answer is the item's, not the walk's.</summary>
     [Fact]

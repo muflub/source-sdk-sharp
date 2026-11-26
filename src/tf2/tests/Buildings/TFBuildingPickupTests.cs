@@ -348,7 +348,7 @@ public class TFBuildingPickupTests
         states.Add(3, TFClass.Engineer);
         var skill = new TFClassSpecialSkill(states, rig.Engine, new IdleSkillSpies(),
                                             new TFStickyTray(rig.Carriers), pickup: rig.Pickup(),
-                                            new NoTFWeaponOwners(), new IdleSkillShields());
+                                            new NoTFWeaponOwners(), new IdleSkillShields(), new AttributeHooks(), rig.Engine);
 
         Assert.True(skill.DoSpecialSkill(3));
 

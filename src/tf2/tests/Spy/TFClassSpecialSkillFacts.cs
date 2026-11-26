@@ -1,5 +1,6 @@
 using SourceSharp.Abi;
 using SourceSharp.Server;
+using SourceSharp.Shared;
 
 using TF2.Server.Player;
 using TF2.Server.Projectiles;
@@ -29,7 +30,7 @@ public class TFClassSpecialSkillFacts
     {
         rig.Engine.Returns("Players.GetHandle", SpyRig.Spy);
         return new(rig.States, rig.Engine, rig.Spies, new TFStickyTray(rig.Carriers),
-                   new IdleSkillPickup(), rig.Owners, new IdleSkillShields());
+                   new IdleSkillPickup(), rig.Owners, new IdleSkillShields(), new AttributeHooks(), rig.Engine);
     }
 
     [Fact]
@@ -83,7 +84,7 @@ public class TFClassSpecialSkillFacts
         rig.Tray.Register(3, sticky);
         var skill = new TFClassSpecialSkill(states, rig.Engine, new IdleSkillSpies(), tray: rig.Tray,
                                             pickup: new IdleSkillPickup(), owners: new LauncherOwners(),
-                                            shields: new IdleSkillShields());
+                                            shields: new IdleSkillShields(), attributes: new AttributeHooks(), entities: rig.Engine);
 
         Assert.Equal(1, rig.Tray.Count(3));
         Assert.True(skill.DoSpecialSkill(3));
@@ -91,11 +92,41 @@ public class TFClassSpecialSkillFacts
     }
 
     /// <summary>
+    /// The Scottish Resistance (<c>set_detonate_mode</c> 1) detonated from another weapon still takes only the stickies in
+    /// view: stock's special skill calls the launcher's SecondaryAttack (tf_player_shared.cpp:12353-12360), whose detonate
+    /// mode holds whatever is in hand. A sticky 500 u behind the Demoman, looking along +x, stays; the stock launcher's
+    /// (the fact above) goes.
+    /// </summary>
+    [Fact]
+    public void TheScottishResistanceDetonatesOnlyWhatIsInViewFromAnyWeapon()
+    {
+        var rig = new ProjectileRig();
+        var states = new TFMovementFixtures.Players();
+        states.Add(3, TFClass.Demoman);
+        rig.Engine.Returns("Players.IsAlive", true)
+                  .Returns("Entities.GetEyePosition", new Vector(0f, 0f, 64f))
+                  .Returns("Entities.GetEyeAngles", new Vector(0f, 0f, 0f))
+                  .Returns("Entities.GetWorldSpaceCenter", new Vector(-500f, 0f, 0f));
+        int origins = 0;
+        // The Demoman's own origin first, then the sticky's, 500 u behind him.
+        rig.Engine.ReturnsEachCall("Entities.GetOrigin", () => origins++ == 0 ? new Vector(0f, 0f, 0f) : new Vector(-500f, 0f, 0f));
+        var sticky = rig.Sticky();
+        sticky.OnThink(); // armed
+        rig.Tray.Register(3, sticky);
+        var skill = new TFClassSpecialSkill(states, rig.Engine, new IdleSkillSpies(), tray: rig.Tray,
+                                            pickup: new IdleSkillPickup(), owners: new LauncherOwners(InViewMode: true),
+                                            shields: new IdleSkillShields(), attributes: new AttributeHooks(), entities: rig.Engine);
+
+        Assert.True(skill.DoSpecialSkill(3));
+        Assert.Equal(1, rig.Tray.Count(3));
+    }
+
+    /// <summary>
     /// The demoman whose launcher the arm's gate sees
     /// (<c>Weapon_OwnsThisID</c>, tf_player_shared.cpp:12372-12379): the
     /// owned item is the tray arm's, so the press detonates as ever.
     /// </summary>
-    private sealed class LauncherOwners : ITFWeaponOwners
+    private sealed class LauncherOwners(bool InViewMode = false) : ITFWeaponOwners
     {
         public TFClass ClassOf(int playerIndex) => TFClass.Demoman;
 
@@ -106,7 +137,21 @@ public class TFClassSpecialSkillFacts
         public bool WinsCrits(int playerIndex) => false;
 
         public IAttributeProvider? ItemOf(int playerIndex, string weaponName)
-            => weaponName == "tf_weapon_pipebomblauncher" ? new AttributeContainer() : null;
+            => weaponName == "tf_weapon_pipebomblauncher" ? Launcher() : null;
+
+        /// <summary>The launcher's item: the stock one, or with <c>set_detonate_mode</c> 1 (the Scottish Resistance's in-view mode).</summary>
+        private AttributeContainer Launcher()
+        {
+            var item = new AttributeContainer();
+            if (InViewMode)
+            {
+                item.Set(AttributeValue.OfFloat(new AttributeDefinition(5006, "attr 5006", "set_detonate_mode", AttributeDescriptionFormat.Additive,
+                                                                        AttributeEffectType.Neutral, false, false, AttributeValueType.Default,
+                                                                        MergedKeys.Block("x")), 1f));
+            }
+
+            return item;
+        }
 
         public IAttributeProvider? ManagerOf(int playerIndex) => null;
 

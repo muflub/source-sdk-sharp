@@ -1965,6 +1965,39 @@ public class TFStickyTrayFacts
         Assert.Equal(2, rig.Engine.CountOf("Entities.Remove"));
     }
 
+    [Fact]
+    public void ADetonationThatKillsItsOwnerLeavesTheTrayWhole()
+    {
+        // A blast of the owner's own that kills him (a sticky by his feet, live on cp_granary, P7 Demoman):
+        // the death's fizzle (OnPlayerDied -> FizzleAll) empties the tray while DetonateAll is still
+        // walking it. The walk read tray[i] past the emptied list and threw ArgumentOutOfRange
+        // (AiBots.OnPreThink threw, console.log of the P7 Demoman lane's run). Two older stickies out,
+        // the second-newest kills him, the newest still young.
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere();
+        var older = Sticky(rig);
+        var old = Sticky(rig);
+        var killer = Sticky(rig);
+        var young = rig.Sticky();
+        foreach (var s in new[] { older, old, killer, young })
+            rig.Tray.Register(3, s);
+        bool died = false;
+        rig.Engine.WhenCalled("Entities.Remove", _ =>
+        {
+            if (died)
+                return;
+            died = true;
+            rig.Tray.OnPlayerDied(new PlayerDeath(ProjectileRig.Player, 3, EntityHandle.None, default, EntityHandle.None));
+        });
+
+        rig.Tray.DetonateAll(3);
+
+        Assert.True(died);
+        Assert.Equal(0, rig.Tray.Count(3));
+        // Every sticky left the world once: three detonated, the young one fizzled.
+        Assert.Equal(4, rig.Engine.CountOf("Entities.Remove"));
+    }
+
     // ------- the carrier's pipebomb count (HudDemomanPipes's m_iPipebombCount) -------
 
     /// <summary>

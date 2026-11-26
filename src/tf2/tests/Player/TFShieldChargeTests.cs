@@ -89,7 +89,7 @@ public sealed class TFShieldChargeTests
                       DeclaredConVars.Fresh<TFDemomanChargeRegenRateConVar>(), new NoGlobalsEnv());
             Player.Extra.AddRange([Ticker, wearables, end, Meter]);
             Skill = new(Player.Carriers, Player.Engine, new IdleSkillSpies(), new TFStickyTray(Player.Carriers),
-                        new IdleSkillPickup(), new NoTFWeaponOwners(), Shields);
+                        new IdleSkillPickup(), new NoTFWeaponOwners(), Shields, new TF2.Shared.Econ.AttributeHooks(), Player.Engine);
 
             // The class first: the attach window's create is the carrier's, so
             // the player is in before the wearables' own factory stands.

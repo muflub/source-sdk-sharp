@@ -728,7 +728,7 @@ public sealed class TFProjectileEffects(IEngineEntities entities, ITFProjectileS
     /// player — stock's sticky-jumping arm. The distance is the player's origin to the
     /// bomb's origin; only armed bombs pass the tray's own gate beside this test.
     /// </summary>
-    private static bool InView(IEngineEntities entities, Vector eyePosition, Vector forward,
+    internal static bool InView(IEngineEntities entities, Vector eyePosition, Vector forward,
                                Vector playerOrigin, TFStickybomb sticky)
     {
         Vector towards = entities.GetWorldSpaceCenter(sticky.Handle) - eyePosition;

@@ -33,6 +33,40 @@ public sealed class DeadRingerTests
         return container;
     }
 
+    /// <summary>The watch's seat (TF2.Server.Player.TFSpyComponent.WatchScript): the mode the press reads is the watch item's own.</summary>
+    private static Dictionary<string, IAttributeProvider> Watch(IAttributeProvider watch) => new() { [TF2.Server.Player.TFSpyComponent.WatchScript] = watch };
+
+    /// <summary>
+    /// The Ambassador beside the Dead Ringer (the Spy lane's review, F2): the player's manager sums both items' mode to 2,
+    /// a motion cloak, but the press reads the watch's own 1 and arms the feign, no cloak.
+    /// </summary>
+    [Fact]
+    public void The_Ambassador_beside_the_Dead_Ringer_still_arms_the_feign()
+    {
+        var rig = new SpyRig();
+        rig.Owners.Managers[SpyRig.Spy.EntryIndex] = Mode(2);       // the Ambassador's 1 and the watch's 1, summed on the player
+        rig.Owners.ByName[SpyRig.Spy.EntryIndex] = Watch(Mode(1));
+        rig.State.CloakMeter = 100f;
+        rig.Clock.Now = 100f;
+        Assert.False(rig.Spies.ActivateInvisibilityWatch(SpyRig.Spy.EntryIndex));
+        Assert.True(rig.State.FeignDeathReady);
+        Assert.False(rig.Conditions.InCond(SpyRig.Spy, TFCond.Stealthed));
+    }
+
+    /// <summary>The Ambassador beside the Invis Watch: the player's manager reads 1, a feign watch's mode, but the watch's own is 0 and the press cloaks.</summary>
+    [Fact]
+    public void The_Ambassador_beside_the_Invis_Watch_cloaks()
+    {
+        var rig = new SpyRig();
+        rig.Owners.Managers[SpyRig.Spy.EntryIndex] = Mode(1);       // the Ambassador's set_weapon_mode 1
+        rig.Owners.ByName[SpyRig.Spy.EntryIndex] = Watch(Mode(0));
+        rig.State.CloakMeter = 100f;
+        rig.Clock.Now = 100f;
+        Assert.True(rig.Spies.ActivateInvisibilityWatch(SpyRig.Spy.EntryIndex));
+        Assert.False(rig.State.FeignDeathReady);
+        Assert.True(rig.Conditions.InCond(SpyRig.Spy, TFCond.Stealthed));
+    }
+
     /// <summary>
     /// A hit on an armed spy plays him dead once: the watch arms from a full
     /// meter alone, the feign halves the meter, takes the burning and the
@@ -43,7 +77,7 @@ public sealed class DeadRingerTests
     public void A_feigned_hit_plays_the_armed_spy_dead_once()
     {
         var rig = new SpyRig();
-        rig.Owners.Managers[SpyRig.Spy.EntryIndex] = Mode(1);       // HasFeignDeath, tf_weapon_invis.h:66-67
+        rig.Owners.ByName[SpyRig.Spy.EntryIndex] = Watch(Mode(1));       // HasFeignDeath, tf_weapon_invis.h:66-67
         rig.State.CloakMeter = 99f;
 
         // The watch arms from a full meter alone (:237): below it the press
@@ -78,7 +112,7 @@ public sealed class DeadRingerTests
     public void The_second_press_lays_the_armed_watch_down()
     {
         var rig = new SpyRig();
-        rig.Owners.Managers[SpyRig.Spy.EntryIndex] = Mode(1);
+        rig.Owners.ByName[SpyRig.Spy.EntryIndex] = Watch(Mode(1));
         rig.State.CloakMeter = 100f;
         rig.Clock.Now = 100f;
         Assert.False(rig.Spies.ActivateInvisibilityWatch(SpyRig.Spy.EntryIndex));    // armed (:237-241)
@@ -96,7 +130,7 @@ public sealed class DeadRingerTests
     public void A_taunting_spy_spends_the_ready_bit_without_dying()
     {
         var rig = new SpyRig();
-        rig.Owners.Managers[SpyRig.Spy.EntryIndex] = Mode(1);
+        rig.Owners.ByName[SpyRig.Spy.EntryIndex] = Watch(Mode(1));
         rig.State.CloakMeter = 100f;
         rig.Clock.Now = 100f;
         Assert.False(rig.Spies.ActivateInvisibilityWatch(SpyRig.Spy.EntryIndex));    // armed
@@ -117,7 +151,7 @@ public sealed class DeadRingerTests
     public void A_telefrag_never_answers_through_the_watch()
     {
         var rig = new SpyRig();
-        rig.Owners.Managers[SpyRig.Spy.EntryIndex] = Mode(1);
+        rig.Owners.ByName[SpyRig.Spy.EntryIndex] = Watch(Mode(1));
         rig.State.CloakMeter = 100f;
         rig.Clock.Now = 100f;
         Assert.False(rig.Spies.ActivateInvisibilityWatch(SpyRig.Spy.EntryIndex));    // armed
@@ -137,7 +171,7 @@ public sealed class DeadRingerTests
     public void The_feigned_death_runs_the_audio_the_notice_the_pack_and_the_corpse_in_order()
     {
         var rig = new SpyRig();
-        rig.Owners.Managers[SpyRig.Spy.EntryIndex] = Mode(1);
+        rig.Owners.ByName[SpyRig.Spy.EntryIndex] = Watch(Mode(1));
         rig.State.CloakMeter = 100f;
         rig.Clock.Now = 100f;
         Assert.False(rig.Spies.ActivateInvisibilityWatch(SpyRig.Spy.EntryIndex));    // armed (:237-241)
@@ -161,7 +195,7 @@ public sealed class DeadRingerTests
     public void The_think_ends_the_feign_at_the_close_of_the_buffs_window()
     {
         var rig = new SpyRig();
-        rig.Owners.Managers[SpyRig.Spy.EntryIndex] = Mode(1);
+        rig.Owners.ByName[SpyRig.Spy.EntryIndex] = Watch(Mode(1));
         rig.State.CloakMeter = 100f;
         rig.Clock.Now = 100f;
         Assert.False(rig.Spies.ActivateInvisibilityWatch(SpyRig.Spy.EntryIndex));    // armed (:237-241)
@@ -358,7 +392,7 @@ public sealed class DeadRingerTests
     private static SpyRig NewArmedRig()
     {
         var rig = new SpyRig();
-        rig.Owners.Managers[SpyRig.Spy.EntryIndex] = Mode(1);
+        rig.Owners.ByName[SpyRig.Spy.EntryIndex] = Watch(Mode(1));
         rig.State.CloakMeter = 100f;
         rig.Clock.Now = 100.2f;
         Assert.False(rig.Spies.ActivateInvisibilityWatch(SpyRig.Spy.EntryIndex));   // the press arms, not cloaks

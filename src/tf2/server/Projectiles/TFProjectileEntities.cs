@@ -2996,19 +2996,27 @@ public sealed class TFStickyTray(TFPlayerCarriers carriers) : IPlayerDeathHook, 
         if (!_trays.TryGetValue(ownerIndex, out var tray))
             return;
 
+        // The armed ones leave the tray first, then go: a blast that kills the
+        // owner runs his death's fizzle (OnPlayerDied -> FizzleAll) on this
+        // same list, so the walk never reads it while a detonation runs.
+        List<TFStickybomb>? going = null;
         for (int i = tray.Count - 1; i >= 0; i--)
         {
             if (tray[i].Armed && (inView is null || inView(tray[i])))
             {
-                TFStickybomb sticky = tray[i];
+                (going ??= new List<TFStickybomb>()).Add(tray[i]);
                 tray.RemoveAt(i);
-                // CanDestroyStickies (tf_weapon_pipebomblauncher.cpp:561-565):
-                // the destroying launcher sweeps each bomb's sphere before
-                // its own Detonate.
-                if (destroyStickies)
-                    sticky.DetonateStickies();
-                sticky.Detonate();
             }
+        }
+
+        foreach (TFStickybomb sticky in going ?? [])
+        {
+            // CanDestroyStickies (tf_weapon_pipebomblauncher.cpp:561-565):
+            // the destroying launcher sweeps each bomb's sphere before
+            // its own Detonate.
+            if (destroyStickies)
+                sticky.DetonateStickies();
+            sticky.Detonate();
         }
 
         Publish(ownerIndex);

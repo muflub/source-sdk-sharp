@@ -14,6 +14,7 @@ using TF2.Server.Buildings;
 using TF2.Server.Projectiles;
 using TF2.Server.Weapons;
 using TF2.Shared;
+using TF2.Shared.Econ;
 using TF2.Shared.Player;
 
 namespace TF2.Server.Player;
@@ -40,11 +41,35 @@ public sealed class TFClassSpecialSkill(ITFPlayerData players, IEnginePlayers en
                                         ITFSpyState spies, TFStickyTray tray,
                                         ITFBuildingPickup pickup,
                                         ITFWeaponOwners owners,
-                                        ITFShieldCharge shields)
+                                        ITFShieldCharge shields,
+                                        AttributeHooks attributes,
+                                        IEngineEntities entities)
     : ITFClassSkillEffects
 {
     /// <summary>The pipebomb launcher's weapon row, the owned item the demoman arm asks for (the trimmed schema's <c>item_class</c>).</summary>
     internal const string PipebombLauncherItem = "tf_weapon_pipebomblauncher";
+
+    /// <summary>
+    /// The launcher's <c>SecondaryAttack</c> from whatever weapon is in hand (tf_player_shared.cpp:12353-12360 calls it):
+    /// its <c>stickies_detonate_stickies</c> sweep and its <c>set_detonate_mode</c>, so the Scottish Resistance's
+    /// stickies go only when in view (ModifyPipebombsInView, the arm TFProjectileEffects.Detonate takes from the
+    /// launcher's own press), whatever the Demoman holds.
+    /// </summary>
+    private void DetonateWith(int ownerIndex, IAttributeProvider launcher)
+    {
+        bool destroyStickies = attributes.Int(0, "stickies_detonate_stickies", launcher) == 1;
+        if (attributes.Int(0, "set_detonate_mode", launcher) != TFProjectileDefs.DetonateModeDot)
+        {
+            tray.DetonateAll(ownerIndex, destroyStickies);
+            return;
+        }
+
+        EntityHandle owner = enginePlayers.GetHandle(ownerIndex);
+        Vector eyePosition = entities.GetEyePosition(owner);
+        Vector forward = Angles.Forward(entities.GetEyeAngles(owner));
+        Vector playerOrigin = entities.GetOrigin(owner);
+        tray.DetonateAll(ownerIndex, destroyStickies, sticky => TFProjectileEffects.InView(entities, eyePosition, forward, playerOrigin, sticky));
+    }
 
     public bool DoSpecialSkill(int ownerIndex)
     {
@@ -66,8 +91,8 @@ public sealed class TFClassSpecialSkill(ITFPlayerData players, IEnginePlayers en
                 // launcher-less demoman's shield takes the press instead
                 // (:12363-12368, DoSpecialAction). The owned launcher is the
                 // item behind its weapon row; the shield arm is the charge.
-                if (owners.ItemOf(ownerIndex, PipebombLauncherItem) is not null)
-                    tray.DetonateAll(ownerIndex);
+                if (owners.ItemOf(ownerIndex, PipebombLauncherItem) is { } launcher)
+                    DetonateWith(ownerIndex, launcher);
                 else
                     shields.TryStart(ownerIndex);
                 return true;

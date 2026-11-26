@@ -182,6 +182,7 @@ internal sealed class CtfRig
     public readonly TFTeamScores Scores;
     public readonly ModeSlot Slot = new();
     public readonly CtfRules Rules;
+    public readonly TF2.Server.Player.TFPlayerStats Stats = new();
 
     private uint _next = 0x0040_0000u;
     private readonly Dictionary<EntityHandle, Vector> _origins = new();
@@ -228,6 +229,7 @@ internal sealed class CtfRig
         services.AddInstance<IModeObjectives>(Objectives);
         services.AddInstance<IFlagCarrierEffects>(Effects);
         services.AddInstance<ITFRespawnRooms>(RespawnRooms);
+        services.AddInstance<TF2.Server.Player.ITFPlayerStats>(Stats);
         Registry.Services = services;
     }
 

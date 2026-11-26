@@ -355,7 +355,7 @@ public sealed class TFCloakTests
     {
         var rig = new SpyRig();
         rig.State.CloakMeter = 100f;
-        rig.Owners.Managers[SpyRig.Spy.EntryIndex] = WatchMode(2f);   // INVIS_MOTION_CLOAK
+        rig.Owners.ByName[SpyRig.Spy.EntryIndex] = new() { [TF2.Server.Player.TFSpyComponent.WatchScript] = WatchMode(2f) };   // INVIS_MOTION_CLOAK
         rig.Conditions.Add(SpyRig.Spy, TFCond.Stealthed, provider: SpyRig.Spy);
 
         // Moving at the class maximum: RemapVal answers 1, stock's extra half
@@ -375,7 +375,7 @@ public sealed class TFCloakTests
     {
         var rig = new SpyRig();
         rig.State.CloakMeter = 98.4f;
-        rig.Owners.Managers[SpyRig.Spy.EntryIndex] = WatchMode(2f);
+        rig.Owners.ByName[SpyRig.Spy.EntryIndex] = new() { [TF2.Server.Player.TFSpyComponent.WatchScript] = WatchMode(2f) };
         rig.Conditions.Add(SpyRig.Spy, TFCond.Stealthed, provider: SpyRig.Spy);
 
         // Still (the rig's zero velocity): the refill rides the regen hook,
@@ -393,7 +393,7 @@ public sealed class TFCloakTests
     {
         var rig = new SpyRig();
         rig.State.CloakMeter = 50f;
-        rig.Owners.Managers[SpyRig.Spy.EntryIndex] = WatchMode(2f);
+        rig.Owners.ByName[SpyRig.Spy.EntryIndex] = new() { [TF2.Server.Player.TFSpyComponent.WatchScript] = WatchMode(2f) };
         rig.Conditions.Add(SpyRig.Spy, TFCond.Stealthed, provider: SpyRig.Spy);
 
         // The moving tick stamps the exposure (:14158, one second of grace).
@@ -416,7 +416,7 @@ public sealed class TFCloakTests
     {
         var rig = new SpyRig();
         rig.State.CloakMeter = 1f;
-        rig.Owners.Managers[SpyRig.Spy.EntryIndex] = WatchMode(2f);
+        rig.Owners.ByName[SpyRig.Spy.EntryIndex] = new() { [TF2.Server.Player.TFSpyComponent.WatchScript] = WatchMode(2f) };
         rig.Conditions.Add(SpyRig.Spy, TFCond.Stealthed, provider: SpyRig.Spy);
 
         float maxSpeed = rig.Classes[TFClass.Spy].MaxSpeed;

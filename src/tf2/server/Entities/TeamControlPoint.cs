@@ -7,6 +7,7 @@
 
 using SourceSharp.Abi;
 using SourceSharp.Server;
+using TF2.Server.Player;
 using TF2.Server.Rules;
 using TF2.Server.Voice;
 using TF2.Shared;
@@ -50,9 +51,14 @@ public sealed class TeamControlPoint(
     IGameClock clock,
     TFWinPanelCappers panelCappers,
     TFConceptSpeech speech,
-    IServerSkins skins) : ScriptedEntity
+    IServerSkins skins,
+    ITFPlayerStats stats,
+    IEnginePlayers players) : ScriptedEntity
 {
     public const string MapClass = "team_control_point";
+
+    /// <summary>The cappers string's capacity: SendCapString's safety check (team_control_point.cpp:726-729).</summary>
+    public const int MaxEventCappers = 8;
 
     /// <summary>CONTROL_POINT_UNLOCK_THINK.</summary>
     public const string UnlockThinkContext = "UnlockThink";
@@ -509,6 +515,28 @@ public sealed class TeamControlPoint(
             return;
 
         events.PointCaptured(PointIndex, Vars.PrintName, capTeam, cappers);
+
+        CreditCappers(cappers);
+    }
+
+    /// <summary>
+    /// The capture stat of CTFGameRules' teamplay_point_captured handler
+    /// (tf_gamerules.cpp:18197-18209): each player the event's cappers string
+    /// names gets one capture (CTFGameStats::Event_PlayerCapturedPoint,
+    /// tf_gamestats.cpp:1458-1461), an index naming no player none. The
+    /// string holds at most <see cref="MaxEventCappers"/>. The handler's MvM
+    /// gate has no mode to answer; its other arms are deferred
+    /// (docs/plans/tf2/deferred.tsv).
+    /// </summary>
+    private void CreditCappers(IReadOnlyList<int> cappers)
+    {
+        int count = Math.Min(cappers.Count, MaxEventCappers);
+        for (int i = 0; i < count; i++)
+        {
+            EntityHandle player = players.GetHandle(cappers[i]);
+            if (player != EntityHandle.None)
+                stats.Increment(player, TFStat.Captures);
+        }
     }
 
     /// <summary>CaptureStart: the teamplay_point_startcapture event.</summary>
