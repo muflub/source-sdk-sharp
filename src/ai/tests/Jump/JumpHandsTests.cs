@@ -44,19 +44,30 @@ public class JumpHandsTests
         return live.Sent[first..];
     }
 
-    /// <summary>A hash of every field a command sends, in order: two runs agree only if they agree command for command.</summary>
-    private static string Hash(List<UserCmd> commands)
+    /// <summary>
+    /// A hash of every field a command sends, in order: two runs agree only if they agree command for command, the floats by
+    /// their bits. <paramref name="keysOnly"/> leaves the floats out, for a value pinned across machines: their float maths
+    /// differ in the last bits (CI's Linux and Windows runners each hashed the floats differently from the machine that
+    /// measured them, on the same 159 commands), and rounding is no cure (a yaw of -444.0499 lies 0.0001 from a tenth's edge).
+    /// </summary>
+    private static string Hash(List<UserCmd> commands, bool keysOnly = false)
     {
         using var bytes = new MemoryStream();
         using (var w = new BinaryWriter(bytes, System.Text.Encoding.UTF8, leaveOpen: true))
         {
+            void Write(float f)
+            {
+                if (!keysOnly)
+                    w.Write(f);
+            }
+
             foreach (UserCmd c in commands)
             {
-                w.Write(c.Pitch);
-                w.Write(c.Yaw);
-                w.Write(c.ForwardMove);
-                w.Write(c.SideMove);
-                w.Write(c.UpMove);
+                Write(c.Pitch);
+                Write(c.Yaw);
+                Write(c.ForwardMove);
+                Write(c.SideMove);
+                Write(c.UpMove);
                 w.Write(c.Buttons);
                 w.Write(c.WeaponSelect);
             }
@@ -66,16 +77,25 @@ public class JumpHandsTests
     }
 
     /// <summary>
-    /// The program's commands as they were before the hook (base 7e79f0290c, measured there with this fact's own rig): the open
-    /// hall's plan and its doubled plan, each flown by a middling hand. A bot whose class asks nothing in the air sends exactly
-    /// these.
+    /// The program's commands as they were before the hook (measured with this fact's own rig on commands whose every bit
+    /// matched the hook's base): the open hall's plan and its doubled plan, each flown by a middling hand, their count, buttons
+    /// and weapon selects. A bot whose class asks nothing in the air sends exactly these; that it sends the unasked commands bit
+    /// for bit is <see cref="AClassAskingNothingInFlightSendsTheUnaskedCommandsBitForBit"/>.
     /// </summary>
-    private const string SingleBefore = "159:9DD7107D6D7DC5E1", DoubleBefore = "159:11AD9F9A16BE1301";
+    private const string SingleBefore = "159:0291682D56E8675E", DoubleBefore = "159:00504F85CEF779B3";
 
     [Fact]
     public void WithNoClassAnswerAJumpsCommandsAreTheProgramsOwnTickForTick()
     {
-        Assert.Equal((SingleBefore, DoubleBefore), (Hash(Flown(Bot(), Plan)), Hash(Flown(Bot(), Doubled))));
+        Assert.Equal((SingleBefore, DoubleBefore), (Hash(Flown(Bot(), Plan), keysOnly: true), Hash(Flown(Bot(), Doubled), keysOnly: true)));
+    }
+
+    [Fact]
+    public void AClassAskingNothingInFlightSendsTheUnaskedCommandsBitForBit()
+    {
+        List<UserCmd> unasked = Flown(Bot(), Plan), askingNothing = FlownAsking(Bot(), Plan, _ => null);
+        Assert.NotEmpty(unasked);
+        Assert.Equal(Hash(unasked), Hash(askingNothing));
     }
 
     private const int Attack = (int)InputButtons.Attack, JumpKey = (int)InputButtons.Jump, Duck = (int)InputButtons.Duck;
