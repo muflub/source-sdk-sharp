@@ -656,7 +656,9 @@ public class BotCommandsTests
         var ai = new SourceSharp.Ai.Server.Senses.ServerAiSession(_nav, TestGames.Hl2mp(), null!, _log,
             DeclaredConVars.Fresh<SourceSharp.Ai.Server.Senses.AiThreadsConVar>(), DeclaredConVars.Fresh<SourceSharp.Ai.Server.Senses.AiSyncConVar>());
         var vision = new SourceSharp.Ai.Server.Senses.VisionPass(w.Engine(), w.Entities(), w.Traces());
-        var senses = new SourceSharp.Ai.Server.Senses.AiSenses(_bots, ai, vision, null!, null!, null!, _log,
+        // The builder only for who a bot takes a player for (its ShownActors), which every pushed event passes through.
+        var builder = new SourceSharp.Ai.Server.Senses.SnapshotBuilder(w.Engine(), WeaponCatalog.Stock(), null!, w.Stance(), null!, TestGames.Hl2mp(), null!);
+        var senses = new SourceSharp.Ai.Server.Senses.AiSenses(_bots, ai, vision, builder, null!, null!, _log,
                                                                 new SourceSharp.Ai.Server.Senses.ReferenceRecorder(ai, vision));
         Add("Alyx hard");
         AiBot bot = Assert.Single(_bots.Bots);

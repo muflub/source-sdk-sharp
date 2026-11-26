@@ -3,11 +3,20 @@ using TF2.Shared;
 
 namespace SourceSharp.Ai.TF2.Trees;
 
-/// <summary>What one class's file hands the foundation (plan_bots_teams_tf2 P7): its class, whether the composition may field it, its ability rows and its archetypes.</summary>
-public sealed record TFClassSpec(TFClass Class, bool Ready, ImmutableArray<AbilityRow> Abilities, TFArchetypeTable? Archetypes = null)
+/// <summary>
+/// What one class's file hands the foundation (plan_bots_teams_tf2 P7): its class, whether the composition may field it, its
+/// ability rows, its archetypes, and the most of it one team fields (stock's roster limits, tf_bot.cpp:822-857): at most
+/// <paramref name="MaxPerTeam"/>, and with <paramref name="PerTeamMembers"/> over 0 one for each that many members (at least
+/// one). No cap by default.
+/// </summary>
+public sealed record TFClassSpec(TFClass Class, bool Ready, ImmutableArray<AbilityRow> Abilities, TFArchetypeTable? Archetypes = null,
+                                 int MaxPerTeam = int.MaxValue, int PerTeamMembers = 0)
 {
     /// <summary>The class's archetypes: none for a file that names none.</summary>
     public TFArchetypeTable Ways => Archetypes ?? TFArchetypeTable.None(Class);
+
+    /// <summary>The most of the class a team of <paramref name="teamSize"/> fields.</summary>
+    public int Cap(int teamSize) => PerTeamMembers > 0 ? Math.Min(MaxPerTeam, Math.Max(1, teamSize / PerTeamMembers)) : MaxPerTeam;
 }
 
 /// <summary>

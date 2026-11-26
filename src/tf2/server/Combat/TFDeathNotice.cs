@@ -96,6 +96,27 @@ public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entiti
 
     public int HookOrder => Order;
 
+    /// <summary>
+    /// Whether the notice of <paramref name="death"/> is silent (its <c>silent_kill</c>, the rule <see cref="Fill"/> writes):
+    /// a backstab by a scorer whose weapon is a silent killer. The AI's feed asks it (a silent kill is in no feed of the
+    /// victim's team).
+    /// </summary>
+    public bool SilentKill(in DeathNoticeFacts death)
+    {
+        if (death.Scorer == EntityHandle.None)
+            return false;
+        EntityHandle attacker = death.Attacker != EntityHandle.None && entities.IsValid(death.Attacker) ? death.Attacker : EntityHandle.None;
+        TFHitRecord? last = records.LastHit(death.Victim.EntryIndex);
+        TFDamageCustom custom = last is { } h && h.Attacker == attacker ? h.Custom : TFDamageCustom.None;
+        return Silent(death.Scorer, custom);
+    }
+
+    // A silent killer causes no death notices (tf_gamerules.cpp:12833-12839): the scorer's active weapon holding
+    // IsSilentKiller() (the item's set_silent_killer == 1, tf_weaponbase.cpp:6184-6192) with the backstab's custom kind.
+    private bool Silent(EntityHandle scorer, TFDamageCustom custom)
+        => scorer != EntityHandle.None && entities.IsValid(scorer) && custom == TFDamageCustom.Backstab
+           && attributes.Int(0, "set_silent_killer", owners.ItemOf(scorer.EntryIndex, players.GetActiveWeapon(scorer))) == 1;   // :6188
+
     public void Fill(in DeathNoticeFacts death, IDeathNoticeFields fields)
     {
         int victimIndex = death.Victim.EntryIndex;
@@ -142,14 +163,8 @@ public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entiti
             custom = TFDamageCustom.Suicide;
         fields.SetInt("customkill", (int)custom);
         fields.SetInt("inflictor_entindex", death.Inflictor != EntityHandle.None ? entities.GetIndex(death.Inflictor) : -1);
-        // A silent killer causes no death notices (tf_gamerules.cpp:12833-12839): the scorer's
-        // active weapon holding IsSilentKiller() — the item's set_silent_killer ==1,
-        // tf_weaponbase.cpp:6184-6192 — together with the backstab's custom kind makes this
-        // notice silent; everything else keeps silent_kill false.
-        bool silentKill = scorer != EntityHandle.None && entities.IsValid(scorer) && custom == TFDamageCustom.Backstab;
-        if (silentKill)
-            silentKill = attributes.Int(0, "set_silent_killer",
-                                        owners.ItemOf(scorer.EntryIndex, players.GetActiveWeapon(scorer))) == 1;   // :6188
+        // A silent killer causes no death notices (Silent); everything else keeps silent_kill false.
+        bool silentKill = Silent(scorer, custom);
         fields.SetBool("silent_kill", silentKill);
         int deathFlags = dominations.DeathFlags(victimIndex,
             scorer != EntityHandle.None ? entities.GetIndex(scorer) : -1,

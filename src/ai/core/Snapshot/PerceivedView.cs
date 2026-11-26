@@ -85,7 +85,8 @@ public enum ActorActivity : byte
 /// B.2: in HL2DM the model's team, in TF2 a disguise's), 0 when the mode plays no teams. <see cref="Class"/>
 /// is the class a client renders it as (a disguise's; 0 for a game without classes), <see cref="Conditions"/>
 /// the conditions drawn on it, and <see cref="NameSlot"/> the slot of the player whose name its target ID
-/// shows when that is not its own (a disguise's borrowed name, 0 for its own: plan_bots_teams_tf2 C.3). <see cref="Facing"/>
+/// shows: its own slot, or a disguise's borrowed one (plan_bots_teams_tf2 C.3), so the field reads alike for everyone;
+/// 0 only in a view no builder drew (a recording before format 10). <see cref="Facing"/>
 /// is where it looks, as every client sees a player's head and aim (plan_bots_teams_tf2 P7: a backstab, a dodge across a
 /// line of fire); not recorded, so a replay reads it as default (pitch and yaw 0).
 /// </summary>

@@ -29,6 +29,7 @@ public sealed class GameViewTests
         public Func<EntityHandle, ThingFacts, ThingFacts?> DrawThing { get; set; } = (_, f) => f;
         public List<ThingRead> All { get; } = new();
         public ObjectiveKnowledge? Objectives { get; set; }
+        public bool OwnKillFeed => false;
         public GameHud? GameHudRead { get; set; }
 
         public SelfState Hud(EntityHandle bot, in SelfState read) => read;
@@ -42,6 +43,10 @@ public sealed class GameViewTests
             facts = drawn;
             return true;
         }
+
+        public Func<EntityHandle, EntityHandle, ActorId, ActorId> Shown { get; set; } = (_, _, real) => real;
+
+        public ActorId ShownAs(EntityHandle viewer, EntityHandle them, ActorId real) => Shown(viewer, them, real);
 
         public void Things(List<ThingRead> into)
         {
@@ -119,6 +124,52 @@ public sealed class GameViewTests
         // A disguise: the game says the bot's client draws them in team 2's colours as class 7.
         _view.Draw = (_, f) => f with { Team = 2, Class = 7, NameSlot = 1 };
         Assert.Single(Build().Sighted.ToArray(), f => f is { Team: 2, Class: 7, NameSlot: 1 });
+    }
+
+    /// <summary>
+    /// Every sighted actor's target ID shows a name, its own slot's when the game draws no other (the Spy's fact 2): the
+    /// field reads alike for everyone, so a value of it never sets a disguised Spy apart. Was 0 for all but a disguise.
+    /// </summary>
+    [Fact]
+    public void EverySightedActorShowsItsOwnNameUnlessTheGameDrawsAnother()
+    {
+        ActorFacts f = Assert.Single(Build().Sighted.ToArray());
+        Assert.True(f.NameSlot > 0);
+        Assert.Equal(f.Id.Slot, f.NameSlot);
+    }
+
+    private Func<int, EntityHandle> PlayerOf => s => _pass.ReadOf(s)?.Player ?? EntityHandle.None;
+
+    /// <summary>One sense tick's events as the bot is told them (AiSenses' order: the vision, the changes in sight, then each told).</summary>
+    private List<AiEvent> Told()
+    {
+        var tick = new Tick(_tick++);
+        var events = new List<AiEvent>();
+        var changes = new List<AiEvent>();
+        _pass.Run(tick, 0.015f, [_bot], _w.Living(_bot), events);
+        _builder.Shown.Refresh(tick, [_bot], _pass, changes);
+        return [.. events.Select(e => _builder.Shown.Told(e, PlayerOf)), .. changes];
+    }
+
+    /// <summary>
+    /// The Spy's honesty fix (ShownActors): the sighting that tells the bot of a player names the actor the game says it
+    /// takes them for; when that changes in sight (a disguise goes on), the bot loses the one and gains the other where
+    /// the body stands; the view, a sound and the loss name the alias too. HL2MP's view changes nothing (the control).
+    /// </summary>
+    [Fact]
+    public void ADrawingThatChangesInSightIsALossAndAGainAndEverythingNamesTheNewActor()
+    {
+        ActorId real = _pass.ActorIn(2), alias = ActorId.Alias(2, 1);
+        Assert.Equal(real, _builder.Shown.Told(AiEvent.SightGained(_bot.Id, new Tick(_tick), real, default, default, 1f), PlayerOf).Other);
+        Assert.Empty(Told());   // the control: nothing changed, nothing told
+
+        _view.Shown = (_, _, _) => alias;
+        List<AiEvent> changed = Told();
+        Assert.Equal([(AiEventKind.SightLost, real), (AiEventKind.SightGained, alias)], changed.Select(e => (e.Kind, e.Other)));
+        Assert.Equal(alias, Assert.Single(Build().Sighted.ToArray()).Id);
+        Assert.Equal(alias, _builder.Shown.Told(AiEvent.SoundHeard(_bot.Id, new Tick(_tick), SoundKind.Footstep, default, 1f, real, -1), PlayerOf).Other);
+        Assert.Equal(alias, _builder.Shown.Told(AiEvent.SightLost(_bot.Id, new Tick(_tick), real, default, default), PlayerOf).Other);
+        Assert.Equal(ActorId.None, _builder.Shown.HeldFor(1, 2));
     }
 
     [Fact]

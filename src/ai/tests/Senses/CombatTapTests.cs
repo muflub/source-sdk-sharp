@@ -53,6 +53,32 @@ public sealed class CombatTapTests
         Assert.Equal(Human, into.Single(e => e.Kind == AiEventKind.Killed).Other);
     }
 
+    /// <summary>A game that owns its feed (TF2's notices): the engine's death tells the victim it died, and no bot a feed line.</summary>
+    [Fact]
+    public void AGameThatOwnsItsFeedLeavesTheDeathItsKilledOnly()
+    {
+        var into = new List<AiEvent>();
+        CombatTap.Died(A, Human, [A, B, C], new Tick(7), into, feed: false);
+        Assert.Equal((AiEventKind.Killed, A), (Assert.Single(into).Kind, into[0].Bot));
+    }
+
+    /// <summary>
+    /// The Spy research's fact 8 (stock tf_hud_deathnotice.cpp:695-702): a silent kill (YER's backstab) is in no feed of the
+    /// victim's teammates; the victim itself and the other team read it. The control: the same line, not silent, in all.
+    /// </summary>
+    [Fact]
+    public void ASilentKillIsNotInTheVictimsTeamsFeed()
+    {
+        (ActorId, int)[] bots = [(A, 2), (B, 2), (C, 3)];
+        var silent = new List<AiEvent>();
+        CombatTap.Fed(A, Human, bots, hiddenFromTeam: 2, new Tick(7), silent);
+        Assert.Equal([A, C], silent.Select(e => e.Bot));
+        var loud = new List<AiEvent>();
+        CombatTap.Fed(A, Human, bots, hiddenFromTeam: 0, new Tick(7), loud);
+        Assert.Equal([A, B, C], loud.Select(e => e.Bot));
+        Assert.All(loud, e => Assert.Equal((AiEventKind.KillFeed, A, Human), (e.Kind, e.Other, e.Killer)));
+    }
+
     [Fact]
     public void TheLeaderRanksFirstAndATieGoesToFewerDeaths()
     {

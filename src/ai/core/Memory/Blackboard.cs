@@ -213,6 +213,11 @@ public sealed class Blackboard
     public const int InvestigationCapacity = 8;
 
     private readonly KnownActor[] _actors;
+
+    // An alias's rows (ActorId.Alias: a disguised Spy as his enemies see him), one per slot beside the real players':
+    // what a bot learns of a disguise never lands on the real player's row (his scoreboard team, frags, grudge), nor the
+    // real player's on the disguise's (the Spy's honesty fix, plan_bots_teams_tf2 C.3).
+    private readonly KnownActor[] _aliases;
     private readonly Investigation[] _investigations = new Investigation[InvestigationCapacity];
     private ItemBelief[] _items = [];
 
@@ -220,20 +225,30 @@ public sealed class Blackboard
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(slots);
         _actors = new KnownActor[slots];
+        _aliases = new KnownActor[slots];
         for (int i = 0; i < slots; i++)
+        {
             _actors[i] = new KnownActor();
+            _aliases[i] = new KnownActor();
+        }
     }
 
     public int Slots => _actors.Length;
 
     public KnownActor Actor(int slot) => _actors[slot];
 
+    /// <summary>
+    /// The row of the body last drawn under another's name in <paramref name="slot"/> (an alias: a disguise), apart from
+    /// <see cref="Actor"/>'s; its <see cref="KnownActor.Known"/> is false when there is none.
+    /// </summary>
+    public KnownActor Drawn(int slot) => _aliases[slot];
+
     /// <summary>The actor held for <paramref name="id"/>, made (or replaced, for another life) when <paramref name="make"/>.</summary>
     public KnownActor? Of(ActorId id, bool make)
     {
         if (!id.IsValid || (uint)id.Slot >= (uint)_actors.Length)
             return null;
-        KnownActor a = _actors[id.Slot];
+        KnownActor a = id.IsAlias ? _aliases[id.Slot] : _actors[id.Slot];
         if (a.Id == id)
             return a;
         if (!make)
@@ -394,7 +409,13 @@ public sealed class Blackboard
     /// <summary>Every known actor's confidence at <paramref name="now"/>, from its last perception.</summary>
     public void Decay(Tick now, float tickSeconds, in MemoryParams p)
     {
-        foreach (KnownActor a in _actors)
+        Decay(_actors, now, tickSeconds, in p);
+        Decay(_aliases, now, tickSeconds, in p);
+    }
+
+    private static void Decay(KnownActor[] rows, Tick now, float tickSeconds, in MemoryParams p)
+    {
+        foreach (KnownActor a in rows)
         {
             if (!a.Known || a.InSight)
                 continue;
@@ -412,6 +433,10 @@ public sealed class Blackboard
             a.Ammo.Reset();
             a.InSight = false;
         }
+
+        // A disguise seen in a life past is nobody the bot can point to again.
+        foreach (KnownActor a in _aliases)
+            a.Clear();
     }
 
     /// <summary>A new map (§5.2, the round tier): everything but the habits.</summary>

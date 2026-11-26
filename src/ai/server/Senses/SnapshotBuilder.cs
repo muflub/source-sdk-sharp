@@ -78,8 +78,11 @@ public static class BotBodyFlags
 /// </summary>
 [SideService(Side.Server)]
 public sealed class SnapshotBuilder(IEnginePlayers players, WeaponCatalog weapons, IBotHud hud, IPlayerStances stances, IRenderedTeams teams,
-                                    IBotGame game, ThingSight things)
+                                    IBotGame game, ThingSight things, ShownActors? shown = null)
 {
+    /// <summary>Who each bot takes each sighted player for (a disguise's alias): the events and the views name the same actor.</summary>
+    public ShownActors Shown { get; } = shown ?? new ShownActors(game);
+
     /// <summary>
     /// Adds a view for every bot in <paramref name="bots"/> to
     /// <paramref name="snapshot"/>; <paramref name="activityOf"/> answers what
@@ -113,8 +116,11 @@ public sealed class SnapshotBuilder(IEnginePlayers players, WeaponCatalog weapon
                     continue;
                 int weapon = weapons.IndexOf(players.GetActiveWeapon(them.Player));
                 ActorActivity activity = activityOf(t) | (stances.Ducked(them.Player) ? ActorActivity.Crouched : ActorActivity.None);
-                var facts = new ActorFacts(sight.TargetOf(t), them.Origin, them.Velocity, weapon, activity, sight.FractionOf(t), teams.TeamOf(them.Player),
-                                           Facing: them.View);
+                // Every actor's target ID shows a name, its own unless the game draws a borrowed one (a disguise): the field
+                // means the same for everyone, so its value never sets anyone apart (plan_bots_teams_tf2 C.3, the Spy's fact 2).
+                ActorId told = Shown.HeldFor(b.Id.Slot, t);
+                var facts = new ActorFacts(told.IsValid ? told : game.View.ShownAs(b.Player, them.Player, sight.TargetOf(t)), them.Origin, them.Velocity, weapon, activity, sight.FractionOf(t), teams.TeamOf(them.Player),
+                                           NameSlot: t, Facing: them.View);
                 if (game.View.Render(b.Player, them.Player, ref facts))
                     view.AddSighted(in facts);
             }

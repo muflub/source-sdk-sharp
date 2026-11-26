@@ -15,7 +15,8 @@ public enum TFTeamStance : byte
 /// A team's roster target and the class a bot picks or changes to (plan_bots_teams_tf2 C.4, P7 step 4): our own
 /// weights per stance (stock's offense/defense vocabulary, not its tables), as shares of the team. A bot picks the
 /// ready class furthest below its share (its count against share x team size, the bot itself counted), with a Medic
-/// once the team has four and an Engineer on defence; a class not ready (its file's flag) is never fielded. A change
+/// once the team has four and an Engineer on defence; a class not ready (its file's flag) is never fielded, nor one past
+/// its file's cap for the team (stock's roster limits). A change
 /// is worth it only when the best class's need beats the bot's own class's by <see cref="StayBonus"/>. Pure: the same
 /// counts give the same answer, ties to the lowest class number.
 /// </summary>
@@ -87,15 +88,20 @@ public static class TFClassComposition
         (TFClass Class, float Need) best = (TFClass.Undefined, float.NegativeInfinity);
         foreach (TFClass c in TFKnowledge.Playable())
         {
-            if (!ready(c))
+            int have = (int)c < counts.Length ? counts[(int)c] : 0;
+            // A class at its cap for this team (its file's, stock's roster limit) is not fielded again.
+            if (!ready(c) || have >= Cap(c, size))
                 continue;
-            float need = Need(c, (int)c < counts.Length ? counts[(int)c] : 0, size, stance);
+            float need = Need(c, have, size, stance);
             if (need > best.Need)
                 best = (c, need);
         }
 
         return best.Class == TFClass.Undefined ? (TFClass.Soldier, 0f) : best;
     }
+
+    /// <summary>The most of <paramref name="playerClass"/> a team of <paramref name="size"/> fields: its file's cap (<see cref="Trees.TFClassSpec.Cap"/>).</summary>
+    public static int Cap(TFClass playerClass, int size) => Trees.TFClassSpecs.Of(playerClass)?.Cap(size) ?? int.MaxValue;
 
     /// <summary>The class a bot with none picks: the ready class its team needs most.</summary>
     public static TFClass Pick(ReadOnlySpan<int> counts, TFTeamStance stance, Func<TFClass, bool> ready) => Best(counts, stance, ready).Class;

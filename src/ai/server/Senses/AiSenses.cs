@@ -403,6 +403,13 @@ public sealed class AiSenses(AiBots bots, ServerAiSession ai, VisionPass vision,
                 vision.AnswerLine(tick, in b, doing.LineAsk, doing.LineAt, _events);
         }
 
+        // A player drawn as someone else (a disguise) is told as the actor the bot takes them for (ShownActors): the
+        // vision's events through it, then the losses and gains of a drawing that changed in sight, already told.
+        _changes.Clear();
+        builder.Shown.Refresh(tick, sensed, vision, _changes);
+        for (int i = 0; i < _events.Count; i++)
+            _events[i] = builder.Shown.Told(_events[i], _playerOf ??= PlayerIn);
+        _events.AddRange(_changes);
         foreach (AiEvent e in _events)
         {
             ai.Session.Push(e);
@@ -544,6 +551,7 @@ public sealed class AiSenses(AiBots bots, ServerAiSession ai, VisionPass vision,
         {
             ai.Session.RemoveBot(id);
             vision.Remove(slot);
+            builder.Shown.Forget(slot);
             _inSession.Remove(slot);
         }
 
@@ -570,8 +578,14 @@ public sealed class AiSenses(AiBots bots, ServerAiSession ai, VisionPass vision,
     public void Push(in AiEvent e)
     {
         Follow();
-        ai.Session.Push(e);
+        ai.Session.Push(builder.Shown.Told(e, _playerOf ??= PlayerIn));
     }
+
+    private Func<int, EntityHandle>? _playerOf;
+    private readonly List<AiEvent> _changes = new();
+
+    /// <summary>The player in <paramref name="slot"/> as the vision last read them; none when it read nobody there.</summary>
+    private EntityHandle PlayerIn(int slot) => vision.ReadOf(slot) is { } read ? read.Player : EntityHandle.None;
 
     private int _followed = -1;
 
@@ -588,6 +602,7 @@ public sealed class AiSenses(AiBots bots, ServerAiSession ai, VisionPass vision,
                 continue;
             ai.Session.RemoveBot(id);
             vision.Remove(slot);
+            builder.Shown.Forget(slot);
             _inSession.Remove(slot);
         }
 

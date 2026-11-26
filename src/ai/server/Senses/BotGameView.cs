@@ -28,6 +28,14 @@ public interface IBotGameView
     /// </summary>
     bool Render(EntityHandle viewer, EntityHandle them, ref ActorFacts facts);
 
+    /// <summary>
+    /// The actor <paramref name="viewer"/>'s client takes <paramref name="them"/> (actor <paramref name="real"/>) for: an alias
+    /// (<see cref="ActorId.Alias"/>) while the game draws them as someone they are not (TF2's disguised Spy, to his
+    /// enemies), one per disguise and the same for every viewer it fools; <paramref name="real"/> otherwise
+    /// (plan_bots_teams_tf2 C.3, the Spy's honesty fix).
+    /// </summary>
+    ActorId ShownAs(EntityHandle viewer, EntityHandle them, ActorId real);
+
     /// <summary>The things that are not players the game draws this tick, for every client alike, into <paramref name="into"/> (cleared first).</summary>
     void Things(List<ThingRead> into);
 
@@ -36,6 +44,12 @@ public interface IBotGameView
 
     /// <summary>The map's objectives as every HUD shows them now; null for a game with none.</summary>
     ObjectiveKnowledge? Objectives { get; }
+
+    /// <summary>
+    /// Whether the game tells the bots its kill feed itself (<see cref="IBotKillFeed"/>: TF2's, from the notices its clients'
+    /// feed shows, a feign and a silent kill among them); false, and every engine death is every bot's feed line.
+    /// </summary>
+    bool OwnKillFeed { get; }
 
     /// <summary>What <paramref name="bot"/>'s own HUD shows past its <see cref="SelfState"/> (its loadout, its meters): null for a game with none.</summary>
     GameHud? HudOf(EntityHandle bot);
@@ -57,11 +71,15 @@ public sealed class PlainBotGameView : IBotGameView
 
     public bool Render(EntityHandle viewer, EntityHandle them, ref ActorFacts facts) => true;
 
+    public ActorId ShownAs(EntityHandle viewer, EntityHandle them, ActorId real) => real;
+
     public void Things(List<ThingRead> into) => into.Clear();
 
     public bool RenderThing(EntityHandle viewer, ref ThingFacts facts) => true;
 
     public ObjectiveKnowledge? Objectives => null;
+
+    public bool OwnKillFeed => false;
 
     public GameHud? HudOf(EntityHandle bot) => null;
 

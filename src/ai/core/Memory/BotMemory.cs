@@ -54,7 +54,13 @@ public sealed class BotMemory
         Board = new Blackboard(slots);
         Board.KnowItems(world.Map);
         _track = new Track[slots];
+        _drawnTrack = new Track[slots];
     }
+
+    // An alias's tracking (ActorId.Alias), apart from the real player's in the same slot, as its row is (Blackboard.Drawn).
+    private readonly Track[] _drawnTrack;
+
+    private ref Track TrackOf(ActorId id) => ref (id.IsAlias ? _drawnTrack : _track)[id.Slot];
 
     // The one working block this memory's predictors share (they step one after another on the
     // bot's own thread), made with the first of them.
@@ -335,8 +341,8 @@ public sealed class BotMemory
                     if (!Foe(victim))
                         break;
                     victim.TimesEngaged++;
-                    _track[victim.Id.Slot].HurtTick = e.Tick;
-                    _track[victim.Id.Slot].Hurt = true;
+                    TrackOf(victim.Id).HurtTick = e.Tick;
+                    TrackOf(victim.Id).Hurt = true;
                     if (victim.EverSeen)
                         HabitsOf(victim.Id).Engaged(Self.DistanceTo(victim.LastSeenPos));
                 }
@@ -609,7 +615,7 @@ public sealed class BotMemory
         {
             a.GoneToWatch();
             Board.ForgetSource(actor);
-            _track[actor.Slot] = default;
+            TrackOf(actor) = default;
         }
         else
         {
@@ -624,7 +630,7 @@ public sealed class BotMemory
         a.InSight = true;
         a.Dead = false;
         Seen(a, e.Position, e.Velocity, e.Tick);
-        ref Track t = ref _track[a.Id.Slot];
+        ref Track t = ref TrackOf(a.Id);
         t.ContactFrom = Self.DistanceTo(e.Position);
         t.ContactTick = e.Tick;
         t.ContactJudged = false;
@@ -643,7 +649,7 @@ public sealed class BotMemory
         if (!Foe(a))
             return;
         Belief(a, a.LastKnownCell)?.LostAt(a.LastKnownCell, e.Velocity);
-        ref Track t = ref _track[a.Id.Slot];
+        ref Track t = ref TrackOf(a.Id);
         OpponentHabits h = HabitsOf(a.Id);
         h.LostSight(t.Hurt && (e.Tick - t.HurtTick) * Dt <= HurtRetreatSeconds);
         if (a.Ammo.ReloadInProgress && !t.ReloadJudged)
@@ -667,7 +673,7 @@ public sealed class BotMemory
             return;
         }
 
-        ref Track t = ref _track[a.Id.Slot];
+        ref Track t = ref TrackOf(a.Id);
         if (cell != a.LastKnownCell)
         {
             if (cell.IsValid)
@@ -759,7 +765,7 @@ public sealed class BotMemory
             return;
         }
 
-        ref Track t = ref _track[a.Id.Slot];
+        ref Track t = ref TrackOf(a.Id);
         int counted = t.ShotTick == tick ? t.ShotRounds : 0;
         int add = rounds - counted;
         if (add <= 0)
@@ -776,7 +782,7 @@ public sealed class BotMemory
     {
         if (!Foe(a) || !Facts(weapon, out WeaponFacts f))
             return;
-        ref Track t = ref _track[a.Id.Slot];
+        ref Track t = ref TrackOf(a.Id);
         switch (phase)
         {
             case ReloadPhase.Start:
@@ -840,7 +846,7 @@ public sealed class BotMemory
 
             if (!Foe(a))
                 continue;
-            ref Track t = ref _track[a.Id.Slot];
+            ref Track t = ref TrackOf(a.Id);
             if (!t.ContactJudged && (view.Tick - t.ContactTick) * Dt >= ContactSeconds)
             {
                 HabitsOf(a.Id).Contact(Self.DistanceTo(f.Origin) < t.ContactFrom - 32f);

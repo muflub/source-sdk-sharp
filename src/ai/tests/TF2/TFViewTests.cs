@@ -21,7 +21,7 @@ public sealed class TFViewTests
     private static TFActorFacts DisguisedSpy(float invisible = 0f) => new(TFClass.Spy, TFTeam.Red, TFClass.Soldier, TFTeam.Blue, 6, invisible, 0,
                                                                           Burning: false, Stunned: false, Ubered: false, Disguised: true, Cloaked: invisible > 0f, Taunting: false);
 
-    private static ActorFacts Engine(int team) => new(new ActorId(4, 9), new AiVector(1, 2, 3), default, WeaponSeen: 11, ActorActivity.None, 1f, team);
+    private static ActorFacts Engine(int team) => new(new ActorId(4, 9), new AiVector(1, 2, 3), default, WeaponSeen: 11, ActorActivity.None, 1f, team, NameSlot: 4);
 
     [Fact]
     public void AnEnemyOfTheSpySeesTheDisguise()
@@ -45,12 +45,50 @@ public sealed class TFViewTests
         Assert.NotEqual((int)TFClass.Spy, f.Class);
     }
 
+    /// <summary>
+    /// The Spy's fact 2 (plan_bots_teams_tf2 C.3): a disguised Spy and a real teammate of the disguise's class are alike in
+    /// kind to an enemy. Both show a player's name (a slot above 0), the Spy his borrowed player's, the teammate his own;
+    /// team and class are the same. Before, every actor but a disguise read <c>NameSlot</c> 0, so a nonzero one was a Spy.
+    /// </summary>
+    [Fact]
+    public void ADisguisedSpysFactsMatchARealTeammatesInKind()
+    {
+        ActorFacts spy = Engine(Red);
+        TFBotGameView.Draw(Blue, DisguisedSpy(), 22, ref spy);
+        var soldier = new TFActorFacts(TFClass.Soldier, TFTeam.Blue, TFClass.Undefined, TFTeam.Unassigned, 0, 0f, 0,
+                                       Burning: false, Stunned: false, Ubered: false, Disguised: false, Cloaked: false, Taunting: false);
+        ActorFacts mate = new(new ActorId(6, 3), new AiVector(9, 9, 9), default, WeaponSeen: 22, ActorActivity.None, 1f, Blue, NameSlot: 6);
+        TFBotGameView.Draw(Blue, soldier, -1, ref mate);
+        Assert.Equal((mate.Team, mate.Class, mate.Conditions, mate.WeaponSeen), (spy.Team, spy.Class, spy.Conditions, spy.WeaponSeen));
+        Assert.True(spy.NameSlot > 0 && mate.NameSlot > 0);
+        Assert.Equal(mate.Id.Slot, mate.NameSlot);
+        Assert.Equal(6, spy.NameSlot);
+    }
+
+    /// <summary>Stock's target ID keeps a disguised Spy's own name when his disguise borrowed nobody's (<c>tf_hud_target_id.cpp:764-793</c>).</summary>
+    [Fact]
+    public void ADisguiseThatBorrowedNoNameShowsTheSpysOwn()
+    {
+        ActorFacts f = Engine(Red);
+        TFBotGameView.Draw(Blue, DisguisedSpy() with { DisguiseTargetIndex = 0 }, 22, ref f);
+        Assert.Equal((Blue, 4), (f.Team, f.NameSlot));
+    }
+
+    /// <summary>Nor while he is cloaked (the same lines' <c>IsStealthed</c> test): the control is the uncloaked disguise's borrowed 6.</summary>
+    [Fact]
+    public void ACloakedDisguisedSpyShowsHisOwnName()
+    {
+        ActorFacts f = Engine(Red);
+        TFBotGameView.Draw(Blue, DisguisedSpy(0.5f), 22, ref f);
+        Assert.Equal(4, f.NameSlot);
+    }
+
     [Fact]
     public void TheSpysOwnTeamSeesASpyInAMask()
     {
         ActorFacts f = Engine(Red);
         Assert.True(TFBotGameView.Draw(Red, DisguisedSpy(), 22, ref f));
-        Assert.Equal((Red, (int)TFClass.Spy, 0, 11), (f.Team, f.Class, f.NameSlot, f.WeaponSeen));
+        Assert.Equal((Red, (int)TFClass.Spy, 4, 11), (f.Team, f.Class, f.NameSlot, f.WeaponSeen));
         Assert.Equal(ActorConditions.Disguised, f.Conditions & ActorConditions.Disguised);
     }
 

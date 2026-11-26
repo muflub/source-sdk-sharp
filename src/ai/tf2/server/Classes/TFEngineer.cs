@@ -60,8 +60,14 @@ public static class TFEngineerClass
         new TFArchetype(RescueRanger, 0.15f, [new(TFLoadoutSlot.Primary, [997]), new(TFLoadoutSlot.Secondary, [22]), new(TFLoadoutSlot.Melee, [7])]),
     ]);
 
-    /// <summary>What the foundation composes: the class, its ready flag, its rows, its archetypes.</summary>
-    public static TFClassSpec Spec() => new(TFClass.Engineer, Ready, Abilities(), Archetypes());
+    /// <summary>
+    /// Stock's defence roster limit (tf_bot.cpp:835): one Engineer for each 4 team members, at least one, at most 3 (its hard
+    /// and expert limit; 1 on offence, which the composition's symmetric stance does not tell apart).
+    /// </summary>
+    public const int MaxPerTeam = 3, PerTeamMembers = 4;
+
+    /// <summary>What the foundation composes: the class, its ready flag, its rows, its archetypes, its cap.</summary>
+    public static TFClassSpec Spec() => new(TFClass.Engineer, Ready, Abilities(), Archetypes(), MaxPerTeam, PerTeamMembers);
 }
 
 public sealed partial class TFDecider
