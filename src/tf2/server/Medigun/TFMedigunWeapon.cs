@@ -312,11 +312,6 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, ITFMedi
     }
 
     /// <summary>
-    /// <c>GetChargeType</c> (:818-832) and <c>GetResistType</c> (:906-914): the item's charge
-    /// row plus the cycles pressed, folded onto the three resists. A manager that names no
-    /// charge row answers the plain base, as stock's hook default does.
-    /// </summary>
-    /// <summary>
     /// <c>GetMedigunType</c> (:781-785): <c>set_weapon_mode</c> hooked on the medigun itself. Stock's walk from a weapon skips the
     /// owner's other weapons (attribute_manager.cpp:469-475), so a crossbow's and an Ubersaw's own <c>set_weapon_mode</c> 1 do not
     /// add to the medigun's; the owner's manager alone sums every item's (a Vaccinator beside both read 5, and played as the
@@ -324,11 +319,17 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, ITFMedi
     /// </summary>
     private int MedigunType(int owner) => TFMedigunType.Of(hooks, items, owner);
 
+    /// <summary>The resist the owner's Vaccinator is on (<see cref="ITFMedigunResists"/>), or -1 with no Vaccinator out.</summary>
     public int ResistType(int ownerIndex)
         => medics.TryGetValue(ownerIndex, out var state) && MedigunType(ownerIndex) == ResistWeaponMode
             ? ResistType(ownerIndex, state)
             : -1;
 
+    /// <summary>
+    /// <c>GetChargeType</c> (:818-832) and <c>GetResistType</c> (:906-914): the item's charge
+    /// row plus the cycles pressed, folded onto the three resists. A manager that names no
+    /// charge row answers the plain base, as stock's hook default does.
+    /// </summary>
     private int ResistType(int owner, MedicState state)
     {
         int chargeType = hooks.Int(0, "set_charge_type", items.ManagerOf(owner)) + state.ResistIndex;   // :829

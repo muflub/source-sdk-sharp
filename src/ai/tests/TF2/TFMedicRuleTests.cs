@@ -342,24 +342,6 @@ public sealed class TFMedicRuleTests
         Assert.Equal((1L, 0L), (Dropped(0.95f), Dropped(0.5f)));
     }
 
-    /// <summary>
-    /// A one-shot in a beaming decide lets the beam go (an ability intent holds no trigger): "ÜberCharge ready!" said while beaming is one
-    /// drop counted (medic.beam_drops); beaming on with nothing said, none.
-    /// </summary>
-    [Fact]
-    public void AOneShotWhileBeamingIsADroppedBeam()
-    {
-        long Drops(float charge)
-        {
-            TFField f = Field(Whole(charge: charge, health: 200));
-            for (int k = 0; k < 4; k++)
-                f.StepDrawn(Me(Mid), TFField.Ctf(), Mate(Soldier, East(200f), TFClass.Soldier));
-            return f.Decider.ClassCounters().Single(c => c.Key == "medic.beam_drops").Value;
-        }
-
-        Assert.Equal((1L, 0L), (Drops(1f), Drops(0.5f)));
-    }
-
     /// <summary>An Über is counted when the HUD shows the charge going (the releasing meter rising), once, not on each send.</summary>
     [Fact]
     public void AnUberIsCountedWhenTheChargeGoes()

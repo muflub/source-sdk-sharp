@@ -130,11 +130,70 @@ public sealed partial class TFDecider
         private bool _popDue, _readyWas;
         private ActorId _caller;
         private AiVector _anchor, _followGoal;
-        private int _popRow = -2, _readyRow = -2;
+        private int _popRow = -2, _readyRow = -2, _bubbleRow = -2, _dropRow = -2;
+
+        /// <summary>The flag goes to a teammate this near, in sight, who is no Medic; a hand-off waits out the drop's own 3 s (no re-take).</summary>
+        public const float HandOffReach = 300f;
+
+        /// <summary>
+        /// One hand-off a carry: a Medic carrying again this soon after one keeps the flag (the Fable review, C2: dropped, taken back after
+        /// the owner's 3 s and dropped again, it looped with the announcer's line each time).
+        /// </summary>
+        public const float HandOffAgainSeconds = 10f;
+
+        /// <summary>The flag he dropped still lies dropped this long after: nobody took it, and he may fetch it again (C2).</summary>
+        public const float UntakenSeconds = 4f, UntakenKeepSeconds = 30f;
+
+        /// <summary>The class branch's score for going back to a handed-off flag nobody took: the fetch's own near score.</summary>
+        public const float UntakenUtility = 0.9f;
+
+        private Tick _handOffAt = new(-100000);
+        private bool _handedTaken;
+        private long _handOffs;
+
+        /// <summary>
+        /// Carrying the enemy's flag (picked up on the way: a Medic never fetches it while a teammate lives), the Medic drops it
+        /// (<c>dropitem</c>) beside a teammate in sight within <see cref="HandOffReach"/> who is no Medic, for him to carry: a carrier takes no
+        /// charge. Not with his own capture zone nearer than twice that teammate (he caps it himself), and once a carry
+        /// (<see cref="HandOffAgainSeconds"/>). With none near he carries it home, as stock's bot does with any flag it holds
+        /// (tf_bot_scenario_monitor.cpp).
+        /// </summary>
+        private bool HandOff()
+        {
+            NoteHandedFlag();
+            if (_dropRow < 0 || D._enemyFlag is not { State: ObjectiveState.Carried } flag || flag.CarrierSlot != D._bot.Slot
+                || Seconds(_handOffAt) < HandOffAgainSeconds)
+                return false;
+            float zone = D._ownZone is { } z ? D._self.Origin.DistanceTo(z.Position) : float.MaxValue;
+            for (int i = 0; i < _mateCount; i++)
+            {
+                ref readonly Mate m = ref _mates[i];
+                if (m.Sighted && m.Class != TFClass.Medic && DistanceTo(m) <= HandOffReach && zone >= 2f * DistanceTo(m))
+                {
+                    D._action = new ActionIntent(ActionKind.Ability, FireStyle.Tap, AbilityCall.Pack(_dropRow, 0), ++D._oneShot);
+                    (_handOffAt, _handOffs, _handedTaken) = (D._now, _handOffs + 1, false);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>Whether another took the flag since his hand-off (its HUD shows it carried by someone else).</summary>
+        private void NoteHandedFlag()
+        {
+            if (D._enemyFlag is { State: ObjectiveState.Carried } f && f.CarrierSlot != D._bot.Slot)
+                _handedTaken = true;
+        }
+
+        /// <summary>The flag he handed off lies dropped and nobody took it in <see cref="UntakenSeconds"/>: his to fetch again (C2).</summary>
+        private bool HandedFlagUntaken
+            => _handOffs > 0 && !_handedTaken && D._enemyFlag is { State: ObjectiveState.Dropped } && Seconds(_handOffAt) >= UntakenSeconds
+               && Seconds(_handOffAt) < UntakenKeepSeconds;
 
         // The counters.
-        private long _peakCharge, _beamOnDecides, _popSends, _beamDrops;
-        private int _usesSeen;
+        private long _peakCharge, _beamOnDecides, _popSends, _beamDrops, _beamOneShots, _glowDecides, _bubbles, _beamPlain, _beamLostPlain;
+        private int _beamSlotLast;
         private bool _beamedLast;
 
         private long _ubers, _dropped, _beamDecides, _aliveDecides, _patientChanges, _callsAnswered, _readySaid, _nearDecides;
@@ -151,13 +210,6 @@ public sealed partial class TFDecider
                 return false;
             _active = true;
             _aliveDecides++;
-            // The beam let go by a one-shot (the pop, a voice line): the last decide held it at a friend, and an ability one-shot was sent
-            // in that decide after all (an ability intent holds no trigger: the Fable review, C5; the applier's to fix, measured here).
-            int uses = 0;
-            foreach (int u in D.AbilityUses)
-                uses += u;
-            _beamDrops += _beamedLast && uses > _usesSeen ? 1 : 0;
-            (_usesSeen, _beamedLast) = (uses, false);
             _medigun = gun.WeaponKind;
             _chargeType = (int)gun.Attribute("set_charge_type", 0f);
             _minCharge = _chargeType == 3 ? 0.25f : 1f;
@@ -170,6 +222,22 @@ public sealed partial class TFDecider
             _releasing = releasing;
             _beamSlot = (int)hud.Meter(TFMedigunMeters.Patient, 0f);
             _beamOnDecides += _beamSlot != 0 ? 1 : 0;
+            // A one-shot sent while the beam was held (the pop, a voice line, a resist press): the applier keeps the trigger down through it
+            // (round 2's S9). Measured off the HUD: a drop is a beam that was on someone when the one-shot went and is on nobody, or on
+            // another, at the next decide, him still in sight within the beam's hold (not dead, not run off: below, once the mates are
+            // gathered). The Fable review's C5 was 3 to 6 commands of no beam after every one-shot.
+            int shotKind = SentKind();
+            bool beamedLast = _beamedLast, oneShot = _beamedLast && shotKind >= 0;
+            _beamOneShots += oneShot ? 1 : 0;
+            _kindShots[Math.Max(0, shotKind)] += oneShot ? 1 : 0;
+            int beamedBefore = _beamSlotLast;
+            (_beamedLast, _oneShotSent, _beamSlotLast) = (false, false, _beamSlot);
+            // The Vaccinator's resist its HUD shows (-1 for another medigun), and a bubble seen as the bar falling by a chunk.
+            float resistShown = hud.Meter(TFTargetIdMeters.Resist, -1f);
+            _resist = resistShown < 0f ? -1 : (int)resistShown;
+            _bubbles += _chargeType == ResistCharge && _chargeWas - _charge >= 0.2f ? 1 : 0;
+            _chargeWas = _charge;
+            ReadBattle(hud);
             _setup = false;
             if (D._view.Objectives is { } objectives)
             {
@@ -183,6 +251,15 @@ public sealed partial class TFDecider
             _lastSelfHealth = D._self.Health;
 
             GatherMates();
+            _glowDecides += _glowing > 0 ? 1 : 0;
+            // The control: the same loss after a beamed decide that sent no one-shot (the beam lost for any other reason: knockback, the
+            // eye off him), so a drop rate after one-shots is read against the rate without.
+            bool lost = beamedBefore != 0 && _beamSlot != beamedBefore && TryMateAt(beamedBefore, out Mate was) && was.Sighted && DistanceTo(was) <= BeamHold;
+            _beamDrops += oneShot && lost ? 1 : 0;
+            _kindDrops[Math.Max(0, shotKind)] += oneShot && lost ? 1 : 0;
+            _beamPlain += beamedLast && !oneShot && beamedBefore != 0 ? 1 : 0;
+            _beamLostPlain += beamedLast && !oneShot && lost ? 1 : 0;
+            CountResist();
             ChoosePatient(hud);
             ReadPatient(hud);
             ChooseHealTarget(hud);
@@ -194,7 +271,7 @@ public sealed partial class TFDecider
         /// <summary>The teammates the bot sees, and those it saw within <see cref="RememberSeconds"/>, as its client draws them.</summary>
         private void GatherMates()
         {
-            _mateCount = 0;
+            (_mateCount, _glowing) = (0, 0);
             foreach (ref readonly ActorFacts f in D._view.Sighted)
             {
                 if (_mateCount < _mates.Length && f.Id != D._bot && TeamRule.IsGameTeam(f.Team) && TeamRule.Friends(D._self.Team, f.Team))
@@ -210,12 +287,24 @@ public sealed partial class TFDecider
             for (int s = 0; s < board.Slots && _mateCount < _mates.Length; s++)
             {
                 KnownActor a = board.Actor(s);
+                if (!a.Known || D._view.TryActor(a.Id, out _) || a.Id == D._bot || !D._memory.IsFriend(a))
+                    continue;
+                // Outlined by the bot's own respawn glow (round 2's S11): where he is now, through walls, seen or not before; a place, no
+                // number. A Medic just spawned goes to his team this way instead of asking the team's way. Tested before the memory's
+                // death: the kill feed's mark clears only on sight, and an outline is proof of life (the Fable review, C4).
+                if (D.GlowPlace(a.Id.Slot) is { } glow)
+                {
+                    _mates[_mateCount++] = new Mate { Id = a.Id, At = glow, Class = (TFClass)a.ClassBelieved, SeenTick = D._now };
+                    _glowing++;
+                    continue;
+                }
+
                 float keep = _patient.Known && a.Id == _patient.Id ? PatientMemorySeconds : RememberSeconds;
-                if (!a.Known || a.Dead || D._view.TryActor(a.Id, out _) || a.Id == D._bot || !D._memory.IsFriend(a) || !a.EverSeen || Seconds(a.LastSeenTick) > keep)
+                if (a.Dead || !a.EverSeen || Seconds(a.LastSeenTick) > keep)
                     continue;
                 // Out of sight: where he was last seen or heard (a teammate has no predictor, so BelievedAt answers that place, a fixed
                 // point). Reached without seeing him, the place is spent: he is no candidate until he is seen again (the Fable review, C1).
-                AiVector place = a.BelievedAt(D._graph);
+                AiVector place = a.Id == _patient.Id ? WentOn(a) : a.BelievedAt(D._graph);
                 if (Spent(a.Id, a.LastPerceivedTick) || D._self.Origin.DistanceTo(place) < LastPlaceReach)
                 {
                     Spend(a.Id, a.LastPerceivedTick);
@@ -224,6 +313,72 @@ public sealed partial class TFDecider
 
                 _mates[_mateCount++] = new Mate { Id = a.Id, At = place, Velocity = a.LastSeenVel, Class = (TFClass)a.ClassBelieved, SeenTick = a.LastPerceivedTick };
             }
+        }
+
+        /// <summary>The kinds of one-shot the drop measure tells apart: an ability's buttons (the pop, the bubble), an ability's command (a voice line), a reload press (the resist).</summary>
+        public const int ShotButtons = 0, ShotCommand = 1, ShotReload = 2;
+
+        private int[] _usesWas = [];
+        private readonly long[] _kindShots = new long[3], _kindDrops = new long[3];
+
+        /// <summary>The kind of one-shot the last decide sent (by the ability uses that grew since, or the Medic's own reload press), or -1.</summary>
+        private int SentKind()
+        {
+            ReadOnlySpan<int> uses = D.AbilityUses;
+            int kind = _oneShotSent ? ShotReload : -1;
+            if (_usesWas.Length == uses.Length)
+            {
+                for (int r = 0; r < uses.Length; r++)
+                {
+                    if (uses[r] > _usesWas[r] && D._map.Abilities.TryGet(r, out AbilityRow row))
+                        kind = row.Run == AbilityRun.Buttons ? ShotButtons : ShotCommand;
+                }
+            }
+            else
+            {
+                _usesWas = new int[uses.Length];
+            }
+
+            uses.CopyTo(_usesWas);
+            return kind;
+        }
+
+        private int _glowing;
+        private bool _oneShotSent;
+        private float _chargeWas;
+
+        /// <summary>A patient last seen walking is guessed this long along the way he went, at most.</summary>
+        public const float WentOnSeconds = 2f;
+
+        /// <summary>
+        /// Where the patient out of sight is looked for: where he was last seen, or, if he was walking, that place carried on along his
+        /// last seen velocity for the time since (at most <see cref="WentOnSeconds"/>) when the floor is there (a player expects him to have
+        /// kept going round the corner). A teammate has no predictor in the memory: this guess is the Medic's own. Live, at be160b7909 the
+        /// Medic spent 22 % (cp_granary) and 31 % (ctf_2fort) of his life finding a teammate, in episodes of 2-3 s, with the nearest
+        /// teammate a median 775-872 u off and 35 % of the time within 600 u.
+        /// </summary>
+        private AiVector WentOn(KnownActor a)
+        {
+            AiVector last = a.BelievedAt(D._graph);
+            var flat = new AiVector(a.LastSeenVel.X, a.LastSeenVel.Y, 0f);
+            if (!a.EverSeen || flat.Length <= PatientMovingSpeed || D._graph is not { } graph)
+                return last;
+            AiVector ahead = last + flat * MathF.Min(Seconds(a.LastSeenTick), WentOnSeconds);
+            return graph.FindCell(ahead + new AiVector(0f, 0f, 32f)).IsValid ? ahead : last;
+        }
+
+        /// <summary>Whether a teammate lives that the Medic knows of (the scoreboard's rows, the memory of each).</summary>
+        private bool MateAlive()
+        {
+            Blackboard board = D._memory.Board;
+            for (int s = 0; s < board.Slots; s++)
+            {
+                KnownActor a = board.Actor(s);
+                if (a.Known && !a.Dead && a.Id != D._bot && D._memory.IsFriend(a))
+                    return true;
+            }
+
+            return false;
         }
 
         /// <summary>A teammate's last place within this of the Medic, him not in sight, is spent: going there found nobody.</summary>
@@ -467,6 +622,10 @@ public sealed partial class TFDecider
         /// <summary>The place branch's score: with a patient his place; with none, finding one.</summary>
         private float PlaceScore()
         {
+            // The flag he dropped for a teammate and nobody took is his again, whatever his role's fetch (the Fable review, C2: a defender
+            // weighs the fetch 0.15, and it lay there till its timer).
+            if (HandedFlagUntaken)
+                return UntakenUtility;
             if (_patient.Known)
             {
                 _lookingSince = default;
@@ -499,6 +658,13 @@ public sealed partial class TFDecider
         /// <summary>Goes to the patient, or with none to where one may be found, or stands and looks round for one.</summary>
         private bool GoHealPlace()
         {
+            if (HandedFlagUntaken && D._enemyFlag is { } lying)
+            {
+                D.GoTo(lying.Position, MoveSpeed.Run);
+                D._verdict = TFMedicClass.UntakenVerdict;
+                return true;
+            }
+
             if (_patient.Known)
                 return FollowPatient();
             if (Seek(out _seekAt))
@@ -687,6 +853,7 @@ public sealed partial class TFDecider
                 {
                     D.GeneralEngage();
                     CountSwing();
+                    _battleDecides += _battle && D._action.Kind == ActionKind.Fire ? 1 : 0;
                 }
 
                 return;
@@ -734,22 +901,30 @@ public sealed partial class TFDecider
             bool far = !_heal.Known || DistanceTo(_heal) > 1.1f * MaxHealRange;
             bool obscured = !_heal.Known || !_heal.Sighted;
             int primary = D.PrimaryKind;
-            bool fight = D._targetSighted && primary >= 0 && !_ready && !invulnerable && !healing && (threatened || far || obscured);
+            bool fight = (D._targetSighted && primary >= 0 && !_ready && !invulnerable && !healing && (threatened || far || obscured)) || BattleFight(primary);
             int want = fight ? primary : _medigun;
             if (KitWeapon() is >= 0 and var kit)
                 want = kit;
             return want;
         }
 
-        /// <summary>The root's branches as a Medic weighs them: with a patient, his place first; the flag and the fight much less; going to heal less while beaming.</summary>
+        /// <summary>
+        /// The root's branches as a Medic weighs them: with a patient, his place first; the fight and the points much less; going to heal
+        /// less while beaming. The flag's errands (fetching the enemy's, guarding or chasing after his own) are no Medic's while any
+        /// teammate lives or is known: he finds one instead (the coordinator, 2026-11-24; live, ctf_2fort at be160b7909: 13 % of the Medic's
+        /// life guarding or chasing a carrier between patients, and one 18 s carry).
+        /// </summary>
         private float MedicWeigh(string branch)
         {
-            // A Medic never goes for the flag on its own (it takes no charge while carrying, and stock's never does).
+            if (branch is Fetch or Guard or ChaseCarrier && MateAlive())
+                return 0f;
+            // Alone: a Medic still never goes for the flag first (it takes no charge while carrying, and stock's never does).
             if (!_patient.Known)
                 return branch == Fetch ? 0.2f : 1f;
             return branch switch
             {
                 Fetch => 0.2f,
+                Fight when _battle => 1f,
                 Fight or Defend or Search or Course or PointsBranch or TeamBranch or ChaseCarrier or Guard or Escort => 0.5f,
                 Survive => _beamSlot != 0 ? 0.4f : 1f,
                 _ => 1f,
@@ -888,17 +1063,34 @@ public sealed partial class TFDecider
         {
             if (_popRow == -2)
                 (_popRow, _readyRow) = (D.AbilityRow(TFMedicClass.Pop), D.AbilityRow(TFMedicClass.VoiceUberReady));
-            bool newlyReady = _ready && !_readyWas;
-            _readyWas = _ready;
+            if (_bubbleRow == -2)
+                (_bubbleRow, _dropRow) = (D.AbilityRow(TFMedicClass.Bubble), D.AbilityRow(TFMedicClass.DropFlag));
+            if (HandOff())
+                return;
+            // "ÜberCharge ready!" once a full bar: the Vaccinator is ready at every quarter, but a player says it at the full bar only
+            // (the Fable review, C6: 10 lines a run, one after every bubble's refill).
+            bool full = _ready && (_chargeType != ResistCharge || _charge >= 1f - 0.001f);
+            bool newlyReady = full && !_readyWas;
+            _readyWas = full;
+            // The Vaccinator's resist matched to the threat first: a press this decide, the bubble (if wanted) on a later one.
+            if (CycleResist())
+            {
+                _oneShotSent = true;
+                return;
+            }
+
             if (_ready && !_releasing && HoldingMedigun && PopWanted())
             {
                 if (!_popDue)
                     (_popDue, _popDueAt) = (true, D._now + (int)(D._p.ReactionMs / 1000f / D._tick));
-                if (D._now >= _popDueAt && _popRow >= 0)
+                int row = _chargeType == ResistCharge ? _bubbleRow : _popRow;
+                if (D._now >= _popDueAt && row >= 0)
                 {
-                    D._action = new ActionIntent(ActionKind.Ability, FireStyle.Tap, AbilityCall.Pack(_popRow, 0), ++D._oneShot);
+                    D._action = new ActionIntent(ActionKind.Ability, FireStyle.Tap, AbilityCall.Pack(row, 0), ++D._oneShot);
                     _popDue = false;
                     _popSends++;
+                    if (_chargeType == ResistCharge)
+                        _bubbleAt = D._now;
                 }
 
                 return;
@@ -920,6 +1112,7 @@ public sealed partial class TFDecider
         {
             KritzCharge => KritzPopWanted(),
             MegahealCharge => QuickFixPopWanted(),
+            ResistCharge => VaccinatorPopWanted(),
             _ => UberPopWanted(),
         };
 
@@ -972,6 +1165,8 @@ public sealed partial class TFDecider
                 _dropped++;
             (_patient, _heal, _caller, _charge, _readyWas, _popDue) = (default, default, default, 0f, false, false);
             (_lastSelfHealth, _lastPatientHealth, _lastPatientSlot, _lookingSince) = (-1, -1, 0, default);
+            // The next life's bar starts empty: no bubble is counted for the fall from this life's last reading (the Fable review, C7).
+            _chargeWas = 0f;
         }
     }
 }
