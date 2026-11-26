@@ -39,6 +39,14 @@ public sealed class TFViewWiringTests
         protected override object? Invoke(MethodInfo? method, object?[]? args) => throw new InvalidOperationException($"asked {method?.Name}");
     }
 
+    /// <summary>The players' bodies a fact sets (round 2's S4); anyone else dry and on the ground.</summary>
+    internal sealed class Bodies : ITFBodies
+    {
+        public readonly Dictionary<EntityHandle, TFBody> By = new();
+
+        public TFBody BodyOf(EntityHandle player) => By.GetValueOrDefault(player, TFBody.Unread);
+    }
+
     private static readonly EntityHandle Bot = new(0x0001_0002u), Them = new(0x0001_0005u);
 
     private sealed class Rounds : ITFRoundStateView
@@ -51,6 +59,7 @@ public sealed class TFViewWiringTests
     private readonly Facts _facts = new();
     private readonly Players _players = new();
     private readonly Rounds _rounds = new();
+    private readonly Bodies _bodies = new();
     private readonly TFBotGameView _view;
 
     public TFViewWiringTests() => _view = View(freeze: "1");
@@ -59,7 +68,7 @@ public sealed class TFViewWiringTests
         => new(_facts, _players, DispatchProxy.Create<IEngineEntities, Unasked>(), DispatchProxy.Create<IEntityDirectory, Unasked>(),
                new TFDisguiseWeapons(null!, null!, null!, null!, null!, null!), WeaponCatalog.Stock(), null!, _rounds,
                new ConVarRegistry(new NamedConVars(new Dictionary<string, string> { ["tf_player_movement_restart_freeze"] = freeze }))
-                   .Declare<TFPlayerMovementRestartFreezeConVar>(), null!, new TFPlayerLives(), DeclaredConVars.Fresh<TFAvoidTeammatesConVar>());
+                   .Declare<TFPlayerMovementRestartFreezeConVar>(), null!, new TFPlayerLives(), DeclaredConVars.Fresh<TFAvoidTeammatesConVar>(), _bodies);
 
     /// <summary>
     /// The pre-round freeze reaches the bot's HUD as its client knows it: the round restarting, with the
@@ -137,5 +146,42 @@ public sealed class TFViewWiringTests
         ActorFacts drawn = read;
         Assert.True(_view.Render(Bot, Them, ref drawn));
         Assert.Equal(read, drawn);
+    }
+
+    // ---- round 2's S4: the body read reaches what the view draws (review r2s4 item 4)
+
+    private static ActorFacts EngineRead() => new(new ActorId(5, 1), default, default, 3, ActorActivity.None, 1f, (int)TFTeam.Blue);
+
+    /// <summary>An enemy standing in water is drawn wet: the body's water level, read for him, reaches the view.</summary>
+    [Fact]
+    public void AnEnemyInWaterIsDrawnWet()
+    {
+        _facts.By[2] = Of(TFClass.Soldier, TFTeam.Red);
+        _facts.By[5] = Of(TFClass.Soldier, TFTeam.Blue);
+        _bodies.By[Them] = new TFBody(WaterLevel: 2, OnGround: true);
+        ActorFacts drawn = EngineRead();
+        Assert.True(_view.Render(Bot, Them, ref drawn));
+        Assert.Equal(ActorConditions.Wet, drawn.Conditions);
+    }
+
+    /// <summary>An enemy a blast threw, off the ground, is drawn airborne: the body's ground, read for him, reaches the view.</summary>
+    [Fact]
+    public void AnEnemyABlastThrewIsDrawnAirborne()
+    {
+        _facts.By[2] = Of(TFClass.Soldier, TFTeam.Red);
+        _facts.By[5] = Of(TFClass.Soldier, TFTeam.Blue) with { BlastJumping = true };
+        _bodies.By[Them] = new TFBody(WaterLevel: 0, OnGround: false);
+        ActorFacts drawn = EngineRead();
+        Assert.True(_view.Render(Bot, Them, ref drawn));
+        Assert.Equal(ActorConditions.BlastAirborne, drawn.Conditions);
+    }
+
+    /// <summary>The bot's own HUD shows its mark for death while it is disguised, as stock's icon by the health does.</summary>
+    [Fact]
+    public void TheBotsOwnHudShowsItsMarkWhileDisguised()
+    {
+        _facts.By[2] = Of(TFClass.Spy, TFTeam.Red, disguised: true) with { MarkedForDeath = true };
+        SelfState hud = _view.Hud(Bot, new SelfState(default, default, default, 125, 0, 1, 6, 32, SelfFlags.Alive));
+        Assert.Equal(ActorConditions.MarkedForDeath, hud.Conditions & ActorConditions.MarkedForDeath);
     }
 }

@@ -1307,6 +1307,7 @@ public sealed partial class TFDecider
             into.Add(new("engineer.enemy_spawn_y", (long)_enemySpawn.Y));
             into.Add(new("engineer.point_y", (long)_point.Y));
             into.Add(new("engineer.nobuild_zones", D._map.TeamZones.Count(z => z.Kind == ZoneKind.NoBuild)));
+            into.Add(new("engineer.hurt_zones", D._map.TeamZones.Count(z => z.Kind == ZoneKind.Hurt)));
             into.Add(new("engineer.entrances_built", _entrancesBuilt));
             into.Add(new("engineer.orbs", _orbs));
             into.Add(new("engineer.exits_built", _exitsBuilt));

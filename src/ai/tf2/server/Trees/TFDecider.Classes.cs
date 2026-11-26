@@ -205,6 +205,7 @@ public sealed partial class TFDecider
         if (_glowDecides > 0)
             into.Add(new("team.glow_decides", _glowDecides));
         CountDash(into);
+        CountConditions(into);
         Shared(into, "shared.ammo_trips", AmmoTrips);
         Shared(into, "shared.sapped_answer_decides", SappedAnswerDecides);
         Shared(into, "shared.teleporter_trips", TeleporterTrips);

@@ -35,7 +35,7 @@ public sealed class TFPyroViewTests
     private static readonly EntityHandle Viewer = new(0x0001_0000u | 3);
 
     /// <summary>The view as the binding builds it; its projectile arm reads nothing of the engine.</summary>
-    private static TFBotGameView View() => new(null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+    private static TFBotGameView View() => new(null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
 
     private static ThingFacts Pipe(int owner) => new(900, ThingKind.Projectile, (int)TFThingType.Pipe, default, default, TFField.Blue, owner);
 

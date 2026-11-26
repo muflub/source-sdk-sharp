@@ -93,9 +93,9 @@ public class FormatTests
     public void AnotherFormatVersionIsRefusedByNumber()
     {
         byte[] rec = Recordings.Make(_ => { });
-        rec[8] = 12;
+        rec[8] = 13;
         var e = Assert.Throws<InvalidDataException>(() => Recordings.Replay(rec));
-        Assert.Contains("format 12", e.Message, StringComparison.Ordinal);
+        Assert.Contains("format 13", e.Message, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -114,10 +114,11 @@ public class FormatTests
     [InlineData(8)]
     [InlineData(9)]
     [InlineData(10)]
+    [InlineData(11)]
     public void AnOlderFormatFileStillReads(byte version)
     {
         byte[] rec = Recordings.Make(s => s.AddBot(new ActorId(2, 1), 1, []));
-        Assert.Equal(11, rec[8]);
+        Assert.Equal(12, rec[8]);
         rec[8] = version;
         Assert.Equal(0, Recordings.Replay(rec).RecordedIntentCount);
     }

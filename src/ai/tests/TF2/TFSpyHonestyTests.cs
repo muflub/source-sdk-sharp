@@ -41,7 +41,7 @@ public sealed class TFSpyHonestyTests
 
     // Only the actors' facts are asked of the view by ShownAs; the rest is never reached.
     private TFBotGameView View(string avoid = "1") => new(_facts, null!, null!, null!, null!, null!, null!, null!, null!, null!, _lives,
-        new ConVarRegistry(new NamedConVars(new Dictionary<string, string> { ["tf_avoidteammates"] = avoid })).Declare<TFAvoidTeammatesConVar>());
+        new ConVarRegistry(new NamedConVars(new Dictionary<string, string> { ["tf_avoidteammates"] = avoid })).Declare<TFAvoidTeammatesConVar>(), null!);
 
     private readonly TFPlayerLives _lives = new();
 
@@ -164,7 +164,7 @@ public sealed class TFSpyHonestyTests
         _facts.By[5] = Spy();
         ActorId shown = View().ShownAs(Slot(2), Slot(5), SpyActor);
         var drawn = new ActorFacts(shown, Mid + new AiVector(400f, 0f, 0f), AiVector.Zero, TFField.Shotgun, ActorActivity.None, 1f, Blue, NameSlot: 5);
-        TFBotGameView.Draw(Red, _facts.By[5], -1, ref drawn);
+        TFBotGameView.Draw(Red, _facts.By[5], -1, ref drawn, TFBody.Unread);
         f.StepHearing(TFField.Self(Mid), TFField.Ctf(), [AiEvent.SightGained(f.Bot, new Tick(f.Tick + 1), shown, drawn.Origin, default, 1f)], drawn);
 
         KnownActor row = f.Memory.Board.Of(drawn.Id, make: false)!;
@@ -189,14 +189,14 @@ public sealed class TFSpyHonestyTests
         _facts.By[5] = Player(TFClass.Spy, TFTeam.Blue);
         TFField bareField = Knowing();
         var bare = new ActorFacts(View().ShownAs(Slot(2), Slot(5), SpyActor), at, AiVector.Zero, TFField.Shotgun, ActorActivity.None, 1f, Blue, NameSlot: 5);
-        TFBotGameView.Draw(Red, _facts.By[5], -1, ref bare);
+        TFBotGameView.Draw(Red, _facts.By[5], -1, ref bare, TFBody.Unread);
         Seen(bareField, bare);
         Assert.Equal(SpyActor, bareField.Decider.Doing.Target);
 
         _facts.By[5] = Spy();
         TFField dressedField = Knowing();
         var dressed = new ActorFacts(View().ShownAs(Slot(2), Slot(5), SpyActor), at, AiVector.Zero, TFField.Shotgun, ActorActivity.None, 1f, Blue, NameSlot: 5);
-        TFBotGameView.Draw(Red, _facts.By[5], -1, ref dressed);
+        TFBotGameView.Draw(Red, _facts.By[5], -1, ref dressed, TFBody.Unread);
         IntentCommand i = Seen(dressedField, dressed);
         Assert.Equal(ActorId.None, dressedField.Decider.Doing.Target);
         Assert.NotEqual(ActionKind.Fire, i.Action.Kind);
@@ -223,7 +223,7 @@ public sealed class TFSpyHonestyTests
     {
         _facts.By[5] = Spy();
         var drawn = new ActorFacts(shown, at, AiVector.Zero, TFField.Shotgun, ActorActivity.None, 1f, Blue, NameSlot: 5);
-        TFBotGameView.Draw(Red, _facts.By[5], -1, ref drawn);
+        TFBotGameView.Draw(Red, _facts.By[5], -1, ref drawn, TFBody.Unread);
         return drawn;
     }
 

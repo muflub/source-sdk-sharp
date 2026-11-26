@@ -27,7 +27,7 @@ public sealed class TFViewTests
     public void AnEnemyOfTheSpySeesTheDisguise()
     {
         ActorFacts f = Engine(Red);
-        Assert.True(TFBotGameView.Draw(Blue, DisguisedSpy(), dressWeapon: 22, ref f));
+        Assert.True(TFBotGameView.Draw(Blue, DisguisedSpy(), dressWeapon: 22, ref f, TFBody.Unread));
         Assert.Equal((Blue, (int)TFClass.Soldier, 6, 22), (f.Team, f.Class, f.NameSlot, f.WeaponSeen));
         Assert.Equal(ActorConditions.None, f.Conditions & ActorConditions.Disguised);
     }
@@ -40,7 +40,7 @@ public sealed class TFViewTests
     public void AnEnemysViewOfADisguisedSpyCarriesNoneOfHisTruth()
     {
         ActorFacts f = Engine(Red);
-        TFBotGameView.Draw(Blue, DisguisedSpy(), 22, ref f);
+        TFBotGameView.Draw(Blue, DisguisedSpy(), 22, ref f, TFBody.Unread);
         Assert.NotEqual(Red, f.Team);
         Assert.NotEqual((int)TFClass.Spy, f.Class);
     }
@@ -54,11 +54,11 @@ public sealed class TFViewTests
     public void ADisguisedSpysFactsMatchARealTeammatesInKind()
     {
         ActorFacts spy = Engine(Red);
-        TFBotGameView.Draw(Blue, DisguisedSpy(), 22, ref spy);
+        TFBotGameView.Draw(Blue, DisguisedSpy(), 22, ref spy, TFBody.Unread);
         var soldier = new TFActorFacts(TFClass.Soldier, TFTeam.Blue, TFClass.Undefined, TFTeam.Unassigned, 0, 0f, 0,
                                        Burning: false, Stunned: false, Ubered: false, Disguised: false, Cloaked: false, Taunting: false);
         ActorFacts mate = new(new ActorId(6, 3), new AiVector(9, 9, 9), default, WeaponSeen: 22, ActorActivity.None, 1f, Blue, NameSlot: 6);
-        TFBotGameView.Draw(Blue, soldier, -1, ref mate);
+        TFBotGameView.Draw(Blue, soldier, -1, ref mate, TFBody.Unread);
         Assert.Equal((mate.Team, mate.Class, mate.Conditions, mate.WeaponSeen), (spy.Team, spy.Class, spy.Conditions, spy.WeaponSeen));
         Assert.True(spy.NameSlot > 0 && mate.NameSlot > 0);
         Assert.Equal(mate.Id.Slot, mate.NameSlot);
@@ -70,7 +70,7 @@ public sealed class TFViewTests
     public void ADisguiseThatBorrowedNoNameShowsTheSpysOwn()
     {
         ActorFacts f = Engine(Red);
-        TFBotGameView.Draw(Blue, DisguisedSpy() with { DisguiseTargetIndex = 0 }, 22, ref f);
+        TFBotGameView.Draw(Blue, DisguisedSpy() with { DisguiseTargetIndex = 0 }, 22, ref f, TFBody.Unread);
         Assert.Equal((Blue, 4), (f.Team, f.NameSlot));
     }
 
@@ -82,7 +82,7 @@ public sealed class TFViewTests
     public void ACloakedDisguisedSpyKeepsTheBorrowedName()
     {
         ActorFacts f = Engine(Red);
-        TFBotGameView.Draw(Blue, DisguisedSpy(0.5f), 22, ref f);
+        TFBotGameView.Draw(Blue, DisguisedSpy(0.5f), 22, ref f, TFBody.Unread);
         Assert.Equal(6, f.NameSlot);
     }
 
@@ -90,7 +90,7 @@ public sealed class TFViewTests
     public void TheSpysOwnTeamSeesASpyInAMask()
     {
         ActorFacts f = Engine(Red);
-        Assert.True(TFBotGameView.Draw(Red, DisguisedSpy(), 22, ref f));
+        Assert.True(TFBotGameView.Draw(Red, DisguisedSpy(), 22, ref f, TFBody.Unread));
         Assert.Equal((Red, (int)TFClass.Spy, 4, 11), (f.Team, f.Class, f.NameSlot, f.WeaponSeen));
         Assert.Equal(ActorConditions.Disguised, f.Conditions & ActorConditions.Disguised);
     }
@@ -99,11 +99,11 @@ public sealed class TFViewTests
     public void ACloakFadesTheSpyAndPastThreeQuartersHidesHim()
     {
         ActorFacts half = Engine(Red);
-        Assert.True(TFBotGameView.Draw(Blue, DisguisedSpy(0.5f), -1, ref half));
+        Assert.True(TFBotGameView.Draw(Blue, DisguisedSpy(0.5f), -1, ref half, TFBody.Unread));
         Assert.Equal(0.5f, half.VisibleFraction, 3);
         Assert.Equal(ActorConditions.Cloaked, half.Conditions & ActorConditions.Cloaked);
         ActorFacts gone = Engine(Red);
-        Assert.False(TFBotGameView.Draw(Blue, DisguisedSpy(TFBotGameView.CloakHidden), -1, ref gone));
+        Assert.False(TFBotGameView.Draw(Blue, DisguisedSpy(TFBotGameView.CloakHidden), -1, ref gone, TFBody.Unread));
     }
 
     /// <summary>
@@ -126,7 +126,7 @@ public sealed class TFViewTests
             _ => cloaked with { Bleeding = true },
         };
         ActorFacts hidden = Engine(Red), seen = Engine(Red);
-        Assert.Equal((false, true), (TFBotGameView.Draw(Blue, cloaked, -1, ref hidden), TFBotGameView.Draw(Blue, shown, -1, ref seen)));
+        Assert.Equal((false, true), (TFBotGameView.Draw(Blue, cloaked, -1, ref hidden, TFBody.Unread), TFBotGameView.Draw(Blue, shown, -1, ref seen, TFBody.Unread)));
     }
 
     /// <summary>A fully cloaked Spy on fire shows as much as a cloak just under hiding him (review-p7f F5): not a sighting of nothing.</summary>
@@ -134,7 +134,7 @@ public sealed class TFViewTests
     public void ACueShowsAtLeastAQuarterOfAFullyCloakedSpy()
     {
         ActorFacts f = Engine(Red);
-        Assert.True(TFBotGameView.Draw(Blue, DisguisedSpy(1f) with { Burning = true }, -1, ref f));
+        Assert.True(TFBotGameView.Draw(Blue, DisguisedSpy(1f) with { Burning = true }, -1, ref f, TFBody.Unread));
         Assert.Equal(TFBotGameView.CueShows, f.VisibleFraction, 3);
     }
 
@@ -143,7 +143,7 @@ public sealed class TFViewTests
     public void ACloakedSpyACueShowsIsTargeted()
     {
         ActorFacts spy = Engine(Red) with { Origin = new AiVector(2448f, 256f, 0f) };
-        Assert.True(TFBotGameView.Draw(Blue, DisguisedSpy(1f) with { Disguised = false, Burning = true }, -1, ref spy));
+        Assert.True(TFBotGameView.Draw(Blue, DisguisedSpy(1f) with { Disguised = false, Burning = true }, -1, ref spy, TFBody.Unread));
         var f = new TFField();
         IntentCommand i = f.StepDrawn(TFField.Self(new AiVector(2048f, 256f, 0f), team: TFField.Blue), TFField.Ctf(), spy);
         // Its first decide on him calls "Spy!" (the voice line's one-shot); the aim is on him, and he is the fight's target.
@@ -156,7 +156,7 @@ public sealed class TFViewTests
         var heavy = new TFActorFacts(TFClass.HeavyWeapons, TFTeam.Blue, TFClass.Civilian, TFTeam.Unassigned, 0, 0f, 0,
                                      Burning: true, Stunned: false, Ubered: true, Disguised: false, Cloaked: false, Taunting: true);
         ActorFacts f = Engine(Blue);
-        Assert.True(TFBotGameView.Draw(Red, heavy, -1, ref f));
+        Assert.True(TFBotGameView.Draw(Red, heavy, -1, ref f, TFBody.Unread));
         Assert.Equal((Blue, (int)TFClass.HeavyWeapons, 11), (f.Team, f.Class, f.WeaponSeen));
         Assert.Equal(ActorConditions.Burning | ActorConditions.Invulnerable | ActorConditions.Taunting, f.Conditions);
     }

@@ -113,9 +113,14 @@ public static class AiRecordFormat
     /// since the bot's last snapshot; format 11 (round 2's S9 and S11) the Intent record's action style byte's top bit,
     /// <see cref="HoldsAtFriendBit"/> (<see cref="IntentCommand.HoldsAtFriend"/>, set only when it holds), and in TF2's
     /// recorded HUD a mate's why byte's <c>TFMateSeen.Glowing</c> bit (4): both leave every older encoding byte for byte,
-    /// and the number is there so a format-10 build refuses a file whose style byte reads 0x82, not misreads it.
+    /// and the number is there so a format-10 build refuses a file whose style byte reads 0x82, not misreads it; format 12
+    /// (round 2's S4) a fourth tail on the Snapshot record, written only when some view in it holds a condition past
+    /// format 10's byte (<see cref="PerceivedView.LowConditions"/>: Jarated, milked, wet, marked for death, blast-airborne, scoped):
+    /// each view's own high byte, then each sighted actor's, in format 10's order. A snapshot with none encodes as
+    /// format 11's did, byte for byte (every HL2MP snapshot: its binding draws no conditions); the number makes a
+    /// format-11 build refuse a file with the tail rather than read its conditions short.
     /// </summary>
-    public const ushort Version = 11;
+    public const ushort Version = 12;
 
     /// <summary>The largest payload a reader accepts; anything bigger is a corrupt length.</summary>
     public const int MaxPayload = 1 << 24;
@@ -487,12 +492,12 @@ public static class AiRecordFormat
             if (s.ViewFor(slot) is not { } view)
                 continue;
             w.Write((byte)view.Self.Class);
-            w.Write((byte)view.Self.Conditions);
+            w.Write((byte)((int)view.Self.Conditions & PerceivedView.LowConditions));
             w.Write(view.Self.Metal);
             foreach (ref readonly ActorFacts f in view.Sighted)
             {
                 w.Write((byte)f.Class);
-                w.Write((byte)f.Conditions);
+                w.Write((byte)((int)f.Conditions & PerceivedView.LowConditions));
                 w.Write((byte)f.NameSlot);
                 w.Write(f.Facing.Pitch);
                 w.Write(f.Facing.Yaw);
@@ -511,6 +516,41 @@ public static class AiRecordFormat
                 huds?.Wrote(view.Bot.Slot, hud);
             }
         }
+
+        // Format 12's tail, only when a view holds a condition past format 10's byte: each view's own high byte, then each
+        // sighted actor's. With none the record ends where format 11's did.
+        if (!HasHighConditions(s))
+            return;
+        for (int slot = 0; slot < s.Slots; slot++)
+        {
+            if (s.ViewFor(slot) is not { } view)
+                continue;
+            w.Write(HighConditions(view.Self.Conditions));
+            foreach (ref readonly ActorFacts f in view.Sighted)
+                w.Write(HighConditions(f.Conditions));
+        }
+    }
+
+    private static byte HighConditions(ActorConditions c) => (byte)((int)c >> 8);
+
+    /// <summary>Whether any view in <paramref name="s"/> holds a condition format 10's byte cannot: the test for format 12's tail.</summary>
+    public static bool HasHighConditions(AiSnapshot s)
+    {
+        ArgumentNullException.ThrowIfNull(s);
+        for (int slot = 0; slot < s.Slots; slot++)
+        {
+            if (s.ViewFor(slot) is not { } view)
+                continue;
+            if (HighConditions(view.Self.Conditions) != 0)
+                return true;
+            foreach (ref readonly ActorFacts f in view.Sighted)
+            {
+                if (HighConditions(f.Conditions) != 0)
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Reads a snapshot payload into <paramref name="ring"/>'s slot for its tick (not yet published).</summary>
@@ -585,6 +625,20 @@ public static class AiRecordFormat
                         view.SetGameHud(hud);
                         break;
                 }
+            }
+        }
+
+        if (More(r))
+        {
+            for (int slot = 0; slot < s.Slots; slot++)
+            {
+                if (s.ViewFor(slot) is not { } view)
+                    continue;
+                int self = r.ReadByte();
+                int[] high = new int[view.SightedCount];
+                for (int i = 0; i < high.Length; i++)
+                    high[i] = r.ReadByte();
+                view.SetHighConditions(self, high);
             }
         }
 

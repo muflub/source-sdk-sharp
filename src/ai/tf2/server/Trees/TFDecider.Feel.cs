@@ -148,6 +148,7 @@ public sealed partial class TFDecider
         _choseAt = _now;
         _pickTier = -1;
         _pickRows = TargetScore.Rows(_memory);
+        BeginConditionPick();
     }
 
     private bool CarriesOurFlag(KnownActor a) => _ownFlag is { State: ObjectiveState.Carried } flag && flag.CarrierSlot == a.Id.Slot;
@@ -167,12 +168,13 @@ public sealed partial class TFDecider
             return false;
         if (tier > _pickTier)
             (_pickTier, _pick) = (tier, new TargetPick(TargetCloseUnits));
+        float cond = ConditionBonus(a, sighted);
         float bonus = _p.RankBonus * TargetScore.RankBonus(TargetScore.RankOf(_memory, a), _pickRows)
                       + (a.ClassBelieved == (int)TFClass.Medic ? MedicBonus : 0f) + (carrier ? CarrierBonus : 0f)
-                      + (_classPlay?.TargetBonus(a, sighted, dist) ?? 0f);
+                      + (_classPlay?.TargetBonus(a, sighted, dist) ?? 0f) + cond;
         float priority = TargetScore.Priority(sighted, a.Confidence, dist, _p.EasyTargetDiscount, bonus, TargetScore.Grudge(a, _now, _tick, _p.GrudgeWeight),
                                               ReferenceEquals(a, _aboutBefore));
-        return _pick.Takes(sighted, dist, priority);
+        return NoteConditionPick(a, tier, sighted, dist, priority, cond, _pick.Takes(sighted, dist, priority));
     }
 
     private PathGlance _glance;

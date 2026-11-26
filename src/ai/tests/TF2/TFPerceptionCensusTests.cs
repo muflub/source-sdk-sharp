@@ -96,6 +96,18 @@ public sealed class TFPerceptionCensusTests
         Assert.Equal([typeof(SourceSharp.Ai.Server.Experience.ExperienceService).FullName!], callers);
     }
 
+    /// <summary>
+    /// Round 2's S4: the conditions a hit's mini-crit and wet rules read are read by the view alone, each one a client draws on
+    /// the player (Jarate's and milk's drips, gas, the mark over his head, a thruster's flight, a body a blast threw), and only
+    /// for a player the bot sees (the senses ask the view to draw sighted actors only: TFViewConditionsTests).
+    /// </summary>
+    [Fact]
+    public void OnlyTheViewReadsTheConditionsAHitReads()
+        => Assert.Equal([typeof(TFBotGameView).FullName!],
+                        IlCallCensus.Callers(m => m.DeclaringType?.FullName == "TF2.Server.Player.TFActorFacts"
+                                                  && m.Name is "get_Jarated" or "get_Milked" or "get_Gassed" or "get_MarkedForDeath"
+                                                      or "get_BlastJumping" or "get_Rocketpack" or "get_Zoomed", Binding));
+
     [Fact]
     public void NothingInTheBindingMovesOrTurnsAPlayer()
         => Assert.Empty(IlCallCensus.Callers(m => Forbidden.Contains(Name(m)), Binding));
