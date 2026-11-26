@@ -231,8 +231,8 @@ public sealed class TFSniperRound2Tests
     }
     /// <summary>
     /// Where a jar thrown along <paramref name="look"/> from <paramref name="eye"/> comes down to <paramref name="floorZ"/>: the
-    /// game's launch (forward at 1,000 u/s and 200 u/s along the view's up, TFProjectileEffects' Lob) under the pull it flies by,
-    /// 0.4 of the world's (a grenade's, TFJar's GravityScale).
+    /// game's launch (forward at 1,000 u/s and 200 u/s along the view's up, TFProjectileEffects' Lob) under the pull it flies by:
+    /// the constant the game's TFJar takes its GravityScale from (TFProjectileDefs.PipebombGravity), whatever its value.
     /// </summary>
     private static AiVector Lands(AiVector eye, AiVector look, float floorZ)
     {
@@ -241,7 +241,7 @@ public sealed class TFSniperRound2Tests
         float along = forward.X * worldUp.X + forward.Y * worldUp.Y + forward.Z * worldUp.Z;
         AiVector up = (worldUp - forward * along).Normalised();
         AiVector v = forward * 1000f + up * 200f, p = eye;
-        float g = 0.4f * SourceSharp.Ai.TF2.Knowledge.TFKnowledge.Gravity;
+        float g = global::TF2.Server.Projectiles.TFProjectileDefs.PipebombGravity * SourceSharp.Ai.TF2.Knowledge.TFKnowledge.Gravity;
         for (int i = 0; i < 2000 && (v.Z > 0f || p.Z > floorZ); i++)
         {
             p += v * 0.005f;

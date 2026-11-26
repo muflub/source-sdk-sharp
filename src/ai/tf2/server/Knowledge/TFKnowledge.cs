@@ -91,8 +91,8 @@ public static class TFKnowledge
     public static float ProjectileGravity(TFProjectile projectile) => Gravity * projectile switch
     {
         TFProjectile.Pipebomb or TFProjectile.PipebombRemote or TFProjectile.PipebombPractice => TFProjectileDefs.PipebombGravity,
-        // A jar is a grenade projectile (CTFProjectile_Jar over CTFWeaponBaseGrenadeProj): InitGrenade's 0.4, as the game's
-        // TFJar flies (TFProjectileEntities' GravityScale), not the world's whole pull.
+        // A jar is a grenade projectile (CTFProjectile_Jar over CTFWeaponBaseGrenadeProj): the game's own constant, the one its
+        // TFJar's GravityScale reads (TFProjectileEntities), never a copied number, so the aim follows the game's arc if it changes.
         TFProjectile.Jar or TFProjectile.JarMilk or TFProjectile.FestiveJar => TFProjectileDefs.PipebombGravity,
         TFProjectile.Arrow or TFProjectile.FestiveArrow => TFProjectileDefs.ArrowGravity(TFProjectileDefs.ArrowChargeTime),
         TFProjectile.HealingBolt or TFProjectile.FestiveHealingBolt or TFProjectile.BuildingRepairBolt => TFProjectileDefs.CrossbowGravity,

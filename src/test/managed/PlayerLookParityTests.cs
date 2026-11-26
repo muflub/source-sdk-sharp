@@ -31,7 +31,7 @@ public class PlayerLookParityTests
     private const float EyePitch = -40f;
     private const float EyeYaw = 40f;
 
-    private static readonly Dictionary<string, int> TfRig = new()
+    private static readonly Dictionary<string, int> TFRig = new()
     {
         ["move_x"] = 0, ["move_y"] = 1, ["body_pitch"] = 2, ["body_yaw"] = 3,
     };
@@ -154,7 +154,7 @@ public class PlayerLookParityTests
     }
 
     [Fact]
-    public void TheServersAndAClientsTorsoDialsAgreeOnTF2sRig() => Agree(TfRig, "body_pitch", "body_yaw", -EyePitch);
+    public void TheServersAndAClientsTorsoDialsAgreeOnTF2sRig() => Agree(TFRig, "body_pitch", "body_yaw", -EyePitch);
 
     [Fact]
     public void TheServersAndAClientsTorsoDialsAgreeOnHL2DMsRig() => Agree(HlRig, "aim_pitch", "aim_yaw", EyePitch);

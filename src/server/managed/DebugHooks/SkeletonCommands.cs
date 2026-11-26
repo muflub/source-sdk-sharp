@@ -443,7 +443,14 @@ public sealed class HitBandsCommand(IEnginePlayers players, IEngineEntities enti
         {
             Vector at = new(feet.X, feet.Y, feet.Z + h);
             SurfaceTraceResult tr = world.TraceLineSurface(at + toward * 64f, at - toward * 64f, TraceMask.Shot);
-            string name = !tr.Hit ? "-" : tr.Entity != player ? "other" : tr.HitGroup.ToString();
+
+            // Another body in the way (the viewer standing by him) is passed once, as a round through it would be
+            // asked again; the world or a second body is named.
+            if (tr.Hit && tr.Entity != player && entities.GetIndex(tr.Entity) > 0)
+                tr = world.TraceLineSurface(at + toward * 64f, at - toward * 64f, TraceMask.Shot, tr.Entity);
+            string name = !tr.Hit ? "-"
+                : tr.Entity != player ? "other:" + entities.GetClassName(tr.Entity)
+                : tr.HitGroup.ToString();
             if (name != band)
             {
                 if (band is not null)
@@ -454,6 +461,32 @@ public sealed class HitBandsCommand(IEnginePlayers players, IEngineEntities enti
         }
 
         line.Append(CultureInfo.InvariantCulture, $" | {band} {bandFrom}..96");
+        log.Msg(line.Append('\n').ToString());
+    }
+}
+/// <summary>
+/// <c>cs_sv_looks</c>: every player's eyes against his body: the eye pitch and yaw, the entity's yaw, and how far the
+/// eye yaw stands from the body's (the server and the clients pose the torso with the body's yaw, so a gap here is a
+/// twist neither draws).
+/// </summary>
+[ConCommand("cs_sv_looks", Help = "cs_sv_looks: each player's eye pitch and yaw, his body's yaw, and the gap between the yaws")]
+public sealed class LooksCommand(IEngineEntities entities, IEntityDirectory directory, ILog log)
+{
+    public void Execute()
+    {
+        var line = new System.Text.StringBuilder("[SourceSharp] looks:");
+        foreach (var entity in directory.OfClass(EntityNames.Player))
+        {
+            if (entity is not SsPlayer player || !player.State.Alive)
+                continue;
+
+            Vector eyes = entities.GetEyeAngles(player.Handle);
+            float body = entities.GetAngles(player.Handle).Y;
+            float gap = MathF.Abs(SourceSharp.Shared.Anim.MultiplayerAnimState.NormalizeAngle(eyes.Y - body));
+            line.Append(CultureInfo.InvariantCulture,
+                        $" | {entities.GetIndex(player.Handle)} pitch {eyes.X:0.#} eyeyaw {eyes.Y:0.#} bodyyaw {body:0.#} gap {gap:0.##} net {player.State.EyePitch:0.#}");
+        }
+
         log.Msg(line.Append('\n').ToString());
     }
 }

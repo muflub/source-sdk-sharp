@@ -68,9 +68,13 @@ public sealed class TFBindingTests
             [.. typeof(global::TF2.Server.Player.TFServerActorFacts).Assembly.GetTypes(), .. typeof(SourceSharp.Ai.Store.SqliteExperienceStores).Assembly.GetTypes(),
              .. typeof(VisionPass).Assembly.GetTypes(), .. Binding.GetTypes()]);
         PropertyInfo read = sequence.GetProperty(order)!;
-        var members = registered.Where(t => t.IsClass && !t.IsAbstract && sequence.IsAssignableFrom(t)).Distinct()
-                                .Select(t => (Type: t, Order: (int)read.GetValue(System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(t))!))
-                                .Where(m => m.Order >= ModStages.First).ToArray();
+        var all = registered.Where(t => t.IsClass && !t.IsAbstract && sequence.IsAssignableFrom(t)).Distinct()
+                            .Select(t => (Type: t, Order: (int)read.GetValue(System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(t))!)).ToArray();
+        // The AI's members sit in the mods' range, where the check below sees them: a participant left at the unspecified 0
+        // collided with the core's NetTrafficProfiler there, unseen, and the server refused to load (lane r2snp's kill counts).
+        Assembly[] ai = [typeof(VisionPass).Assembly, typeof(SourceSharp.Ai.Store.SqliteExperienceStores).Assembly, Binding];
+        Assert.Empty(all.Where(m => ai.Contains(m.Type.Assembly) && m.Order < ModStages.First).Select(m => $"{m.Type.Name} at {m.Order}"));
+        var members = all.Where(m => m.Order >= ModStages.First).ToArray();
         Assert.Contains(members, m => m.Type == typeof(SourceSharp.Ai.TF2.Senses.TFNemesisTap));
         Assert.Empty(members.GroupBy(m => m.Order).Where(g => g.Count() > 1).Select(g => $"{g.Key - ModStages.First}: {string.Join(", ", g.Select(m => m.Type.Name))}"));
     }
@@ -106,6 +110,54 @@ public sealed class TFBindingTests
         string[] clashes = [.. chains.SelectMany(chain => concrete.Where(chain.IsAssignableFrom).GroupBy(Order).Where(g => g.Count() > 1)
                                                          .Select(g => $"{chain.Name} at {g.Key}: {string.Join(", ", g.Select(t => t.Name))}"))];
         Assert.Empty(clashes);
+    }
+
+    /// <summary>
+    /// No match-reset hook of the TF2 list reaches the round flow by its constructors: the round flow raises the match reset
+    /// while it is being built (its Initialise ends in ResetScores), so the container builds every member then, and one that
+    /// needs anything that needs the round flow closes a cycle and the server does not compose (lane r2snp's first kill tally:
+    /// TeamRoundFlow -> TFSniperKillTally -> ITFWeaponOwners -> ... -> TeamRoundFlow). The walk follows each constructor
+    /// parameter (a list's element) to every registered class that answers it.
+    /// </summary>
+    [Fact]
+    public void NoMatchResetHookReachesTheRoundFlow()
+    {
+        var services = new ServiceContainer();
+        IReadOnlyList<Type> registered = SideServices.Register(services, Side.Server,
+            [.. typeof(global::TF2.Server.Player.TFServerActorFacts).Assembly.GetTypes(), .. typeof(SourceSharp.Ai.Store.SqliteExperienceStores).Assembly.GetTypes(),
+             .. typeof(VisionPass).Assembly.GetTypes(), .. Binding.GetTypes()]);
+        Type[] concrete = [.. registered.Where(t => t.IsClass && !t.IsAbstract).Distinct()];
+        Type flow = concrete.Single(t => t.Name == "TeamRoundFlow");
+        static Type Element(Type p) => p.IsArray ? p.GetElementType()! : p.IsGenericType && p.GetGenericArguments().Length == 1 && typeof(System.Collections.IEnumerable).IsAssignableFrom(p) ? p.GetGenericArguments()[0] : p;
+        IEnumerable<Type> Needs(Type t)
+            => t.GetConstructors().SelectMany(c => c.GetParameters()).Select(p => Element(p.ParameterType)).Distinct()
+                .SelectMany(p => concrete.Where(p.IsAssignableFrom));
+        Type[] hooks = [.. concrete.Where(typeof(SourceSharp.Server.IMatchResetHook).IsAssignableFrom)];
+        Assert.Contains(hooks, h => h.Name == "TFSniperKillCounts");
+        var reaching = new List<string>();
+        foreach (Type hook in hooks)
+        {
+            var seen = new HashSet<Type> { hook };
+            var queue = new Queue<(Type Type, string Path)>([(hook, hook.Name)]);
+            while (queue.Count > 0)
+            {
+                (Type t, string path) = queue.Dequeue();
+                foreach (Type next in Needs(t))
+                {
+                    if (next == flow)
+                    {
+                        reaching.Add($"{path} -> {flow.Name}");
+                        queue.Clear();
+                        break;
+                    }
+
+                    if (seen.Add(next))
+                        queue.Enqueue((next, $"{path} -> {next.Name}"));
+                }
+            }
+        }
+
+        Assert.Empty(reaching);
     }
 
     /// <summary>
