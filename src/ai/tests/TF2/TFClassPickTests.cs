@@ -21,10 +21,10 @@ public sealed class TFClassPickTests
 
     private static bool All(TFClass c) => true;
 
-    /// <summary>Until a class lane says so, only the Soldier is fielded: a team of nine Soldiers still gets a tenth.</summary>
+    /// <summary>Only a ready class is fielded: with the Soldier the only one, a team of nine Soldiers still gets a tenth.</summary>
     [Fact]
     public void OnlyAReadyClassIsFielded()
-        => Assert.Equal(TFClass.Soldier, TFClassComposition.Pick(Team((TFClass.Soldier, 9)), TFTeamStance.Symmetric, c => TFBotClassPickReady(c, "")));
+        => Assert.Equal(TFClass.Soldier, TFClassComposition.Pick(Team((TFClass.Soldier, 9)), TFTeamStance.Symmetric, c => c == TFClass.Soldier));
 
     private static bool TFBotClassPickReady(TFClass c, string extra) => TFBotClassPick.ReadyBy(c, extra);
 

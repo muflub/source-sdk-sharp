@@ -1244,3 +1244,4 @@ src/client/managed/Render/ObserverConVars.cs	ports the client spec_freeze_* conv
 src/client/native/dynamic_mesh_override.h	native code built against SDK headers (imaterialsystem.h): a buffered GetDynamicMesh with no override at the client level shutdown, so the shader API never flushes through the freed world vertex buffer a BindBatch left as its override
 src/tf2/server/Player/TFDeathSounds.cs	ports CTFPlayer::DeathSound (server/tf/tf_player.cpp)
 src/tf2/client/TempEnts/TFBreakPieceGroup.cs	ports TF_CLIENT_DLL's COLLISION_GROUP_DEBRIS arm of the client BreakModelCreateSingle (physpropclientside.cpp)
+src/ai/tf2/server/Classes/TFScout.cs	ports CTFBot::EquipBestWeaponForThreat's empty-primary switch to the secondary (tf_bot.cpp:3365-3375), CTFBot::GetDesiredAttackRange's melee range (tf_bot.cpp:3190-3193) and OpportunisticallyUseWeaponAbilities' drink gates, a full meter and no flag carried (tf_bot.cpp:4566, 4593)
