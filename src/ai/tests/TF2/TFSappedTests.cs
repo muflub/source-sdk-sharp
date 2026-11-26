@@ -78,12 +78,12 @@ public sealed class TFSappedTests
         Assert.Equal([new TFMeter(TFBuildingTrayMeters.SentrySapped, 1f), new TFMeter(TFBuildingTrayMeters.EntranceSapped, 0f)], into);
     }
 
-    /// <summary>The flags the view draws: a sapper, and a teleporter end ready to send, each its own bit.</summary>
+    /// <summary>The flags the view draws: a sapper, a teleporter end ready to send, and a building under construction, each its own bit.</summary>
     [Fact]
     public void TheViewDrawsASapperAndAReadyTeleporterAsTheirOwnBits()
-        => Assert.Equal(((int)TFBuildingFlags.Sapped, (int)TFBuildingFlags.Ready, 0),
+        => Assert.Equal(((int)TFBuildingFlags.Sapped, (int)TFBuildingFlags.Ready, (int)TFBuildingFlags.Building, 0),
                         (TFKnowledge.BuildingFlags(sapped: true, ready: false), TFKnowledge.BuildingFlags(sapped: false, ready: true),
-                         TFKnowledge.BuildingFlags(false, false)));
+                         TFKnowledge.BuildingFlags(false, false, building: true), TFKnowledge.BuildingFlags(false, false)));
 
     /// <summary>
     /// The general play's answer: a Soldier on its own side with a friendly sentry 400 u off in sight, sapped, goes to it on the

@@ -36,6 +36,9 @@ public enum TFBuildingFlags
 
     /// <summary>A teleporter end that is matched, built, not sapped and ready to send (<c>TELEPORTER_STATE_READY</c>).</summary>
     Ready = 1 << 1,
+
+    /// <summary>Under construction, its scaffold drawn (<c>IsBuilding</c>, stock's <c>m_bBuilding</c> sent to every client): it works for nobody yet.</summary>
+    Building = 1 << 2,
 }
 
 /// <summary>
@@ -181,10 +184,11 @@ public static class TFKnowledge
 
     /// <summary>
     /// The flags a client draws on a building (<see cref="TFBuildingFlags"/>): <paramref name="sapped"/> with a sapper on it,
-    /// <paramref name="ready"/> for a teleporter end in the ready state. The view (TFBotGameView) reads both off the building.
+    /// <paramref name="ready"/> for a teleporter end in the ready state, <paramref name="building"/> while it is under
+    /// construction. The view (TFBotGameView) reads them off the building.
     /// </summary>
-    public static int BuildingFlags(bool sapped, bool ready)
-        => (int)((sapped ? TFBuildingFlags.Sapped : 0) | (ready ? TFBuildingFlags.Ready : 0));
+    public static int BuildingFlags(bool sapped, bool ready, bool building = false)
+        => (int)((sapped ? TFBuildingFlags.Sapped : 0) | (ready ? TFBuildingFlags.Ready : 0) | (building ? TFBuildingFlags.Building : 0));
 
     /// <summary>Where an aim point sits over a TF2 body's feet, standing and ducked: the feet a blast is aimed at, the middle, the eye.</summary>
     public static StanceHeight AimHeight(AimPoint point, TFClass playerClass)

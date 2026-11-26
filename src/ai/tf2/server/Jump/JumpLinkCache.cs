@@ -30,8 +30,12 @@ public sealed record JumpLinkFile(IReadOnlyList<JumpLink> Links, int Candidates,
 /// <param name="revision">The format's and the pass's revision: <see cref="Revision"/>, another only in a fact.</param>
 public sealed class JumpLinkCache(int revision = JumpLinkCache.Revision)
 {
-    /// <summary>Raised whenever the pass or the file changes what a link is: 2, a recipe's second rocket (lane G7b); 3, a second rocket at a wall (lane G7c).</summary>
-    public const int Revision = 3;
+    /// <summary>
+    /// Raised whenever the pass or the file changes what a link is: 2, a recipe's second rocket (lane G7b); 3, a second rocket
+    /// at a wall (lane G7c); 4, the simulated rocket converges on the crosshair as the game's does (round 2's r2g and r2j), so
+    /// every level's links are found again under the new name (blast4).
+    /// </summary>
+    public const int Revision = 4;
 
     private static ReadOnlySpan<byte> Magic => "SSJLNK01"u8;
 

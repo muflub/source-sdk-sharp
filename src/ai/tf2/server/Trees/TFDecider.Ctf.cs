@@ -87,8 +87,14 @@ public sealed partial class TFDecider
     /// <summary>How near the enemy carrying its flag an attacker turns back for it.</summary>
     public const float AttackerChaseReach = 1500f;
 
+    /// <summary>
+    /// Guarding the bot's flag dropped: a defender's job only (round 2's S14). An attacker goes on for the enemy's flag, as
+    /// every stock CTF bot but the carrier does (<c>CTFBotFetchFlag</c>, <c>tf_bot_fetch_flag.cpp</c>: stock has no guard). Live
+    /// on ctf_2fort (8 Soldiers, six runs of 300 s at 7e79f0290c) attackers within <see cref="GuardReach"/> turned back and
+    /// stood on the dropped flag until it went home: 38 s and 37 s for two of them at once in red's basement.
+    /// </summary>
     private float GuardUtility()
-        => OursDropped && _self.Origin.DistanceTo(_ownFlag!.Value.Position) < GuardReach ? GuardWeight : 0f;
+        => OursDropped && Role == TFTeamRole.Defend && _self.Origin.DistanceTo(_ownFlag!.Value.Position) < GuardReach ? GuardWeight : 0f;
 
     private float EscortUtility() => TeammateCarries ? (Role == TFTeamRole.Attack ? AttackerEscort : DefenderEscort) : 0f;
 
@@ -176,7 +182,7 @@ public sealed partial class TFDecider
             if (!PickLearnedHold(flag.Position))
             {
                 float a = _rng.NextFloat() * MathF.Tau, r = DefendRadius * MathF.Sqrt(_rng.NextFloat());
-                _defendSpot = flag.Position + new AiVector(MathF.Cos(a) * r, MathF.Sin(a) * r, 0f);
+                _defendSpot = OnFootNear(flag.Position, flag.Position + new AiVector(MathF.Cos(a) * r, MathF.Sin(a) * r, 0f));
                 _defendLearned = false;
             }
 
@@ -197,5 +203,52 @@ public sealed partial class TFDecider
         GoTo(_defendSpot, MoveSpeed.Run);
         _verdict = "to our flag";
         return true;
+    }
+
+    /// <summary>How far from its flag, on foot in the graph's cost, a drawn defend spot may be: within the spot's limit as the crow flies.</summary>
+    public const float DefendWalk = DefendRadius * 1.25f;
+
+    private readonly List<int> _defendCells = new();
+    private readonly HashSet<int> _defendCellSet = new();
+    private AiVector _defendCellsFlag;
+    private bool _defendCellsKnown;
+
+    /// <summary>
+    /// A drawn defend spot where the bot gets to it from <paramref name="flag"/> on foot (round 2's S14): the spot itself, on
+    /// its cell's floor, on a cell within <see cref="DefendWalk"/> of the flag's (<see cref="NavGraph.CellsWithin"/>), else the centre of the nearest such
+    /// cell; the spot as drawn with no graph or no cell by the flag. Live on ctf_2fort, a spot 384 u round blue's flag
+    /// at (740 -3158) was over a floor 270 u under the intel room with no way to it: the defender stood 17 s at the room's
+    /// wall, in every run of the same seed. The cells are worked out once for a flag's place.
+    /// </summary>
+    private AiVector OnFootNear(AiVector flag, AiVector spot)
+    {
+        if (_graph is null)
+            return spot;
+        var up = new AiVector(0f, 0f, 1f);
+        if (!_defendCellsKnown || _defendCellsFlag.DistanceTo(flag) > 1f)
+        {
+            _graph.CellsWithin(_graph.FindCell(flag + up), DefendWalk, ClearanceClass.Crouch, new NavObstacleState(_graph.ObstacleCount), _defendCells);
+            _defendCellSet.Clear();
+            _defendCellSet.UnionWith(_defendCells);
+            (_defendCellsFlag, _defendCellsKnown) = (flag, true);
+        }
+
+        if (_defendCells.Count == 0)
+            return spot;
+        CellId under = _graph.FindCell(spot + up);
+        // Kept, on its cell's floor: drawn at the flag's height, a spot over a floor 72 u or more under it is never arrived at.
+        if (under.IsValid && _defendCellSet.Contains(under.Index))
+            return spot with { Z = _graph.Cell(under).FloorZ };
+        AiVector best = spot;
+        float bestD = float.PositiveInfinity;
+        foreach (int c in _defendCells)
+        {
+            AiVector centre = _graph.Cell(c).Centre;
+            float d = centre.DistanceTo(spot);
+            if (d < bestD)
+                (bestD, best) = (d, centre);
+        }
+
+        return best;
     }
 }

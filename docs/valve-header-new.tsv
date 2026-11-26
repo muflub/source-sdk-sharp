@@ -1262,3 +1262,5 @@ src/ai/tf2/server/Classes/TFPyro.Airblast.cs	ports CTFBot::ShouldFireCompression
 src/ai/tf2/server/Classes/TFPyro.Shoves.cs	ports CTFBot::ShouldFireCompressionBlast's shove ladder (tf_bot.cpp:4111-4144): the Uber always, the juggle and the pushy draws
 src/tf2/server/Player/TFSteakMeleeSwitch.cs	ports CTFPlayerShared::OnRemoveTaunting's steak arm (tf_player_shared.cpp:4062-4077: the switch to the melee, the safety net)
 src/tf2/server/Medigun/TFQuickFixJumpShare.cs	ports CTFPlayer::OnTakeDamage's Quick-Fix blast-jump share (tf_player.cpp:9797-9829)
+src/ai/tf2/server/Trees/TFDecider.Teleporter.cs	ports CTFBotTacticalMonitor::ShouldOpportunisticallyTeleport and FindNearbyTeleporter (the 1000 u reach, ready-now entrances, the 1-2 s search, no Medic, an Engineer once his entrance stands) and CTFBotUseTeleporter's USE_IF_READY give-up (tf_bot_tactical_monitor.cpp, tf_bot_use_teleporter.cpp)
+src/ai/tf2/server/Trees/TFDecider.Dispenser.cs	ports CTFBotGetHealth's dispenser: one not disabled, waited at until full unless a threat is in sight (tf_bot_get_health.cpp)

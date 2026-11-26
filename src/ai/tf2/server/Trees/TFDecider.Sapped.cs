@@ -10,7 +10,7 @@ namespace SourceSharp.Ai.TF2.Trees;
 /// so a bot reads its own buildings sapped through walls. Nobody else's: stock shows a teammate's sapped building to no one
 /// but its builder (the builder's tray, and his "Spy sapping" voice line, which is a sound).
 ///
-/// <para>The general play's answer (<see cref="ClassPlay.AnswersSapped"/>): a friendly building the bot reads sapped within
+/// <para>The general play's answer (<see cref="ClassPlay.AnswersSapped"/>, by default <see cref="ClassPlay.SappedAnswerWeight"/>): a friendly building the bot reads sapped within
 /// <see cref="SappedAnswerReach"/> draws it there, on the class branch, to stand by it, where the Spy who sapped it is. The
 /// Engineer's unsap and a Pyro's Homewrecker are their own lanes'; they read <see cref="SeesSapped"/>.</para>
 /// </summary>
@@ -21,12 +21,6 @@ public sealed partial class TFDecider
     /// surrounding area its tactical monitor searches for a teleporter, tf_bot_tactical_monitor.cpp:528).
     /// </summary>
     public const float SappedAnswerReach = 1000f;
-
-    /// <summary>
-    /// The answer's score: over the run for a far flag (0.7) and a far fight (0.6), under a near fight (0.8), a heal (0.82)
-    /// and the run for a near flag (0.9). Ours: a Spy at a sentry is the nearest threat to the team's hold.
-    /// </summary>
-    public const float SappedAnswerUtility = 0.75f;
 
     /// <summary>A building seen sapped this long ago is still believed sapped while the bot walks to it out of sight.</summary>
     public const float SappedHoldSeconds = 3f;

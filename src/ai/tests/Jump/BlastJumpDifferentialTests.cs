@@ -77,13 +77,14 @@ public class BlastJumpDifferentialTests
         BlastJumpSim open = JumpRig.Sim(Field());
         Assert.All(flights, f =>
         {
-            // On the ground at a run, then the row: jump and duck, the trigger, a blast on the way up.
+            // On the ground at a run, then the program's launch: the jump and the duck taken with it, the trigger with them or after,
+            // a blast on the way up.
             Assert.True(f.Start.OnGround && !f.Start.Ducked);
-            Assert.Equal(GameMovement.InJump | GameMovement.InDuck, f.Commands[0].Buttons & (GameMovement.InJump | GameMovement.InDuck | GameMovement.InAttack));
+            Assert.Equal(GameMovement.InJump | GameMovement.InDuck, f.Commands[0].Buttons & (GameMovement.InJump | GameMovement.InDuck));
             int trigger = Array.FindIndex(f.Commands, c => (c.Buttons & GameMovement.InAttack) != 0);
             int top = Enumerable.Range(0, f.Landing + 1).MaxBy(i => f.Frames[i].Origin.Z);
             Assert.Equal(0, f.Takeoff);
-            Assert.True(trigger > 0 && f.Blast > trigger && f.Blast < top, $"the flight from tick {f.StartTick}: the trigger at {trigger}, the blast at {f.Blast}, the top at {top}");
+            Assert.True(trigger >= 0 && f.Blast > trigger && f.Blast < top, $"the flight from tick {f.StartTick}: the trigger at {trigger}, the blast at {f.Blast}, the top at {top}");
 
             // And a flight no jump on foot is. Its own commands without the trigger, from its own start on an open floor, are a
             // hop in the simulator; a push upward on the way up lifts a body over that by more than the push alone would
@@ -140,13 +141,13 @@ public class BlastJumpDifferentialTests
     [JumpMapFact]
     public void FromTwentyTicksBackTheRunUpIsWalkedAsTheGameWalkedIt()
     {
-        // The flights begun at the Soldier's class speed. The others were run up after a capture, in the round's win
+        // The flights begun at the Soldier's class speed. Any others were run up after a capture, in the round's win
         // bonus (1.1 of the class speed, TFMaxSpeed.TeamWinScale): the simulator's round is always a running one,
-        // so those are replayed from their takeoff state only.
+        // so those are replayed from their takeoff state only (the recording of 2026-11-24 has none).
         float classSpeed = Classes()[TFClass.Soldier].MaxSpeed;
         List<RecordedFlight> all = JumpRecording.Flights(runUpTicks: 20);
         List<RecordedFlight> atClassSpeed = [.. all.Where(f => new Vector(f.Start.Velocity.X, f.Start.Velocity.Y, 0f).Length <= classSpeed + 1f)];
-        Assert.True(atClassSpeed.Count >= 8 && atClassSpeed.Count < all.Count, $"the control: {atClassSpeed.Count} of {all.Count} flights were run up at {classSpeed}");
+        Assert.True(atClassSpeed.Count >= 8, $"the control: {atClassSpeed.Count} of {all.Count} flights were run up at {classSpeed}");
         Assert.All(atClassSpeed, f => Assert.Equal(20, f.Takeoff));
         // The whole replay, the 20 ticks walked on after the landing too.
         Assert.All(Gaps(JumpRig.Sim(JumpRecording.Columns()), atClassSpeed, throughTheLanding: false),

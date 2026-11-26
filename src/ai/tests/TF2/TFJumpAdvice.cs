@@ -24,6 +24,16 @@ public sealed class TFJumpAdvice(JumpPlan? plan) : IJumpAdvisor
 
     public List<JumpStretchAsk> Asks { get; } = [];
 
+    /// <summary>Every ask of the hands in flight the tree wrote (round 2's S1), null for an ask taken back.</summary>
+    public List<AirAsk?> Hands { get; } = [];
+
+    public void AskHands(ActorId bot, AirAsk? ask) => Hands.Add(ask);
+
+    /// <summary>The flight a fact says the bot's program has in the air (round 2's S1), or null: none.</summary>
+    public AirFlight? Flight { get; set; }
+
+    public AirFlight? Flying(ActorId bot) => Flight is { } f && f.Bot == bot ? f : null;
+
     public JumpPlan? Advise(in JumpStretchAsk ask)
     {
         Asks.Add(ask);

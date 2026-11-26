@@ -303,6 +303,39 @@ public sealed class NavGraph
     }
 
     /// <summary>
+    /// The cells an agent of <paramref name="cls"/> in <paramref name="from"/> walks to for at most
+    /// <paramref name="reach"/> in the edges' cost, <paramref name="from"/> first, into <paramref name="into"/>
+    /// (round 2's S14): the places by a spot that are by it on foot, not a floor under it or a room
+    /// behind its wall. Live on ctf_2fort a defender's spot drawn 384 u round its flag fell on a floor
+    /// 270 u under the intel room, with no way to it, and the defender stood 17 s.
+    /// </summary>
+    public void CellsWithin(CellId from, float reach, ClearanceClass cls, NavObstacleState obstacles, List<int> into)
+    {
+        ArgumentNullException.ThrowIfNull(obstacles);
+        ArgumentNullException.ThrowIfNull(into);
+        into.Clear();
+        if (!from.IsValid || from.Index >= _cells.Length)
+            return;
+        var cost = new Dictionary<int, float> { [from.Index] = 0f };
+        var open = new PriorityQueue<int, float>();
+        open.Enqueue(from.Index, 0f);
+        while (open.TryDequeue(out int c, out float at))
+        {
+            if (at > cost[c])
+                continue;
+            into.Add(c);
+            foreach (NavEdge e in EdgesFrom(c))
+            {
+                float next = at + e.Cost;
+                if (next > reach || !Passable(e, cls, obstacles) || (cost.TryGetValue(e.To, out float known) && known <= next))
+                    continue;
+                cost[e.To] = next;
+                open.Enqueue(e.To, next);
+            }
+        }
+    }
+
+    /// <summary>
     /// Whether an agent of <paramref name="cls"/> may take <paramref name="e"/>
     /// with the obstacles as <paramref name="obstacles"/> says: both ends admit
     /// it, no shut obstacle blocks it, and it does not step into a blocked cell.

@@ -42,7 +42,7 @@ public sealed partial class TFDecider
     /// Soldier holds a longer band, prizes a target in the air and weighs a sentry to shell more.</item>
     /// </list>
     /// </summary>
-    private sealed class SoldierPlay(TFDecider d) : ClassPlay(d, TFClass.Soldier)
+    private sealed partial class SoldierPlay(TFDecider d) : ClassPlay(d, TFClass.Soldier)
     {
         private readonly Dictionary<int, int> _clips = [];
         private Tick _gunSince, _fullSince, _foughtAt, _bannerOutSince, _bannerRestUntil;
@@ -71,6 +71,7 @@ public sealed partial class TFDecider
             into.Add(new("soldier.shell_decides", _shellDecides));
             into.Add(new("soldier.shell_give_ups", _shellGiveUps));
             into.Add(new("soldier.rocket_jumps", D.RocketJumps));
+            CountAir(into);
         }
 
         // ------------------------------------------------------------------ the kit

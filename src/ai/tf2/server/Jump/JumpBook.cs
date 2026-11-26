@@ -49,6 +49,18 @@ public interface IJumpAdvisor
     IReadOnlyList<JumpPlan> HealLinks => [];
 
     /// <summary>
+    /// What the class play of <paramref name="bot"/> asks of its hands while its jump flies (round 2's S1, <see cref="JumpHands"/>),
+    /// or null to ask nothing: written each decide of a flight, read by the bot's own program a command at a time. Nothing by
+    /// default.
+    /// </summary>
+    void AskHands(ActorId bot, AirAsk? ask)
+    {
+    }
+
+    /// <summary>The blast jump <paramref name="bot"/>'s program has in the air now (round 2's S1), or null: none, or not launched yet. None by default.</summary>
+    AirFlight? Flying(ActorId bot) => null;
+
+    /// <summary>
     /// Whether a bot standing at <paramref name="landing"/> is within a walk of the heal place at <paramref name="place"/>
     /// (lane G9b): a jump that came down by its place, or one that fizzled, was called off or fell short of it. Null when the
     /// level's places are not known. Null by default.
@@ -334,6 +346,8 @@ public sealed class JumpBook(JumpBookSettings settings) : IJumpAdvisor
             _healLinks = [];
             _heals = null;
             Array.Clear(_routes);
+            Array.Clear(_hands);
+            Array.Clear(_flights);
         }
     }
 
@@ -386,7 +400,41 @@ public sealed class JumpBook(JumpBookSettings settings) : IJumpAdvisor
                 return _healLinks;
         }
     }
+
     private readonly RouteReports[] _routes = new RouteReports[RouteSlots];
+
+    private readonly AirAsk?[] _hands = new AirAsk?[RouteSlots];
+
+    private readonly AirFlight?[] _flights = new AirFlight?[RouteSlots];
+
+    /// <summary>The program launched <paramref name="flight"/> (round 2's S1): the bot's flight from now until <see cref="FlightEnded"/>.</summary>
+    public void FlightBegan(AirFlight flight)
+    {
+        if ((uint)flight.Bot.Slot < RouteSlots)
+            Volatile.Write(ref _flights[flight.Bot.Slot], flight);
+    }
+
+    /// <summary>The program's run of <paramref name="flight"/> is over: the slot's flight goes, if it is still that one.</summary>
+    public void FlightEnded(AirFlight flight)
+    {
+        if ((uint)flight.Bot.Slot < RouteSlots)
+            Interlocked.CompareExchange(ref _flights[flight.Bot.Slot], null, flight);
+    }
+
+    public AirFlight? Flying(ActorId bot)
+        => (uint)bot.Slot < RouteSlots && Volatile.Read(ref _flights[bot.Slot]) is { } flight && flight.Bot == bot ? flight : null;
+
+    /// <summary>The ask of <paramref name="bot"/>'s class play of its hands in flight (round 2's S1): kept by slot, a reference written whole.</summary>
+    public void AskHands(ActorId bot, AirAsk? ask)
+    {
+        if ((uint)bot.Slot < RouteSlots)
+            Volatile.Write(ref _hands[bot.Slot], ask is null || ask.Bot == bot ? ask : throw new ArgumentException($"an ask of {ask.Bot} written for {bot}", nameof(ask)));
+    }
+
+    /// <summary>What <paramref name="bot"/>'s class play last asked of its hands in flight, or null: nothing, or an ask of another life of its slot.</summary>
+    public AirAsk? HandsAsked(ActorId bot)
+        => (uint)bot.Slot < RouteSlots && Volatile.Read(ref _hands[bot.Slot]) is { } ask && ask.Bot == bot ? ask : null;
+
     private readonly AiVector?[] _errands = new AiVector?[RouteSlots];
     private long _routeNotes, _routeAdvised;
 

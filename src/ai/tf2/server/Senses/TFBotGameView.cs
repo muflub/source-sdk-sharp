@@ -284,7 +284,7 @@ public sealed class TFBotGameView(ITFActorFacts actors, ITFPlayerData players, I
             Vector o = entities.GetOrigin(b.Handle);
             int builder = b.Builder == EntityHandle.None ? 0 : b.Builder.EntryIndex;
             into.Add(new ThingRead(b.Handle, new ThingFacts((int)b.Handle.Value, ThingKind.Building, (int)BuildingType(b.Type, b.Mode),
-                                                            new AiVector(o.X, o.Y, o.Z), default, b.Team, builder, b.Level, b.Health, TFKnowledge.BuildingFlags(b.HasSapper, b is TFTeleporter { State: TFTeleporterState.Ready })), BuildingReach));
+                                                            new AiVector(o.X, o.Y, o.Z), default, b.Team, builder, b.Level, b.Health, TFKnowledge.BuildingFlags(b.HasSapper, b is TFTeleporter { State: TFTeleporterState.Ready }, b.IsBuilding)), BuildingReach));
         }
     }
 

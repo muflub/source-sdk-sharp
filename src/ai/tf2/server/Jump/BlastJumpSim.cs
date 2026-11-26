@@ -282,7 +282,9 @@ public sealed class BlastJumpSim
     /// <summary>
     /// A rocket as the launcher bears it (<c>TFProjectileEffects</c>' rocket
     /// arm): at the eye, out along the aim by the muzzle's offsets, flying
-    /// straight along the aim. The eye is where the firing command's move
+    /// straight at where the aim converges (<see cref="Converged"/>, stock's
+    /// <c>GetProjectileFireSetup</c>). A sticky leaves along the eye's aim with
+    /// its climb: <c>FirePipeBomb</c> has no setup. The eye is where the firing command's move
     /// left it, and the muzzle's crouched height goes by the duck that same
     /// move left: the launcher reads the player's published flags
     /// (<c>TFWeaponOwners.DuckingOf</c>), and the server publishes a
@@ -296,11 +298,33 @@ public sealed class BlastJumpSim
         Vector forward = Angles.Forward(_mover.ViewAngles);
         (Vector right, Vector up) = Angles.RightUp(forward);
         float muzzleUp = _mover.Ducking ? _launcher.MuzzleUpDucked : _launcher.Muzzle.Z;
-        return new Rocket
-        {
-            Origin = _mover.EyePosition + forward * _launcher.Muzzle.X + right * _launcher.Muzzle.Y + up * muzzleUp,
-            Velocity = forward * _launcher.Speed + up * _launcher.LaunchUp,
-        };
+        Vector eye = _mover.EyePosition, muzzle = eye + forward * _launcher.Muzzle.X + right * _launcher.Muzzle.Y + up * muzzleUp;
+        Vector velocity = _launcher.Kind == JumpProjectile.Sticky
+            ? forward * _launcher.Speed + up * _launcher.LaunchUp
+            : Converged(eye, forward, muzzle) * _launcher.Speed;
+        return new Rocket { Origin = muzzle, Velocity = velocity };
+    }
+
+    /// <summary>
+    /// <c>GetProjectileFireSetup</c>'s length of the eye's line (tf_weaponbase.cpp:5745), and the share of it under which a
+    /// stop is too near to aim at (:5795-5800), as the game's <c>TFProjectileEffects.Aimed</c> has them (lane r2g).
+    /// </summary>
+    public const float FireSetupReach = 2000f, FireSetupNear = 0.1f;
+
+    /// <summary>
+    /// The way a shot from <paramref name="muzzle"/> flies (stock's <c>GetProjectileFireSetup</c>, as the game's
+    /// <c>TFProjectileEffects.Aimed</c> ports it): the eye's line traced <see cref="FireSetupReach"/> out through the map, and
+    /// the shot sent at where it stopped, or at the line's far end when the stop is within a tenth of the reach (a jump's
+    /// shot at the floor by the feet). The map is all there is to stop it here: nobody else is in a simulated flight. A unit
+    /// vector.
+    /// </summary>
+    private Vector Converged(Vector eye, Vector forward, Vector muzzle)
+    {
+        Vector end = eye + forward * FireSetupReach;
+        MoveTrace line = _world.Trace(eye, end, Vector.Zero, Vector.Zero, 0u, 0);
+        Vector stopped = line.Fraction < 1f ? line.EndPos : end;
+        Vector aimAt = (stopped - eye).Length > FireSetupReach * FireSetupNear ? stopped : end;
+        return (aimAt - muzzle).Normalized;
     }
 
     /// <summary>A blast at <paramref name="at"/> after command <paramref name="command"/>: what it did to the shooter, noted.</summary>

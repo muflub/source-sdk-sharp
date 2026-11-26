@@ -6,6 +6,7 @@
 //=============================================================================//
 
 using System.Collections.Immutable;
+using SourceSharp.Ai.Server.Nav;
 
 namespace SourceSharp.Ai.TF2.Trees;
 
@@ -20,14 +21,22 @@ public readonly record struct TFSniperSpot(AiVector At, int Cell, AiVector Watch
 /// team's own side of the objective (stock keeps an attacker's vantage 750 u back from the point and lets a defender's
 /// reach 750 u past it, tf_bot.cpp:2390-2402, on the route's length: here the straight distance to the team's spawn).
 /// A vantage scores by what it sees (the objective twice a choke), its range (further is better, out to the table's),
-/// its height over the objective, less how many places see it back (its exposure). The table reaches
-/// <see cref="ICellSight.Range"/> (1,024 u at this tip): stock wants 1,000 u or more (tf_bot.cpp:52), so the best spots are
-/// at the table's edge, and a longer line waits on the long-line pass (C.3.2).
+/// its height over the objective, less how many places see it back (its exposure). The near table reaches
+/// <see cref="ICellSight.Range"/> (1,024 u) and stock wants 1,000 u or more (tf_bot.cpp:52): with the long-line pass
+/// (<see cref="ILongSight"/>, C.3.2) a vantage stands out to <see cref="FarthestLongUnits"/>, its range scoring up to
+/// <see cref="BestRangeUnits"/>.
 /// </summary>
 public static class TFSniperSpots
 {
     /// <summary>How near the watched place a vantage may stand, and the band's far end when the level has no sight table.</summary>
     public const float NearestUnits = 500f, FarthestUnits = 1100f;
+
+    /// <summary>
+    /// With the long-line pass (<see cref="ILongSight"/>), how far out a vantage may stand, and the range past which a farther
+    /// one scores no better (ours: a head at 1,500 u is 0.4°, under the Sniper's 0.57° error floor, so a longer line buys
+    /// safety, not shots).
+    /// </summary>
+    public const float FarthestLongUnits = 2500f, BestRangeUnits = 1500f;
 
     /// <summary>An attacker's vantage is this much nearer its own spawn than the objective; a defender's at most this much further (stock's 750 u, ours shortened for the attacker: the straight line is not the route).</summary>
     public const float AttackBackUnits = 250f, DefendPastUnits = 750f;
@@ -50,7 +59,9 @@ public static class TFSniperSpots
     {
         if (graph is null || graph.CellCount == 0)
             return [];
-        float range = sight is null ? FarthestUnits : MathF.Min(sight.Range, FarthestUnits);
+        ILongSight? lines = sight as ILongSight;
+        float range = sight is null ? FarthestUnits : lines is not null ? MathF.Min(lines.LongRange, FarthestLongUnits) : MathF.Min(sight.Range, FarthestUnits);
+        float best = MathF.Min(range, BestRangeUnits);
         CellId watchCell = NearestCell(graph, watch);
         var watched = new List<(int Cell, AiVector At, float Weight)>();
         if (watchCell.Index >= 0)
@@ -85,16 +96,16 @@ public static class TFSniperSpots
                 continue;
             if (refused?.Invoke(at) == true)
                 continue;
-            float seen = 0f, best = -1f;
+            float seen = 0f, farthest = -1f;
             AiVector looks = watch;
             foreach ((int w, AiVector wAt, float weight) in watched)
             {
-                if (sight is not null && !sight.Visible(cell, w))
+                if (sight is not null && !(lines?.VisibleFar(cell, w) ?? sight.Visible(cell, w)))
                     continue;
                 seen += weight;
                 float far = at.DistanceTo(wAt);
-                if (far > best)
-                    (best, looks) = (far, wAt);
+                if (far > farthest)
+                    (farthest, looks) = (far, wAt);
             }
 
             if (sight is not null && seen <= 0f)
@@ -102,7 +113,7 @@ public static class TFSniperSpots
             if (sight is null)
                 seen = 1f;
             float height = Math.Clamp((at.Z - watch.Z) / 256f, 0f, 1f);
-            float score = seen + 0.6f * (d / range) + 0.5f * height - (sight?.Exposure(cell) ?? 0f);
+            float score = seen + 0.6f * MathF.Min(d / best, 1f) + 0.5f * height - (sight?.Exposure(cell) ?? 0f);
             scored.Add(new TFSniperSpot(at, cell, looks, score));
         }
 

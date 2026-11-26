@@ -23,6 +23,11 @@ public sealed partial class TFDecider
     private readonly KnownBuilding[] _buildings = new KnownBuilding[RememberedBuildings];
     private int _buildingCount;
 
+    /// <summary>Decides' sightings of a friendly building, and of a ready friendly teleporter entrance, for the harness: what the bot saw.</summary>
+    public int FriendlyBuildingSightings { get; private set; }
+
+    public int ReadyEntranceSightings { get; private set; }
+
     /// <summary>The friendly buildings the bot remembers, in no order.</summary>
     public ReadOnlySpan<KnownBuilding> FriendlyBuildings => _buildings.AsSpan(0, _buildingCount);
 
@@ -34,7 +39,12 @@ public sealed partial class TFDecider
             if (t.Kind != ThingKind.Building || !TeamRule.IsGameTeam(t.Team) || t.Team != _self.Team)
                 continue;
             KeepBuilding(new KnownBuilding(t.Id, (TFThingType)t.Type, t.Origin, t.OwnerSlot, t.Level, t.Flags, _now));
+            FriendlyBuildingSightings++;
+            if ((TFThingType)t.Type == TFThingType.TeleporterEntrance && (t.Flags & (int)Knowledge.TFBuildingFlags.Ready) != 0)
+                ReadyEntranceSightings++;
         }
+
+        NoteTrip();
     }
 
     /// <summary>Puts <paramref name="seen"/> in the memory: over its own row, else a free one, else the one seen longest ago.</summary>

@@ -24,7 +24,7 @@ public sealed class BrainDriver
 
     /// <summary>This driver's counts, as the step that just ended left them: what a lane hands back.</summary>
     public DriveCounters CountersOf(NavBuildTally tally)
-        => new(Breaks, BreaksGivenUp, Mounts, Climbs, Stucks, Yields, tally.Builds, tally.OnMain);
+        => new(Breaks, BreaksGivenUp, Mounts, Climbs, Stucks, Yields, tally.Builds, tally.OnMain, tally.HopsFailed);
 
     /// <summary>The follower carrying out the bot's goal now, or null: the brain has no goal to walk to.</summary>
     public NavFollower? FollowerOf(int slot) => _driven.TryGetValue(slot, out Driven? d) ? d.Follower : null;

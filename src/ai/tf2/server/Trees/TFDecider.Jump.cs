@@ -46,6 +46,29 @@ public sealed partial class TFDecider
 
     private bool _jumping;
     private Tick _jumpBegan;
+    private bool _airAsking;
+
+    /// <summary>Decides of a flight on which the class asked something of its lent hands (round 2's S1), for the facts and the counters.</summary>
+    public int AirAsks { get; private set; }
+
+    /// <summary>
+    /// The class's ask of the hands in flight (round 2's S1): while the bot's program has its jump in the air
+    /// (<see cref="IJumpAdvisor.Flying"/>: from the launch, however long the approach, to the end) and the bot's own feet say it is
+    /// off the ground, its play's answer (<see cref="ClassPlay.InFlight"/>) is written for the program to read; else an ask
+    /// written before is taken back. A class that asks nothing writes nothing.
+    /// </summary>
+    private void AskHandsInFlight()
+    {
+        Jump.AirAsk? ask = (_self.Flags & SelfFlags.Grounded) == 0 && Jumps?.Flying(_bot) is { } flight ? _classPlay.InFlight(flight) : null;
+        if (ask is { Empty: true })
+            ask = null;
+        if (ask is null && !_airAsking)
+            return;
+        Jumps?.AskHands(_bot, ask);
+        _airAsking = ask is not null;
+        if (_airAsking)
+            AirAsks++;
+    }
 
     /// <summary>The plan of the last jump begun, for the facts.</summary>
     public JumpPlan? LastJump { get; private set; }
@@ -633,8 +656,10 @@ public sealed partial class TFDecider
     /// </summary>
     private bool JumpUnderWay()
     {
+        AskHandsInFlight();
         if (!_jumping)
             return false;
+
         float since = (_now - _jumpBegan) * _tick;
         bool approach = since <= RocketJumpBusySeconds;
         _jumpLowHealth = Math.Min(_jumpLowHealth, _self.Health);

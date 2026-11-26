@@ -76,10 +76,18 @@ public sealed partial class TFDecider
         public virtual int AmmoPool => D._self.Reserve;
 
         /// <summary>
-        /// The score of the general play's answer to a sapped friendly building in reach (round 2's S7, TFDecider.Sapped.cs):
-        /// going to stand by it. <see cref="SappedAnswerUtility"/> by default; 0, never (a class whose own place answers it).
+        /// The general play's weight for answering a sapped friendly building, every class's default (round 2's S7): over the run
+        /// for a far flag (0.7) and a far fight (0.6), under a near fight (0.8), a heal (0.82) and the run for a near flag (0.9).
+        /// Ours: a Spy at a sentry is the nearest threat to the team's hold. Each class lane rules on it for its class by
+        /// overriding <see cref="AnswersSapped"/> (a Medic leaving his patient, a Demoman leaving a sentry kill).
         /// </summary>
-        public virtual float AnswersSapped => SappedAnswerUtility;
+        public const float SappedAnswerWeight = 0.75f;
+
+        /// <summary>
+        /// The score of the general play's answer to a sapped friendly building in reach (TFDecider.Sapped.cs): going to stand by
+        /// it. <see cref="SappedAnswerWeight"/> by default; 0, never (a class whose own place answers it).
+        /// </summary>
+        public virtual float AnswersSapped => SappedAnswerWeight;
 
         /// <summary>Whether the class keeps out of a sentry's range (the general play's: yes); a class that kills or saps one says no.</summary>
         public virtual bool AvoidsSentries => true;
@@ -90,6 +98,13 @@ public sealed partial class TFDecider
         /// fights on with its own footwork while its hands swap (round 2's S10: the Scout).
         /// </summary>
         public virtual bool BacksOffDry => true;
+
+        /// <summary>
+        /// What the class asks of the hands its rocket jump's program lends it in flight (round 2's S1, <see cref="Jump.JumpHands"/>):
+        /// asked each decide the bot is in the air of <paramref name="flight"/>, its program's; null, nothing: the program flies the
+        /// jump exactly as it would with no class at all. None by default.
+        /// </summary>
+        public virtual Jump.AirAsk? InFlight(Jump.AirFlight flight) => null;
 
         /// <summary>Whether the bot carries out the reflex <paramref name="verdict"/> names (a dodge, backing off an Über, a sentry's range): yes by default; a Pyro may shove the Über instead.</summary>
         public virtual bool TakesReflex(string verdict) => true;
@@ -175,7 +190,11 @@ public sealed partial class TFDecider
 
     /// <summary>
     /// The counters of every class the bot has played (<see cref="ClassPlay.Count"/>), each name once, for the A/B harness; then
-    /// the shared hooks' (round 2), each once it has counted: <c>shared.ammo_trips</c>, <c>shared.sapped_answer_decides</c>.
+    /// the shared hooks' (round 2), each once it has counted: <c>shared.ammo_trips</c>, <c>shared.sapped_answer_decides</c>,
+    /// <c>shared.teleporter_trips</c>, <c>shared.teleporter_give_ups</c>, <c>shared.teleporter_weighs</c> (with the last one's
+    /// <c>shared.teleporter_last_saving_u</c>), <c>shared.friendly_building_sightings</c>, <c>shared.ready_entrance_sightings</c>,
+    /// the weighs' skips (<c>shared.teleporter_skips_far|no_exit|no_walk</c>) and their work (<c>shared.teleporter_searches</c>,
+    /// <c>_expanded</c>, <c>_search_us</c>, <c>_weigh_most_us</c>).
     /// </summary>
     public List<KeyValuePair<string, long>> ClassCounters()
     {
@@ -188,9 +207,25 @@ public sealed partial class TFDecider
         CountDash(into);
         Shared(into, "shared.ammo_trips", AmmoTrips);
         Shared(into, "shared.sapped_answer_decides", SappedAnswerDecides);
+        Shared(into, "shared.teleporter_trips", TeleporterTrips);
+        Shared(into, "shared.teleporter_give_ups", TeleporterGiveUps);
+        Shared(into, "shared.friendly_building_sightings", FriendlyBuildingSightings);
+        Shared(into, "shared.ready_entrance_sightings", ReadyEntranceSightings);
+        Shared(into, "shared.teleporter_weighs", TeleporterWeighs);
+        Shared(into, "shared.teleporter_skips_far", TeleporterSkipsFar);
+        Shared(into, "shared.teleporter_skips_no_exit", TeleporterSkipsNoExit);
+        Shared(into, "shared.teleporter_skips_no_walk", TeleporterSkipsNoWalk);
+        SharedLong(into, "shared.teleporter_searches", TeleporterSearches);
+        SharedLong(into, "shared.teleporter_expanded", TeleporterExpanded);
+        SharedLong(into, "shared.teleporter_search_us", TeleporterSearchMicros);
+        SharedLong(into, "shared.teleporter_weigh_most_us", TeleporterWeighMostMicros);
+        if (TeleporterWeighs > 0)
+            into.Add(new("shared.teleporter_last_saving_u", float.IsFinite(TeleporterLastSaving) ? (long)TeleporterLastSaving : long.MinValue));
         return into;
 
-        static void Shared(List<KeyValuePair<string, long>> into, string name, int count)
+        static void Shared(List<KeyValuePair<string, long>> into, string name, int count) => SharedLong(into, name, count);
+
+        static void SharedLong(List<KeyValuePair<string, long>> into, string name, long count)
         {
             if (count > 0)
                 into.Add(new(name, count));
@@ -225,8 +260,8 @@ public sealed partial class TFDecider
     /// <summary>To what won the class branch's score; the others, in the tie's order, when that has nothing now.</summary>
     private bool GoClassPlace() => _classErrand switch
     {
-        ClassErrand.Sapped => GoSapped() || _classPlay.GoPlace() || (AmmoErrandUtility() > 0f && GoAmmo()),
-        ClassErrand.Ammo => GoAmmo() || _classPlay.GoPlace() || (SappedUtility() > 0f && GoSapped()),
+        ClassErrand.Sapped => GoSapped() || (_classPlay.PlaceUtility() > 0f && _classPlay.GoPlace()) || (AmmoErrandUtility() > 0f && GoAmmo()),
+        ClassErrand.Ammo => GoAmmo() || (_classPlay.PlaceUtility() > 0f && _classPlay.GoPlace()) || (SappedUtility() > 0f && GoSapped()),
         _ => _classPlay.GoPlace() || (AmmoErrandUtility() > 0f && GoAmmo()) || (SappedUtility() > 0f && GoSapped()),
     };
 }

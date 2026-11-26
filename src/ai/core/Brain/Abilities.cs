@@ -56,8 +56,10 @@ public static class AbilityCall
 /// <summary>
 /// What a program is told of its bot each command: where it is, how it moves, the view its last
 /// command sent, and whether it stands on something. The bot's own state, as its client has it.
+/// <paramref name="Bot"/> is which bot it is (<see cref="ActorId.None"/> when the caller does not say): a program whose
+/// game lends the hands in flight to the bot's own play (round 2's S1) reads that play's ask by it.
 /// </summary>
-public readonly record struct AbilityBody(AiVector Origin, AiVector Velocity, AiAngles View, bool OnGround);
+public readonly record struct AbilityBody(AiVector Origin, AiVector Velocity, AiAngles View, bool OnGround, ActorId Bot = default);
 
 /// <summary>
 /// One command of a program. <paramref name="View"/> is where the view is to come to, not this
@@ -66,9 +68,12 @@ public readonly record struct AbilityBody(AiVector Origin, AiVector Velocity, Ai
 /// look, a new number a new thing to react to. <paramref name="Wish"/> is the move in the world's
 /// frame, its length the move a key sends: the applier makes of it the forward and side moves of the
 /// view it does send. <paramref name="Over"/>: the program is done and this command is not sent;
-/// the bot's intent has the command back.
+/// the bot's intent has the command back. <paramref name="Weapon"/> is a weapon the command selects, as a
+/// <see cref="ActionKind.SelectWeapon"/> one-shot names it, or null (the default, so <c>default</c> selects nothing): a
+/// program's commands are the bot's alone while it runs, so a weapon its game lends in flight (round 2's S1: a Soldier's
+/// melee taken out in a rocket jump) is selected here.
 /// </summary>
-public readonly record struct AbilityCommand(AiAngles View, int Look, AiVector Wish, int Buttons, bool Over = false)
+public readonly record struct AbilityCommand(AiAngles View, int Look, AiVector Wish, int Buttons, bool Over = false, int? Weapon = null)
 {
     /// <summary>The command that ends a program.</summary>
     public static AbilityCommand Done => new(default, 0, default, 0, Over: true);

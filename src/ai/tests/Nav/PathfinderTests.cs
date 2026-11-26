@@ -51,6 +51,25 @@ public class PathfinderTests
                                                                        new NavObstacleState(0), new List<CellId>(), 1000, out _));
     }
 
+    /// <summary>
+    /// A search the budget stops still knows a bound: its least estimate left open is at least the straight line from start to
+    /// goal and at most the cheapest path's cost, and it counts the cells it expanded.
+    /// </summary>
+    [Fact]
+    public void ASearchTheBudgetStopsKnowsALowerBound()
+    {
+        var (g, ids) = Grids.Parse(Maze);
+        var finder = new NavPathfinder();
+        finder.Find(g, Grids.At(ids, 0, 4), Grids.At(ids, 9, 4), ClearanceClass.Stand, new NavObstacleState(0), new List<CellId>(), 10_000, out float whole);
+        int all = finder.LastExpanded;
+        Assert.Equal(PathStatus.OutOfBudget, finder.Find(g, Grids.At(ids, 0, 4), Grids.At(ids, 9, 4), ClearanceClass.Stand,
+                                                         new NavObstacleState(0), new List<CellId>(), 5, out _));
+        float line = g.Cell(ids[0, 4]).Centre.DistanceTo(g.Cell(ids[9, 4]).Centre);
+        Assert.InRange(finder.LastBound, line, whole);
+        Assert.Equal(5, finder.LastExpanded);
+        Assert.True(all > 5);
+    }
+
     [Fact]
     public void ASmallBudgetRunsOut()
     {

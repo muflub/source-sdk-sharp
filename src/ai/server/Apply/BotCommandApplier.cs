@@ -292,7 +292,7 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
             bot.AltHeld = false;
             bot.HeldAtFriend = false;
             bot.Sequence = default;
-            EndProgram(bot, AbilityEnd.Died, new AbilityBody(facts.Origin, facts.Velocity, bot.Motion.View, facts.OnGround));
+            EndProgram(bot, AbilityEnd.Died, new AbilityBody(facts.Origin, facts.Velocity, bot.Motion.View, facts.OnGround, bot.Id));
             SetView(ref cmd, facts.View);
             // On a tick of its own, by slot: pressed together, bots respawned in
             // one tick, each before the spawn check could see the other on the
@@ -782,7 +782,7 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
                 bot.SequenceTicks = Math.Max(1, a.Steps[0].Ticks);
                 break;
             case AbilityRun.Program when programs?.Named(a.Name) is { } program:
-                var body = new AbilityBody(facts.Origin, facts.Velocity, bot.Motion.View, facts.OnGround);
+                var body = new AbilityBody(facts.Origin, facts.Velocity, bot.Motion.View, facts.OnGround, bot.Id);
                 if (program.Begin(AbilityCall.Argument(slot), in body, bot.Motion.Parameters, dt) is not { } run)
                 {
                     AbilityProgramsRefused++;
@@ -802,14 +802,15 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     /// where the view is to come to, the move in the world's frame and the buttons: the view goes
     /// there through the bot's motion as a look of the program's own (a new look is reacted to, then
     /// flicked to), the move becomes the forward and side moves of the view the command does send,
-    /// and the buttons are the program's alone, so the intent's hands press nothing while it runs.
+    /// and the buttons are the program's alone, so the intent's hands press nothing while it runs; a weapon the
+    /// program names (<see cref="AbilityCommand.Weapon"/>) is selected with the command.
     /// What the intent queued as one-shots waits for the program to end, another program among them.
     /// </summary>
     private bool ProgramCommand(BotState bot, ref UserCmd cmd, in BotSelfFacts facts, float dt)
     {
         if (bot.Program is not { } run)
             return false;
-        var body = new AbilityBody(facts.Origin, facts.Velocity, bot.Motion.View, facts.OnGround);
+        var body = new AbilityBody(facts.Origin, facts.Velocity, bot.Motion.View, facts.OnGround, bot.Id);
         if (bot.ProgramTicks-- <= 0)
         {
             EndProgram(bot, AbilityEnd.TimedOut, in body);
@@ -830,6 +831,8 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         cmd.ForwardMove = step.Wish.X * fx + step.Wish.Y * fy;
         cmd.SideMove = step.Wish.X * fy - step.Wish.Y * fx;
         cmd.Buttons = step.Buttons;
+        if (step.Weapon is { } weapon)
+            cmd.WeaponSelect = self.WeaponSelectFor(bot.Player, weapon);
         bot.LastCorner = null;
         bot.LastMove = (cmd.ForwardMove, cmd.SideMove);
         bot.LastButtons = step.Buttons;
@@ -843,7 +846,7 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     private static void EndProgram(BotState bot, AbilityEnd why)
     {
         BotSelfFacts facts = bot.Facts;
-        EndProgram(bot, why, new AbilityBody(facts.Origin, facts.Velocity, bot.Motion.View, facts.OnGround));
+        EndProgram(bot, why, new AbilityBody(facts.Origin, facts.Velocity, bot.Motion.View, facts.OnGround, bot.Id));
     }
 
     private static void EndProgram(BotState bot, AbilityEnd why, in AbilityBody body)

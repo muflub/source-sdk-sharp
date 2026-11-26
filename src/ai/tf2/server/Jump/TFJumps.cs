@@ -647,6 +647,8 @@ public sealed class TFJumps : IFrameLifecycle, IGameLifecycle, IDebugRouteProvid
             + $"\"links.jump_health\":{(_jumpHealth ? "true" : "false")},\"links.by_health\":{LinksByHealth()},\"links.weighed_by_health\":{LinksWeighedByHealth()},\"heals.places\":{_heals?.Places.Count ?? 0},"
             + $"\"links.state\":{AiJson.Quote(_linkState)},\"links\":{_linkSet?.Links.Count ?? 0},\"links.shape\":{(_linkOutcome is { } lo ? lo.Set.Links.Count : 0)},\"links.from_cache\":{(_linkOutcome?.FromCache == true ? "true" : "false")},"
             + $"\"links.cpu.ms\":{_linkOutcome?.CpuMs ?? 0d:F1},\"links.pass.ms\":{_linkOutcome?.PassMs ?? 0d:F1},\"links.candidates\":{_linkOutcome?.Candidates ?? 0},\"links.flights\":{_linkOutcome?.Flights ?? 0},\"links.seeds\":{_linkSeeds},\"links.skip\":{AiJson.Quote(_linkSkip?.ToString() ?? "")},"
+            + $"\"ai.jump.lent.commands\":{_program.LentCommands},\"ai.jump.lent.attacks\":{_program.LentAttacks},\"ai.jump.lent.looks\":{_program.LentLooks},\"ai.jump.lent.weapons\":{_program.LentWeapons},"
+            + $"\"ai.jump.chute.opens\":{_program.ChuteOpens},\"ai.jump.chute.closes\":{_program.ChuteCloses},"
             + $"\"ai.jump.link.begun\":{_program.LinksBegun},\"ai.jump.link.reported\":{_desk.Book.RouteCounts.Notes},\"ai.jump.link.advised\":{_desk.Book.RouteCounts.Advised},"
             + $"\"ai.jump.link.tries\":{_linkTries},\"ai.jump.link.successes\":{_linkSuccesses},\"ai.jump.link.untried\":{_linkUntried},\"ai.jump.link.unwritten\":{_linkUnwritten},");
         foreach (JumpLinkRefusal why in Enum.GetValues<JumpLinkRefusal>())

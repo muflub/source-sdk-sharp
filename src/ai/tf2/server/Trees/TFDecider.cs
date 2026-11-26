@@ -173,6 +173,7 @@ public sealed partial class TFDecider : IDecider
             (_courseNeed, _courseNoWaySince) = (0f, -1);
             HealthJumpDied();
             AmmoDied();
+            TeleporterDied();
             _classPlay?.Died();
             if (_endsLastTick.Value > 0)
                 ForgetEnds();
@@ -400,7 +401,7 @@ public sealed partial class TFDecider : IDecider
 
     private float SurviveUtility()
     {
-        if (Carrying || !(WantsHealth || JumpHealDue || PackLinkPlace(out _)) || !HealPlace(out _))
+        if (Carrying || !(WantsHealth || JumpHealDue || PackLinkPlace(out _) || TopsUpAtDispenser) || !HealPlace(out _))
             return 0f;
         return _targetSighted ? 0.82f : 0.9f;
     }
@@ -436,7 +437,7 @@ public sealed partial class TFDecider : IDecider
         // healed at a pack and went for it again a run later gave it up at once, the old visit's patience long spent (lane G9).
         if (!_healing || at.DistanceTo(_healAt) > 1f || _now - _healLast > DecideSchedule.Period + 1)
             (_healing, _healAt, _healSince) = (true, at, _now);
-        else if ((_now - _healSince) * _tick > HealPatienceSeconds)
+        else if ((_now - _healSince) * _tick > HealPatienceSeconds && !(_healAtDispenser && AtDispenser(at)))
         {
             // Not healed there in that long (the pack taken, or out of reach): another place, for a while.
             (_healSkip, _healSkipUntil, _healing) = (at, _now + (int)(HealSkipSeconds / _tick), false);
@@ -446,6 +447,14 @@ public sealed partial class TFDecider : IDecider
         }
 
         _healLast = _now;
+        NoteDispenserHealth(_healAtDispenser && AtDispenser(at));
+        if (_healAtDispenser && AtDispenser(at))
+        {
+            StandApart(at, DispenserStandUnits);
+            _verdict = DispenserVerdict;
+            return true;
+        }
+
         GoTo(at, MoveSpeed.Run);
         _verdict = "hurt";
         return true;
@@ -459,16 +468,25 @@ public sealed partial class TFDecider : IDecider
     private Tick _healSince, _healSkipUntil, _healLast;
 
     /// <summary>
-    /// The nearest health pack, or the team's own resupply cabinet, within <see cref="HealReach"/>. First, the place a
+    /// The nearest health pack, the team's own resupply cabinet, or a friendly dispenser in sight (round 2's S8,
+    /// <see cref="DispenserInSight"/>), within <see cref="HealReach"/>. First, the place a
     /// jump by health owes (lane G9, <see cref="JumpHealDue"/>): the bot takes the pack its jump landed by. A pack a link near
     /// the bot lands by, when that way is the shorter (lane G9b, <see cref="PackLinkPlace"/>).
+    /// <para>A visit under way (<see cref="GoHeal"/> ran at the last decide) keeps its place while that is still one of these
+    /// (there, not skipped, within reach), as <see cref="PackLinkPlace"/> holds its own: the nearest by the straight line is
+    /// no way to choose between places whose routes go opposite ways. Live on ctf_2fort (round 2's S14) a hurt Soldier on
+    /// red's stairs at (-62 2520 60), its packs 769 and 773 u off and its routes to them west down the stairs and east up
+    /// them, turned at each step for 77 s, its patience starting again at each turn.</para>
     /// </summary>
     private bool HealPlace(out AiVector at)
     {
+        _healAtDispenser = false;
         if (JumpHealPlace(out at))
             return true;
         at = default;
         float best = HealReach;
+        bool live = _healing && _now - _healLast <= DecideSchedule.Period + 1, keep = false, keepDispenser = false;
+        float keepD = HealReach;
         ReadOnlySpan<ItemBelief> beliefs = _memory.Board.Items;
         for (int i = 0; i < _map.Items.Length; i++)
         {
@@ -478,6 +496,8 @@ public sealed partial class TFDecider : IDecider
                 || (i < beliefs.Length && beliefs[i].Present == false) || Skipped(item.Position))
                 continue;
             float d = _self.Origin.DistanceTo(item.Position);
+            if (live && d < HealReach && item.Position.DistanceTo(_healAt) <= 1f)
+                (keep, keepD) = (true, d);
             if (d < best)
                 (best, at) = (d, item.Position);
         }
@@ -490,12 +510,26 @@ public sealed partial class TFDecider : IDecider
             if (Skipped(mid))
                 continue;
             float d = _self.Origin.DistanceTo(mid);
+            if (live && d < HealReach && mid.DistanceTo(_healAt) <= 1f)
+                (keep, keepD) = (true, d);
             if (d < best)
                 (best, at) = (d, mid);
         }
 
+        if (DispenserInSight(out AiVector dispenser) && !Skipped(dispenser))
+        {
+            float d = _self.Origin.DistanceTo(dispenser);
+            if (live && d < HealReach && dispenser.DistanceTo(_healAt) <= 1f)
+                (keep, keepD, keepDispenser) = (true, d, true);
+            if (d < best)
+                (best, at, _healAtDispenser) = (d, dispenser, true);
+        }
+
+        if (keep)
+            (best, at, _healAtDispenser) = (keepD, _healAt, keepDispenser);
+
         if (PackLinkPlace(out AiVector via, best))
-            (best, at) = (0f, via);
+            (best, at, _healAtDispenser) = (0f, via, false);
         return best < HealReach;
     }
 
@@ -576,6 +610,7 @@ public sealed partial class TFDecider : IDecider
 
     private void GoTo(AiVector goal, MoveSpeed speed)
     {
+        goal = ByTeleporter(goal);
         _hasGoal = true;
         _goal = goal;
         _move = new MoveIntent(MoveKind.Follow, speed, 1, goal, default, default, default, Separation(), false, 0);

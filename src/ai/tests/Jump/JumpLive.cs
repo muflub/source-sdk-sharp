@@ -89,7 +89,8 @@ internal sealed class JumpLive : IPlayerCommandRunner, IBotSelf, IAbilityProgram
     public BotSelfFacts Read(EntityHandle player)
         => new(Alive, false, A(_point.Origin), A(_point.Origin) + new AiVector(0f, 0f, 68f), new AiAngles(_view.X, _view.Y, 0f), Velocity: A(_point.Velocity), OnGround: _point.OnGround);
 
-    public int WeaponSelectFor(EntityHandle player, int slot) => 0;
+    /// <summary>A weapon named by its kind selects that kind's entity (its kind and one, as the engine's self does); any other, none.</summary>
+    public int WeaponSelectFor(EntityHandle player, int slot) => slot >= EngineBotSelf.ByKind ? slot - EngineBotSelf.ByKind + 1 : 0;
 
     internal static AiVector A(Vector v) => new(v.X, v.Y, v.Z);
 

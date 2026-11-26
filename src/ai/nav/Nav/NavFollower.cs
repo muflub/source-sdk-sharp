@@ -22,6 +22,28 @@ public sealed class NavBuildTally
 
     public long OnMain { get; private set; }
 
+    /// <summary>Plain jumps its followers saw the body fall back from (<see cref="NavFollower.HopsFailed"/>).</summary>
+    public long HopsFailed { get; private set; }
+
+    /// <summary>How many of the latest failures' faces <see cref="LastHops"/> keeps.</summary>
+    public const int RecentHops = 8;
+
+    private readonly Queue<string> _recentHops = new();
+    private volatile string _lastHops = "";
+
+    /// <summary>The latest failures' faces, oldest first, each "(take-off)>(landing)" by the cells' centres, joined by '|': where a soak's failures were.</summary>
+    public string LastHops => _lastHops;
+
+    /// <summary>A plain jump from the take-off at <paramref name="from"/> to the landing at <paramref name="to"/> fell back.</summary>
+    public void NoteHopFailed(AiVector from, AiVector to)
+    {
+        HopsFailed++;
+        _recentHops.Enqueue(FormattableString.Invariant($"({from.X:F0} {from.Y:F0} {from.Z:F0})>({to.X:F0} {to.Y:F0} {to.Z:F0})"));
+        while (_recentHops.Count > RecentHops)
+            _recentHops.Dequeue();
+        _lastHops = string.Join('|', _recentHops);
+    }
+
     public void Note()
     {
         Builds++;
@@ -348,6 +370,10 @@ public sealed class NavFollower
 
         _stuckReports = old._stuckReports;
         _failedJumps.UnionWith(old._failedJumps);
+        // The faces' failures go on; "the only way" was the old objective's.
+        foreach (HopFace face in old._hopFaces)
+            _hopFaces.Add(face with { OnlyWay = face.OnlyWay && old.Objective == Objective });
+        (_hopFrom, _hopTo, _hopFloor, _hopMoves, _hopFlew) = (old._hopFrom, old._hopTo, old._hopFloor, old._hopMoves, old._hopFlew);
         if (_failedJumps.Count > 0)
             _rebuildCarried = true;
         _jumpLeft = old._jumpLeft;
@@ -413,6 +439,7 @@ public sealed class NavFollower
         HealthBack();
 
         At = Locate(origin);
+        WatchHop(origin);
         _corners.Clear();
         _corridor.Clear();
         _passed = 0;
@@ -577,6 +604,7 @@ public sealed class NavFollower
             _ => MoveKind.Follow,
         };
         kind = DoubleJump(via, kind, origin);
+        TakeOff(via, kind, origin);
         // In water a player holds jump to rise: it swims up to the surface and climbs out at a bank
         // (the movement's water jump). Walking, a bot sank to the bottom of ctf_2fort's moat and
         // stood against its bank (live: 400 stuck reports under the bridge in eight minutes). But
@@ -1128,6 +1156,151 @@ public sealed class NavFollower
         }
 
         _dashFrom = -1;
+        Rebuild();
+    }
+
+    private int _hopFrom = -1, _hopTo = -1, _hopMoves;
+    private float _hopFloor;
+    private bool _hopFlew;
+
+    /// <summary>
+    /// A face plain jumps fail at: the take-off's and the landing's centres, the failures counted there since the last
+    /// landing, and whether leaving its jumps out was found to leave the bot no way to this follower's objective.
+    /// </summary>
+    private record struct HopFace(AiVector From, AiVector To, int Fails, bool OnlyWay);
+
+    private readonly List<HopFace> _hopFaces = new();
+
+    /// <summary>How many times plain jumps to one face may come back down at their take-off before its jumps are left out.</summary>
+    public const int HopFailsLeftOut = 2;
+
+    /// <summary>How far over the take-off's floor a body is off the ground on a plain jump, and how much higher a landing must be for the jump to be watched.</summary>
+    public const float HopAirborneRise = 8f;
+
+    /// <summary>How far round a landing cell's footprint, flat, a body counts as over it.</summary>
+    public const float HopLandSlack = 8f;
+
+    /// <summary>Plain-jump take-offs the body came back down on, for the facts and the counters (<see cref="NavBuildTally.HopsFailed"/>).</summary>
+    public int HopsFailed { get; private set; }
+
+    /// <summary>
+    /// A plain jump (<see cref="NavEdgeType.Jump"/>, <see cref="NavEdgeType.CrouchJump"/>) up to a landing more than
+    /// <see cref="HopAirborneRise"/> over its take-off, watched from the take-off (round 2's S14): one the body rose off and
+    /// came back down from on the take-off's floor, short of the landing, failed. A level or downward jump is not watched:
+    /// its body passes the take-off's height over the gap whether it lands or not (the review of r2s14: a fifth of
+    /// cp_granary's plain jumps and nearly half of dm_lockdown's). Live on ctf_2fort each bridge end has a jump from the deck
+    /// (z 3) to a strip 50 u up two columns along, over a column with no floor under the sky's: bots crouch-jumped to z 71 at
+    /// the column's face and fell back, for 28 s at a time, a chaser and an escort among them. A face whose jumps failed
+    /// <see cref="HopFailsLeftOut"/> times since one landed has them left out as a failed triple jump's are
+    /// (<see cref="HopFailed"/>).
+    /// </summary>
+    private void TakeOff(NavEdgeType via, MoveKind kind, AiVector origin)
+    {
+        // Armed from the floor only (a body coming down past the take-off's cell is no take-off), and armed again from
+        // wherever the body stands until it leaves the ground: the jump is the one it takes off on.
+        if ((_hopFrom < 0 || !_hopFlew) && kind == MoveKind.CrouchJump && via is NavEdgeType.Jump or NavEdgeType.CrouchJump
+            && origin.Z - _graph.Cell(At).FloorZ <= HopAirborneRise && _field.NextFrom(At.Index) is { IsValid: true } to
+            && _graph.Cell(to).FloorZ - _graph.Cell(At).FloorZ > HopAirborneRise)
+            (_hopFrom, _hopTo, _hopFloor, _hopMoves, _hopFlew) = (At.Index, to.Index, _graph.Cell(At).FloorZ, 0, false);
+    }
+
+    /// <summary>
+    /// The watch on a plain jump taken off on (<see cref="TakeOff"/>), at every move wherever the route has the bot: over the
+    /// landing (its face's failures cleared), timed out, or failed.
+    /// </summary>
+    private void WatchHop(AiVector origin)
+    {
+        if (_hopFrom < 0)
+            return;
+        bool airborne = origin.Z - _hopFloor > HopAirborneRise;
+        _hopFlew |= airborne;
+        NavCell land = _graph.Cell(new CellId(_hopTo));
+        bool landed = origin.X >= land.MinX - HopLandSlack && origin.X <= land.MaxX + HopLandSlack && origin.Y >= land.MinY - HopLandSlack
+                      && origin.Y <= land.MaxY + HopLandSlack && MathF.Abs(origin.Z - land.FloorZ) <= OnFloorReach;
+        int face = FaceOf(_hopFrom, _hopTo);
+        if (landed && face >= 0)
+            _hopFaces[face] = _hopFaces[face] with { Fails = 0 };
+        if (++_hopMoves > TuckMoves * 2 || landed)
+        {
+            // Over the landing, or too long to say: not a failure.
+            _hopFrom = -1;
+            return;
+        }
+
+        if (airborne || !_hopFlew)
+            return;
+        // Down past the landing (a rail's or box's top hopped over on a slant, its track beside the landing's box): it went
+        // over, not back. Measured along the flat line from the take-off's centre to the landing's.
+        AiVector a = _graph.Cell(new CellId(_hopFrom)).Centre, b = land.Centre;
+        var line = new AiVector(b.X - a.X, b.Y - a.Y, 0f);
+        float span = line.Length;
+        if (span > 0f && ((origin.X - a.X) * line.X + (origin.Y - a.Y) * line.Y) / span >= span)
+        {
+            _hopFrom = -1;
+            return;
+        }
+
+        // Down again on the take-off's floor.
+        HopsFailed++;
+        Tally?.NoteHopFailed(a, b);
+        if (face < 0)
+        {
+            _hopFaces.Add(new HopFace(_graph.Cell(new CellId(_hopFrom)).Centre, _graph.Cell(new CellId(_hopTo)).Centre, 0, false));
+            face = _hopFaces.Count - 1;
+        }
+
+        _hopFrom = -1;
+        HopFace f = _hopFaces[face] = _hopFaces[face] with { Fails = _hopFaces[face].Fails + 1 };
+        if (f.Fails >= HopFailsLeftOut && !f.OnlyWay)
+            HopFailed(face);
+    }
+
+    /// <summary>The face of the jump from cell <paramref name="from"/> to cell <paramref name="to"/>: one whose take-off and landing are each within <see cref="FailedJumpReach"/> of theirs (the take-off on its floor), or -1.</summary>
+    private int FaceOf(int from, int to)
+    {
+        AiVector a = _graph.Cell(new CellId(from)).Centre, b = _graph.Cell(new CellId(to)).Centre;
+        for (int i = 0; i < _hopFaces.Count; i++)
+        {
+            if (OnFace(_hopFaces[i], a, b))
+                return i;
+        }
+
+        return -1;
+    }
+
+    private static bool OnFace(HopFace face, AiVector from, AiVector to)
+        => new AiVector(from.X - face.From.X, from.Y - face.From.Y, 0f).Length <= FailedJumpReach && MathF.Abs(from.Z - face.From.Z) <= OnFloorReach
+           && to.DistanceTo(face.To) <= FailedJumpReach;
+
+    /// <summary>
+    /// The plain jumps of face <paramref name="face"/> (out of the cells round its take-off, on its floor, to landings round
+    /// its landing: the same cells <see cref="FaceOf"/> counts as it) are left out of this follower's routes and the ones it
+    /// goes on to, and the field is built again; unless that leaves the bot no way at all, when they stay its way and the face
+    /// is remembered as the only way, so a jump tried there again costs no more builds.
+    /// </summary>
+    private void HopFailed(int face)
+    {
+        HopFace f = _hopFaces[face];
+        var near = new List<int>();
+        var added = new List<long>();
+        _graph.CellsNear(f.From.X - FailedJumpReach, f.From.Y - FailedJumpReach, f.From.X + FailedJumpReach, f.From.Y + FailedJumpReach, near);
+        foreach (int cell in near)
+        {
+            AiVector at = _graph.Cell(new CellId(cell)).Centre;
+            foreach (NavEdge e in _graph.EdgesFrom(cell))
+            {
+                if (e.Type is NavEdgeType.Jump or NavEdgeType.CrouchJump && OnFace(f, at, _graph.Cell(new CellId(e.To)).Centre)
+                    && _failedJumps.Add(FlowField.EdgeKey(e.From, e.To)))
+                    added.Add(FlowField.EdgeKey(e.From, e.To));
+            }
+        }
+
+        Rebuild();
+        if (At.IsValid && float.IsFinite(_field.CostAt(At.Index)))
+            return;
+        foreach (long key in added)
+            _failedJumps.Remove(key);
+        _hopFaces[face] = f with { OnlyWay = true };
         Rebuild();
     }
 

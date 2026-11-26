@@ -25,7 +25,7 @@ public sealed class TFPerceptionCensusTests
         "IEngineEntities::GetOrigin", "IEngineEntities::GetVelocity", "IEngineEntities::GetWorldSpaceCenter", "IEngineEntities::GetHealth",
         "IEntityDirectory::OfClass", "TFBaseObject::get_Health", "TFBaseObject::get_Level", "IEnginePlayers::GetTeam", "Arsenal::PoolOf",
         "IEnginePlayers::GetActiveWeaponEntity",
-        "TFBaseObject::get_HasSapper", "TFTeleporter::get_State",
+        "TFBaseObject::get_HasSapper", "TFTeleporter::get_State", "TFBaseObject::get_IsBuilding",
     ];
 
     private static readonly string[] Forbidden =
