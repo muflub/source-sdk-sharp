@@ -116,6 +116,9 @@ public enum ZoneKind : byte
 
     /// <summary>A cabinet's volume that refills health and ammunition when stood in (TF2's resupply), the team's own.</summary>
     Resupply,
+
+    /// <summary>A volume that kills whoever stands in it (a death pit's <c>trigger_hurt</c>, as hurt as the map set it); every team's.</summary>
+    Hurt,
 }
 
 /// <summary>A volume of the map that belongs to a team (plan_bots_teams_tf2 C.7), as its brush's bounds; team 0 is every team's.</summary>
