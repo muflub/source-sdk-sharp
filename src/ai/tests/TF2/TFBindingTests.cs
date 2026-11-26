@@ -95,11 +95,14 @@ public sealed class TFBindingTests
                 : 0;
         var chains = concrete.Where(t => ai.Contains(t.Assembly))
                              .SelectMany(t => t.GetInterfaces().Where(i => (i.Name.EndsWith("Hook", StringComparison.Ordinal) && i != typeof(IOrderedHook))
-                                                                           || i == typeof(Debug.Api.Server.Interfaces.IDebugRouteProvider)))
+                                                                           || i == typeof(Debug.Api.Server.Interfaces.IDebugRouteProvider)
+                                                                           || i == typeof(SourceSharp.Ai.TF2.Senses.ITFHudMeters)))
                              .Distinct().ToArray();
         Assert.Contains(chains, c => c.Name == "IPlayerDeathHook");
         // The dev API's route providers are a chain too (lane G9: two routes at one order made every request fail live).
         Assert.Contains(chains, c => c.Name == "IDebugRouteProvider");
+        // The class meter readers are a chain (P7: two readers at one order made every sense tick throw live).
+        Assert.Contains(chains, c => c.Name == "ITFHudMeters");
         string[] clashes = [.. chains.SelectMany(chain => concrete.Where(chain.IsAssignableFrom).GroupBy(Order).Where(g => g.Count() > 1)
                                                          .Select(g => $"{chain.Name} at {g.Key}: {string.Join(", ", g.Select(t => t.Name))}"))];
         Assert.Empty(clashes);

@@ -12,9 +12,10 @@ namespace SourceSharp.Ai.TF2.Senses;
 
 /// <summary>
 /// A reader of meters a TF2 bot's HUD shows (plan_bots_teams_tf2 P7): a class's lane registers one in its own file
-/// (<c>[SideService(Side.Server, As = [typeof(ITFHudMeters)])]</c>) for the meters its class reads (rage, a sticky
-/// count, a sentry's panel), each a <see cref="TFMeter"/> named <c>class.meter</c>. A chain: every reader is asked
-/// for every bot, on the main thread, and adds only what that bot's HUD shows.
+/// (<c>[SideService(Side.Server)]</c>, registered as itself) for the meters its class reads (rage, a sticky count, a
+/// sentry's panel), each a <see cref="TFMeter"/> named <c>class.meter</c>. A chain: every reader is asked for every
+/// bot, on the main thread, and adds only what that bot's HUD shows. Each reader holds its own order
+/// (<c>IOrderedHook</c>, 100 + its class): two at one order make the chain throw on every sense tick.
 /// </summary>
 public interface ITFHudMeters
 {
@@ -36,7 +37,7 @@ public sealed class TFHudRegistrar : ISideServiceRegistrar
 /// (<c>healed.by</c>, the Healer panel and the beam every player sees) and his charge (<c>healed.charge</c>, which his
 /// target ID shows).
 /// </summary>
-[SideService(Side.Server, As = [typeof(ITFHudMeters)])]
+[SideService(Side.Server)]
 public sealed class TFMedigunMeters(ITFMedigunWeapons mediguns, IEngineEnvironment environment) : ITFHudMeters
 {
     public const string Charge = "medic.charge", Releasing = "medic.releasing", Patient = "medic.patient", HealedBy = "healed.by", HealerCharge = "healed.charge";

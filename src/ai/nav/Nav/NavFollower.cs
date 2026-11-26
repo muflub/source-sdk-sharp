@@ -549,7 +549,7 @@ public sealed class NavFollower
         // moat's channels): only while the way on is higher than it can swim up to unaided.
         if (kind == MoveKind.Follow && (_graph.Cell(At).Flags & NavCellFlags.Water) != 0 && SwimsUp(origin, held ?? Corner(0)))
             kind = MoveKind.Jump;
-        if (_jumpLeft > 0 && kind == MoveKind.Follow && _dash != DashPhase.LetGo)
+        if (_jumpLeft > 0 && kind == MoveKind.Follow && _dash == DashPhase.None)
         {
             _jumpLeft--;
             kind = MoveKind.CrouchJump;
@@ -962,7 +962,6 @@ public sealed class NavFollower
     {
         None = 0,
         Rising,
-        LetGo,
     }
 
     private DashPhase _dash;
@@ -971,43 +970,42 @@ public sealed class NavFollower
 
     /// <summary>
     /// A <see cref="NavEdgeType.DoubleJump"/> (plan_bots_teams_tf2 C.7): the take-off is a
-    /// crouch-jump as any other; in the air the jump is let go once the bot stops rising, and
-    /// pressed again on the next move, which a game that has the second jump answers (TF's
-    /// Scout dashes on a fresh press in the air). A bot that lands first, or has been in the
-    /// air a crouch-jump's whole time, drops the second press.
+    /// crouch-jump as any other, pressed for one move; while the bot rises the jump is let go
+    /// (the duck stays, <see cref="TuckMoves"/>), and once it stops rising it is pressed again,
+    /// which a game that has the second jump answers (TF's Scout dashes on a fresh press in the
+    /// air). Held through the rise, the applier's own let-go (every eighth tick of a held jump)
+    /// pressed it afresh 0.12 s up: the dash went off 29 u over the floor instead of at the top's
+    /// 52, and the jump fell 23 u short of the 117 the edge was built for. A bot that lands first, or
+    /// has been in the air a crouch-jump's whole time, drops the second press.
     /// </summary>
     private MoveKind DoubleJump(NavEdgeType via, MoveKind kind, AiVector origin)
     {
-        switch (_dash)
+        if (_dash == DashPhase.None)
         {
-            case DashPhase.None:
-                if (via == NavEdgeType.DoubleJump && kind == MoveKind.CrouchJump)
-                {
-                    _dash = DashPhase.Rising;
-                    _dashFloor = _graph.Cell(At).FloorZ;
-                    _dashLastZ = origin.Z;
-                    _dashMoves = 0;
-                }
-
-                return kind;
-            case DashPhase.Rising:
-                bool airborne = origin.Z - _dashFloor > AirborneRise;
-                bool topped = airborne && origin.Z <= _dashLastZ;
+            if (via == NavEdgeType.DoubleJump && kind == MoveKind.CrouchJump)
+            {
+                _dash = DashPhase.Rising;
+                _dashFloor = _graph.Cell(At).FloorZ;
                 _dashLastZ = origin.Z;
-                if (++_dashMoves > TuckMoves || (!airborne && _dashMoves > TuckRise))
-                {
-                    _dash = DashPhase.None;
-                    return kind;
-                }
+                _dashMoves = 0;
+            }
 
-                if (!topped)
-                    return kind;
-                _dash = DashPhase.LetGo;
-                return MoveKind.Follow;
-            default:
-                _dash = DashPhase.None;
-                return MoveKind.CrouchJump;
+            return kind;
         }
+
+        bool airborne = origin.Z - _dashFloor > AirborneRise;
+        bool topped = airborne && origin.Z <= _dashLastZ;
+        _dashLastZ = origin.Z;
+        if (++_dashMoves > TuckMoves || (!airborne && _dashMoves > TuckRise))
+        {
+            _dash = DashPhase.None;
+            return kind;
+        }
+
+        if (!topped)
+            return kind == MoveKind.CrouchJump ? MoveKind.Follow : kind;
+        _dash = DashPhase.None;
+        return MoveKind.CrouchJump;
     }
 
     private int _tuckLeft;

@@ -17,6 +17,13 @@ public sealed class OllamaChatWriterTests
     private static readonly ChatPrompt Prompt = new("sys \"x\"", "user <chat>hi</chat>", 16);
 
     /// <summary>A one-connection server: reads a request and answers, or holds the socket open.</summary>
+    /// <summary>A writer for a fact whose stub answers: production's (<see cref="OllamaChatWriter.Create"/>) with a connect
+    /// timeout no busy box can outrun. With the 2 s one, a connect to the stub on a loaded box timed out before its
+    /// continuation ran and read as ServerDown (make check, 2026-11-22: AMissingModelIsSaidAsSuch, ServerDown after 3 s).
+    /// The facts of a server that is down keep production's writer.</summary>
+    internal static OllamaChatWriter Patient()
+        => new(new SocketsHttpHandler { UseProxy = false, AllowAutoRedirect = false, ConnectTimeout = TimeSpan.FromSeconds(60) });
+
     internal sealed class Server : IDisposable
     {
         private readonly TcpListener _listener = new(IPAddress.Loopback, 0);
@@ -96,7 +103,7 @@ public sealed class OllamaChatWriterTests
     public void AReplyIsTheMessagesContent()
     {
         using var server = new Server(Server.Ok("{\"message\":{\"role\":\"assistant\",\"content\":\"gg \\\"lol\\\"\"},\"done\":true}"));
-        using OllamaChatWriter writer = OllamaChatWriter.Create();
+        using OllamaChatWriter writer = Patient();
         ChatWriterReply reply = writer.Write(Prompt, new ChatTarget(server.Url, "m"), CancellationToken.None);
         Assert.Equal(("gg \"lol\"", ChatFailure.None), (reply.Text, reply.Failure));
         Assert.Contains("POST /api/chat", server.Request, StringComparison.Ordinal);
@@ -106,7 +113,7 @@ public sealed class OllamaChatWriterTests
     public void AMissingModelIsSaidAsSuch()
     {
         using var server = new Server("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
-        using OllamaChatWriter writer = OllamaChatWriter.Create();
+        using OllamaChatWriter writer = Patient();
         ChatWriterReply reply = writer.Write(Prompt, new ChatTarget(server.Url, "nope"), CancellationToken.None);
         Assert.Equal(ChatFailure.ModelMissing, reply.Failure);
         Assert.Contains("nope", reply.Detail, StringComparison.Ordinal);
@@ -116,7 +123,7 @@ public sealed class OllamaChatWriterTests
     public void ABadStatusIsAFailureNotAThrow()
     {
         using var server = new Server("HTTP/1.1 500 Oops\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
-        using OllamaChatWriter writer = OllamaChatWriter.Create();
+        using OllamaChatWriter writer = Patient();
         Assert.Equal(ChatFailure.Other, writer.Write(Prompt, new ChatTarget(server.Url, "m"), CancellationToken.None).Failure);
     }
 
@@ -124,7 +131,7 @@ public sealed class OllamaChatWriterTests
     public void ABodyThatIsNotJsonIsAFailureNotAThrow()
     {
         using var server = new Server(Server.Ok("<html>hello</html>"));
-        using OllamaChatWriter writer = OllamaChatWriter.Create();
+        using OllamaChatWriter writer = Patient();
         Assert.Equal(ChatFailure.Other, writer.Write(Prompt, new ChatTarget(server.Url, "m"), CancellationToken.None).Failure);
     }
 
@@ -217,7 +224,7 @@ public sealed class OllamaChatWriterTests
     public void ACancelEndsARequestTheServerNeverAnswers()
     {
         using var server = new Server(null);
-        using OllamaChatWriter writer = OllamaChatWriter.Create();
+        using OllamaChatWriter writer = Patient();
         using var cancel = new CancellationTokenSource();
         // Cancelled only once the server holds the request: on a busy box a fixed
         // delay can fire before the connection is even made.

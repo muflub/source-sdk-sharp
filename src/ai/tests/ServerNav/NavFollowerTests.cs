@@ -356,11 +356,11 @@ public sealed class NavFollowerTests
     }
 
     /// <summary>
-    /// A double jump: the take-off is a crouch-jump, held while the bot rises; once it stops
-    /// rising the jump is let go for a move and pressed again, the second jump in the air.
+    /// A double jump: the take-off is a crouch-jump pressed for one move; the jump is let go while
+    /// the bot rises and pressed again once it stops rising, the second jump in the air.
     /// </summary>
     [Fact]
-    public void ABotWithTheReachJumpsLetsGoAtTheTopAndJumpsAgain()
+    public void ABotWithTheReachJumpsLetsGoWhileRisingAndJumpsAgainAtTheTop()
     {
         var (g, _, ledge) = DoubleJumpCourse();
         var f = new NavFollower(g, ledge, g.Cell(ledge).Centre, ClearanceClass.Crouch, new NavObstacleState(0) { Reach = JumpReach.Double });
@@ -369,12 +369,16 @@ public sealed class NavFollowerTests
 
         Assert.Equal(MoveKind.CrouchJump, Kind(0f));
         Assert.Equal(NavEdgeType.DoubleJump, f.NextVia);
-        Assert.Equal([MoveKind.CrouchJump, MoveKind.CrouchJump, MoveKind.Follow, MoveKind.CrouchJump],
-                     new[] { Kind(20f), Kind(40f), Kind(40f), Kind(42f) });
+        Assert.Equal([MoveKind.Follow, MoveKind.Follow, MoveKind.CrouchJump],
+                     new[] { Kind(20f), Kind(40f), Kind(40f) });
     }
 
+    /// <summary>
+    /// A bot whose take-off did not leave the ground presses no second jump while it stands (that is no top), and once a
+    /// crouch-jump's rise has passed on the ground, takes off again.
+    /// </summary>
     [Fact]
-    public void ABotThatLandsBeforeTheTopDropsTheSecondPress()
+    public void ABotStillOnTheGroundPressesNoSecondJumpAndTakesOffAgain()
     {
         var (g, _, ledge) = DoubleJumpCourse();
         var f = new NavFollower(g, ledge, g.Cell(ledge).Centre, ClearanceClass.Crouch, new NavObstacleState(0) { Reach = JumpReach.Double });
@@ -382,7 +386,9 @@ public sealed class NavFollowerTests
         MoveKind Kind(float z) => f.Next(new AiVector(8f, 8f, z), out _).Kind;
 
         Kind(0f);
-        Assert.DoesNotContain(MoveKind.Follow, Enumerable.Range(0, NavFollower.TuckRise + 2).Select(_ => Kind(0f)).ToArray());
+        MoveKind[] standing = [.. Enumerable.Range(0, NavFollower.TuckRise).Select(_ => Kind(0f))];
+        Assert.DoesNotContain(MoveKind.CrouchJump, standing);
+        Assert.Equal(MoveKind.CrouchJump, Kind(0f));
     }
 
     /// <summary>

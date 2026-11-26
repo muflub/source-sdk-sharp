@@ -72,6 +72,13 @@ public enum FireStyle : byte
     Tap = 0,
     Burst,
     Spray,
+
+    /// <summary>
+    /// A second trigger held that is no shot (a minigun's spin, plan_bots_teams_tf2 P7): pressed whatever the view, and kept down
+    /// while a <see cref="ActionKind.Fire"/> waits for the eye. Only an <see cref="ActionKind.AltFire"/> takes it; a Spray
+    /// AltFire (HL2MP's both barrels) is a shot and waits as before.
+    /// </summary>
+    Hold,
 }
 
 /// <summary>

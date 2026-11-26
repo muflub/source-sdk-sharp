@@ -459,7 +459,7 @@ public sealed partial class TFDecider
 
             if (HoldingMinigun && SpinWanted())
             {
-                D._action = new ActionIntent(ActionKind.AltFire, FireStyle.Spray, 0, 0);
+                D._action = new ActionIntent(ActionKind.AltFire, FireStyle.Hold, 0, 0);
                 return;
             }
 

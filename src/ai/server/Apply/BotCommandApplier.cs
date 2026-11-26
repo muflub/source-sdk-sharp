@@ -123,6 +123,7 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
             b.Spawned = false;
             // What it had queued went with the old player and the old level.
             b.Waiting = 0;
+            b.AltHeld = false;
             EndProgram(b, AbilityEnd.Died);
         }
     }
@@ -285,8 +286,9 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
 
             bot.OneShots.Clear();
             bot.Spawned = false;
-            // An ability does not outlive the life that began it.
+            // An ability does not outlive the life that began it, nor a held spin (the next life may be another class).
             bot.AbilityTicks = 0;
+            bot.AltHeld = false;
             bot.Sequence = default;
             EndProgram(bot, AbilityEnd.Died, new AbilityBody(facts.Origin, facts.Velocity, bot.Motion.View, facts.OnGround));
             SetView(ref cmd, facts.View);
@@ -342,11 +344,18 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
             Repeats++;
             FollowTheKick(bot, in facts, dt);
             buttons = (buttons & ~PressKeys) | bot.HeldKeys;
+            // A late command repeats what was down: the hold stands only if Attack2 is among it.
+            bot.AltHeld &= (buttons & (int)InputButtons.Attack2) != 0;
         }
         else
         {
             buttons = JumpLetGo(bot, intent.Move.Kind, buttons);
-            buttons |= HeldAction(bot, HandsWaitForTheEye(bot, in intent, in facts, view), in intent, in facts, dt);
+            ActionIntent pressed = HandsWaitForTheEye(bot, in intent, in facts, view);
+            int hands = HeldAction(bot, pressed, in intent, in facts, dt);
+            buttons |= hands;
+            // A held second trigger that is no shot (FireStyle.Hold: a minigun's spin) was pressed: it is kept down while the
+            // first waits for the eye (below). What was pressed, not the intent: during the wait the intent is the Fire.
+            bot.AltHeld = (hands & (int)InputButtons.Attack2) != 0 && pressed.Kind == ActionKind.AltFire && pressed.Style == FireStyle.Hold;
 
             if (bot.OneShots.TryDequeue(out ActionIntent once))
             {
@@ -377,13 +386,23 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     /// worse than the fifth. Close, a body is wide: inside <see cref="CloseBody"/>
     /// of the point at that distance the hands do not wait for the flick to end
     /// (user ruling 2026-11-02). A prefire's look at a corner waits the same (§5.4).
-    /// A scripted look at a point fires when told.
+    /// A scripted look at a point fires when told. A second trigger that is no shot (<see cref="FireStyle.Hold"/>: a minigun's
+    /// spin) is pressed whatever the view, and once down stays down while the first trigger waits for the eye: a person
+    /// spinning a minigun does not let it go to aim (plan_bots_teams_tf2 P7, the Heavy review's finding 3: live, the gun was
+    /// idle at 8-11 % of the fight decides the Heavy wanted it spun). A Spray AltFire (HL2MP's both barrels) is a shot and waits.
+    /// <para>Not held: a switch from one Fire to the next target's. While the minigun fires, Attack alone is down; the next
+    /// target's Fire waits with neither trigger down and the gun winds down 0.2 s after its last shot. Holding Attack2 after any
+    /// Fire would fire an SMG grenade or both barrels in HL2MP, so no generic rule can hold it: only an intent that declares
+    /// its hold could. Live after this rule the gun was still
+    /// idle at 6-8 % of the decides the Heavy wanted it spun.</para>
     /// </summary>
     private static ActionIntent HandsWaitForTheEye(BotState bot, in IntentCommand intent, in BotSelfFacts facts, AiAngles view)
     {
         // A grenade or a ball goes once and costs what it costs: only with the view there (§5.4).
         if (intent.Action.Kind == ActionKind.AltFire && intent.Look.Kind is (LookKind.Actor or LookKind.CornerCheck))
         {
+            if (intent.Action.Style == FireStyle.Hold)
+                return intent.Action;
             AiAngles at = AnglesTo(facts.Eye, intent.Look.Point);
             float up = at.Pitch - view.Pitch, across = HumanMotion.AngleDelta(view.Yaw, at.Yaw);
             // Spray is both barrels: wide and near, so a body's width will do.
@@ -395,11 +414,14 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
             return intent.Action;
         float distance = (intent.Look.Point - facts.Eye).Length;
         if (bot.Motion.Phase == AimPhase.Reacting || distance > AimStats.CloseRange)
-            return ActionIntent.None;
+            return KeptSecond(bot);
         AiAngles to = AnglesTo(facts.Eye, intent.Look.Point);
         float dp = to.Pitch - view.Pitch, dy = HumanMotion.AngleDelta(view.Yaw, to.Yaw);
-        return MathF.Sqrt(dp * dp + dy * dy) <= MathF.Atan2(CloseBody, distance) * (180f / MathF.PI) ? intent.Action : ActionIntent.None;
+        return MathF.Sqrt(dp * dp + dy * dy) <= MathF.Atan2(CloseBody, distance) * (180f / MathF.PI) ? intent.Action : KeptSecond(bot);
     }
+
+    /// <summary>While the first trigger waits for the eye: the second kept down if it was held, else nothing.</summary>
+    private static ActionIntent KeptSecond(BotState bot) => bot.AltHeld ? new ActionIntent(ActionKind.AltFire, FireStyle.Hold, 0, 0) : ActionIntent.None;
 
     /// <summary>How near its point the view must be for the second trigger to go.</summary>
     public const float AltFireOnAimDeg = 3f;
@@ -959,6 +981,10 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         public Queue<ActionIntent> OneShots { get; } = new();
         public bool Spawned { get; set; }
         public bool TapDown { get; set; }
+
+        /// <summary>The second trigger was held down as a <see cref="FireStyle.Hold"/> (no shot: a minigun's spin) on the last command: it stays down while the first trigger waits for the eye.</summary>
+        public bool AltHeld { get; set; }
+
         public int JumpTicks { get; set; }
     }
 }

@@ -130,6 +130,17 @@ public sealed class TFHeavyTests
         Assert.Contains(all, c => c.Action.Kind == ActionKind.Fire);
     }
 
+    /// <summary>The spin goes to the applier as a Hold (no shot: pressed whatever the view, kept through the Fire's wait), not a Spray shot.</summary>
+    [Fact]
+    public void TheSpinIsSentAsAHoldNotAShot()
+    {
+        TFField f = Field();
+        for (int i = 0; i < 3; i++)
+            f.Step(Heavy(Mid), NoObjective, At(1000f));
+        IntentCommand spin = Quiet(f, 1f, none: true)[^1];
+        Assert.Equal((ActionKind.AltFire, FireStyle.Hold), (spin.Action.Kind, spin.Action.Style));
+    }
+
     /// <summary>A Heavy carrying the flag home holds no spin after a sighting: it hurries at full speed (research §4.3).</summary>
     [Fact]
     public void ACarrierHoldsNoSpin()

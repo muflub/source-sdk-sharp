@@ -41,13 +41,16 @@ public sealed class TFPerceptionCensusTests
         string[] callers = IlCallCensus.Callers(m => Reads.Contains(Name(m)), Binding);
         // The navigation profile reads the bot's own class, for the jumps it can make (P6 step 2); the
         // class pick the bot's own team, as its HUD shows it, to know it may pick a class (P6 step 7); the HUD reader the
-        // teams of the bot's mates, to show only teammates' health (P7, the A7 ruling).
+        // teams of the bot's mates, to show only teammates' health (P7, the A7 ruling). The class meter readers (P7) read
+        // only the bot's own networked meters, which its own HUD draws: the Scout's drink and hype, the Demoman's charge
+        // and heads.
         // The experience feed's game (Part G, G.3; Q-G1 as ruled: the store learns from every player's
         // state) reads each player's real team and class as the key of a stored row: it answers the
         // feed, which hands them to its worker, and nothing a bot's view is built from.
         Assert.Equal(new[] { typeof(TFBotGameView).FullName!, typeof(TFObjectiveFeed).FullName!, typeof(TFPlacedEntities).FullName!,
                              typeof(SourceSharp.Ai.TF2.Nav.TFNavProfile).FullName!, typeof(TFBotClassPick).FullName!,
                              typeof(SourceSharp.Ai.TF2.Senses.TFHudReader).FullName!,
+                             typeof(SourceSharp.Ai.TF2.Trees.TFScoutMeters).FullName!, typeof(SourceSharp.Ai.TF2.Trees.TFDemomanMeters).FullName!,
                              typeof(TFExperienceGame).FullName! }.Order(StringComparer.Ordinal), callers);
     }
 

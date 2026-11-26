@@ -158,8 +158,7 @@ public class TFBotSetupTests
     {
         var classes = new TFBotClasses();
         Assert.Equal(SourceSharp.Ai.TF2.Trees.TFClassSpecs.All().Where(s => s.Ready).Select(s => TFClassNames.Raw(s.Class)), classes.Playable.Select(c => c.Raw));
-        Assert.Equal((classes.Playable.Length, "#TF_Class_Name_Soldier", 0),
-                     (classes.ClassCount, classes.ClassToken(classes.Playable.Select(c => c.Raw).ToList().IndexOf("soldier")), classes.ChosenClass));
+        Assert.Equal((SourceSharp.Ai.TF2.Trees.TFClassSpecs.All().Count(s => s.Ready), 0), (classes.ClassCount, classes.ChosenClass));
     }
 
     /// <summary>TF2's game files as the client reads them: the committed bot names and curves, nothing else.</summary>

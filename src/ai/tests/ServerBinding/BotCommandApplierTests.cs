@@ -675,6 +675,158 @@ public class BotCommandApplierTests
         Assert.False(early, "pressed with the view off its point");
     }
 
+    private static readonly ActionIntent SpinHeld = new(ActionKind.AltFire, FireStyle.Hold, 0, 0), FireHeld = new(ActionKind.Fire, FireStyle.Spray, 0, 0),
+                                         BothBarrels = new(ActionKind.AltFire, FireStyle.Spray, 0, 0);
+    private static readonly AiVector OffToTheSide = new(400f, 450f, 64f);
+    private static readonly LookIntent AtTheSide = new(LookKind.Actor, OffToTheSide, Foe, AimPoint.Body, 0f, 0);
+
+    /// <summary>The commands of <paramref name="ticks"/> ticks at <paramref name="action"/> with <paramref name="look"/>, the view following.</summary>
+    private List<UserCmd> Hold(int ticks, ActionIntent action, LookIntent? look = null)
+    {
+        var cmds = new List<UserCmd>();
+        for (int i = 0; i < ticks; i++)
+        {
+            Submit(MoveIntent.Hold, look, action);
+            cmds.Add(TickFollowingTheView());
+        }
+
+        return cmds;
+    }
+
+    private static bool Down(UserCmd cmd, InputButtons button) => (cmd.Buttons & (int)button) != 0;
+
+    /// <summary>A fresh bot, its view straight ahead, for a second arm of a fact.</summary>
+    private void Fresh()
+    {
+        _applier.Add(Bot, Player, Normal, 42);
+        _self.Facts = _self.Facts with { View = default, Alive = true };
+    }
+
+    /// <summary>
+    /// The Fire's wait at <paramref name="look"/> after <paramref name="before"/> ticks of <paramref name="lead"/>: the commands
+    /// before the first trigger went, and whether it went at all within <paramref name="ticks"/> (the command after the wait).
+    /// </summary>
+    private (List<UserCmd> Wait, UserCmd? Went) Waited(ActionIntent lead, int before, LookIntent look, int ticks = 60)
+    {
+        Hold(before, lead);
+        List<UserCmd> all = Hold(ticks, FireHeld, look);
+        int n = all.TakeWhile(c => !Down(c, InputButtons.Attack)).Count();
+        return ([.. all.Take(n)], n < all.Count ? all[n] : null);
+    }
+
+    /// <summary>
+    /// A held spin (Hold, no shot) stays down while the first trigger waits for the eye: a new target 600 u off and 48° round,
+    /// so the hands wait out the reaction and the flick. The wait ends (the Fire goes: Attack down and the spin's Attack2 up),
+    /// and it is no shorter than the same wait from cold, where nothing at all is down: the held spin buys no faster shot.
+    /// </summary>
+    [Fact]
+    public void AHeldSpinStaysDownWhileTheFirstWaitsForTheEye()
+    {
+        (List<UserCmd> cold, UserCmd? coldWent) = Waited(ActionIntent.None, 1, AtTheSide);
+        Assert.True(cold.Count >= 3, $"the hands waited {cold.Count} commands from cold");
+        Assert.NotNull(coldWent);
+        Assert.DoesNotContain(cold, c => Down(c, InputButtons.Attack2));
+
+        Fresh();
+        (List<UserCmd> spun, UserCmd? went) = Waited(SpinHeld, 5, AtTheSide);
+        Assert.NotNull(went);
+        Assert.True((Down(went!.Value, InputButtons.Attack), Down(went.Value, InputButtons.Attack2)) == (true, false), "the Fire went and the spin's key let go");
+        Assert.All(spun, c => Assert.True(Down(c, InputButtons.Attack2), "the spin was let go while the eye got there"));
+        Assert.True(spun.Count >= cold.Count - 1, $"the spun wait {spun.Count} beat the cold {cold.Count}");
+    }
+
+    /// <summary>
+    /// Close (300 u, inside the distance where the hands fire before the flick ends) and 60° round: past the reaction the first
+    /// trigger still waits for the view to come within a body, and the held spin stays down through it; the wait ends.
+    /// </summary>
+    [Fact]
+    public void AHeldSpinStaysDownThroughACloseFlick()
+    {
+        (List<UserCmd> spun, UserCmd? went) = Waited(SpinHeld, 5, new LookIntent(LookKind.Actor, new AiVector(150f, 260f, 64f), Foe, AimPoint.Body, 0f, 0));
+        Assert.True(spun.Count >= 3, $"the hands waited {spun.Count} commands");
+        Assert.NotNull(went);
+        Assert.All(spun, c => Assert.True(Down(c, InputButtons.Attack2), "the spin was let go in the flick"));
+    }
+
+    /// <summary>A spin (Hold) at an actor is pressed whatever the view, from cold and when its look turns to a new target: it is no shot.</summary>
+    [Fact]
+    public void ASpinIsPressedWhateverTheView()
+    {
+        Assert.True(Down(Hold(1, SpinHeld, AtTheSide)[0], InputButtons.Attack2));
+        Fresh();
+        Hold(5, SpinHeld);
+        Assert.All(Hold(10, SpinHeld, AtTheSide), c => Assert.True(Down(c, InputButtons.Attack2)));
+    }
+
+    /// <summary>
+    /// HL2MP's both barrels (a Spray AltFire) are a shot: held, and its look turned to a new target, they wait for the eye
+    /// again (the reaction) as before the spin's rule; and a Fire after them keeps nothing down.
+    /// </summary>
+    [Fact]
+    public void BothBarrelsStillWaitForTheEye()
+    {
+        Assert.All(Hold(5, BothBarrels), c => Assert.True(Down(c, InputButtons.Attack2), "both barrels at the point ahead"));
+        List<UserCmd> turned = Hold(3, BothBarrels, AtTheSide);
+        Assert.DoesNotContain(turned, c => Down(c, InputButtons.Attack2));
+
+        Fresh();
+        (List<UserCmd> wait, _) = Waited(BothBarrels, 5, AtTheSide);
+        Assert.True(wait.Count >= 3, $"the hands waited {wait.Count} commands");
+        Assert.DoesNotContain(wait, c => Down(c, InputButtons.Attack2));
+    }
+
+    /// <summary>
+    /// A tapped second trigger (a frag, a ball) is no spin: after it, whether its last command had the key down or up, the
+    /// first trigger's wait holds nothing down.
+    /// </summary>
+    [Fact]
+    public void ATappedSecondTriggerIsNotKeptDown()
+    {
+        var tap = new ActionIntent(ActionKind.AltFire, FireStyle.Tap, 0, 0);
+        foreach (int taps in new[] { 5, 6 })
+        {
+            Fresh();
+            Assert.True(Down(Hold(taps, tap)[^1], InputButtons.Attack2) == (taps % 2 == 1), "the tap's parity");
+            List<UserCmd> wait = Hold(3, FireHeld, AtTheSide);
+            Assert.DoesNotContain(wait, c => Down(c, InputButtons.Attack2) || Down(c, InputButtons.Attack));
+        }
+    }
+
+    /// <summary>The spin let go on purpose (an intent with no second trigger) is not brought back by the first trigger's wait.</summary>
+    [Fact]
+    public void ASpinLetGoIsNotKeptDown()
+    {
+        Hold(5, SpinHeld);
+        List<UserCmd> letGo = Hold(2, ActionIntent.None);
+        List<UserCmd> wait = Hold(3, FireHeld, AtTheSide);
+        Assert.DoesNotContain([.. letGo, .. wait], c => Down(c, InputButtons.Attack2) || Down(c, InputButtons.Attack));
+    }
+
+    /// <summary>
+    /// A spin held at death does not come back with the next life (which may be another class: a Pyro's Attack2 airblasts): dead
+    /// for a command, then alive with a Fire at an actor as its first intent, the wait holds nothing down.
+    /// </summary>
+    [Fact]
+    public void ASpinHeldAtDeathIsNotHeldInTheNextLife()
+    {
+        Hold(5, SpinHeld);
+        _self.Facts = _self.Facts with { Alive = false };
+        Tick();
+        _self.Facts = _self.Facts with { Alive = true };
+        List<UserCmd> wait = Hold(3, FireHeld, AtTheSide);
+        Assert.DoesNotContain(wait, c => Down(c, InputButtons.Attack2) || Down(c, InputButtons.Attack));
+    }
+
+    /// <summary>A spin held before a level change does not come back on the new player's first wait.</summary>
+    [Fact]
+    public void ASpinHeldBeforeALevelChangeIsNotHeldAfterIt()
+    {
+        Hold(5, SpinHeld);
+        _applier.Rebind(Bot.Slot, new EntityHandle(0x0002_0003u));
+        List<UserCmd> wait = Hold(3, FireHeld, AtTheSide);
+        Assert.DoesNotContain(wait, c => Down(c, InputButtons.Attack2) || Down(c, InputButtons.Attack));
+    }
+
     /// <summary>
     /// The aim's point moves at every decide while the target stays the same:
     /// one stimulus (§3.4.1). As a new stimulus each move restarted the
