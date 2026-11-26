@@ -59,6 +59,38 @@ public sealed partial class TFDecider
     /// <summary>Whether this bot rocket jumps at all: a Soldier with the ability and a book of jumps.</summary>
     private bool MayRocketJump => _class == TFClass.Soldier && _rocketJumpRow >= 0 && Jumps is not null;
 
+    /// <summary>
+    /// The share of a jump's blast the bot's own kit pays (P7; research soldier.md §4.3 C): the book's plans are flown with the
+    /// stock launcher and no wearables (<c>BlastJumpSims</c>). The self blast is the rocket's own damage
+    /// (<c>TFProjectileEntities</c>: <c>selfBaseDamage: Damage</c>), which the launcher's <c>mult_dmg</c> scales
+    /// (<c>TFWeaponHooks</c>, stock's <c>GetProjectileDamage</c>: the Direct Hit's 1.25), and <c>rocket_jump_dmg_reduction</c>
+    /// on any item multiplies (<c>TFBlastApplier</c>; the Gunboats' 0.4, measured live 44 against 17); a kit with
+    /// <c>no_self_blast_dmg</c> pays none. With no kit read (a replay) the whole cost, as before.
+    /// </summary>
+    private float BlastCostShare
+    {
+        get
+        {
+            if (Kit is not { } kit)
+                return 1f;
+            float share = kit.TryWielded(TFLoadoutSlot.Primary, out Senses.TFKitItem launcher) ? launcher.Attribute(LauncherDamageScale, 1f) : 1f;
+            foreach (Senses.TFKitItem item in kit.Kit)
+            {
+                if (item.Has(NoSelfBlastDamage))
+                    return 0f;
+                share *= item.Attribute(RocketJumpCostScale, 1f);
+            }
+
+            return Math.Max(0f, share);
+        }
+    }
+
+    /// <summary>What <paramref name="plan"/>'s blasts cost this bot, by its kit (<see cref="BlastCostShare"/>).</summary>
+    private float CostOf(JumpPlan plan) => plan.Health * BlastCostShare;
+
+    /// <summary>The kit attributes that scale a jump's cost.</summary>
+    internal const string RocketJumpCostScale = "rocket_jump_dmg_reduction", NoSelfBlastDamage = "no_self_blast_dmg", LauncherDamageScale = "mult_dmg";
+
     /// <summary>The first part of <see cref="JumpAllowed"/>'s rule that fails now, or none.</summary>
     private JumpLinkRefusal JumpRefusalNow
         => !HoldingLauncher ? JumpLinkRefusal.Launcher
@@ -106,7 +138,7 @@ public sealed partial class TFDecider
         paid = PaidFor(link);
         plan = paid != JumpPaid.No ? link : null;
         if (plan is null)
-            (_linkHealthRefused, _linkHealthRefusedAt) = (link.Health, _now);
+            (_linkHealthRefused, _linkHealthRefusedAt) = (CostOf(link), _now);
         return plan is not null;
     }
 
@@ -140,7 +172,10 @@ public sealed partial class TFDecider
     }
 
     /// <summary>The least health a jump may be asked about with: the hard floor with the health rule on (a jump by health may go under the floor), else the floor.</summary>
-    private float JumpHealthLeast => Feel.JumpHealth ? JumpHealthRule.HardFloor : RocketJumpHealthFloor;
+    private float JumpHealthLeast => Feel.JumpHealth ? JumpHealthRule.HardFloor : JumpFloor;
+
+    /// <summary>The health a jump leaves the bot with at least: its class play's (a Soldier roamer's is lower, P7), else <see cref="RocketJumpHealthFloor"/>.</summary>
+    private float JumpFloor => _classPlay is SoldierPlay soldier ? soldier.JumpFloor : RocketJumpHealthFloor;
 
     private AiVector _paidAt;
     private bool _paidCabinet, _paidPlace;
@@ -157,7 +192,7 @@ public sealed partial class TFDecider
     private JumpPaid PaidFor(JumpPlan plan)
     {
         _paidPlace = false;
-        if (JumpHealthRule.Plain(_self.Health, plan.Health, RocketJumpHealthFloor))
+        if (JumpHealthRule.Plain(_self.Health, CostOf(plan), JumpFloor))
         {
             // Paid plainly: the nearest place by its landing the bot may use is still the one it takes next, when the place
             // is worth it once down (lane G9b, JumpBegun): a route weighs such a link with the health given back.
@@ -175,7 +210,7 @@ public sealed partial class TFDecider
 
         if (!Feel.JumpHealth || plan.Heals.IsEmpty)
         {
-            _refusal = new HealthRefusal(plan.Id, _self.Health, plan.Health, float.NaN, Feel.JumpHealth, 0, 0, default, -1, false, _now.Value);
+            _refusal = new HealthRefusal(plan.Id, _self.Health, CostOf(plan), float.NaN, Feel.JumpHealth, 0, 0, default, -1, false, _now.Value);
             return JumpPaid.No;
         }
 
@@ -190,7 +225,7 @@ public sealed partial class TFDecider
             if (!may)
                 continue;
             usable++;
-            if (JumpHealthRule.ByHealth(_self.Health, plan.Health, fall, JumpHealthRule.Pays(h.Cabinet, h.Kind, max), RocketJumpHealthFloor))
+            if (JumpHealthRule.ByHealth(_self.Health, CostOf(plan), fall, JumpHealthRule.Pays(h.Cabinet, h.Kind, max), JumpFloor))
             {
                 (_paidAt, _paidCabinet, _paidPlace) = (h.At, h.Cabinet, true);
                 return JumpPaid.ByHealth;
@@ -198,7 +233,7 @@ public sealed partial class TFDecider
         }
 
         // The facts only (lane G9b): the words are made when the dev API asks (LastHealthRefusal).
-        _refusal = new HealthRefusal(plan.Id, _self.Health, plan.Health, fall, true, plan.Heals.Length, usable, plan.Heals[0], firstItem,
+        _refusal = new HealthRefusal(plan.Id, _self.Health, CostOf(plan), fall, true, plan.Heals.Length, usable, plan.Heals[0], firstItem,
                                      firstItem >= 0 && Skipped(_map.Items[firstItem].Position), _now.Value)
         {
             Present = firstItem >= 0 && firstItem < _memory.Board.Items.Length ? _memory.Board.Items[firstItem].Present : null,
@@ -478,8 +513,8 @@ public sealed partial class TFDecider
     private bool Affords(JumpPlan plan, in JumpHeal heal)
     {
         int max = MaxHealth;
-        return JumpHealthRule.Plain(_self.Health, plan.Health, RocketJumpHealthFloor)
-               || JumpHealthRule.ByHealth(_self.Health, plan.Health, JumpHealthRule.Fall(plan, max), JumpHealthRule.Pays(heal.Cabinet, heal.Kind, max), RocketJumpHealthFloor);
+        return JumpHealthRule.Plain(_self.Health, CostOf(plan), JumpFloor)
+               || JumpHealthRule.ByHealth(_self.Health, CostOf(plan), JumpHealthRule.Fall(plan, max), JumpHealthRule.Pays(heal.Cabinet, heal.Kind, max), JumpFloor);
     }
 
     /// <summary>How a going for a pack by way of a link ended (lane G9b): a jump begun, an enemy in sight, the place gone or given up, the health, the bot's death, anything else.</summary>
