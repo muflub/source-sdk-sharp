@@ -25,27 +25,32 @@ public static class TFSniperClass
     /// <summary>The rifle's scope as a one-shot: the second trigger pressed for two commands, so the rifle toggles once (it re-arms after 0.3 s).</summary>
     public const string Zoom = "sniper_zoom";
 
+    /// <summary>The bow lowered: the second trigger with the first still down for two commands, so the draw is dropped and no arrow goes (stock's LowerBow).</summary>
+    public const string BowLower = "sniper_bow_lower";
+
     /// <summary>
     /// The Sniper's ability rows, appended in its own block of the one table (<see cref="TFClassSpecs.BlockOf"/>): a row
     /// added here moves no other row, so recordings keep their meaning. Add at the end only.
     /// </summary>
     public static ImmutableArray<AbilityRow> Abilities() => [
         new AbilityRow(Zoom, AbilityRun.Buttons, Buttons: (int)InputButtons.Attack2, HoldTicks: 2),
+        new AbilityRow(BowLower, AbilityRun.Buttons, Buttons: (int)(InputButtons.Attack | InputButtons.Attack2), HoldTicks: 2),
     ];
 
-    /// <summary>The stock Sniper's archetype (rifle, SMG, Kukri), the pub one with Jarate, and the one with a Razorback against Spies.</summary>
-    public const string Marksman = "Marksman", Jarate = "Jarate", Guarded = "Guarded";
+    /// <summary>The stock Sniper's archetype (rifle, SMG, Kukri), the pub one with Jarate, the one with a Razorback against Spies, and the bow's.</summary>
+    public const string Marksman = "Marksman", Jarate = "Jarate", Guarded = "Guarded", Huntsman = "Huntsman";
 
     /// <summary>
-    /// The Sniper's archetypes (C.3.1; the research's ship order A, B, D, its weights 40, 30, 10), drawn by the bot's seed and
-    /// weight. Each names its rifle, its secondary and its melee: the stock Sniper Rifle 14, the SMG 16, Jarate 58, the
-    /// Razorback 57, the Kukri 3 (each standing for its reskins).
+    /// The Sniper's archetypes (C.3.1; the research's ship order A, B, D, C, its weights 40, 30, 10, 10), drawn by the bot's
+    /// seed and weight. Each names its primary, its secondary and its melee: the stock Sniper Rifle 14, the Huntsman 56, the SMG
+    /// 16, Jarate 58, the Razorback 57, the Kukri 3 (each standing for its reskins: the Huntsman for 1005 and 1092).
     /// </summary>
     public static TFArchetypeTable Archetypes() => new(TFClass.Sniper,
     [
         new TFArchetype(Marksman, 40f, [new(TFLoadoutSlot.Primary, [14]), new(TFLoadoutSlot.Secondary, [16]), new(TFLoadoutSlot.Melee, [3])]),
         new TFArchetype(Jarate, 30f, [new(TFLoadoutSlot.Primary, [14]), new(TFLoadoutSlot.Secondary, [58]), new(TFLoadoutSlot.Melee, [3])]),
         new TFArchetype(Guarded, 10f, [new(TFLoadoutSlot.Primary, [14]), new(TFLoadoutSlot.Secondary, [57]), new(TFLoadoutSlot.Melee, [3])]),
+        new TFArchetype(Huntsman, 10f, [new(TFLoadoutSlot.Primary, [56]), new(TFLoadoutSlot.Secondary, [58]), new(TFLoadoutSlot.Melee, [3])]),
     ]);
 
     /// <summary>What the foundation composes: the class, its ready flag, its rows, its archetypes.</summary>
@@ -79,7 +84,7 @@ public sealed partial class TFDecider
     /// tf_bot_sniper_attack.cpp:19, tf_bot_sniper_lurk.cpp:117-121). The Jarate archetype throws its jar into a group or
     /// onto a burning teammate; the Guarded one glances behind a third as often.
     /// </summary>
-    private sealed class SniperPlay(TFDecider d) : ClassPlay(d, TFClass.Sniper)
+    private sealed partial class SniperPlay(TFDecider d) : ClassPlay(d, TFClass.Sniper)
     {
         /// <summary>Stock's ranges: the SMG within, the retreat within, the melee within and its give-up past.</summary>
         public const float SmgRange = 750f, FleeRange = 400f, MeleeRange = 200f, MeleeGiveUp = 250f;
@@ -87,8 +92,14 @@ public sealed partial class TFDecider
         /// <summary>How near a spot is reached on the floor (stock's 25 u, tf_bot_sniper_lurk.cpp:161, widened by a cell's slack), and in height.</summary>
         public const float SpotArrive = 48f, SpotArriveHeight = 72f;
 
-        /// <summary>A walk to a spot that gets no nearer by this much in this long gives the spot up for the life (ours).</summary>
-        public const float SpotProgressUnits = 64f, SpotWalkPatience = 8f;
+        /// <summary>
+        /// A walk to a spot on which the bot moves less than this in this long gives the spot up for the life (ours); one that
+        /// moves but gets no nearer by it for <see cref="SpotDetourPatience"/> too (a route round, 2fort's stairs, first leads away).
+        /// </summary>
+        public const float SpotProgressUnits = 64f, SpotWalkPatience = 8f, SpotDetourPatience = 30f;
+
+        /// <summary>A walk not stepped for this long (another branch had the bot) starts its clocks again.</summary>
+        public const float WalkGapSeconds = 0.5f;
 
         /// <summary>A watched objective is held at least this long before another one moves the spots (ours, the code review's C6).</summary>
         public const float WatchHoldSeconds = 15f;
@@ -148,7 +159,8 @@ public sealed partial class TFDecider
         // The spot.
         private readonly Dictionary<(int, int, int, bool), ImmutableArray<TFSniperSpot>> _spotCache = new();
         private readonly HashSet<int> _givenUp = new();
-        private Tick _watchSince, _walkSince;
+        private Tick _watchSince, _walkSince, _walkMovedAt, _walkLastAt = new(-100000);
+        private AiVector _walkAnchor;
         private float _walkBest = float.PositiveInfinity;
         private ImmutableArray<TFSniperSpot> _spots = [];
         private AiVector _spotsFor;
@@ -180,7 +192,7 @@ public sealed partial class TFDecider
         private AiVector _jarAt;
 
         // Counters.
-        private long _zooms, _rifleShots, _scopedShots, _chargedShots, _relocations, _spotDecides, _aliveDecides, _jarThrows, _behind, _smgPicks, _meleePicks, _smgReloads;
+        private long _zooms, _rifleShots, _scopedShots, _chargedShots, _relocations, _spotDecides, _aliveDecides, _jarThrows, _behind, _smgPicks, _meleePicks, _smgReloads, _rifleHits;
 
         private float Seconds(Tick from) => (D._now - from) * D._tick;
 
@@ -237,7 +249,7 @@ public sealed partial class TFDecider
             {
                 if (_reserveSeen >= 0 && D._self.Reserve < _reserveSeen)
                 {
-                    _shotAt = D._now;
+                    (_shotAt, _shotHit) = (D._now, false);
                     _rifleShots++;
                     if (_zoomed)
                         _scopedShots++;
@@ -252,6 +264,13 @@ public sealed partial class TFDecider
                 _reserveSeen = -1;
             }
 
+            // A rifle shot that hurt someone (the HUD's damage numbers: an enemy's engagement count rose) shortly after it went.
+            int engaged = Engagements();
+            if (engaged > _engagedSeen && !_shotHit && Seconds(_shotAt) <= HitWindowSeconds && HoldingRifle)
+                (_shotHit, _rifleHits) = (true, _rifleHits + 1);
+            _engagedSeen = engaged;
+
+            ReadBow();
             bool zoomed = (D.Kit?.Meter(TFSniperMeters.Zoomed, 0f) ?? 0f) >= 0.5f;
             if (zoomed && !_zoomed)
                 _zoomedAt = D._now;
@@ -285,6 +304,23 @@ public sealed partial class TFDecider
         }
 
         private readonly Dictionary<ActorId, float> _takenFrom = new();
+        private int _engagedSeen;
+        private bool _shotHit;
+
+        /// <summary>A hit is the rifle's when its damage shows within this of the shot (hitscan: the same decide or the next).</summary>
+        public const float HitWindowSeconds = 0.3f;
+
+        /// <summary>Scoped, the shot goes with the view this near its point, or nearer for a head that subtends less (ours: the scope's crosshair on the head).</summary>
+        public const float ScopedOnAimDeg = 0.6f, HeadRadiusUnits = 6f;
+
+        private int Engagements()
+        {
+            Blackboard board = D._memory.Board;
+            int sum = 0;
+            for (int s = 0; s < board.Slots; s++)
+                sum += board.Actor(s).TimesEngaged;
+            return sum;
+        }
 
         /// <summary>
         /// Whether the attacker whose damage on the bot rose since the last decide is out of sight or a Sniper; <paramref name="named"/>
@@ -482,7 +518,7 @@ public sealed partial class TFDecider
             }
 
             _spotPick = best;
-            (_walkBest, _walkSince) = (float.PositiveInfinity, D._now);
+            (_walkBest, _walkSince, _walkMovedAt, _walkAnchor) = (float.PositiveInfinity, D._now, D._now, D._self.Origin);
         }
 
         /// <summary>Whether the spot is reached: within a cell's slack of it on the floor, and on its floor (the follower's own arrival is 16 u flat).</summary>
@@ -534,11 +570,18 @@ public sealed partial class TFDecider
                 _atSpot = false;
             if (!_atSpot && !Reached(spot.At))
             {
-                // A walk that gets no nearer for a while gives the spot up for the life (the code review's C4).
+                // A walk that gets no nearer for a while gives the spot up for the life (the code review's C4). The walk's clocks
+                // run only while it walks: back from a fight or a heal, they start again, or the fight's time counted as a stall.
                 float d = D._self.Origin.DistanceTo(spot.At);
+                if (Seconds(_walkLastAt) > WalkGapSeconds)
+                    (_walkBest, _walkSince, _walkMovedAt, _walkAnchor) = (d, D._now, D._now, D._self.Origin);
+                _walkLastAt = D._now;
                 if (d < _walkBest - SpotProgressUnits)
                     (_walkBest, _walkSince) = (d, D._now);
-                else if (Seconds(_walkSince) > SpotWalkPatience)
+                if (D._self.Origin.DistanceTo(_walkAnchor) >= SpotProgressUnits)
+                    (_walkAnchor, _walkMovedAt) = (D._self.Origin, D._now);
+                // Given up on a stall (the bot does not move: the code review's C4), or on a detour that never comes nearer.
+                if (Seconds(_walkMovedAt) > SpotWalkPatience || Seconds(_walkSince) > SpotDetourPatience)
                 {
                     _givenUp.Add(spot.Cell);
                     SpotsGivenUp++;
@@ -613,6 +656,8 @@ public sealed partial class TFDecider
 
         public override float TargetBonus(KnownActor target, bool sighted, float distance)
         {
+            if (BowKind >= 0)
+                return BowBonus(target);
             float bonus = target.ClassBelieved switch
             {
                 (int)TFClass.Sniper => SniperBonus,
@@ -634,6 +679,8 @@ public sealed partial class TFDecider
             float dist = D._targetDist;
             if (D.HoldingMelee && dist < MeleeGiveUp)
                 return D.FightAtRange();
+            if (HoldingBow)
+                return BowFootwork();
             if (dist < FleeRange)
             {
                 // Too near to scope: back off to cover, fighting with what is in hand.
@@ -665,6 +712,16 @@ public sealed partial class TFDecider
                 return;
             }
 
+            if (HoldingBow)
+            {
+                BowEngage();
+                return;
+            }
+
+            // The jar out of its own throw (a deploy still under way): nothing fires it; the hands take the primary back.
+            if (JarKind >= 0 && D._self.ActiveWeapon == JarKind)
+                return;
+
             if (!HoldingRifle)
             {
                 D.GeneralEngage();
@@ -682,13 +739,19 @@ public sealed partial class TFDecider
             bool crouched = drawn && (f.Activity & ActorActivity.Crouched) != 0;
             // The head scoped, the body unscoped; the error is today's, never under stock's 0.01 rad (§4.7's floor).
             AimPoint point = _zoomed ? AimPoint.Head : AimPoint.Body;
-            float height = TFKnowledge.AimHeight(point, point == AimPoint.Head ? (TFClass)cls : TFClass.Undefined).At(crouched);
-            var aim = new AiVector(D._targetPos.X, D._targetPos.Y, D._targetPos.Z + height);
+            float z = point == AimPoint.Head ? HeadZ(target.Id, cls, crouched)
+                : D._targetPos.Z + TFKnowledge.AimHeight(point, TFClass.Undefined).At(crouched);
+            var aim = new AiVector(D._targetPos.X, D._targetPos.Y, z);
             AiVector error = D.AimError(aim, feet: false);
             float size = D.AimErrorNow;
             if (size > 0f && size < StockErrorFloorDeg)
                 error *= StockErrorFloorDeg / size;
-            D._look = new LookIntent(LookKind.Actor, aim + error, target.Id, point, 0f, 0);
+            // Scoped, the look leads a moving target by the view's own lag behind its point (the tracking lag and a decide), as a
+            // player tracks a crosser ahead of his crosshair, by the bot's lead skill, so the lagging view stands on him; the shot
+            // waits for the view on the point he is at (the review's M4: on the led point the view was always behind, and on a
+            // walking crosser the shot never went).
+            AiVector lead = _zoomed ? new AiVector(D._targetVel.X, D._targetVel.Y, 0f) * ((D._p.TrackingLagMs / 1000f + DecideSchedule.Period * D._tick) * D.LeadNow) : default;
+            D._look = new LookIntent(LookKind.Actor, aim + error + lead, target.Id, point, 0f, 0);
 
             if (!_zoomed)
             {
@@ -701,8 +764,28 @@ public sealed partial class TFDecider
             if (Seconds(_zoomedAt) < ZoomSettleSeconds || Seconds(_shotAt) < AfterShotSeconds)
                 return;
             float need = TFSniperClass.ChargeToKill(MaxHealthOf(cls), MedicNear(target.Id, D._targetPos));
-            if (Charge >= need || (drawn && AimsAtMe(in f)))
+            // The shot waits for the crosshair on its point: a view still turning onto the head is a miss (the eye's own wait
+            // lets a shot go 70 % through a flick).
+            float onAim = MathF.Max(ScopedOnAimDeg, MathF.Atan2(HeadRadiusUnits, MathF.Max(1f, D._targetDist)) * (180f / MathF.PI));
+            if ((Charge >= need || (drawn && AimsAtMe(in f))) && OffAim(D.OwnEye, aim + error) <= onAim)
                 Fire(charged: need > 0f);
+        }
+
+        private AimHeightHold? _headHold;
+        private ActorId _headOf;
+        private Tick _headAt;
+
+        /// <summary>
+        /// The world height of the target's head, held as the body's aim is (AimHeightHold, the code review's H4): a crouch-peek is
+        /// re-aimed at after the bot's reaction, not followed the decide it is drawn.
+        /// </summary>
+        private float HeadZ(ActorId target, int cls, bool crouched)
+        {
+            _headHold ??= new AimHeightHold(new AiRandom(D._seed ^ 0x534E_4844UL));
+            bool fresh = target != _headOf || D._now - _headAt > DecideSchedule.Period;
+            (_headOf, _headAt) = (target, D._now);
+            return _headHold.Hold(fresh, sighted: true, D._targetPos.Z, TFKnowledge.AimHeight(AimPoint.Head, (TFClass)cls), crouched, rise: 0f,
+                                  D._streaks.ReAimSeconds(in D._p), D._p.FlickOvershootPct, D._targetDist, DecideSchedule.Period * D._tick);
         }
 
         /// <summary>Asks for a rifle shot this decide; it is counted, and the next one waited for, when the HUD shows it went (<see cref="Read"/>).</summary>
@@ -792,7 +875,7 @@ public sealed partial class TFDecider
         {
             int rifle = RifleKind;
             if (rifle < 0)
-                return -1;
+                return BowKind is >= 0 and var bow ? WantedWithBow(bow) : -1;
             if (!D._targetSighted)
                 return D.SightJustLost ? D._self.ActiveWeapon : rifle;
             float dist = D._targetDist;
@@ -802,6 +885,21 @@ public sealed partial class TFDecider
             if (dist < SmgRange)
                 return smg >= 0 ? smg : rifle;
             return rifle;
+        }
+
+        /// <summary>
+        /// With the bow (the review's H1): the Kukri within 200 u (kept to 250), else the bow, whatever its clip (an arrow nocks
+        /// itself a second after the loose); never the jar here, which goes only by its own rule (<see cref="JarOneShot"/>).
+        /// </summary>
+        private int WantedWithBow(int bow)
+        {
+            if (!D._targetSighted)
+                return D.SightJustLost && D._self.ActiveWeapon != JarKind ? D._self.ActiveWeapon : bow;
+            int melee = MeleeKind;
+            float dist = D._targetDist;
+            if (melee >= 0 && !BowDrawn && (dist < MeleeRange || (D._self.ActiveWeapon == melee && dist < MeleeGiveUp)))
+                return melee;
+            return bow;
         }
 
         /// <summary>Whether the scope should be up: the rifle in hand, on the ground, held still at a spot or on a far target; never with anyone near or on the move.</summary>
@@ -820,7 +918,8 @@ public sealed partial class TFDecider
 
         public override void OneShots()
         {
-            if (JarOneShot())
+            // A drawn bow is not put away for the jar: the draw would be lost.
+            if (BowDrawn ? BowOneShot() : JarOneShot())
                 return;
             bool want = WantZoom();
             if (want == _zoomed || ZoomRow < 0 || Seconds(_zoomPressAt) < ZoomEverySeconds || Seconds(_shotAt) < AfterShotSeconds)
@@ -891,7 +990,9 @@ public sealed partial class TFDecider
             AiVector eye = D.OwnEye;
             var at = new AiVector(_jarAt.X, _jarAt.Y, _jarAt.Z + TFKnowledge.FeetAim);
             float flat = new AiVector(at.X - eye.X, at.Y - eye.Y, 0f).Length;
-            AiVector aim = AimLead.Lob(eye, at, JarSpeed, TFKnowledge.Gravity) ?? at;
+            // The arc under the pull the jar flies by (0.4 of the world's, a grenade's): the whole pull put throws 196 u long at
+            // 400 u and 994 u long at 800 u, past the 200 u splash (the r2s4 review's section 3).
+            AiVector aim = AimLead.Lob(eye, at, JarSpeed, TFKnowledge.ProjectileGravity(TFProjectile.Jar)) ?? at;
             D._look = new LookIntent(LookKind.Point, new AiVector(aim.X, aim.Y, aim.Z - JarUpSpeed * flat / JarSpeed), ActorId.None, AimPoint.Feet, 0f, 0);
             D._verdict = "jarate";
         }
@@ -948,6 +1049,9 @@ public sealed partial class TFDecider
             _spotsMade = false;
             _spotCache.Clear();
             _givenUp.Clear();
+            (_drawnBefore, _letGo, _bowAmmoSeen) = (0f, false, -1);
+            // A slot cleared and made again between two decides must not hide the next hit's attacker (the review's L8).
+            _takenFrom.Clear();
         }
 
         public override void Count(List<KeyValuePair<string, long>> into)
@@ -964,9 +1068,11 @@ public sealed partial class TFDecider
             into.Add(new("sniper.smg_picks", _smgPicks));
             into.Add(new("sniper.melee_picks", _meleePicks));
             into.Add(new("sniper.smg_reloads", _smgReloads));
+            into.Add(new("sniper.rifle_hits", _rifleHits));
             into.Add(new("sniper.spot_searches", SpotSearches));
             into.Add(new("sniper.spots_given_up", SpotsGivenUp));
             into.Add(new("sniper.yielded_decides", YieldedDecides));
+            BowCount(into);
         }
     }
 }

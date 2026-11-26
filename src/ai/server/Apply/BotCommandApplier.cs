@@ -400,6 +400,9 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     /// </summary>
     private static ActionIntent HandsWaitForTheEye(BotState bot, in IntentCommand intent, in BotSelfFacts facts, AiAngles view)
     {
+        // A first trigger held on a drawn charge (FireStyle.Hold: a bow's draw) is kept down whatever the view: letting it go is the shot.
+        if (intent.Action.Kind == ActionKind.Fire && intent.Action.Style == FireStyle.Hold)
+            return intent.Action;
         // A grenade or a ball goes once and costs what it costs: only with the view there (§5.4).
         if (intent.Action.Kind == ActionKind.AltFire && intent.Look.Kind is (LookKind.Actor or LookKind.CornerCheck))
         {

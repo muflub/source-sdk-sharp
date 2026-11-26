@@ -39,6 +39,13 @@ public sealed class TFSniperKillTallyTests
         public void SetString(string key, string value) { }
     }
 
+    private static (TFSniperKillTally Tally, TFSniperKillCounts Counts, TFDamageRecords Records) Make()
+    {
+        var records = new TFDamageRecords();
+        var counts = new TFSniperKillCounts();
+        return (new TFSniperKillTally(records, new Owners(), counts), counts, records);
+    }
+
     private static void Kill(TFSniperKillTally tally, TFDamageRecords records, EntityHandle victim, TFDamageCustom custom, EntityHandle? hitBy = null)
     {
         records.Note(victim.EntryIndex, new TFHitRecord(hitBy ?? Sniper, 150f, DamageType.Bullet, TFCritType.Full, custom, TFWeaponId.None, "", 1f), damager: true);
@@ -49,23 +56,49 @@ public sealed class TFSniperKillTallyTests
     [Fact]
     public void KillsCountByTheVictimsClass()
     {
-        var records = new TFDamageRecords();
-        var tally = new TFSniperKillTally(records, new Owners());
+        (TFSniperKillTally tally, TFSniperKillCounts counts, TFDamageRecords records) = Make();
         Kill(tally, records, Medic, TFDamageCustom.None);
         Kill(tally, records, Medic, TFDamageCustom.None);
         Kill(tally, records, Heavy, TFDamageCustom.None);
-        Assert.Equal((2, 1, 0), (tally.Kills(SniperIndex, TFClass.Medic), tally.Kills(SniperIndex, TFClass.HeavyWeapons), tally.Kills(SniperIndex, TFClass.Scout)));
+        Assert.Equal((2, 1, 0), (counts.Kills(SniperIndex, TFClass.Medic), counts.Kills(SniperIndex, TFClass.HeavyWeapons), counts.Kills(SniperIndex, TFClass.Scout)));
     }
 
     /// <summary>A kill whose last hit was the scorer's headshot is a headshot; a body shot's is not, nor a headshot by someone else.</summary>
     [Fact]
     public void AHeadshotIsTheScorersOwnHeadshot()
     {
-        var records = new TFDamageRecords();
-        var tally = new TFSniperKillTally(records, new Owners());
+        (TFSniperKillTally tally, TFSniperKillCounts counts, TFDamageRecords records) = Make();
         Kill(tally, records, Medic, TFDamageCustom.Headshot);
         Kill(tally, records, Heavy, TFDamageCustom.None);
         Kill(tally, records, Medic, TFDamageCustom.Headshot, hitBy: Heavy);
-        Assert.Equal(1, tally.Headshots(SniperIndex));
+        Assert.Equal(1, counts.Headshots(SniperIndex));
+    }
+    /// <summary>A match reset (waiting for players ended) and a level's end clear the tally, as they clear the scoreboard.</summary>
+    [Fact]
+    public void AResetAndALevelsEndClearIt()
+    {
+        (TFSniperKillTally tally, TFSniperKillCounts counts, TFDamageRecords records) = Make();
+        Kill(tally, records, Medic, TFDamageCustom.Headshot);
+        int before = counts.Kills(SniperIndex, TFClass.Medic);
+        counts.OnMatchReset("waiting for players");
+        int afterReset = counts.Kills(SniperIndex, TFClass.Medic) + counts.Headshots(SniperIndex);
+        Kill(tally, records, Heavy, TFDamageCustom.None);
+        ((IGameLifecycle)counts).OnLevelShutdown();
+        Assert.Equal((1, 0, 0), (before, afterReset, counts.Kills(SniperIndex, TFClass.HeavyWeapons)));
+    }
+    /// <summary>A soak counts once when it comes on, not again while it lasts; another counts when it comes on again.</summary>
+    [Fact]
+    public void ASoakCountsWhenItComesOn()
+    {
+        var counts = new TFSniperKillCounts();
+        var soaks = new TFSniperSoakTally(null!, counts);
+        bool on = false;
+        foreach (bool frame in new[] { false, true, true, true, false, true })
+        {
+            on = frame;
+            soaks.Observe(i => i == 4 && on);
+        }
+
+        Assert.Equal(2, counts.Soaked);
     }
 }

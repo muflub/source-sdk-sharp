@@ -506,7 +506,7 @@ public sealed class TFSniperJarateTests
         Assert.False(TakesJar(in i));
     }
 
-    /// <summary>With the jar out it is thrown: a fire, the look up the arc at a place (not at an actor), within a few decides.</summary>
+    /// <summary>With the jar out it is thrown: a fire, the look at a place on its arc (not at an actor), within a few decides. Where it lands is AJarComesDownInsideItsSplash's.</summary>
     [Fact]
     public void TheJarOutIsThrownUpItsArc()
     {
@@ -516,6 +516,5 @@ public sealed class TFSniperJarateTests
         IntentCommand[] after = [.. Enumerable.Range(0, 8).Select(_ => Step(f, TFSniperPlayTests.JarKind, a, b))];
         IntentCommand thrown = after.First(i => i.Action.Kind == ActionKind.Fire);
         Assert.Equal(LookKind.Point, thrown.Look.Kind);
-        Assert.True(thrown.Look.Point.Z > 0f, $"aimed at z {thrown.Look.Point.Z}");
     }
 }

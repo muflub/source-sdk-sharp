@@ -93,4 +93,59 @@ public sealed class TFSniperSpotWalkTests
         Assert.All(fromFloor, s => Assert.True(s.At.Y < 512f, $"spot {s.At}"));
         Assert.Contains(fromLedge, s => s.At.Y > 512f);
     }
+    /// <summary>
+    /// A walk on which the bot moves (back and forth, 100 u a decide: a route round first leads away) but never comes nearer is
+    /// not given up at 8 s, as a stall is; it is at 30 s.
+    /// </summary>
+    [Fact]
+    public void AWalkThatMovesButComesNoNearerIsGivenUpAtThirtySeconds()
+    {
+        TFField f = Field();
+        f.Hud = TFSniperPlayTests.Kit();
+        f.StepDrawn(TFSniperPlayTests.Me(Start), TFField.Ctf());
+        AiVector first = f.Decider.Doing.Goal;
+        int changed = -1;
+        for (int n = 1; n < 400 && changed < 0; n++)
+        {
+            f.Hud = TFSniperPlayTests.Kit();
+            f.StepDrawn(TFSniperPlayTests.Me(Start + new AiVector(0f, n % 2 == 0 ? 0f : 100f, 0f)), TFField.Ctf());
+            if (f.Decider.Doing.Goal != first)
+                changed = n;
+        }
+
+        Assert.InRange(changed * DecideSchedule.Period * 0.015f, 29.9f, 31f);
+    }
+
+    /// <summary>
+    /// Three seconds of a stalled walk, ten of a fight (another branch has the bot), then the walk again: the fight's time is no
+    /// stall, so the spot is not given up on the walk's return (its clocks start again).
+    /// </summary>
+    [Fact]
+    public void AFightBetweenIsNoPartOfTheWalksStall()
+    {
+        TFField f = Field();
+        int Decides(float seconds) => (int)(seconds / (DecideSchedule.Period * 0.015f));
+        for (int n = 0; n < Decides(3f); n++)
+        {
+            f.Hud = TFSniperPlayTests.Kit();
+            f.StepDrawn(TFSniperPlayTests.Me(Start), TFField.Ctf());
+        }
+
+        var soldier = TFSniperPlayTests.Drawn(A, Start + new AiVector(1600f, 0f, 0f), TFClass.Soldier);
+        int walkedInFight = 0;
+        for (int n = 0; n < Decides(10f); n++)
+        {
+            f.Hud = TFSniperPlayTests.Kit();
+            f.StepDrawn(TFSniperPlayTests.Me(Start), TFField.Ctf(), soldier);
+            walkedInFight += f.Decider.Doing.Verdict == "to a sniper spot" ? 1 : 0;
+        }
+
+        for (int n = 0; n < Decides(2f); n++)
+        {
+            f.Hud = TFSniperPlayTests.Kit();
+            f.StepDrawn(TFSniperPlayTests.Me(Start), TFField.Ctf());
+        }
+
+        Assert.Equal((0, 0L), (walkedInFight, Counter(f, "sniper.spots_given_up")));
+    }
 }

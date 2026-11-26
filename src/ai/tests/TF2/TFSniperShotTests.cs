@@ -96,7 +96,10 @@ public sealed class TFSniperShotTests
 
         Assert.Equal("holding a sight line", f.Decider.Doing.Verdict);
         var runner = new Runner();
-        var self = new Self { Facts = new(true, false, at, at + new AiVector(0f, 0f, 64f), default) };
+        // The eye where the decider puts it (the class's eye height), and the view it reads back each decide: the shot waits
+        // for the crosshair on its point.
+        float eyeUp = SourceSharp.Ai.TF2.Knowledge.TFKnowledge.AimHeight(AimPoint.Head, TFClass.Sniper).Standing;
+        var self = new Self { Facts = new(true, false, at, at + new AiVector(0f, 0f, eyeUp), default) };
         var applier = new BotCommandApplier(runner, self);
         applier.Add(f.Bot, Player, new MotionParams(200f, 487.5f, 16.2f, 174f), 42);
         ActorFacts enemy = TFSniperPlayTests.Drawn(Enemy, at + new AiVector(900f, 200f, 0f), TFClass.Soldier);
@@ -104,7 +107,7 @@ public sealed class TFSniperShotTests
         for (int n = 0; n < 40 && pressedAt < 0; n++)
         {
             f.Hud = TFSniperPlayTests.Kit(zoomed: true, charge: 150f);
-            IntentCommand intent = f.StepDrawn(TFSniperPlayTests.Me(at) with { Reserve = reserve }, TFField.Ctf(), enemy);
+            IntentCommand intent = f.StepDrawn(TFSniperPlayTests.Me(at) with { Reserve = reserve, Eye = self.Facts.View }, TFField.Ctf(), enemy);
             applier.Submit(intent);
             for (int k = 0; k < DecideSchedule.Period && pressedAt < 0; k++)
             {
@@ -117,5 +120,47 @@ public sealed class TFSniperShotTests
 
         Assert.True(pressedAt >= 0, "the trigger never went down in 3.6 s");
         Assert.True((pressedAt - start) * 0.015f < 1.2f, $"first press {(pressedAt - start) * 0.015f:F2} s after first sight");
+    }
+    /// <summary>
+    /// Through the applier, a Soldier crossing the line at a walk (240 u/s) 1,000 u off: the scoped, charged Marksman fires within
+    /// 4 s, the crosshair's wait for its point notwithstanding: the look leads him by the view's lag (the review's M4:
+    /// without the lead the view sat 2.5-3.5 degrees behind and the shot never went).
+    /// </summary>
+    [Fact]
+    public void ACrossingSoldierIsShotThroughTheApplier()
+    {
+        TFField f = new(seed: TFSniperPlayTests.SeedOf(TFSniperClass.Marksman), weapons: TFSniperPlayTests.Weapons);
+        AiVector at = Mid;
+        for (int n = 0; n < 8; n++)
+        {
+            f.Hud = TFSniperPlayTests.Kit(zoomed: true, charge: 150f);
+            f.StepDrawn(TFSniperPlayTests.Me(at), TFField.Ctf());
+            if (f.Decider.Doing.HasGoal && f.Decider.Doing.Verdict == "to a sniper spot")
+                at = f.Decider.Doing.Goal;
+        }
+
+        float eyeUp = SourceSharp.Ai.TF2.Knowledge.TFKnowledge.AimHeight(AimPoint.Head, TFClass.Sniper).Standing;
+        var runner = new Runner();
+        var self = new Self { Facts = new(true, false, at, at + new AiVector(0f, 0f, eyeUp), default) };
+        var applier = new BotCommandApplier(runner, self);
+        applier.Add(f.Bot, Player, new MotionParams(200f, 487.5f, 16.2f, 174f), 42);
+        var velocity = new AiVector(0f, 240f, 0f);
+        int reserve = 25, pressedAt = -1, tick = 0;
+        for (int n = 0; n < 44 && pressedAt < 0; n++)
+        {
+            AiVector there = at + new AiVector(1000f, -400f, 0f) + velocity * (tick * 0.015f);
+            var enemy = new ActorFacts(Enemy, there, velocity, TFSniperPlayTests.Rifle, ActorActivity.None, 1f, TFField.Blue, (int)TFClass.Soldier);
+            f.Hud = TFSniperPlayTests.Kit(zoomed: true, charge: 150f);
+            applier.Submit(f.StepDrawn(TFSniperPlayTests.Me(at) with { Reserve = reserve, Eye = self.Facts.View }, TFField.Ctf(), enemy));
+            for (int k = 0; k < DecideSchedule.Period && pressedAt < 0; k++, tick++)
+            {
+                applier.ApplyTick(new Tick(f.Tick + k), 0.015f);
+                self.Facts = self.Facts with { View = new AiAngles(runner.Last.Pitch, runner.Last.Yaw, 0f) };
+                if ((runner.Last.Buttons & (int)InputButtons.Attack) != 0)
+                    pressedAt = tick;
+            }
+        }
+
+        Assert.True(pressedAt >= 0, "never fired at the crossing Soldier in 4 s");
     }
 }

@@ -210,6 +210,10 @@ public sealed partial class TFDecider
         // Fire at a teammate on purpose (a heal beam: FireAtFriend) is not held for one.
         if (!Feel.FriendGate || _action.Kind != ActionKind.Fire || !TeamRule.IsGameTeam(_self.Team) || _friendFire)
             return;
+        // A drawn charge (a bow's draw: a Fire held as FireStyle.Hold) is held, not let go: letting go is its shot. Stock keeps the
+        // button down while the line is not clear (bot/behavior/tf_bot_behavior.cpp:1382-1386); the play tests the line at its release.
+        if (_action.Style == FireStyle.Hold)
+            return;
         float blast = _memory.FriendlyFireOn && Splash(out _) ? SelfBlastUnits : 0f;
         // A shot goes at its aim point: a target's (a rocket at its feet goes at the floor beside them) or a prefire's place on the
         // floor. The line judges a teammate's body where the shot passes it (lane Ge), up to a crouched top for one drawn crouched,

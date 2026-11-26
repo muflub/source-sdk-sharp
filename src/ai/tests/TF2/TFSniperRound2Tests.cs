@@ -151,4 +151,145 @@ public sealed class TFSniperRound2Tests
         Assert.DoesNotContain(ActionKind.Reload, seen);
         Assert.Contains(ActionKind.SelectWeapon, seen);
     }
+    /// <summary>Scoped and charged on a Soldier 1,400 u off: with the view far off its point, no shot; with the view kept on the decide's own point, a shot.</summary>
+    [Fact]
+    public void AScopedShotWaitsForTheCrosshairOnItsPoint()
+    {
+        int Shots(bool onAim)
+        {
+            TFField f = Field();
+            AiVector at = ToTheSpot(f);
+            var soldier = TFSniperPlayTests.Drawn(Soldier, at + new AiVector(1400f, 0f, 0f), TFClass.Soldier);
+            AiVector eye = at + new AiVector(0f, 0f, SourceSharp.Ai.TF2.Knowledge.TFKnowledge.AimHeight(AimPoint.Head, TFClass.Sniper).Standing);
+            AiAngles view = BotCommandApplier.AnglesTo(eye, at + new AiVector(0f, 3000f, 0f));
+            int shots = 0;
+            for (int n = 0; n < 12; n++)
+            {
+                f.Hud = TFSniperPlayTests.Kit(zoomed: true, charge: 150f);
+                IntentCommand i = f.StepHearing(TFSniperPlayTests.Me(at) with { Eye = view }, TFField.Ctf(), [], soldier);
+                shots += i.Action.Kind == ActionKind.Fire ? 1 : 0;
+                if (onAim && i.Look.Kind == LookKind.Actor)
+                    view = BotCommandApplier.AnglesTo(eye, i.Look.Point);
+            }
+
+            return shots;
+        }
+
+        Assert.Equal((0, true), (Shots(onAim: false), Shots(onAim: true) > 0));
+    }
+    /// <summary>
+    /// Scoped on a Soldier's head, he crouches: the decide he is drawn ducked the aim is still at his standing head (the eye has
+    /// not yet acted on it), and within a second it is at his ducked head (the code review's H4: the head followed the next decide).
+    /// </summary>
+    [Fact]
+    public void ACrouchPeekIsReAimedAfterAReaction()
+    {
+        TFField f = new(seed: TFSniperPlayTests.SeedOf(TFSniperClass.Marksman), weapons: TFSniperPlayTests.Weapons, tune: p => p with { AimErrorDeg = 0f });
+        AiVector at = ToTheSpot(f);
+        AiVector there = at + new AiVector(1400f, 0f, 0f);
+        ActorFacts Soldier(bool ducked) => new(TFSniperRound2Tests.Soldier, there, AiVector.Zero, TFSniperPlayTests.Rifle,
+                                               ducked ? ActorActivity.Crouched : ActorActivity.None, 1f, TFField.Blue, (int)TFClass.Soldier);
+        float Z(bool ducked)
+        {
+            f.Hud = TFSniperPlayTests.Kit(zoomed: true, charge: 0f);
+            return f.StepHearing(TFSniperPlayTests.Me(at), TFField.Ctf(), [], Soldier(ducked)).Look.Point.Z;
+        }
+
+        for (int n = 0; n < 6; n++)
+            Z(false);
+        float standing = Z(false), first = Z(true), later = 0f;
+        for (int n = 0; n < 12; n++)
+            later = Z(true);
+        Assert.True(MathF.Abs(first - standing) < 2f && standing - later > 15f, $"standing {standing} first ducked {first} a second later {later}");
+    }
+    /// <summary>
+    /// A rifle shot (the reserve falls) whose damage shows the next decide is a hit; one whose damage shows a second later (another
+    /// gun's, a burn) is not.
+    /// </summary>
+    [Fact]
+    public void ARifleHitIsDamageShortlyAfterTheShot()
+    {
+        long Hits(int lateDecides)
+        {
+            TFField f = Field();
+            AiVector at = ToTheSpot(f);
+            var soldier = TFSniperPlayTests.Drawn(Soldier, at + new AiVector(1400f, 0f, 0f), TFClass.Soldier);
+            int reserve = 25;
+            for (int n = 0; n < 24; n++)
+            {
+                if (n == 4)
+                    reserve = 24;
+                AiEvent[] events = n == 4 + lateDecides ? [AiEvent.DealtDamage(f.Bot, new Tick(f.Tick + DecideSchedule.Period), Soldier, 50f, 150)] : [];
+                f.Hud = TFSniperPlayTests.Kit(zoomed: true, charge: 150f);
+                f.StepHearing(TFSniperPlayTests.Me(at) with { Reserve = reserve }, TFField.Ctf(), events, soldier);
+            }
+
+            return Counter(f, "sniper.rifle_hits");
+        }
+
+        Assert.Equal((1L, 0L), (Hits(lateDecides: 1), Hits(lateDecides: 12)));
+    }
+    /// <summary>
+    /// Where a jar thrown along <paramref name="look"/> from <paramref name="eye"/> comes down to <paramref name="floorZ"/>: the
+    /// game's launch (forward at 1,000 u/s and 200 u/s along the view's up, TFProjectileEffects' Lob) under the pull it flies by,
+    /// 0.4 of the world's (a grenade's, TFJar's GravityScale).
+    /// </summary>
+    private static AiVector Lands(AiVector eye, AiVector look, float floorZ)
+    {
+        AiVector forward = (look - eye).Normalised();
+        var worldUp = new AiVector(0f, 0f, 1f);
+        float along = forward.X * worldUp.X + forward.Y * worldUp.Y + forward.Z * worldUp.Z;
+        AiVector up = (worldUp - forward * along).Normalised();
+        AiVector v = forward * 1000f + up * 200f, p = eye;
+        float g = 0.4f * SourceSharp.Ai.TF2.Knowledge.TFKnowledge.Gravity;
+        for (int i = 0; i < 2000 && (v.Z > 0f || p.Z > floorZ); i++)
+        {
+            p += v * 0.005f;
+            v = new AiVector(v.X, v.Y, v.Z - g * 0.005f);
+        }
+
+        return p;
+    }
+
+    /// <summary>
+    /// A Jarate Sniper throws at two Soldiers together 400 u and 800 u off on the flat: the jar, flying as the game flies it, comes down
+    /// inside its 200 u splash of the pair (the r2s4 review: aimed under the world's whole pull, it landed 196 u and 994 u long).
+    /// </summary>
+    [Fact]
+    public void AJarComesDownInsideItsSplash()
+    {
+        float Miss(float distance)
+        {
+            TFField f = new(seed: TFSniperPlayTests.SeedOf(TFSniperClass.Jarate), weapons: TFSniperPlayTests.Weapons);
+            AiVector at = new(1024f, 256f, 0f);
+            ActorFacts a = TFSniperPlayTests.Drawn(Soldier, at + new AiVector(distance, -40f, 0f), TFClass.Soldier);
+            ActorFacts b = TFSniperPlayTests.Drawn(new ActorId(6, 0x4000_0001), at + new AiVector(distance, 40f, 0f), TFClass.Soldier);
+            for (int n = 0; n < 12; n++)
+            {
+                f.Hud = TFSniperPlayTests.Kit(jar: true);
+                int weapon = n == 0 ? TFSniperPlayTests.Rifle : TFSniperPlayTests.JarKind;
+                IntentCommand i = f.StepDrawn(TFSniperPlayTests.Me(at, weapon), TFField.Ctf(), a, b);
+                if (f.Decider.Doing.Verdict == "jarate" && i.Look.Kind == LookKind.Point)
+                {
+                    AiVector eye = at + new AiVector(0f, 0f, SourceSharp.Ai.TF2.Knowledge.TFKnowledge.AimHeight(AimPoint.Head, TFClass.Sniper).Standing);
+                    AiVector down = Lands(eye, i.Look.Point, 0f);
+                    return new AiVector(down.X - (at.X + distance), down.Y - at.Y, 0f).Length;
+                }
+            }
+
+            throw new InvalidOperationException("never threw");
+        }
+
+        float near = Miss(400f), far = Miss(800f);
+        Assert.True(near < 200f && far < 200f, $"lands {near:F0} u off at 400 u, {far:F0} u off at 800 u");
+    }
+
+    /// <summary>The kill counts the round flow's reset reaches depend on nothing: a dependency there closed a cycle through the weapons, and the server did not compose.</summary>
+    [Fact]
+    public void TheKillCountsDependOnNothing()
+        => Assert.All(typeof(TFSniperKillCounts).GetConstructors(), c => Assert.Empty(c.GetParameters()));
+    /// <summary>The kill counts, a level participant, hold a lifecycle stage of their own: at the unspecified 0 they collided with another participant and the server refused to load.</summary>
+    [Fact]
+    public void TheKillCountsHoldAStageOfTheirOwn()
+        => Assert.NotEqual((int)SourceSharp.Abi.LifecycleStage.Unspecified, ((SourceSharp.Abi.IGameLifecycle)new TFSniperKillCounts()).LifecycleOrder);
 }
