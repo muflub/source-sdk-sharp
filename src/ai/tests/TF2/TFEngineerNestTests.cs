@@ -61,8 +61,8 @@ public sealed class TFEngineerNestTests
         => Assert.Equal(new TFEngineerStep(TFEngineerJob.Build, TFEngineerPanel.Dispenser), TFEngineerNest.Next(Sentry(), None, 100, true));
 
     /// <summary>
-    /// Ours (stock upgrades to level 3 first when a metal source is near, :368-383): live, every trip's metal went into the
-    /// upgrade, no dispenser was ever built and no gun passed level 2 (6 runs, 2026-11-24).
+    /// Ours (stock upgrades to level 3 first when a metal source is near, tf_bot_engineer_building.cpp:380-393): the order the
+    /// nest's divergence records (docs/divergences.md).
     /// </summary>
     [Fact]
     public void TheDispenserComesBeforeTheUpgradeOnceHeCanPayForIt()
@@ -113,6 +113,32 @@ public sealed class TFEngineerNestTests
     public void WithEverythingDoneHeKeepsHisWrenchOnTheSentry()
         => Assert.Equal(new TFEngineerStep(TFEngineerJob.Work, TFEngineerPanel.Sentry),
                         TFEngineerNest.Next(Sentry(level: 3, health: 216, max: 216), Dispenser(level: 3, max: 216, health: 216), 200, true));
+
+    /// <summary>Stock's first job (CTFBotEngineerBuild::InitialContainedAction): the entrance on his way out of spawn, before the sentry.</summary>
+    [Fact]
+    public void OnHisLegOutOfSpawnTheEntranceComesFirst()
+        => Assert.Equal(new TFEngineerStep(TFEngineerJob.Build, TFEngineerPanel.Entrance),
+                        TFEngineerNest.Next(None, None, 200, true, teleporters: new TFTeleporterWant(Entrance: true, Exit: false)));
+
+    [Fact]
+    public void TheNestsExitComesAfterTheDispenserBeforeTheUpgrade()
+        => Assert.Equal(new TFEngineerStep(TFEngineerJob.Build, TFEngineerPanel.Exit),
+                        TFEngineerNest.Next(Sentry(), Dispenser(), 200, true, teleporters: new TFTeleporterWant(Entrance: false, Exit: true)));
+
+    [Fact]
+    public void WithNoDispenserYetTheDispenserComesBeforeTheExit()
+        => Assert.Equal(new TFEngineerStep(TFEngineerJob.Build, TFEngineerPanel.Dispenser),
+                        TFEngineerNest.Next(Sentry(), None, 200, true, teleporters: new TFTeleporterWant(Entrance: false, Exit: true)));
+
+    [Fact]
+    public void AnAttackersExitComesBeforeHisGun()
+        => Assert.Equal(new TFEngineerStep(TFEngineerJob.Build, TFEngineerPanel.Exit),
+                        TFEngineerNest.Next(None, None, 200, true, teleporters: new TFTeleporterWant(Entrance: false, Exit: true, ExitFirst: true)));
+
+    [Fact]
+    public void AHurtGunComesBeforeTheExit()
+        => Assert.Equal(new TFEngineerStep(TFEngineerJob.Work, TFEngineerPanel.Sentry),
+                        TFEngineerNest.Next(Sentry(health: 60), Dispenser(), 200, true, teleporters: new TFTeleporterWant(Entrance: false, Exit: true)));
 
     [Fact]
     public void AMiniSentryIsNeverUpgraded()

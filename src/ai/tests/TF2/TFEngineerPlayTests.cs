@@ -10,7 +10,7 @@ namespace SourceSharp.Ai.Tests.TF2;
 /// The Engineer's play (the research's A1 Nest): he walks to a sentry spot by the point he defends, orders the blueprint,
 /// faces it out and clicks it down, gives a refused spot up after stock's five tries, works his nest with the wrench,
 /// fetches metal, takes an out-of-place nest down, and fights only what stock's Engineer fights. On
-/// <see cref="TFField"/>'s CTF strip his point is his own capture zone (<see cref="TFField.RedZone"/>).
+/// <see cref="TFField"/>'s CTF strip his point is his own flag's home (<see cref="TFField.RedFlag"/>).
 /// </summary>
 public sealed class TFEngineerPlayTests
 {
@@ -63,16 +63,33 @@ public sealed class TFEngineerPlayTests
         => TFField.Self(at, health: health, weapon: weapon, clip: 6, playerClass: TFClass.Engineer) with { Metal = metal, Eye = new AiAngles(0f, yaw, 0f) };
 
     private static TFField Field(TFHud hud, ItemSpawn[]? packs = null, string archetype = TFEngineerClass.Nest)
-        => new(weapons: Weapons, packs: packs, seed: SeedOf(archetype)) { Hud = hud };
+    {
+        var f = new TFField(weapons: Weapons, packs: packs, seed: SeedOf(archetype)) { Hud = hud };
+        PinIfUndrawn(f, archetype);
+        return f;
+    }
 
-    /// <summary>The first seed whose draw is <paramref name="archetype"/>: the decider plays the archetype its seed draws (TFDecider.ArchetypeOf).</summary>
+    /// <summary>
+    /// The first seed whose draw is <paramref name="archetype"/>: the decider plays the archetype its seed draws (TFDecider.ArchetypeOf);
+    /// 1 for a pin-only archetype (weight 0), which <see cref="PinIfUndrawn"/> pins as <c>ai_bot_add ... archetype=</c> does.
+    /// </summary>
     private static ulong SeedOf(string archetype)
     {
+        if (TFEngineerClass.Archetypes().Named(archetype) is not { Weight: > 0f })
+            return 1;
         for (ulong seed = 1; ; seed++)
         {
             if (TFEngineerClass.Archetypes().Draw(seed)?.Name == archetype)
                 return seed;
         }
+    }
+
+    /// <summary>A pin-only archetype is the decider's by its pin, set before its first decide (the field makes no pin of its own).</summary>
+    private static void PinIfUndrawn(TFField f, string archetype)
+    {
+        if (TFEngineerClass.Archetypes().Named(archetype) is { Weight: > 0f })
+            return;
+        typeof(TFDecider).GetProperty(nameof(TFDecider.Pin))!.SetValue(f.Decider, new SourceSharp.Ai.TF2.TFBotPin(f.Bot, 1, TFClass.Engineer, archetype));
     }
 
     private static bool IsRow(TFField f, in IntentCommand i, string name)
@@ -94,7 +111,7 @@ public sealed class TFEngineerPlayTests
     {
         var f = Field(Hud());
         AiVector spot = SpotOf(f);
-        float d = MathF.Sqrt((spot.X - TFField.RedZone.X) * (spot.X - TFField.RedZone.X) + (spot.Y - TFField.RedZone.Y) * (spot.Y - TFField.RedZone.Y));
+        float d = MathF.Sqrt((spot.X - TFField.RedFlag.X) * (spot.X - TFField.RedFlag.X) + (spot.Y - TFField.RedFlag.Y) * (spot.Y - TFField.RedFlag.Y));
         // He stands a build distance short of the spot, the blueprint going that far ahead of him.
         Assert.InRange(d, TFEngineerSpots.OffPoint, TFEngineerSpots.SentryRange * TFEngineerSpots.RangeTolerance + 72f);
     }
@@ -114,7 +131,7 @@ public sealed class TFEngineerPlayTests
         var f = Field(Hud());
         AiVector spot = SpotOf(f);
         f.Hud = Hud(placing: (int)TFObjectType.Sentrygun + 1);
-        IntentCommand i = f.Step(Engineer(spot, yaw: YawTo(spot, TFField.RedZone)), TFField.Ctf());
+        IntentCommand i = f.Step(Engineer(spot, yaw: YawTo(spot, TFField.RedFlag)), TFField.Ctf());
         Assert.Equal((ActionKind.Fire, FireStyle.Tap), (i.Action.Kind, i.Action.Style));
     }
 
@@ -124,7 +141,7 @@ public sealed class TFEngineerPlayTests
         var f = Field(Hud());
         AiVector spot = SpotOf(f);
         f.Hud = Hud(placing: (int)TFObjectType.Sentrygun + 1);
-        float yaw = YawTo(spot, TFField.RedZone);
+        float yaw = YawTo(spot, TFField.RedFlag);
         IntentCommand i = f.Step(Engineer(spot, yaw: yaw + 90f), TFField.Ctf());
         Assert.NotEqual(ActionKind.Fire, i.Action.Kind);
         Assert.Equal(LookKind.Point, i.Look.Kind);
@@ -136,7 +153,7 @@ public sealed class TFEngineerPlayTests
     {
         var f = Field(Hud(placing: (int)TFObjectType.Sentrygun + 1));
         AiVector spot = SpotOf(f);
-        float yaw = YawTo(spot, TFField.RedZone);
+        float yaw = YawTo(spot, TFField.RedFlag);
         int clicks = 0;
         bool moved = false;
         for (int n = 0; n < 200 && !moved; n++)
@@ -314,6 +331,81 @@ public sealed class TFEngineerPlayTests
         Assert.NotEqual(ActionKind.SelectWeapon, n.Action.Kind);
     }
 
+    /// <summary>The Battle Engie fights beside his gun what the Nest leaves to it (round 2: "fights beside its sentry").</summary>
+    [Fact]
+    public void TheBattleEngieFightsBesideHisGun()
+    {
+        AiVector sentry = new(700f, 256f, 0f), me = sentry + new AiVector(-64f, 0f, 0f);
+        TFHud hud = Hud(0, Row(TFEngineerPanel.Sentry, sentry, level: 2, health: 180, max: 180));
+        var soldier = new ActorFacts(Enemy, me + new AiVector(600f, 0f, 0f), default, Shotgun, ActorActivity.None, 1f, TFField.Blue, Class: (int)TFClass.Soldier);
+        IntentCommand b = Field(hud, archetype: TFEngineerClass.BattleEngie).StepDrawn(Engineer(me, weapon: Wrench), TFField.Ctf(), soldier);
+        Assert.Equal((ActionKind.SelectWeapon, EngineBotSelf.ByKind + Shotgun), (b.Action.Kind, b.Action.WeaponSlot));
+    }
+
+    /// <summary>The Short Circuit spends his building metal and its zap is 15 a target: never his gun in a fight.</summary>
+    [Fact]
+    public void TheBattleEngieNeverFightsWithTheShortCircuit()
+    {
+        const int Arm = 26;
+        var weapons = new WeaponKnowledge([.. Weapons.All, new WeaponFacts(Arm, TFEngineerClass.MechanicalArm, 0, 0.2f, 0f, false, false, 0f)]);
+        var hud = new TFHud([Kit[0], new(TFLoadoutSlot.Secondary, 528, TFEngineerClass.MechanicalArm, Arm, []), Kit[2]],
+                            [.. Row(TFEngineerPanel.Sentry, new AiVector(700f, 256f, 0f), level: 2, health: 180, max: 180), new TFMeter(TFEngineerPanel.Placing, 0)], []);
+        var f = new TFField(weapons: weapons, seed: SeedOf(TFEngineerClass.BattleEngie)) { Hud = hud };
+        AiVector me = new(636f, 256f, 0f);
+        // A Spy 1,000 u off: fought at any range, and past 900 u the Nest's rule takes the secondary.
+        var spy = new ActorFacts(Enemy, me + new AiVector(1000f, 0f, 0f), default, Shotgun, ActorActivity.None, 1f, TFField.Blue, Class: (int)TFClass.Spy);
+        for (int n = 0; n < 40; n++)
+        {
+            IntentCommand i = f.StepDrawn(Engineer(me, weapon: Wrench), TFField.Ctf(), spy);
+            Assert.False(i.Action is { Kind: ActionKind.SelectWeapon, WeaponSlot: EngineBotSelf.ByKind + Arm }, $"step {n}: the Short Circuit drawn");
+        }
+    }
+
+    [Fact]
+    public void TheBattleEngieBuildsByThePointHisTeamTakes()
+    {
+        var f = Field(Hud(), archetype: TFEngineerClass.BattleEngie);
+        f.Step(Engineer(Far), PointPair(ownOpen: true));
+        Assert.True(f.Decider.Doing.Goal.DistanceTo(TheirPoint) < f.Decider.Doing.Goal.DistanceTo(OwnPoint), $"{f.Decider.Doing.Goal}");
+    }
+
+    /// <summary>The Ninjaneer failed the Ready rule (the enemy's first capture at a median of 75 s against 152 s): no seed draws him, a pin does.</summary>
+    [Fact]
+    public void TheNinjaneerIsPinOnly()
+    {
+        for (ulong seed = 1; seed <= 2000; seed++)
+            Assert.NotEqual(TFEngineerClass.Ninjaneer, TFEngineerClass.Archetypes().Draw(seed)?.Name);
+    }
+
+    private static readonly AiVector MidPoint = new(2200f, 256f, 0f), LastPoint = new(3600f, 256f, 0f);
+
+    /// <summary>Three points: his own, the middle blue holds (red may take it), blue's last (locked).</summary>
+    private static ObjectiveKnowledge ThreePoints() => new([
+        new Objective(1, ObjectiveKind.Capture, TFField.Red, 0, ObjectiveState.Locked, OwnPoint),
+        new Objective(2, ObjectiveKind.Capture, TFField.Blue, 1 << TFField.Red, ObjectiveState.Open, MidPoint),
+        new Objective(3, ObjectiveKind.Capture, TFField.Blue, 0, ObjectiveState.Locked, LastPoint),
+    ]);
+
+    /// <summary>The Ninjaneer's nest is by the enemy's next point behind the one his team takes (the guide: behind their lines).</summary>
+    [Fact]
+    public void TheNinjaneerBuildsByTheEnemysNextPoint()
+    {
+        var f = Field(Hud(), archetype: TFEngineerClass.Ninjaneer);
+        f.Step(Engineer(new AiVector(1200f, 256f, 0f)), ThreePoints());
+        Assert.Equal("to the sentry spot", f.Decider.Doing.Verdict);
+        AiVector goal = f.Decider.Doing.Goal;
+        Assert.True(goal.DistanceTo(LastPoint) < goal.DistanceTo(MidPoint), $"{goal}");
+    }
+
+    [Fact]
+    public void TheBattleEngieBuildsByTheFront()
+    {
+        var f = Field(Hud(), archetype: TFEngineerClass.BattleEngie);
+        f.Step(Engineer(new AiVector(1200f, 256f, 0f)), ThreePoints());
+        AiVector goal = f.Decider.Doing.Goal;
+        Assert.True(goal.DistanceTo(MidPoint) < goal.DistanceTo(LastPoint), $"{goal}");
+    }
+
     /// <summary>The Gunslinger's mini is never upgraded and he builds no dispenser: with metal and his mini whole he has no work at it.</summary>
     [Fact]
     public void TheGunslingerBuildsNoDispenser()
@@ -411,7 +503,7 @@ public sealed class TFEngineerPlayTests
         var nest = Field(Hud(0, Row(TFEngineerPanel.Sentry, sentry, level: 3, health: 120, max: 216)));
         IntentCommand n = nest.Step(Engineer(me, weapon: Shotgun), TFField.Ctf());
         Assert.NotEqual(ActionKind.Fire, n.Action.Kind);
-        Assert.True(nest.Decider.Doing.HasGoal && nest.Decider.Doing.Goal.DistanceTo(sentry) < 80f);
+        Assert.True(nest.Decider.Doing.HasGoal && nest.Decider.Doing.Goal.DistanceTo(sentry) <= TFEngineerSpots.WorkReachUnits + 0.5f);
     }
 
     /// <summary>With his nest whole at level 3 the Rescue Ranger stands back from his gun, away from the point it covers.</summary>
@@ -488,9 +580,11 @@ public sealed class TFEngineerPlayTests
     [Fact]
     public void HeStandsABuildDistanceShortOfHisSpot()
     {
+        // His own point mid-strip (a flag nest's spots hug the strip's edge, where no stand lies behind them).
         var f = Field(Hud());
-        AiVector stand = SpotOf(f);
-        AiVector landing = stand + TFEngineerSpots.Forward(TFEngineerSpots.YawTo(stand, TFField.RedZone)) * 72f;
+        f.Step(Engineer(Far), PointPair(ownOpen: true));
+        AiVector stand = f.Decider.Doing.Goal;
+        AiVector landing = stand + TFEngineerSpots.Forward(TFEngineerSpots.YawTo(stand, OwnPoint)) * 72f;
         float cx = MathF.Floor(landing.X / TFField.CellSize) * TFField.CellSize + TFField.CellSize / 2f;
         float cy = MathF.Floor(landing.Y / TFField.CellSize) * TFField.CellSize + TFField.CellSize / 2f;
         Assert.True(MathF.Abs(landing.X - cx) < 0.5f && MathF.Abs(landing.Y - cy) < 0.5f, $"{stand} lands at {landing}");
@@ -690,7 +784,8 @@ public sealed class TFEngineerPlayTests
     public void ARoundRestartStartsTheSpotsPatienceAgain()
     {
         var room = new TeamZone(TFField.Red, ZoneKind.RespawnRoom, new AiVector(0f, 0f, -16f), new AiVector(192f, 512f, 200f));
-        var f = new TFField(weapons: Weapons, seed: SeedOf(TFEngineerClass.Nest), zones: [room]) { Hud = Hud() };
+        // His entrance stands (a life before): the walk out goes to the sentry spot.
+        var f = new TFField(weapons: Weapons, seed: SeedOf(TFEngineerClass.Nest), zones: [room]) { Hud = Hud(0, Row(TFEngineerPanel.Entrance, new AiVector(400f, 256f, 0f))) };
         AiVector home = new(96f, 256f, 0f);
         f.Step(Engineer(home), TFField.Ctf());
         AiVector spot = f.Decider.Doing.Goal;
@@ -704,6 +799,345 @@ public sealed class TFEngineerPlayTests
             f.Step(Engineer(home), TFField.Ctf());
         Assert.Equal(spot, f.Decider.Doing.Goal);
     }
+
+    // ---- the teleporter (stock's CTFBotEngineerBuildTeleportEntrance and the nest's exit) ----
+
+    private static readonly TeamZone RedRoom = new(TFField.Red, ZoneKind.RespawnRoom, new AiVector(0f, 0f, -16f), new AiVector(192f, 512f, 200f));
+    private static readonly AiVector InTheRoom = new(96f, 256f, 0f);
+
+    private static readonly TeamZone RedCabinet = new(TFField.Red, ZoneKind.Resupply, new AiVector(16f, 16f, 0f), new AiVector(64f, 64f, 96f));
+
+    private static TFField RoomField(TFHud hud) => new(weapons: Weapons, seed: SeedOf(TFEngineerClass.Nest), zones: [RedRoom, RedCabinet]) { Hud = hud };
+
+    /// <summary>Stock's first job each life: out of his spawn room he walks to an entrance spot on his way, before the sentry.</summary>
+    [Fact]
+    public void OutOfHisSpawnRoomHeWalksToAnEntranceSpotOnHisWay()
+    {
+        var f = RoomField(Hud());
+        f.Step(Engineer(InTheRoom), PointPair(ownOpen: false));
+        Assert.Equal(TFDecider.ClassBranch, f.Branch);
+        Assert.Equal("to the entrance spot", f.Decider.Doing.Verdict);
+        AiVector goal = f.Decider.Doing.Goal;
+        Assert.False(RedRoom.Contains(goal + new AiVector(0f, 0f, 16f)), $"{goal}");
+        Assert.InRange(goal.DistanceTo(InTheRoom), 64f, TFEngineerSpots.EntranceWalkUnits);
+        Assert.True(goal.X > InTheRoom.X && goal.X < TheirPoint.X, $"{goal}: not on his way to the point");
+    }
+
+    [Fact]
+    public void AtTheEntranceStandHeOrdersTheEntrancesBlueprint()
+    {
+        var f = RoomField(Hud());
+        f.Step(Engineer(InTheRoom), PointPair(ownOpen: false));
+        AiVector stand = f.Decider.Doing.Goal;
+        IntentCommand i = f.Step(Engineer(stand), PointPair(ownOpen: false));
+        Assert.True(IsRow(f, i, "build_teleporter_entrance"), $"{i.Action}");
+    }
+
+    /// <summary>A life that starts out of his spawn room (no leg out of it) builds no entrance: stock's leg is the walk from spawn.</summary>
+    [Fact]
+    public void ALifeOutOfHisSpawnRoomBuildsNoEntrance()
+    {
+        var f = RoomField(Hud());
+        f.Step(Engineer(new AiVector(1200f, 256f, 0f)), PointPair(ownOpen: false));
+        Assert.NotEqual("to the entrance spot", f.Decider.Doing.Verdict);
+    }
+
+    /// <summary>Stock: "go back to our resupply cabinet after planting the teleporter entrance" (IsAmmoFull).</summary>
+    [Fact]
+    public void WithHisEntranceDownOnTheLegHeRefillsBeforeTheSentry()
+    {
+        var f = RoomField(Hud());
+        f.Step(Engineer(InTheRoom), PointPair(ownOpen: false));
+        f.Hud = Hud(0, Row(TFEngineerPanel.Entrance, new AiVector(400f, 256f, 0f), building: true));
+        f.Step(Engineer(new AiVector(330f, 256f, 0f), metal: 150), PointPair(ownOpen: false));
+        Assert.Equal("fetching metal", f.Decider.Doing.Verdict);
+    }
+
+    /// <summary>
+    /// Ours (stock never moves its entrance): a life that starts in his spawn room 3,000 u or more from his entrance finds it
+    /// stale (on cp_granary red respawns by the middle once it holds it, and no teammate passed the base's entrance); he
+    /// destroys it, and builds a new one on this leg.
+    /// </summary>
+    [Fact]
+    public void AStaleEntranceIsDestroyedForANewOneOnThisLeg()
+    {
+        AiVector far = new(3500f, 256f, 0f);
+        var f = RoomField(Hud(0, Row(TFEngineerPanel.Entrance, far)));
+        f.Step(Engineer(new AiVector(2400f, 256f, 0f)), PointPair(ownOpen: false));
+        // The round's restart (or a respawn) puts him in his room: a jump with no death.
+        IntentCommand i = f.Step(Engineer(InTheRoom), PointPair(ownOpen: false));
+        Assert.True(IsRow(f, i, "destroy_teleporter_entrance"), $"{i.Action}");
+        f.Hud = Hud();
+        f.Step(Engineer(InTheRoom), PointPair(ownOpen: false));
+        Assert.Equal("to the entrance spot", f.Decider.Doing.Verdict);
+    }
+
+    [Fact]
+    public void AnEntranceByHisSpawnIsKept()
+    {
+        var f = RoomField(Hud(0, Row(TFEngineerPanel.Entrance, new AiVector(600f, 256f, 0f))));
+        f.Step(Engineer(new AiVector(2400f, 256f, 0f)), PointPair(ownOpen: false));
+        for (int n = 0; n < 20; n++)
+        {
+            IntentCommand i = f.Step(Engineer(InTheRoom), PointPair(ownOpen: false));
+            Assert.False(IsRow(f, i, "destroy_teleporter_entrance"), $"step {n}: {i.Action}");
+        }
+    }
+
+    /// <summary>
+    /// Live on cp_granary's mid ledge he jumped 50 u short of his dispenser stand for 52 s: held up close for the patience, he
+    /// takes his place as the stand and orders the blueprint.
+    /// </summary>
+    [Fact]
+    public void HeldUpCloseToHisStandHeBuildsFromWhereHeStands()
+    {
+        AiVector sentry = new(700f, 256f, 0f), held = sentry + new AiVector(0f, 64f + 50f, 0f);
+        var f = Field(Hud(0, Row(TFEngineerPanel.Sentry, sentry, level: 3, health: 216, max: 216)));
+        float step = DecideSchedule.Period * 0.015f;
+        bool ordered = false;
+        for (int n = 0; n < (int)(9f / step) && !ordered; n++)
+            ordered = IsRow(f, f.Step(Engineer(held, metal: 200), TFField.Ctf()), "build_dispenser");
+        Assert.True(ordered, "never ordered the dispenser 50 u short of its stand");
+    }
+
+    /// <summary>
+    /// The review's 4a: a work stand taken as reached out of the wrench's reach is a stall (he stops, never swings). Held up within
+    /// 96 u of his work stand but 140 u from the gun, he keeps walking to it past the patience.
+    /// </summary>
+    [Fact]
+    public void HeldUpBeyondTheWrenchsReachHeKeepsWalkingToHisWorkStand()
+    {
+        AiVector sentry = new(700f, 256f, 0f), held = sentry + new AiVector(140f, 0f, 0f);
+        var f = Field(Hud(0, Row(TFEngineerPanel.Sentry, sentry, health: 60)));
+        float step = DecideSchedule.Period * 0.015f;
+        for (int n = 0; n < (int)(9f / step); n++)
+        {
+            f.Step(Engineer(held, weapon: Wrench), TFField.Ctf());
+            Assert.True(f.Decider.Doing.HasGoal, $"step {n}: stopped {held.DistanceTo(sentry)} u from the gun");
+        }
+    }
+
+    /// <summary>
+    /// The review's 4b: the patience runs from when he first comes close, not from when the stand was chosen. After a long walk
+    /// he arrives 80 u from his build stand: he walks on, he does not build from there.
+    /// </summary>
+    [Fact]
+    public void AfterALongWalkHeStillWalksTheLastStretchToHisStand()
+    {
+        var f = Field(Hud());
+        AiVector stand = SpotOf(f);
+        float step = DecideSchedule.Period * 0.015f;
+        for (int n = 0; n < (int)(8f / step); n++)
+            f.Step(Engineer(Far), TFField.Ctf());
+        AiVector close = stand + (Far - stand).Normalised() * 80f;
+        IntentCommand i = f.Step(Engineer(close), TFField.Ctf());
+        Assert.False(IsRow(f, i, "build_sentry"), $"{i.Action}");
+        Assert.True(f.Decider.Doing.HasGoal);
+        Assert.True(f.Decider.Doing.Goal.DistanceTo(stand) < 1f, $"{f.Decider.Doing.Goal} against {stand}");
+    }
+
+    [Fact]
+    public void BeforeItsPatienceHeWalksOnToHisStand()
+    {
+        AiVector sentry = new(700f, 256f, 0f), held = sentry + new AiVector(0f, 64f + 50f, 0f);
+        var f = Field(Hud(0, Row(TFEngineerPanel.Sentry, sentry, level: 3, health: 216, max: 216)));
+        float step = DecideSchedule.Period * 0.015f;
+        for (int n = 0; n < (int)(4f / step); n++)
+        {
+            IntentCommand i = f.Step(Engineer(held, metal: 200), TFField.Ctf());
+            Assert.False(IsRow(f, i, "build_dispenser"), $"step {n}: ordered before the patience");
+            Assert.True(f.Decider.Doing.HasGoal, $"step {n}");
+        }
+    }
+
+    private const int ArmKindId = 26;
+
+    private static TFField OrbField(bool dispenser = false)
+    {
+        var weapons = new WeaponKnowledge([.. Weapons.All, new WeaponFacts(ArmKindId, TFEngineerClass.MechanicalArm, 0, 0.67f, 0f, false, false, 0f)]);
+        var hud = new TFHud([Kit[0], new(TFLoadoutSlot.Secondary, 528, TFEngineerClass.MechanicalArm, ArmKindId, []), Kit[2]],
+                            [.. Row(TFEngineerPanel.Sentry, new AiVector(700f, 256f, 0f), level: 2, health: 180, max: 180),
+                             .. dispenser ? Row(TFEngineerPanel.Dispenser, new AiVector(628f, 330f, 0f)) : [], new TFMeter(TFEngineerPanel.Placing, 0)], []);
+        return new TFField(weapons: weapons, seed: SeedOf(TFEngineerClass.BattleEngie)) { Hud = hud };
+    }
+
+    private static ThingFacts Rocket(AiVector at, AiVector velocity)
+        => new(40, ThingKind.Projectile, (int)TFThingType.Rocket, at, velocity, TFField.Blue, OwnerSlot: 5);
+
+    private static readonly AiVector OrbMe = new(636f, 256f, 0f);
+
+    /// <summary>The Short Circuit's orb eats the enemy's projectiles it passes: a rocket closing on him, the arm comes out.</summary>
+    [Fact]
+    public void ARocketClosingOnTheBattleEngieBringsOutTheShortCircuit()
+    {
+        IntentCommand i = OrbField().StepSeeing(Engineer(OrbMe, weapon: Wrench, metal: 200), TFField.Ctf(),
+                                               [Rocket(OrbMe + new AiVector(500f, 0f, 0f), new AiVector(-1100f, 0f, 0f))]);
+        Assert.Equal((ActionKind.SelectWeapon, EngineBotSelf.ByKind + ArmKindId), (i.Action.Kind, i.Action.WeaponSlot));
+    }
+
+    [Fact]
+    public void WithTheShortCircuitOutHeFiresTheOrbAtTheRocket()
+    {
+        AiVector rocket = OrbMe + new AiVector(500f, 0f, 0f);
+        IntentCommand i = OrbField().StepSeeing(Engineer(OrbMe, weapon: ArmKindId, metal: 200), TFField.Ctf(), [Rocket(rocket, new AiVector(-1100f, 0f, 0f))]);
+        Assert.Equal(ActionKind.AltFire, i.Action.Kind);
+        Assert.Equal(LookKind.Point, i.Look.Kind);
+        Assert.True(i.Look.Point.DistanceTo(rocket) < 200f, $"{i.Look.Point}");
+    }
+
+    [Fact]
+    public void ARocketGoingAwayIsNoMark()
+    {
+        IntentCommand i = OrbField().StepSeeing(Engineer(OrbMe, weapon: Wrench, metal: 200), TFField.Ctf(),
+                                               [Rocket(OrbMe + new AiVector(-300f, 0f, 0f), new AiVector(-1100f, 0f, 0f))]);
+        Assert.NotEqual((ActionKind.SelectWeapon, EngineBotSelf.ByKind + ArmKindId), (i.Action.Kind, i.Action.WeaponSlot));
+    }
+
+    /// <summary>A rocket closing while he swings at his gun: the swing gives way to the arm (the wrench's fire left the hands no turn).</summary>
+    [Fact]
+    public void ARocketClosingWhileHeWorksHisGunBringsOutTheShortCircuit()
+    {
+        // His dispenser stands, so the job is the gun's upgrade: the wrench swings at it.
+        IntentCommand i = OrbField(dispenser: true).StepSeeing(Engineer(OrbMe, weapon: Wrench, metal: 100), TFField.Ctf(),
+                                                              [Rocket(OrbMe + new AiVector(500f, 0f, 0f), new AiVector(-1100f, 0f, 0f))]);
+        Assert.Equal((ActionKind.SelectWeapon, EngineBotSelf.ByKind + ArmKindId), (i.Action.Kind, i.Action.WeaponSlot));
+    }
+
+    /// <summary>The orb costs 65 metal (tf_mecharm_orb_cost): short of it, no orb.</summary>
+    [Fact]
+    public void ShortOfTheOrbsMetalHeLeavesTheArmAway()
+    {
+        IntentCommand i = OrbField().StepSeeing(Engineer(OrbMe, weapon: Wrench, metal: 40), TFField.Ctf(),
+                                               [Rocket(OrbMe + new AiVector(500f, 0f, 0f), new AiVector(-1100f, 0f, 0f))]);
+        Assert.NotEqual((ActionKind.SelectWeapon, EngineBotSelf.ByKind + ArmKindId), (i.Action.Kind, i.Action.WeaponSlot));
+    }
+
+    private static readonly AiVector NestGun = new(2600f, 256f, 0f);
+
+    private static TFHud NestHud(bool dispenser = true, bool exit = false)
+        => Hud(0, [.. Row(TFEngineerPanel.Sentry, NestGun, level: 3, health: 216, max: 216), .. Row(TFEngineerPanel.Entrance, new AiVector(400f, 256f, 0f)),
+                   .. dispenser ? Row(TFEngineerPanel.Dispenser, NestGun + new AiVector(-72f, 64f, 0f), level: 3, health: 216, max: 216) : [],
+                   .. exit ? Row(TFEngineerPanel.Exit, NestGun + new AiVector(-160f, 0f, 0f)) : []]);
+
+    /// <summary>The nest's exit after the dispenser (stock, tf_bot_engineer_building.cpp:425-465): behind the gun from the point.</summary>
+    [Fact]
+    public void WithHisEntranceUpHeBuildsTheExitBehindHisGun()
+    {
+        var f = Field(NestHud());
+        f.Step(Engineer(NestGun + new AiVector(-64f, -64f, 0f), metal: 200), PointPair(ownOpen: false));
+        Assert.Equal("to the exit spot", f.Decider.Doing.Verdict);
+        AiVector goal = f.Decider.Doing.Goal;
+        Assert.True(goal.DistanceTo(NestGun) < 400f, $"{goal}");
+        Assert.True(goal.X < NestGun.X, $"{goal}: not behind the gun from the point at {TheirPoint}");
+    }
+
+    /// <summary>
+    /// The review's fix 5: a pad stand he never reaches (here he is held 700 u off) is given up after the sentry spot's patience,
+    /// as five refused clicks give it up, and the exit waits stock's 30 s retry.
+    /// </summary>
+    [Fact]
+    public void AnExitStandNeverReachedIsGivenUpAfterItsPatience()
+    {
+        AiVector held = NestGun + new AiVector(-700f, 0f, 0f);
+        var f = Field(NestHud());
+        float step = DecideSchedule.Period * 0.015f;
+        f.Step(Engineer(held, metal: 200), PointPair(ownOpen: false));
+        Assert.Equal("to the exit spot", f.Decider.Doing.Verdict);
+        bool gaveUp = false;
+        for (int n = 0; n < (int)(45f / step) && !gaveUp; n++)
+        {
+            f.Step(Engineer(held, metal: 200), PointPair(ownOpen: false));
+            gaveUp = f.Decider.Doing.Verdict != "to the exit spot";
+        }
+
+        Assert.True(gaveUp, "still walking at the exit's stand after 45 s");
+    }
+
+    [Fact]
+    public void WithNoEntranceHeBuildsNoExit()
+    {
+        AiVector at = NestGun + new AiVector(-64f, -64f, 0f);
+        var f = Field(Hud(0, [.. Row(TFEngineerPanel.Sentry, NestGun, level: 3, health: 216, max: 216),
+                              .. Row(TFEngineerPanel.Dispenser, NestGun + new AiVector(-72f, 64f, 0f), level: 3, health: 216, max: 216)]));
+        f.Step(Engineer(at, metal: 200), PointPair(ownOpen: false));
+        Assert.NotEqual("to the exit spot", f.Decider.Doing.Verdict);
+    }
+
+    /// <summary>Stock's exit retry (30 s): a lost exit is not built again sooner.</summary>
+    [Fact]
+    public void ALostExitIsNotBuiltAgainForStocksRetry()
+    {
+        AiVector at = NestGun + new AiVector(-64f, -64f, 0f);
+        var f = Field(NestHud(exit: true));
+        f.Step(Engineer(at, metal: 200), PointPair(ownOpen: false));
+        f.Hud = NestHud();
+        float step = DecideSchedule.Period * 0.015f;
+        for (int n = 0; n < (int)(20f / step); n++)
+        {
+            f.Step(Engineer(at, metal: 200), PointPair(ownOpen: false));
+            Assert.NotEqual("to the exit spot", f.Decider.Doing.Verdict);
+        }
+
+        for (int n = 0; n < (int)(12f / step); n++)
+            f.Step(Engineer(at, metal: 200), PointPair(ownOpen: false));
+        Assert.Equal("to the exit spot", f.Decider.Doing.Verdict);
+    }
+
+    [Fact]
+    public void HurtHeBuildsNoExit()
+    {
+        AiVector at = NestGun + new AiVector(-64f, -64f, 0f);
+        var f = Field(NestHud());
+        f.Step(Engineer(at, metal: 200), PointPair(ownOpen: false));
+        f.Step(Engineer(at, metal: 200, health: 90), PointPair(ownOpen: false));
+        Assert.NotEqual("to the exit spot", f.Decider.Doing.Verdict);
+    }
+
+    private static readonly AiVector FarZone = new(2000f, 256f, 0f);
+
+    /// <summary>A flag map whose red capture zone lies far from red's flag (ctf_2fort's are one room): his flag's state as given.</summary>
+    private static ObjectiveKnowledge FlagApart(ObjectiveState red = ObjectiveState.Home, AiVector? redAt = null) => new([
+        new Objective(TFField.RedFlagId, ObjectiveKind.Carry, TFField.Red, 1 << TFField.Blue, red, redAt ?? TFField.RedFlag),
+        new Objective(TFField.BlueFlagId, ObjectiveKind.Carry, TFField.Blue, 1 << TFField.Red, ObjectiveState.Home, TFField.BlueFlag),
+        new Objective(TFField.RedZoneId, ObjectiveKind.Deliver, TFField.Red, (1 << TFField.Red) | (1 << TFField.Blue), ObjectiveState.Open, FarZone),
+        new Objective(TFField.BlueZoneId, ObjectiveKind.Deliver, TFField.Blue, (1 << TFField.Red) | (1 << TFField.Blue), ObjectiveState.Open, TFField.BlueZone),
+    ]);
+
+    /// <summary>
+    /// The Nest on a flag map defends his flag where it lies at home (stock builds by the capture zone, with Valve's note that it
+    /// should be the flag): live on ctf_2fort a gun by the capture zone killed nobody in nine runs while the enemy took the flag.
+    /// </summary>
+    [Fact]
+    public void OnAFlagMapTheNestBuildsByHisFlagNotHisCaptureZone()
+    {
+        var f = Field(Hud());
+        f.Step(Engineer(Far), FlagApart());
+        AiVector goal = f.Decider.Doing.Goal;
+        Assert.True(Flat(goal, TFField.RedFlag) <= EngineerFlagReach + 80f, $"{goal}");
+    }
+
+    /// <summary>His flag carried off when he comes back into the world elsewhere (the spots worked out again): still its home.</summary>
+    [Fact]
+    public void WithHisFlagCarriedOffTheNestStillDefendsItsHome()
+    {
+        var f = Field(Hud());
+        AiVector carried = new(1800f, 256f, 0f);
+        float step = DecideSchedule.Period * 0.015f;
+        f.Step(Engineer(Far), FlagApart());
+        // Past the points' 2 s look, so the carried flag is read.
+        for (int n = 0; n < (int)(3f / step); n++)
+            f.Step(Engineer(Far), FlagApart(ObjectiveState.Carried, carried));
+        f.Step(Engineer(Far) with { Flags = SelfFlags.None }, FlagApart(ObjectiveState.Carried, carried));
+        for (int n = 0; n < (int)(3f / step); n++)
+            f.Step(Engineer(new AiVector(600f, 256f, 0f)), FlagApart(ObjectiveState.Carried, carried));
+        AiVector goal = f.Decider.Doing.Goal;
+        Assert.True(Flat(goal, TFField.RedFlag) <= EngineerFlagReach + 80f, $"{goal}");
+    }
+
+    /// <summary>The flag nest's reach (EngineerPlay's FlagNestReach).</summary>
+    private const float EngineerFlagReach = 700f;
+
+    private static float Flat(AiVector a, AiVector b) => MathF.Sqrt((a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y));
 
     /// <summary>On a control-point field he builds by his own point the enemy may take, not the enemy's he may take (stock's GetMyControlPoint for an Engineer).</summary>
     [Fact]

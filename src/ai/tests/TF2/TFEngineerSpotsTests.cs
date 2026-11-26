@@ -194,6 +194,223 @@ public sealed class TFEngineerSpotsTests
         Assert.Contains(spots, s => s.At.X > 1536f);
     }
 
+    private static readonly TeamZone Room = new(TFField.Red, ZoneKind.RespawnRoom, new AiVector(0f, 0f, -16f), new AiVector(192f, 512f, 200f));
+
+    /// <summary>Stock's entrance "as soon as we can" on the way out: past the respawn room's door, not in the doorway.</summary>
+    [Fact]
+    public void TheEntranceSpotIsPastTheRespawnRoomsDoorOnHisWay()
+    {
+        TFSentrySpot? spot = TFEngineerSpots.EntranceSpot(TFField.Floor(), new AiVector(96f, 256f, 0f), Point, TFField.Red, [Room]);
+        Assert.NotNull(spot);
+        Assert.InRange(spot.Value.At.X, Room.Maxs.X + TFEngineerSpots.PastDoorUnits - 64f, Room.Maxs.X + 400f);
+        Assert.InRange(MathF.Abs(spot.Value.Yaw), 0f, 46f);
+    }
+
+    /// <summary>
+    /// A room (x 0-192) behind a wall (x 192-256) with two doors, south (y 0-64) and north (y 960-1024), onto open floor to x 1536.
+    /// </summary>
+    private static NavGraph TwoDoors()
+    {
+        const int Rows = 16;
+        var b = new NavGraphBuilder();
+        var ids = new CellId?[24, Rows];
+        for (int x = 0; x < 24; x++)
+        {
+            for (int y = 0; y < Rows; y++)
+            {
+                if (x == 3 && y != 0 && y != Rows - 1)
+                    continue;
+                ids[x, y] = b.AddCell(new NavCell(x * 64f, y * 64f, (x + 1) * 64f, (y + 1) * 64f, 0f, ClearanceClasses.Stand, NavCellFlags.None, 1f));
+            }
+        }
+
+        for (int x = 0; x < 24; x++)
+        {
+            for (int y = 0; y < Rows; y++)
+            {
+                if (ids[x, y] is not { } c)
+                    continue;
+                if (x + 1 < 24 && ids[x + 1, y] is { } e)
+                    b.AddBoth(c, e, NavEdgeType.Walk);
+                if (y + 1 < Rows && ids[x, y + 1] is { } n)
+                    b.AddBoth(c, n, NavEdgeType.Walk);
+            }
+        }
+
+        return b.Build();
+    }
+
+    /// <summary>
+    /// Live on cp_granary his walk left his spawn by one door and his team's by another, and none of them saw his entrance: it
+    /// goes where most of the team's walks cross. Alone, his walk out of the north door puts it in the north half; with three
+    /// spawns by the south door, on their way in the south half.
+    /// </summary>
+    [Fact]
+    public void TheEntranceIsWhereMostOfTheTeamsWalksCross()
+    {
+        NavGraph g = TwoDoors();
+        var room = new TeamZone(TFField.Red, ZoneKind.RespawnRoom, new AiVector(0f, 0f, -16f), new AiVector(191f, 1024f, 200f));
+        AiVector toward = new(1400f, 512f, 0f), own = new(96f, 992f, 0f);
+        AiVector[] homes = [own, new(96f, 32f, 0f), new(160f, 32f, 0f), new(32f, 32f, 0f)];
+        TFSentrySpot? alone = TFEngineerSpots.EntranceSpot(g, own, toward, TFField.Red, [room]);
+        TFSentrySpot? team = TFEngineerSpots.EntranceSpot(g, homes, toward, TFField.Red, [room]);
+        Assert.NotNull(alone);
+        Assert.NotNull(team);
+        Assert.True(alone.Value.At.Y > 512f && team.Value.At.Y < 512f, $"alone {alone.Value.At}, with the team {team.Value.At}");
+    }
+
+    /// <summary>Stock's tf_bot_max_teleport_entrance_travel (1,500 u): a respawn room that holds the first 1,500 u of the walk leaves no entrance.</summary>
+    [Fact]
+    public void NoEntranceSpotLiesPastStocksWalkFromSpawn()
+    {
+        var deep = new TeamZone(TFField.Red, ZoneKind.RespawnRoom, new AiVector(0f, 0f, -16f), new AiVector(1600f, 512f, 200f));
+        Assert.Null(TFEngineerSpots.EntranceSpot(TFField.Floor(), new AiVector(96f, 256f, 0f), Point, TFField.Red, [deep]));
+    }
+
+    [Fact]
+    public void TheNestsExitSpotIsBehindTheGunAndClearOfTheNest()
+    {
+        // The dispenser stands where the first place behind the gun would be.
+        AiVector gun = new(1600f, 256f, 0f), dispenser = new(1440f, 256f, 0f);
+        TFSentrySpot? exit = TFEngineerSpots.NestExitSpot(TFField.Floor(), gun, 0f, [gun, dispenser], TFField.Red, []);
+        Assert.NotNull(exit);
+        Assert.True(exit.Value.At.X < gun.X, $"{exit.Value.At}: the gun faces +x, so behind it is -x");
+        Assert.True(BoxGap(exit.Value.At, gun) >= 16f && BoxGap(exit.Value.At, dispenser) >= 16f, $"{exit.Value.At}");
+    }
+
+    /// <summary>The strip, and a spur one cell wide north of it at x 1536-1600 (y 512-1024), joined to it, at the floor's height.</summary>
+    private static NavGraph StripWithSpur(float spurZ = 0f)
+    {
+        var b = new NavGraphBuilder();
+        var ids = new CellId[TFField.Length, TFField.Width];
+        for (int x = 0; x < TFField.Length; x++)
+            for (int y = 0; y < TFField.Width; y++)
+                ids[x, y] = b.AddCell(new NavCell(x * 64f, y * 64f, (x + 1) * 64f, (y + 1) * 64f, 0f, ClearanceClasses.Stand, NavCellFlags.None, 1f));
+        for (int x = 0; x < TFField.Length; x++)
+        {
+            for (int y = 0; y < TFField.Width; y++)
+            {
+                if (x + 1 < TFField.Length)
+                    b.AddBoth(ids[x, y], ids[x + 1, y], NavEdgeType.Walk);
+                if (y + 1 < TFField.Width)
+                    b.AddBoth(ids[x, y], ids[x, y + 1], NavEdgeType.Walk);
+            }
+        }
+
+        CellId last = ids[24, TFField.Width - 1];
+        for (int y = 8; y < 16; y++)
+        {
+            CellId c = b.AddCell(new NavCell(1536f, y * 64f, 1600f, (y + 1) * 64f, spurZ, ClearanceClasses.Stand, NavCellFlags.None, 1f));
+            b.AddBoth(last, c, NavEdgeType.Walk);
+            last = c;
+        }
+
+        return b.Build();
+    }
+
+    [Fact]
+    public void TheDispenserStandTakesTheSideWithFloor()
+    {
+        // A gun on the strip's south row, facing +x: its -y side is off the floor.
+        AiVector gun = new(1600f, 32f, 0f);
+        AiVector? at = TFEngineerSpots.DispenserStand(TFField.Floor(), gun, 0f, -1f, 64f, 72f);
+        Assert.NotNull(at);
+        Assert.True(at.Value.Y > gun.Y, $"{at}");
+    }
+
+    /// <summary>Live on cp_granary's mid ledge the dispenser's stand lay over the drop, and he walked the floor below it for 66 s.</summary>
+    [Fact]
+    public void OnALedgeWithNoFloorBesideTheGunThereIsNoDispenserStand()
+    {
+        NavGraph g = StripWithSpur(spurZ: 256f);
+        Assert.Null(TFEngineerSpots.DispenserStand(g, new AiVector(1568f, 800f, 256f), 90f, 1f, 64f, 72f));
+    }
+
+    /// <summary>Live on ctf_2fort an exit's stand lay off its floor and he walked at it for 56 s: a pad he cannot stand behind is no spot.</summary>
+    [Fact]
+    public void NoNestExitSpotWhereHeCannotStandToPutItDown()
+    {
+        // A gun by the strip's west end, facing east: every place behind it leaves his stand off the floor.
+        AiVector gun = new(200f, 256f, 0f);
+        Assert.Null(TFEngineerSpots.NestExitSpot(TFField.Floor(), gun, 0f, [gun], TFField.Red, []));
+    }
+
+    private static readonly AiVector FarPoint = new(6000f, 256f, 0f), FarEnemy = new(10000f, 256f, 0f), NearEntrance = new(400f, 256f, 0f);
+
+    /// <summary>Stock's offensive exit: on his side of the point, near it, at least 3,000 u of walk past his entrance.</summary>
+    [Fact]
+    public void TheFrontExitIsOnHisSideNearThePointFarFromTheEntrance()
+    {
+        NavGraph g = TFField.Floor(160);
+        TFSentrySpot? exit = TFEngineerSpots.FrontExitSpot(g, null, FarPoint, TFField.Red, [], OwnSpawn, FarEnemy, NearEntrance);
+        Assert.NotNull(exit);
+        float flat = Flat(exit.Value.At, FarPoint);
+        Assert.InRange(flat, TFEngineerSpots.FrontExitNear, TFEngineerSpots.FrontExitFar);
+        Assert.True(exit.Value.At.X < FarPoint.X, $"{exit.Value.At}: not on his side");
+        Assert.True(exit.Value.At.X - NearEntrance.X >= TFEngineerSpots.MinTeleportTravel - 64f, $"{exit.Value.At}");
+    }
+
+    /// <summary>
+    /// The review's fix 5: a nav island with no walk to it (here unseen, the rest in the open) is no front exit: he would walk at
+    /// it for his life and build no gun.
+    /// </summary>
+    [Fact]
+    public void ANavIslandIsNoFrontExit()
+    {
+        var b = new NavGraphBuilder();
+        var ids = new CellId[160, TFField.Width];
+        for (int x = 0; x < 160; x++)
+            for (int y = 0; y < TFField.Width; y++)
+                ids[x, y] = b.AddCell(new NavCell(x * 64f, y * 64f, (x + 1) * 64f, (y + 1) * 64f, 0f, ClearanceClasses.Stand, NavCellFlags.None, 1f));
+        for (int x = 0; x < 160; x++)
+        {
+            for (int y = 0; y < TFField.Width; y++)
+            {
+                if (x + 1 < 160)
+                    b.AddBoth(ids[x, y], ids[x + 1, y], NavEdgeType.Walk);
+                if (y + 1 < TFField.Width)
+                    b.AddBoth(ids[x, y], ids[x, y + 1], NavEdgeType.Walk);
+            }
+        }
+
+        // The island: 3 by 3 cells north of the strip by the point, joined to nothing.
+        var island = new CellId[3, 3];
+        for (int x = 0; x < 3; x++)
+            for (int y = 0; y < 3; y++)
+                island[x, y] = b.AddCell(new NavCell(4096f + x * 64f, 640f + y * 64f, 4160f + x * 64f, 704f + y * 64f, 0f, ClearanceClasses.Stand, NavCellFlags.None, 1f));
+        for (int x = 0; x < 3; x++)
+        {
+            for (int y = 0; y < 3; y++)
+            {
+                if (x + 1 < 3)
+                    b.AddBoth(island[x, y], island[x + 1, y], NavEdgeType.Walk);
+                if (y + 1 < 3)
+                    b.AddBoth(island[x, y], island[x, y + 1], NavEdgeType.Walk);
+            }
+        }
+
+        NavGraph g = b.Build();
+        TFSentrySpot? exit = TFEngineerSpots.FrontExitSpot(g, new Sees((_, _) => true, c => g.Cell(c).MinY >= 640f ? 0f : 1f), FarPoint, TFField.Red, [],
+                                                           OwnSpawn, FarEnemy, NearEntrance);
+        Assert.NotNull(exit);
+        Assert.True(exit.Value.At.Y < 512f, $"{exit.Value.At}: the island");
+    }
+
+    [Fact]
+    public void NoFrontExitLiesWithinStocksTravelOfTheEntrance()
+        => Assert.Null(TFEngineerSpots.FrontExitSpot(TFField.Floor(160), null, FarPoint, TFField.Red, [], OwnSpawn, FarEnemy, new AiVector(4000f, 256f, 0f)));
+
+    [Fact]
+    public void TheFrontExitIsTheLeastSeenPlace()
+    {
+        NavGraph g = TFField.Floor(160);
+        // Everything is in the open but the strip's north row.
+        TFSentrySpot? exit = TFEngineerSpots.FrontExitSpot(g, new Sees((_, _) => true, c => g.Cell(c).MinY >= 384f ? 0f : 1f), FarPoint, TFField.Red, [],
+                                                           OwnSpawn, FarEnemy, NearEntrance);
+        Assert.NotNull(exit);
+        Assert.True(exit.Value.At.Y >= 384f, $"{exit.Value.At}");
+    }
+
     /// <summary>The axis-aligned gap between a body's box (24 u) and a building's (20 u) at those middles: under 0 they overlap.</summary>
     private static float BoxGap(AiVector body, AiVector building)
         => MathF.Max(MathF.Abs(body.X - building.X), MathF.Abs(body.Y - building.Y)) - (24f + 20f);

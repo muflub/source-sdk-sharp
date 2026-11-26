@@ -27,19 +27,27 @@ public enum TFEngineerJob : byte
 public readonly record struct TFEngineerStep(TFEngineerJob Job, int Kind);
 
 /// <summary>
+/// The teleporter ends the play may want this decide (<see cref="TFEngineerNest.Next"/>): the entrance (none stands, and he is
+/// on his way out of his spawn this life: stock's CTFBotEngineerBuildTeleportEntrance), the exit (none stands, his entrance
+/// does, stock's 30 s retry is done and nothing hurts him), and whether the exit comes before the sentry (an attacking
+/// Engineer's forward teleporter).
+/// </summary>
+public readonly record struct TFTeleporterWant(bool Entrance, bool Exit, bool ExitFirst = false);
+
+/// <summary>
 /// The Engineer's nest, stock's order (<c>CTFBotEngineerBuilding::Update</c> and <c>UpgradeAndMaintainBuildings</c>,
 /// tf_bot_engineer_building.cpp:154-171, 269-465), on what his panel shows: the sentry first; then whatever is sapped,
 /// the sentry hurt or under construction, the dispenser under construction; the dispenser once the sentry stands and nothing
 /// hurts him (stock retries it every <see cref="DispenserRetrySeconds"/>, never under attack), before the upgrade (ours:
-/// stock upgrades first when a metal source is near); the sentry to level 3; then the dispenser hurt, the dispenser up to the
-/// sentry's level. A job that costs metal he has not got, with
-/// no dispenser of his to stand by, is a trip for metal (stock's <c>CTFBotGetAmmo</c> on a dry wrench).
+/// stock upgrades first when a metal source is near, tf_bot_engineer_building.cpp:380-393); the sentry to level 3; then the
+/// dispenser hurt, the dispenser up to the sentry's level. A job that costs metal he has not got, with no dispenser of his to
+/// stand by, is a trip for metal (stock's <c>CTFBotGetAmmo</c> on a dry wrench).
 /// Pure: the play hands it the panel's rows and the bot's metal.
 /// </summary>
 public static class TFEngineerNest
 {
-    /// <summary>The metal each building costs (objects.txt, <see cref="Knowledge.TFKnowledge"/>'s table): sentry 130, dispenser 100.</summary>
-    public const int SentryCost = 130, DispenserCost = 100, MiniSentryCost = 100;
+    /// <summary>The metal each building costs (objects.txt, <see cref="Knowledge.TFKnowledge"/>'s table): sentry 130, dispenser 100, a teleporter end 50.</summary>
+    public const int SentryCost = 130, DispenserCost = 100, MiniSentryCost = 100, TeleporterCost = 50;
 
     /// <summary>Stock's <c>dispenserRebuildInterval</c> (:398): a lost dispenser is not rebuilt sooner.</summary>
     public const float DispenserRetrySeconds = 10f;
@@ -52,8 +60,14 @@ public static class TFEngineerNest
     /// <paramref name="upgrades"/>: the archetype upgrades (a Gunslinger's mini never does).
     /// </summary>
     public static TFEngineerStep Next(in TFOwnBuilding sentry, in TFOwnBuilding dispenser, int metal, bool mayBuildDispenser, bool upgrades = true,
-                                      int sentryCost = SentryCost)
+                                      int sentryCost = SentryCost, TFTeleporterWant teleporters = default)
     {
+        // Stock's first job (CTFBotEngineerBuild::InitialContainedAction): the entrance on his way out of spawn, if it is
+        // affordable; then the sentry. An attacker's exit before his gun.
+        if (teleporters.Entrance && metal >= TeleporterCost)
+            return new(TFEngineerJob.Build, TFEngineerPanel.Entrance);
+        if (teleporters.Exit && teleporters.ExitFirst && metal >= TeleporterCost)
+            return new(TFEngineerJob.Build, TFEngineerPanel.Exit);
         if (!sentry.Exists)
             return metal >= sentryCost ? new(TFEngineerJob.Build, TFEngineerPanel.Sentry) : new(TFEngineerJob.Metal, TFEngineerPanel.Sentry);
         if (sentry.Sapped)
@@ -66,9 +80,12 @@ public static class TFEngineerNest
         if (dispenser.Exists && dispenser.UnderConstruction)
             return new(TFEngineerJob.Work, TFEngineerPanel.Dispenser);
         // The dispenser before the upgrade, once he can pay for it; short of its price, what he carries goes into the gun before
-        // he walks for more (round 1's fix: a new gun's 70 metal is not left unspent). Stock goes to level 3 first when a metal
-        // source is near (IsMetalSourceNearby, :368-383); live (2026-11-24, cp_granary and ctf_2fort, 6 runs) that order never
-        // built a dispenser: every trip's metal went into the upgrade, each trip was another, and no gun passed level 2.
+        // he walks for more (round 1's fix: a new gun's 70 metal is not left unspent). Ours: stock goes to level 3 first when a
+        // metal source is near (tf_bot_engineer_building.cpp:380-393; IsMetalSourceNearby, :181-207, an ammo area or his spawn
+        // room within 2,000 u), and builds the dispenser after (:407-421). The base's stall at level 2 (no dispenser and no gun
+        // past level 2 in six runs, 7e79f0290c) came with the hull trap and the stand faults, which stop upgrades in any order;
+        // this order was not compared against stock's alone after those fixes. It showed no cost: at e0e7a8da8f on ctf_2fort a
+        // dispenser stood in six of six runs and level 3 lasted 153-165 s of 234 s up (docs/divergences.md).
         if (!dispenser.Exists && mayBuildDispenser && upgrades)
         {
             if (metal >= DispenserCost)
@@ -77,6 +94,11 @@ public static class TFEngineerNest
                 return new(TFEngineerJob.Work, TFEngineerPanel.Sentry);
             return new(TFEngineerJob.Metal, TFEngineerPanel.Dispenser);
         }
+
+        // The exit after the dispenser (stock's next build, tf_bot_engineer_building.cpp:425-465), before the upgrade (ours: stock
+        // upgrades first with a metal source near): his team comes back to the nest by it.
+        if (teleporters.Exit && metal >= TeleporterCost)
+            return new(TFEngineerJob.Build, TFEngineerPanel.Exit);
 
         if (upgrades && !sentry.Mini && sentry.Level < TopLevel)
             return Costly(true, metal, fed, TFEngineerPanel.Sentry);
