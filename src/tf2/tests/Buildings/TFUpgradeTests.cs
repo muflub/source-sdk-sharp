@@ -234,6 +234,29 @@ public class TFUpgradeTests
         Assert.Equal(25, building.UpgradeMetal);
     }
 
+    /// <summary>
+    /// Stock's SetModel overrides reset the size (tf_obj_sentrygun.cpp:2123-2126): after the level's model the collision box is
+    /// the hull again, not the model's own bounds the engine's model change takes (a sentry's box grew over its Engineer).
+    /// </summary>
+    [Fact]
+    public void AnUpgradedBuildingsBoxIsItsHullAfterTheLevelModel()
+    {
+        var (rig, building, builder) = AWorkingBuilding();
+        GiveMetal(rig, 200);
+        for (int swing = 0; swing < 8; swing++)
+            building.WrenchHit(builder);
+        rig.Clock.Now += TFObjectInfo.Of(TFObjectType.Sentrygun)!.UpgradeDuration;
+        building.OnThink();
+        Assert.Equal(2, building.Level);
+
+        var mine = rig.Engine.Calls.Select((c, i) => (c, i)).Where(x => x.c.Args.Length > 0 && x.c.Args[0] is EntityHandle h && h == building.Handle).ToList();
+        int model = mine.Last(x => x.c.Member == "EntityRender.SetModel").i;
+        (EngineCall bounds, int at) = mine.Last(x => x.c.Member == "Entities.SetBounds");
+        Assert.True(at > model, "the box was not set again after the level's model");
+        var (mins, maxs) = TFObjectModels.Hull(TFObjectType.Sentrygun);
+        Assert.Equal((mins, maxs), (bounds.ArgAs<Vector>(1), bounds.ArgAs<Vector>(2)));
+    }
+
     private static string LastModelWorn(BuildingsRig rig, ScriptedEntity building)
         => rig.Engine.AllOf("EntityRender.SetModel")
                      .Where(c => c.ArgAs<EntityHandle>(0) == building.Handle)

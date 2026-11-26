@@ -65,6 +65,25 @@ public sealed class TFHeatmakerFocusFacts
         Assert.Equal(1, world.Effects.FocusCries);
     }
 
+    /// <summary>
+    /// Reload held for ten commands: the Focus is re-stamped every command, as
+    /// stock's every-frame ask does, but the battle cry is the lighting press's
+    /// alone (stock's speech refuses while the cry still plays,
+    /// tf_player.cpp:19882-19886).
+    /// </summary>
+    [Fact]
+    public void AHeldReloadCriesOnce()
+    {
+        var (world, carrier, w, vm) = Heatmaker(rage: 50f);
+
+        for (int k = 0; k < 10; k++)
+            world.Run(w, vm, Reload, 10f + k * 0.015f);
+
+        Assert.True(carrier.RageDraining);
+        Assert.Equal(10, world.Effects.Buffs.Count);
+        Assert.Equal(1, world.Effects.FocusCries);
+    }
+
     /// <summary>The pulse count is an int scaled by the meter's share (:13790): 99 rage is nine pulses.</summary>
     [Fact]
     public void ThePulsesTruncateTheMetersShare()

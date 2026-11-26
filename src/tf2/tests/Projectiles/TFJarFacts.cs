@@ -156,6 +156,7 @@ public sealed class TFJarFacts
             jar.ClassName = TFProjectileEntityNames.JarMilk; // the milk's projectile name, what Milk reads
         jar.OnSpawn();
         jar.ArmedBy(critical: false, ownerIndex: 3);
+        rig.Engine.Returns("Clock.Now", 10f); // the throw's clock, the teammate grace's start
         jar.FiredBy(ProjectileRig.Player, new Vector(TFProjectileDefs.JarSpeed, 0f, 0f));
         return (rig, jar);
     }
@@ -202,15 +203,8 @@ public sealed class TFJarFacts
                   .Returns("Entities.GetAngles", Vector.Zero)
                   .Returns("WorldQuery.TraceLine", new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None))
                   .Ignores("Entities.SetOrigin", "Entities.SetVelocity", "Entities.SetAngles");
-        // RunFrame ages only a mover the directory still holds under the very
-        // handle Launch used, and Launch was first asked with none: bind and
-        // re-launch on the projectile handle, as the rocket facts do
-        // (TFProjectileFacts.cs:2218-2227), then one frame flies the age past
-        // the grace.
-        rig.MotionDirectory.Bind(ProjectileRig.ProjectileHandle, jar);
-        jar.FiredBy(ProjectileRig.Player, new Vector(TFProjectileDefs.JarSpeed, 0f, 0f));
-        rig.Motion.RunFrame(0.3f);
-        Assert.True(rig.Motion.SecondsSinceLaunch(jar.Handle) > TFProjectileDefs.CollideWithTeammatesDelay);
+        // The clock past the grace since the throw (at 10).
+        rig.Engine.Returns("Clock.Now", 10f + TFProjectileDefs.CollideWithTeammatesDelay + 0.05f);
 
         jar.OnTouch(ProjectileRig.Victim);
 
@@ -515,5 +509,89 @@ public sealed class TFJarFacts
 
         Assert.Equal(TFProjectileDefs.JarMilkBreadmonsterModel,
                      rig.Engine.Last("EntityRender.SetModel")!.Value.ArgAs<string>(1));
+    }
+
+    // ---- the flight: stock's jar is a physics body (lane r2s4's stock A/B, 2026-11-24)
+
+    /// <summary>
+    /// The jar, the milk and the gas register as physics props, as stock's <c>CTFProjectile_Jar</c> is a
+    /// <c>CTFGrenadePipebombProjectile</c> made in <c>VPhysicsInitNormal</c> (tf_weaponbase_grenadeproj.cpp:280): the solver
+    /// flies them under the environment's gravity and drag. Was a projectile the integrator flew at 0.4 of gravity, no drag.
+    /// </summary>
+    [Fact]
+    public void Every_jar_face_is_a_physics_body()
+    {
+        var kinds = typeof(TFJar).GetCustomAttributes(typeof(ScriptedEntityAttribute), false).Cast<ScriptedEntityAttribute>().ToList();
+        Assert.Equal(3, kinds.Count);
+        Assert.All(kinds, k => Assert.Equal(ScriptedEntityKind.Prop, k.Kind));
+    }
+
+    /// <summary>The jar is born facing the eye and spun as stock's: <c>AngularImpulse(300, 0, 0)</c> twice about its own forward.</summary>
+    [Fact]
+    public void The_jar_is_born_facing_the_eye_and_spun_about_its_forward()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.Returns("Entities.GetEyeAngles", new Vector(0f, 90f, 0f));
+        rig.Directory.Instance = rig.Jar();
+
+        rig.Effects.Projectile(Attack(3), JarScript("tf_weapon_jar"), default, 0f);
+
+        Vector born = rig.Engine.Last("Entities.SetAngles")!.Value.ArgAs<Vector>(1);
+        Assert.Equal(90f, born.Y, 0.01f);
+        Vector spin = rig.Engine.Last("Entities.SetAngularVelocity")!.Value.ArgAs<Vector>(1);
+        Assert.Equal(0f, spin.X, 0.5f);
+        Assert.Equal(2f * TFProjectileDefs.JarSpinRoll, spin.Y, 0.5f);
+        Assert.Equal(0f, spin.Z, 0.5f);
+    }
+
+    /// <summary>The solved impact on the world shatters the jar (<c>VPhysicsCollision</c>, tf_weapon_jar.cpp:592-617).</summary>
+    [Fact]
+    public void A_world_collision_shatters_the_jar()
+    {
+        var (rig, jar) = LandedJar();
+        EnemyInTheOpen(rig);
+        var ev = new PhysicsEvent
+        {
+            KindRaw = (uint)PhysicsEventKind.PostCollision,
+            Flags = PhysicsEvent.FlagCollision,
+            Entity0 = jar.Handle.Value,
+            Entity1 = PhysicsEvent.NoEntity,
+            Static1 = 1,
+        };
+
+        jar.OnVPhysicsCollision(in ev, 0);
+
+        Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
+        Assert.Single(rig.Wet.Added);
+    }
+
+    private static PhysicsEvent BodyCollision(TFJar jar) => new()
+    {
+        KindRaw = (uint)PhysicsEventKind.PostCollision,
+        Flags = PhysicsEvent.FlagCollision,
+        Entity0 = jar.Handle.Value,
+        Entity1 = 0x0002_0000u | 7,
+    };
+
+    /// <summary>A dynamic prop breaks it too (the collision's <c>CDynamicProp</c> arm, tf_weapon_jar.cpp:607-614).</summary>
+    [Fact]
+    public void A_dynamic_prop_shatters_the_jar()
+    {
+        var (rig, jar) = LandedJar();
+        rig.Engine.Returns("Entities.GetClassName", "prop_dynamic");
+        PhysicsEvent ev = BodyCollision(jar);
+        jar.OnVPhysicsCollision(in ev, 0);
+        Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
+    }
+
+    /// <summary>Another moving body (a physics prop) bounces it: no shatter.</summary>
+    [Fact]
+    public void A_physics_prop_does_not_shatter_the_jar()
+    {
+        var (rig, jar) = LandedJar();
+        rig.Engine.Returns("Entities.GetClassName", "prop_physics");
+        PhysicsEvent ev = BodyCollision(jar);
+        jar.OnVPhysicsCollision(in ev, 0);
+        Assert.Equal(0, rig.Engine.CountOf("Entities.Remove"));
     }
 }

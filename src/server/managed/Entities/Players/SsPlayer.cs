@@ -147,6 +147,9 @@ public sealed class SsPlayer : AnimatingEntity
     private SourceSharp.Shared.Anim.MultiplayerAnimState? _animState;
     private float _lastAnimDrive = float.NaN;
 
+    // The model the machine's dials were looked up on (stock's OnNewModel on a change).
+    private string? _animModel;
+
     // The sequence last handed to the server's skeleton, so the per-drive
     // hand-over reaches the engine only on a change (see EnsureAnimState).
     private int _skeletonSequence = -1;
@@ -981,9 +984,17 @@ public sealed class SsPlayer : AnimatingEntity
     /// The player's per-frame think, in stock's PreThink order: the client data
     /// (<see cref="UpdateClientData"/>), the time-based damage, then the suit's
     /// geiger counter — and, where the composition handed this player its
-    /// clock and model table, the shared animation state, last (stock drives
-    /// <c>m_pPlayerAnimState-&gt;Update()</c> at the tail of
-    /// <c>CBasePlayer::PreThink</c>, after the state the pose reads is final).
+    /// clock and model table, the shared animation state, last.
+    ///
+    /// <para>
+    /// Run once a frame at OnPreClientUpdate (<c>PlayerClientData.Update</c>),
+    /// after every command and trace of the frame. Stock drives
+    /// <c>m_PlayerAnimState-&gt;Update()</c> from each player's PostThink
+    /// instead (tf_player.cpp:2689, hl2mp_player.cpp:622), inside the tick:
+    /// so a shot here meets hitboxes posed from the previous frame's eyes and
+    /// velocity, one tick behind stock's. The eyes read are the latest
+    /// command's either way.
+    /// </para>
     /// </summary>
     public void PreThink(float now)
     {
@@ -995,12 +1006,12 @@ public sealed class SsPlayer : AnimatingEntity
     }
 
     /// <summary>
-    /// One drive of the shared machine (phase 0.10): the server poses nothing
-    /// — it has no pose-parameter, layer or ground-speed arms and the pose
-    /// writes reach no shell (the divergence rows name each) — but it runs the
-    /// same decisions the client's copy runs, so the sequence the machine
-    /// chooses and the activity it remembers are the server's answer for
-    /// hitboxes, ragdolls and the day a pose driver exists. The eyes are the
+    /// One drive of the shared machine (phase 0.10): it runs the same
+    /// decisions the client's copy runs, so the sequence the machine chooses,
+    /// the activity it remembers and the pose dials it turns (body_pitch,
+    /// body_yaw, the move blend) are the server's skeleton's, which poses the
+    /// hitboxes from them as stock's SetupBones reads GetPoseParameterArray.
+    /// The server has no layer arm (the divergence row names it). The eyes are the
     /// replicated eye angles (stock's server-side <c>EyeAngles()</c>) and the
     /// frame time is measured between drives, so the yaw converge and the
     /// autokill timers advance whatever the driver's rhythm.
@@ -1017,9 +1028,29 @@ public sealed class SsPlayer : AnimatingEntity
         float frameTime = float.IsNaN(_lastAnimDrive) ? 0f : now - _lastAnimDrive;
         _lastAnimDrive = now;
 
-        // pitch, yaw, roll: the machine takes the yaw and pitch of the eyes.
+        // A new model (a class change) is a different instrument: the dials
+        // are looked up again, as stock's CTFPlayer::UpdateModel calls
+        // m_PlayerAnimState->OnNewModel(). The class models order move_x and
+        // move_y differently, so dials kept from the old one pose a run as a
+        // strafe.
+        string model = _render.GetModelName(Handle);
+        if (_animModel is not null && !string.Equals(model, _animModel, StringComparison.Ordinal))
+            state.OnNewModel();
+        _animModel = model;
+
+        // The pitch of the eyes, and the yaw of the BODY: the yaw every other
+        // client poses this player with (ClientSsPlayer.EyeAngles, the
+        // torso-twist divergence row), so the server's torso dial and the one
+        // they draw are the same. Stock poses the eye yaw on both sides
+        // (tf_player.cpp:2689, c_tf_player.cpp:7280); posing it here alone
+        // would twist the hitboxes away from the drawn body whenever the eyes
+        // and the body disagree.
         Vector eye = Entities.GetEyeAngles(Handle);
-        state.Update(eye.Y, eye.X, now, frameTime);
+        state.Update(Entities.GetAngles(Handle).Y, eye.X, now, frameTime);
+
+        // The pitch the other clients pose this player with, the one the
+        // machine just posed his hitboxes from (stock's m_angEyeAngles).
+        State.EyePitch = SourceSharp.Shared.Anim.MultiplayerAnimState.NormalizeAngle(eye.X);
     }
 
     /// <summary>The server's machine, built once on the first drive.</summary>
@@ -1034,12 +1065,21 @@ public sealed class SsPlayer : AnimatingEntity
                 Entities, _render, _models,
                 () => State,
                 () => Entities.GetEyeAngles(Handle),
+                sequenceGroundSpeed: sequence => _render.SequenceGroundSpeed(Handle, sequence),
                 arms: new SourceSharp.Shared.Anim.EngineAnimTarget.Arms(
-                    // The server's side has pose-parameter, dormancy and
-                    // layer arms nowhere (the divergence rows), so those
-                    // stay null — the target answers no dials and keeps the
-                    // gesture mirror in memory. What the server DOES have is
-                    // its own sequence write (EntitySetSequence, the arm
+                    // The pose dials are the server skeleton's own (CR11:
+                    // ServerSkeletons stores what IEngineEntityRender sets
+                    // and the hitbox trace poses from it), so the machine's
+                    // body_pitch / body_yaw / move writes reach the server's
+                    // hitboxes as stock's CTFPlayerAnimState's do: a player
+                    // looking up is hit where he is drawn looking up.
+                    LookupPoseParameter: name => _render.LookupPoseParameter(Handle, name),
+                    SetPoseParameter: (index, value) => _render.SetPoseParameter(Handle, index, value),
+                    GetPoseParameter: index => _render.GetPoseParameter(Handle, index),
+                    // The server's side has dormancy and layer arms nowhere
+                    // (the divergence rows), so those stay null — the target
+                    // keeps the gesture mirror in memory. The server's
+                    // sequence write is its own (EntitySetSequence, the arm
                     // ScriptedEntity's PlaySequence helper uses; the rate and
                     // restart slot is CLIENT-backed through its recording
                     // branch): what the machine chooses is the pose the

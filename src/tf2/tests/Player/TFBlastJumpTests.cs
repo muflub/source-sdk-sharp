@@ -45,7 +45,7 @@ public class TFBlastJumpTests
             new DamageInflictors(), rig.Carriers, rig.Log, rig.Engine, owners,
             new AttributeHooks(), new ProjectileRig.Resupply(), rig.Engine, rig.Engine,
             new ProjectileRig.DirectoryView(), rig.Carriers,
-            DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>());
+            DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>(), new TF2.Tests.Rules.ListHooks<TF2.Server.Projectiles.ITFSelfBlastHook>());
         return (rig, blast, conditions, jump);
     }
 

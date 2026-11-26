@@ -606,8 +606,11 @@ public class TFBaseObjectTests
         // Bounds land before the solidity, so the partition insert carries
         // the box (ScriptedEntity's rule, stock's SetSolidToPlayers world).
         var (mins, maxs) = TFObjectModels.Hull(TFObjectType.Sentrygun);
-        EngineCall bounds = Assert.Single(rig.Engine.AllOf("Entities.SetBounds"),
-                                          c => c.ArgAs<EntityHandle>(0) == building.Handle);
+        var mine = rig.Engine.Calls.Where(c => c.ArgAs<EntityHandle>(0) == building.Handle).ToList();
+        int solidAt = mine.FindIndex(c => c.Member == "Entities.SetSolidity");
+        Assert.True(solidAt > 0, rig.Engine.Describe());
+        EngineCall bounds = mine[solidAt - 1];
+        Assert.Equal("Entities.SetBounds", bounds.Member);
         Assert.Equal(mins, bounds.ArgAs<Vector>(1));
         Assert.Equal(maxs, bounds.ArgAs<Vector>(2));
 
@@ -617,6 +620,45 @@ public class TFBaseObjectTests
                                          c => c.ArgAs<EntityHandle>(0) == building.Handle);
         Assert.Equal(SolidType.BoundingBox, solid.ArgAs<SolidType>(1));
         Assert.Equal(SolidFlags.None, solid.ArgAs<SolidFlags>(2));
+    }
+
+    /// <summary>
+    /// The finished model leaves the hull as the box (stock's SetModel overrides, tf_obj_sentrygun.cpp:2123-2126): the
+    /// engine's model change takes the model's own bounds, wider than the hull.
+    /// </summary>
+    [Fact]
+    public void AFinishedBuildingsBoxIsItsHullAfterTheFinishedModel()
+    {
+        var (rig, building, _) = ABuildingUnderConstruction();
+        rig.Clock.Now += TFObjectInfo.Of(TFObjectType.Sentrygun)!.BuildTime;
+        building.OnThink();
+        Assert.Equal(TFObjectModels.Finished(TFObjectType.Sentrygun), LastModelWorn(rig, building));
+
+        var mine = rig.Engine.Calls.Where(c => c.ArgAs<EntityHandle>(0) == building.Handle).ToList();
+        int model = mine.FindLastIndex(c => c.Member == "EntityRender.SetModel");
+        int box = mine.FindLastIndex(c => c.Member == "Entities.SetBounds");
+        Assert.True(box > model, "the box was not set again after the finished model");
+        var (mins, maxs) = TFObjectModels.Hull(TFObjectType.Sentrygun);
+        Assert.Equal((mins, maxs), (mine[box].ArgAs<Vector>(1), mine[box].ArgAs<Vector>(2)));
+    }
+
+    /// <summary>
+    /// A mini sentry's box is the hull at its model's scale (0.75): stock's SetCollisionBounds scales by the model scale
+    /// (collisionproperty.cpp:676-680) and the native one does not, so the reset carries it.
+    /// </summary>
+    [Fact]
+    public void AMiniSentrysBoxIsTheHullAtItsScale()
+    {
+        var (rig, building, _) = APlacedBuilding();
+        building.MakeMiniBuilding();
+        rig.Clock.Now = 100f;
+        building.StartBuilding();
+        rig.Clock.Now += TFObjectInfo.Of(TFObjectType.Sentrygun)!.BuildTime;
+        building.OnThink();
+
+        EngineCall box = rig.Engine.Calls.Last(c => c.Member == "Entities.SetBounds" && c.ArgAs<EntityHandle>(0) == building.Handle);
+        var (mins, maxs) = TFObjectModels.Hull(TFObjectType.Sentrygun);
+        Assert.Equal((mins * TFBaseObject.MiniSentryScale, maxs * TFBaseObject.MiniSentryScale), (box.ArgAs<Vector>(1), box.ArgAs<Vector>(2)));
     }
 
     [Fact]

@@ -47,12 +47,14 @@ public sealed class SkeletonCostCommand(ServerSkeletons skeletons, IServerTicks 
 
         int frames = Math.Max(1, ticks.Count - _ticksAtReset);
         double us = skeletons.AskTicks * 1e6 / Stopwatch.Frequency;
+        double poseUs = skeletons.PoseTicks * 1e6 / Stopwatch.Frequency;
 
         console.Msg(string.Create(CultureInfo.InvariantCulture,
             $"SSBONECOST\tticks\t{frames}\tasks\t{skeletons.Asks}\tbuilds\t{skeletons.Builds}" +
             $"\thitboxtraces\t{skeletons.HitboxTraces}\tus\t{us:F1}\tus_per_tick\t{us / frames:F3}" +
             $"\tbuilds_per_tick\t{(double)skeletons.Builds / frames:F3}\tstates\t{skeletons.States.Count}" +
-            $"\tmodels\t{skeletons.Models.Count}\timages\t{skeletons.Models.ImagesRead}\tbytes\t{skeletons.Models.BytesRead}\n"));
+            $"\tmodels\t{skeletons.Models.Count}\timages\t{skeletons.Models.ImagesRead}\tbytes\t{skeletons.Models.BytesRead}" +
+            $"\tposeasks\t{skeletons.PoseAsks}\tpose_us\t{poseUs:F1}\tpose_us_per_tick\t{poseUs / frames:F3}\n"));
     }
 }
 

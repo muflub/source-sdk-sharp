@@ -304,7 +304,11 @@ public class TFSniperRifleBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(par
         int pulses = TFRageMeter.BuffPulses;
         if (buffType == FocusBuffType)
             pulses = (int)(pulses * (state.RageMeter / TFRageMeter.FullMeter));   // :13790
-        if (attack.EffectsLive && buffType == FocusBuffType)
+        // Stock asks every frame the key is down and its speech refuses while the
+        // player still speaks (SpeakConceptIfAllowed, tf_player.cpp:19882-19886);
+        // the speech here keeps no speaking clock, so the cry rides the lighting
+        // press alone, the one that finds the meter not yet draining.
+        if (attack.EffectsLive && buffType == FocusBuffType && !state.RageDraining)
             Parts.Effects.FocusBattleCry(in attack);                   // :13789
 
         state.RageDraining = true;                                     // :13794

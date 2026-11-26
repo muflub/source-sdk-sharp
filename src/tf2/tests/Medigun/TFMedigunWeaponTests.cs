@@ -1423,6 +1423,65 @@ public sealed class TFMedigunWeaponTests
     }
 
     [Fact]
+    public void AVaccinatorsResistIsReadAsItsHudShowsIt()
+    {
+        // GetResistType (:906-914) through ITFMedigunResists, the Medic's own HUD read (round 2): bullet at the attach, blast after
+        // one reload press; a plain medigun, and a player with no medigun, read -1.
+        var rig = Standing();
+        rig.Clients.ConVars[(1, "tf_medigun_autoheal")] = "1";
+        rig.Items.SetManager(1, ResistMode());
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+        int attached = weapon.ResistType(1);
+        Command(rig, weapon, held: false, now: 10.5f, extraButtons: Reload);
+        Assert.Equal((0, 1, -1), (attached, weapon.ResistType(1), weapon.ResistType(5)));
+
+        var plain = Standing();
+        var gun = plain.NewWeapon();
+        QueueFound(plain);
+        Command(plain, gun, held: true, now: 10f);
+        Assert.Equal(-1, gun.ResistType(1));
+    }
+
+    /// <summary>
+    /// GetMedigunType (:781-785) is hooked on the medigun: a Vaccinator held beside a Crusader's Crossbow and an Ubersaw (each
+    /// set_weapon_mode 1) is still the resist gun, its resist read and its attach pair landed. The owner's manager sums all three
+    /// (5), which read as no resist gun at all (round 2, live on cp_granary: the Vaccinator bot popped a plain Über).
+    /// </summary>
+    [Fact]
+    public void AVaccinatorBesideOtherModedWeaponsIsStillTheResistGun()
+    {
+        var rig = Standing();
+        var manager = new AttributeContainer(null, AttributeProviderType.Generic);
+        AttributeContainer Weapon(float mode)
+        {
+            var item = new AttributeContainer(null, AttributeProviderType.Weapon);
+            item.Set(AttributeValue.OfFloat(WeaponModeDef, mode));
+            item.ProvideTo(manager);
+            item.Owner = manager;
+            return item;
+        }
+
+        rig.Items.Set(1, new Dictionary<string, IAttributeProvider>
+        {
+            ["tf_weapon_medigun"] = Weapon(3f), ["tf_weapon_crossbow"] = Weapon(1f), ["tf_weapon_bonesaw"] = Weapon(1f),
+        });
+        rig.Items.SetManager(1, manager);
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+
+        Assert.Equal(5, rig.Hooks.Int(0, "set_weapon_mode", manager));   // the sum the manager alone reads
+        Assert.Equal(0, weapon.ResistType(1));
+        Assert.True(rig.Conditions.Holds(3, TFCond.MedigunSmallBulletResist));
+    }
+
+    private static readonly AttributeDefinition WeaponModeDef = new(30048, "weapon mode", "set_weapon_mode",
+                                                                     AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                     false, false, AttributeValueType.Default, MergedKeys.Block("mode"));
+
+    [Fact]
     public void APlainGunIgnoresTheReloadResistStep()
     {
         // CycleResistType refuses outside the resist mode (:841): a reload press on a

@@ -109,6 +109,12 @@ public sealed class ClientSsPlayer : ClientStandaloneEntity
     private readonly AnimStateLayers? _layers;
     private readonly IClientStandalones? _entities;
 
+    // Where the other players look up or down (their networked pitch). Null for a hand-built player.
+    private readonly RemotePlayerLooks? _looks;
+
+    // The pitch the machine was last driven with, so a frame's follow drives it only when the look moved.
+    private float _drivenPitch = float.NaN;
+
     // The viewer's (alive, observer-mode) pair as last seen, so the
     // viewmodel re-check below is edge-triggered. Unseen until the first
     // decode, which always fires one check — idempotent, and it catches a
@@ -125,6 +131,9 @@ public sealed class ClientSsPlayer : ClientStandaloneEntity
     private MultiplayerAnimState? _state;
     private float _lastDrive = float.NaN;
 
+    // The model the machine's dials were looked up on (stock's OnNewModel on a change).
+    private string? _animModel;
+
     // The table a player's HeldWeapon indexes, for which acttable their arms draw from.
     private readonly WeaponCatalog? _weapons;
 
@@ -132,9 +141,11 @@ public sealed class ClientSsPlayer : ClientStandaloneEntity
                           IGameClock? clock = null, ModelDescriptors? models = null,
                           ViewReadout? view = null, IEngineHud? screen = null,
                           AnimStateLayers? layers = null,
-                          IClientStandalones? entities = null, WeaponCatalog? weapons = null)
+                          IClientStandalones? entities = null, WeaponCatalog? weapons = null,
+                          RemotePlayerLooks? looks = null)
         : base(render)
     {
+        _looks = looks;
         _weapons = weapons;
         _clock = clock;
         _models = models;
@@ -232,12 +243,39 @@ public sealed class ClientSsPlayer : ClientStandaloneEntity
         if (state is null)
             return;
 
+        // A model that changed under a standing entity (a class change) is a
+        // new instrument, as on the server: the dials are looked up again.
+        string model = Render.GetModelName(Handle);
+        if (_animModel is not null && !string.Equals(model, _animModel, StringComparison.Ordinal))
+            state.OnNewModel();
+        _animModel = model;
+
         float now = _clock.Now;
         float frameTime = float.IsNaN(_lastDrive) ? 0f : now - _lastDrive;
         _lastDrive = now;
 
         Vector eyes = EyeAngles();
+        _drivenPitch = eyes.X;
         state.Update(eyes.Y, eyes.X, now, frameTime);
+    }
+
+    /// <summary>
+    /// A frame's follow of this player's look (<see cref="RemotePlayerLooks"/>):
+    /// the machine is driven again when the pitch he is drawn with has moved
+    /// since its last drive, so a new look shows once the interpolation delay
+    /// has passed even if this player does not decode again (stock poses remote
+    /// players every frame). Nothing before the first drive.
+    /// </summary>
+    /// <summary>The looks this player was built with (the composition's wiring fact).</summary>
+    internal RemotePlayerLooks? Looks => _looks;
+
+    public void FollowLook()
+    {
+        if (_state is null || float.IsNaN(_drivenPitch))
+            return;
+
+        if (EyeAngles().X != _drivenPitch)
+            Animate();
     }
 
     /// <summary>
@@ -390,9 +428,15 @@ public sealed class ClientSsPlayer : ClientStandaloneEntity
     /// <summary>
     /// Whose eyes this machine poses against: the viewer's own published view
     /// angles for the local player (the same read the prediction makes, from
-    /// the replayed command), the body's own facing for everyone else.
-    /// Re-decided per drive rather than once, because the local index is 0
-    /// until the client is actually in a level, like the viewmodel's compare.
+    /// the replayed command), and for everyone else the body's own facing with
+    /// the pitch the server networks for them (<see cref="RemotePlayerLooks"/>;
+    /// stock's <c>C_HL2MP_Player</c> / <c>C_TFPlayer::EyeAngles</c> answer the
+    /// networked, interpolated <c>m_angEyeAngles</c> for a remote player), so a
+    /// remote player looking up is drawn looking up, as the server's skeleton
+    /// poses his hitboxes. The yaw is the body's on both sides (the torso-twist
+    /// divergence row). Re-decided per drive rather than once, because the
+    /// local index is 0 until the client is actually in a level, like the
+    /// viewmodel's compare.
     /// </summary>
     public Vector EyeAngles()
     {
@@ -401,7 +445,8 @@ public sealed class ClientSsPlayer : ClientStandaloneEntity
         if (_view is not null && local > 0 && Index == local)
             return new Vector(_view.Pitch, _view.Yaw, 0f);
 
-        return new Vector(0f, Entities.GetAngles(Handle).Y, 0f);
+        float pitch = _looks is not null && _looks.TryPitch(Index, out float networked) ? networked : 0f;
+        return new Vector(pitch, Entities.GetAngles(Handle).Y, 0f);
     }
 }
 

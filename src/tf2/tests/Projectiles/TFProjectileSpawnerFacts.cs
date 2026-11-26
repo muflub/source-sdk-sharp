@@ -359,6 +359,8 @@ public class TFProjectileSpawnerFacts
             Births.Add(className);
             return null;
         }
+
+        public ScriptedEntity? Born(string className, Vector origin, Vector angles) => Born(className, origin);
     }
 
     [Fact]
@@ -370,7 +372,7 @@ public class TFProjectileSpawnerFacts
         var ledger = new BirthLedger();
         var effects = new TFProjectileEffects(rig.Engine, ledger, rig.Engine, rig.Tray, rig.FlareTray, rig.Log,
                                               rig.Owners, rig.Random, rig.Hooks, rig.Temps, rig.Engine, rig.Engine,
-                                              rig.StickyVars);
+                                              rig.StickyVars, rig.Engine);
         var script = new TFWeaponScripts(new RecordingLog(), WeaponFixtures.ShippedWithClasses())
             .Get("tf_weapon_rocketlauncher")!;
         var attack = new WeaponAttackContext(default!, null!, null!, 1f, true, null!,

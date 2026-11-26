@@ -335,7 +335,7 @@ public abstract class FlyingProjectile : AnimatingEntity
     /// well, so the touch's "never the shooter" now spares the new one. Every
     /// retarget is a deflection, so it counts one (<see cref="Deflections"/>).
     /// </summary>
-    protected internal void Retarget(EntityHandle shooter)
+    protected void Retarget(EntityHandle shooter)
     {
         Shooter = shooter;
         Entities.SetOwner(Handle, shooter);

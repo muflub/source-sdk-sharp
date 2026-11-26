@@ -1261,3 +1261,4 @@ src/ai/tf2/server/Classes/TFPyro.cs	ports CTFBot::GetMaxAttackRange, GetDesiredA
 src/ai/tf2/server/Classes/TFPyro.Airblast.cs	ports CTFBot::ShouldFireCompressionBlast (tf_bot.cpp)
 src/ai/tf2/server/Classes/TFPyro.Shoves.cs	ports CTFBot::ShouldFireCompressionBlast's shove ladder (tf_bot.cpp:4111-4144): the Uber always, the juggle and the pushy draws
 src/tf2/server/Player/TFSteakMeleeSwitch.cs	ports CTFPlayerShared::OnRemoveTaunting's steak arm (tf_player_shared.cpp:4062-4077: the switch to the melee, the safety net)
+src/tf2/server/Medigun/TFQuickFixJumpShare.cs	ports CTFPlayer::OnTakeDamage's Quick-Fix blast-jump share (tf_player.cpp:9797-9829)

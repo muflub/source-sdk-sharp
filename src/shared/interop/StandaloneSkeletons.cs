@@ -106,6 +106,13 @@ public interface IStandaloneSkeletons
 
     /// <summary>The value held, in model units.</summary>
     float GetPoseParameter(EntityHandle entity, int parameter);
+
+    /// <summary>
+    /// How fast the sequence's root moves, at this entity's pose (0 for none):
+    /// both sides' animation state scales its move blend by it, the server's
+    /// as stock's CMultiPlayerAnimState does on the server.
+    /// </summary>
+    float SequenceGroundSpeed(EntityHandle entity, int sequence);
 }
 
 /// <summary>
@@ -141,9 +148,6 @@ public interface IClientStandaloneSkeletons : IStandaloneSkeletons
 
     /// <summary>The playing sequence's duration and loop flag, as read when it started.</summary>
     bool SequenceInfo(EntityHandle entity, out float duration, out bool looping);
-
-    /// <summary>How fast the sequence's root moves, at this entity's pose (0 for none).</summary>
-    float SequenceGroundSpeed(EntityHandle entity, int sequence);
 
     /// <summary>EF_BONEMERGE's follower half: the source by client entity index, -1 to stop.</summary>
     void SetBoneMergeSource(EntityHandle entity, int sourceEntityIndex);

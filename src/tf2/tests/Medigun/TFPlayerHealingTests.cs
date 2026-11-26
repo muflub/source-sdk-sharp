@@ -356,6 +356,40 @@ public sealed class TFPlayerHealingTests
     }
 
     /// <summary>
+    /// The Quick-Fix arm asks the healer's medigun (GetMedigunType, tf_weapon_medigun.cpp:781-785), not his manager: a plain gun held
+    /// beside a crossbow and an Ubersaw (each set_weapon_mode 1, the manager's sum 2, the Quick-Fix's row) lets the drain run.
+    /// </summary>
+    [Fact]
+    public void A_plain_gun_beside_two_moded_weapons_is_no_quick_fix()
+    {
+        var rig = new MedigunRig();
+        var manager = new AttributeContainer(null, AttributeProviderType.Generic);
+        var def = new AttributeDefinition(30049, "weapon mode", "set_weapon_mode", AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                          false, false, AttributeValueType.Default, MergedKeys.Block("mode"));
+        AttributeContainer Weapon(float mode)
+        {
+            var item = new AttributeContainer(null, AttributeProviderType.Weapon);
+            if (mode != 0f)
+                item.Set(AttributeValue.OfFloat(def, mode));
+            item.ProvideTo(manager);
+            item.Owner = manager;
+            return item;
+        }
+
+        rig.Items.Set(1, new Dictionary<string, IAttributeProvider>
+        {
+            ["tf_weapon_medigun"] = Weapon(0f), ["tf_weapon_crossbow"] = Weapon(1f), ["tf_weapon_bonesaw"] = Weapon(1f),
+        });
+        rig.Items.SetManager(1, manager);
+        rig.Give(3, 450, 300);
+        rig.Healing.Heal(H(3), H(1), 24f, 10f);
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);         // at the bonus: skipped, and the drain runs unless a Quick-Fix holds
+
+        Assert.Equal(2, rig.Hooks.Int(0, "set_weapon_mode", manager));   // the manager alone reads the Quick-Fix's row
+        Assert.Equal(440, rig.Health(3));                                  // drained, (450 - 300) / 15: no Quick-Fix hold (it would stay 450)
+    }
+
+    /// <summary>
     /// The disguised Spy's fake health (tf_player_shared.cpp:2436-2456, :2542-2563): at the
     /// overheal cap the real-health arm is skipped, and the healer's whole fraction lands on
     /// <c>m_iDisguiseHealth</c>, capped to the disguise class's buffed max.

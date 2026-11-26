@@ -39,7 +39,7 @@ internal static class MeleeDeps
                    blast ?? new TFBlastApplier(engine, damage, engine, new TFDamageScopes(), hitGroups,
                                                new DamageInflictors(), new NoClasses(), log, engine, hold, walk,
                                                supply, engine, engine, world, new TFPlayerCarriers(),
-                                               DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>()),
+                                               DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>(), new TF2.Tests.Rules.ListHooks<TF2.Server.Projectiles.ITFSelfBlastHook>()),
                    supply, render ?? engine, world);
     }
 

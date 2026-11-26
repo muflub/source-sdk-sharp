@@ -166,7 +166,7 @@ public class TFPyroDeflectFacts
         var rig = new ProjectileRig();
         var damage = new TF2.Tests.Combat.ScopedDamage(rig.Scopes);
         var arrow = new TFArrow(rig.Engine, rig.Motion, damage, rig.Scopes, rig.HitGroups, rig.Directory, rig.Owners, rig.Hooks,
-                                rig.Engine, rig.Temps, rig.Engine);
+                                rig.Engine, rig.Temps, rig.Engine, rig.Engine, rig.Engine, rig.Inflictors);
         arrow.BindAreas(TestServices.Areas(rig.Engine));
         arrow.Handle = ProjectileRig.ProjectileHandle;
         arrow.NetStates = NetStateBinding.AttachLocal(arrow, arrow.Handle, new NetStateFields(new RecordingLog()));

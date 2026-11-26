@@ -831,6 +831,58 @@ public sealed class TFMaxSpeedTests
         Assert.Equal(400f, Speed(TFClass.Medic, healTarget: 4, self: 3, peers: peers));
     }
 
+    /// <summary>A Medic's kit for the medigun-type facts: each item a weapon-type provider to the manager, owned by it, as a loadout hands them out.</summary>
+    private static (AttributeContainer Manager, AttributeContainer Medigun) Kit(float medigunMode, params float[] otherModes)
+    {
+        var def = new AttributeDefinition(30050, "weapon mode", TFMaxSpeed.MedigunModeAttrib, AttributeDescriptionFormat.Additive,
+                                          AttributeEffectType.Neutral, false, false, AttributeValueType.Default, MergedKeys.Block("mode"));
+        var manager = new AttributeContainer(null, AttributeProviderType.Generic);
+        AttributeContainer Item(float mode)
+        {
+            var item = new AttributeContainer(null, AttributeProviderType.Weapon);
+            if (mode != 0f)
+                item.Set(AttributeValue.OfFloat(def, mode));
+            item.ProvideTo(manager);
+            item.Owner = manager;
+            return item;
+        }
+
+        AttributeContainer medigun = Item(medigunMode);
+        foreach (float m in otherModes)
+            Item(m);
+        return (manager, medigun);
+    }
+
+    private static readonly Func<int, TFPeerInput?> ChargingDemo = i => i == 4
+        ? new TFPeerInput(4, new TFMoveInputs(TFClass.Demoman, TFCondMask.Of(TFCond.ShieldCharge)), Hooks, null, null)
+        : null;
+
+    private static float HealingSpeed((AttributeContainer Manager, AttributeContainer Medigun) kit)
+        => TFMaxSpeed.Calculate(Classes, new TFMoveInputs(TFClass.Medic, default, HealTargetIndex: 4), 999f, Hooks, kit.Manager, ChargingDemo, 3,
+                                kit.Medigun);
+
+    /// <summary>
+    /// GetMedigunType is hooked on the medigun (tf_player_shared.cpp:11014-11023): a Medi Gun held beside a Crusader's Crossbow and an
+    /// Ubersaw (set_weapon_mode 1 each; the manager sums 2, the Quick-Fix's row) does not follow a charging Demoman; it matches his walk.
+    /// </summary>
+    [Fact]
+    public void A_medi_gun_beside_two_moded_weapons_does_not_follow_a_charge()
+    {
+        var kit = Kit(0f, 1f, 1f);
+        Assert.Equal(TFMaxSpeed.QuickFixMedigunMode, Hooks.Int(0, TFMaxSpeed.MedigunModeAttrib, kit.Manager));
+        Assert.Equal(Speed(TFClass.Medic, healTarget: 4, self: 3, peers: ChargingDemo), HealingSpeed(kit));
+        Assert.NotEqual(TFMaxSpeed.MaxChargeSpeed, HealingSpeed(kit));
+    }
+
+    /// <summary>A Quick-Fix held beside a Crusader's Crossbow and a Bonesaw (the manager sums 3) follows the charge at its speed.</summary>
+    [Fact]
+    public void A_quick_fix_beside_a_moded_weapon_follows_a_charge()
+    {
+        var kit = Kit(TFMaxSpeed.QuickFixMedigunMode, 1f, 0f);
+        Assert.Equal(3, Hooks.Int(0, TFMaxSpeed.MedigunModeAttrib, kit.Manager));
+        Assert.Equal(TFMaxSpeed.MaxChargeSpeed, HealingSpeed(kit));
+    }
+
     [Fact]
     public void The_quick_fix_attach_waits_for_the_patients_charge()
     {

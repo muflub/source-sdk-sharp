@@ -138,6 +138,13 @@ public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entiti
 
         var (weapon, weaponId) = KillingWeapon(hit?.Custom ?? TFDamageCustom.None, scorer, death.Inflictor, death.Victim,
                                                hit?.WeaponName ?? "", hit?.Weapon ?? TFWeaponId.None);
+        string logName = weapon;
+        if (ItemNames(scorer, weaponId, ProjectileShot(death.Inflictor)?.Row ?? hit?.WeaponName ?? "")
+            is var (icon, itemLog))
+        {
+            weapon = icon ?? weapon;
+            logName = itemLog ?? logName;
+        }
 
         EntityHandle assister = Assister(death, scorer, now);
         if (assister == scorer || (assister != EntityHandle.None && !entities.IsValid(assister)))
@@ -147,7 +154,7 @@ public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entiti
         fields.SetInt("attacker", scorer != EntityHandle.None ? players.GetUserId(scorer) : 0);
         fields.SetInt("assister", assister != EntityHandle.None ? players.GetUserId(assister) : -1);
         fields.SetString("weapon", weapon);
-        fields.SetString("weapon_logclassname", weapon);
+        fields.SetString("weapon_logclassname", logName);
         fields.SetInt("weaponid", (int)weaponId);
         fields.SetInt("damagebits", (int)(hit?.Bits ?? DamageType.Generic));
         // The self-kill command's death carries no recorded kind of its own:
@@ -291,12 +298,49 @@ public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entiti
                 }
                 else if (inflictor != EntityHandle.None && entities.IsValid(inflictor))
                 {
+                    // The inflictor's class, and a CTFBaseRocket's own weapon id
+                    // (:12461-12474, pBaseRocket->GetWeaponID()): the id the
+                    // notice's item step below names the scorer's weapon by.
                     name = entities.GetClassName(inflictor);
+                    if (ProjectileShot(inflictor) is { } shot)
+                        id = shot.Id;
                 }
                 break;
         }
 
         return (StockName(name), id);
+    }
+
+    /// <summary>
+    /// The <c>CTFBaseRocket</c> kin this build fires as an inflictor (the rocket,
+    /// the flare, the arrow, the energy ball): the weapon id it carries and the
+    /// carried row that fired it. Null for anything else.
+    /// </summary>
+    private (TFWeaponId Id, string Row)? ProjectileShot(EntityHandle inflictor) => directory.Get(inflictor) switch
+    {
+        TF2.Server.Projectiles.TFRocket rocket => (rocket.Weapon, rocket.WeaponName),
+        TF2.Server.Projectiles.TFArrow arrow => (arrow.Weapon, arrow.WeaponName),
+        TF2.Server.Projectiles.TFFlare flare => (flare.Weapon, flare.WeaponName),
+        TF2.Server.Projectiles.TFProjectileEnergyBall ball => (ball.Weapon, ball.WeaponName),
+        _ => null,
+    };
+
+    /// <summary>
+    /// <c>DeathNotice</c>'s item step (tf_gamerules.cpp:12905-12925): the
+    /// scorer's weapon of the killing id (<c>Weapon_OwnsThisID</c>, here the row
+    /// that dealt the blow) names the notice by its item's <c>item_iconname</c>
+    /// and the log by its <c>item_logname</c>, each when the item carries one
+    /// (the Huntsman's <c>huntsman</c>). Null with no scorer, no id or no item.
+    /// </summary>
+    private (string? Icon, string? Log)? ItemNames(EntityHandle scorer, TFWeaponId id, string row)
+    {
+        if (scorer == EntityHandle.None || id == TFWeaponId.None || row.Length == 0
+            || owners.ItemOf(scorer.EntryIndex, row) is not AttributeContainer { Item: { } item })
+            return null;
+
+        static string? Named(string? value) => string.IsNullOrEmpty(value) ? null : value;
+        return (Named(item.Keys.GetString("item_iconname", null)),
+                Named(item.Keys.GetString("item_logname", null)));
     }
 
     /// <summary>

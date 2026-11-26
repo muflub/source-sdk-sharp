@@ -315,7 +315,7 @@ internal sealed partial class BuildingsRig
                                                 hitGroups, Services.Resolve<DamageInflictors>()!, classes, Log, Engine,
                                                 Owners, Hooks,
                                                 resupply, Engine, Engine, Registry, Carriers,
-                                                DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>()));
+                                                DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>(), new TF2.Tests.Rules.ListHooks<TF2.Server.Projectiles.ITFSelfBlastHook>()));
 
         // The typed convars the subjects read, held by a backend of the rig's
         // own (the engine's console only records): the declared defaults, and

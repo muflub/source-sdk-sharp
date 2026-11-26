@@ -146,7 +146,7 @@ internal sealed class FlameRig
                                        new ProjectileRig.FixedClasses(), Log,
                                        Engine, Owners, new TF2.Shared.Econ.AttributeHooks(),
                                        new ProjectileRig.Resupply(), Engine, Engine, new ProjectileRig.DirectoryView(),
-                                       Carriers, DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>());
+                                       Carriers, DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>(), new TF2.Tests.Rules.ListHooks<TF2.Server.Projectiles.ITFSelfBlastHook>());
         Rocket = new TFRocket(Engine, Motion, blast, Owners, Engine, new TF2.Shared.Econ.AttributeHooks(),
                               new TFPlayerCarriers(), new RecordingEffectDispatch(), Engine,
                               new ProjectileRig.RocketConditions());

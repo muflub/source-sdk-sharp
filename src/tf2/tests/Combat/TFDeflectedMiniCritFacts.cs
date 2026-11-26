@@ -42,7 +42,7 @@ public sealed class TFDeflectedMiniCritFacts
     {
         var rig = new CombatRig();
         TFArrow arrow = new ProjectileRig().Arrow();
-        arrow.Retarget(Deflector);
+        arrow.DeflectBy(Deflector, new Vector(1f, 0f, 0f), deflectorCritBoosted: false, "tf_weapon_flamethrower");
         Assert.Equal(1, arrow.Deflections);
 
         var record = HitInside(rig, arrow);
@@ -69,7 +69,7 @@ public sealed class TFDeflectedMiniCritFacts
     {
         var rig = new CombatRig();
         TFFlare flare = new ProjectileRig().Flare();
-        flare.Retarget(Deflector);
+        flare.DeflectBy(Deflector, new Vector(1f, 0f, 0f), deflectorCritBoosted: false, "tf_weapon_flamethrower");
 
         var record = HitInside(rig, flare);
 

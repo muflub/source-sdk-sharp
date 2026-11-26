@@ -78,6 +78,7 @@ public class SkeletonRouteTests
 
         public float SetPoseParameter(EntityHandle entity, int parameter, float value) { Calls.Add($"poseset {parameter} {value}"); return value; }
         public float GetPoseParameter(EntityHandle entity, int parameter) { Calls.Add("poseget"); return -45f; }
+        public float SequenceGroundSpeed(EntityHandle entity, int sequence) { Calls.Add("groundspeed"); return 0f; }
     }
 
     private static (IEngineEntityRender Render, IEngineEntities Entities, Fake Fake, StandaloneSkeletonRoute Route) Rig(bool filled)

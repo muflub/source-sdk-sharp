@@ -124,7 +124,7 @@ internal sealed class ProjectileRig
 
         Blast = new(Engine, Engine, Engine, Scopes, HitGroups, Inflictors, Classes, Log,
                     Engine, Owners, Hooks, Health, Engine, Engine, Directory, Carriers,
-                    preroundPush ?? DeclaredConVars.Fresh<TFPreroundPushFromDamageEnableConVar>());
+                    preroundPush ?? DeclaredConVars.Fresh<TFPreroundPushFromDamageEnableConVar>(), new TF2.Tests.Rules.ListHooks<TF2.Server.Projectiles.ITFSelfBlastHook>());
         // The registered defaults for the convars the sticky's arm and
         // air-burst radius read, as the game would answer; a fact turns them.
         // The blow's force scales are held off.
@@ -135,7 +135,7 @@ internal sealed class ProjectileRig
         StickyVars.ForceToMove.Hold("0");
         StickyVars.ForceSleepTime.Hold("0");
         Spawner = new(Engine, Directory, Log);
-        Effects = new(Engine, Spawner, Engine, Tray, FlareTray, Log, Owners, Random, Hooks, Temps, Engine, Engine, StickyVars);
+        Effects = new(Engine, Spawner, Engine, Tray, FlareTray, Log, Owners, Random, Hooks, Temps, Engine, Engine, StickyVars, Engine);
 
         Engine.Returns("Entities.Create", ProjectileHandle);
         Engine.Returns("Players.GetHandle", Player);
@@ -151,6 +151,9 @@ internal sealed class ProjectileRig
         Engine.Returns("Players.GetActiveWeaponEntity", EntityHandle.None);
         Engine.Returns("Entities.GetEyeAngles", new Vector(0f, 0f, 0f));
         Engine.Returns("Entities.GetEyePosition", new Vector(0f, 0f, 64f));
+        // The launch's aim line (GetProjectileFireSetup's eye trace) meets
+        // nothing unless a fact says what the crosshair is on.
+        Engine.Returns("WorldQuery.TraceLine", new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None));
         // The firing basis at yaw 0 is mathlib's AngleVectors (Angles.RightUp):
         // right (0, -1, 0), up (0, 0, 1).
         // At rest unless a fact launches: the pipe's skybox trace needs a
@@ -270,7 +273,8 @@ internal sealed class ProjectileRig
     /// <summary>A jar with its areas bound, over <see cref="Wet"/> and the temp sink.</summary>
     public TFJar Jar()
     {
-        var jar = new TFJar(Engine, Motion, Engine, Wet, Engine, Temps, Engine, Engine, Owners, Hooks, Directory);
+        var jar = new TFJar(Engine, Engine, Wet, Engine, Temps, Engine, Engine, Owners, Hooks, Directory, Engine);
+        jar.RegisteredKind = ScriptedEntityKind.Prop; // a physics body, as the registration says
         jar.BindAreas(TestServices.Areas(Engine));
         return BindStates(jar);
     }
@@ -3057,8 +3061,13 @@ public class TFProjectileEffectsFacts
 
         rig.Effects.Projectile(Attack(3), script, default, 0f);
 
+        // The cone rides the converged aim: from the syringe's muzzle at the
+        // eye line's far end, the line meeting nothing (:621).
         var velocity = rig.Engine.Last("Entities.SetVelocity")!.ArgAs<Vector>(1);
-        var thrown = Angles.Forward(new Vector(1.5f, 1.5f, 0f))
+        Vector muzzle = new(TFProjectileDefs.SyringeMuzzleForward, -TFProjectileDefs.SyringeMuzzleRight,
+                            64f + TFProjectileDefs.SyringeMuzzleUp);   // right is -Y at yaw 0
+        Vector aimed = Angles.FromVector(new Vector(TFProjectileEffects.FireSetupReach, 0f, 64f) - muzzle);
+        var thrown = Angles.Forward(new Vector(aimed.X + 1.5f, aimed.Y + 1.5f, 0f))
                    * TFProjectileDefs.Speed(script.Primary.ProjectileSpeed, TFProjectileDefs.SyringeSpeed);
         Assert.Equal(thrown.X, velocity.X, 0.5f);
         Assert.Equal(thrown.Y, velocity.Y, 0.5f);
@@ -3115,13 +3124,15 @@ public class TFProjectileEffectsFacts
                      velocity.X, 0.5f);
     }
 
+    /// <summary>
+    /// Stock's grenade spin (<c>TFProjectileEffects.GrenadeSpin</c>): <c>AngularImpulse(600, rand(-1200, 1200), 0)</c>
+    /// handed to the physics body twice in its own axes, so a pipe born facing the eye (here the world's +x) turns at
+    /// 1200°/s about its forward and, dialled to the draw's low end, 2400°/s about its right. Stock's own flight reads
+    /// 1197°/s about the forward for the 600 (lane r2s4's stock A/B). Was the impulse once, about the world's z.
+    /// </summary>
     [Fact]
     public void ThePipeSpinsLikeStocksLaunchImpulse()
     {
-        // Create's ApplyLocalAngularVelocityImpulse of AngularImpulse(600,
-        // rand(-1200, 1200), 0): the impulse swizzles into an angular velocity
-        // (vector.h:2198), so dialled to its low end the bomb pitches at
-        // -1200°/s and rolls at 600°/s.
         var rig = new ProjectileRig();
         rig.Random.At = 0f;
         var pipe = rig.Pipebomb();
@@ -3131,9 +3142,40 @@ public class TFProjectileEffectsFacts
 
         Assert.Equal(1, rig.Engine.CountOf("Entities.SetAngularVelocity"));
         var angular = rig.Engine.Last("Entities.SetAngularVelocity")!.ArgAs<Vector>(1);
-        Assert.Equal(-TFProjectileDefs.PipeSpinPitchMax, angular.X, 0.5f);
-        Assert.Equal(0f, angular.Y, 0.5f);
-        Assert.Equal(TFProjectileDefs.PipeSpinRoll, angular.Z, 0.5f);
+        Assert.Equal(2f * TFProjectileDefs.PipeSpinRoll, angular.X, 0.5f);
+        Assert.Equal(-2f * TFProjectileDefs.PipeSpinPitchMax, angular.Y, 0.5f);
+        Assert.Equal(0f, angular.Z, 0.5f);
+    }
+
+    /// <summary>
+    /// A pipe is born facing the throw (stock's <c>CreateNoSpawn( class, position, angEyes, owner )</c>,
+    /// tf_weapon_grenade_pipebomb.cpp:460): its angles set before its spawn makes the physics body. Was born at (0, 0, 0)
+    /// whatever the aim, and flew broadside through the air when thrown along y.
+    /// </summary>
+    [Fact]
+    public void ThePipeIsBornFacingTheEye()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.Returns("Entities.GetEyeAngles", new Vector(-10f, 90f, 0f));
+        var pipe = rig.Pipebomb();
+        rig.Directory.Instance = pipe;
+
+        rig.Effects.Projectile(Attack(3), Script("tf_weapon_grenadelauncher"), default, 0f);
+
+        Vector born = rig.Engine.Last("Entities.SetAngles")!.ArgAs<Vector>(1);
+        Assert.Equal((-10f, 90f), (born.X, born.Y));
+        var order = rig.Engine.Calls.Select(c => c.Member).ToList();
+        Assert.True(order.LastIndexOf("Entities.SetAngles") < order.LastIndexOf("Entities.Spawn"));
+    }
+
+    /// <summary>The spin of a pipe thrown along the world's y turns about y: its own forward, as stock's AddVelocity's axes are the body's.</summary>
+    [Fact]
+    public void AGrenadesSpinTurnsAboutItsOwnForward()
+    {
+        Vector spin = TFProjectileEffects.GrenadeSpin(new Vector(0f, 90f, 0f), new Vector(600f, 0f, 0f));
+        Assert.Equal(0f, spin.X, 0.01f);
+        Assert.Equal(1200f, spin.Y, 0.01f);
+        Assert.Equal(0f, spin.Z, 0.01f);
     }
 
     [Fact]
@@ -3351,8 +3393,8 @@ public class TFProjectileEffectsFacts
     [Fact]
     public void TheStickyLauncherSpinsItsStickyToo()
     {
-        // The remote arm shares Create's spin: dialled to its top end the
-        // pitch draw lands on +1200.
+        // The remote arm shares Create's spin (GrenadeSpin): dialled to its top end the
+        // draw lands on +1200, twice over about the bomb's left.
         var rig = new ProjectileRig();
         rig.Random.At = 1f;
         var sticky = rig.Sticky();
@@ -3362,8 +3404,8 @@ public class TFProjectileEffectsFacts
                                TFProjectileBehaviour.MaxChargeTime);
 
         var angular = rig.Engine.Last("Entities.SetAngularVelocity")!.ArgAs<Vector>(1);
-        Assert.Equal(TFProjectileDefs.PipeSpinPitchMax, angular.X, 0.5f);
-        Assert.Equal(TFProjectileDefs.PipeSpinRoll, angular.Z, 0.5f);
+        Assert.Equal(2f * TFProjectileDefs.PipeSpinRoll, angular.X, 0.5f);
+        Assert.Equal(2f * TFProjectileDefs.PipeSpinPitchMax, angular.Y, 0.5f);
     }
 
     [Fact]
@@ -3532,10 +3574,16 @@ public class TFBowTiredAimFacts
         var plain = Loose(tired: false, at: 0.5f);
         var wild = Loose(tired: true, at: 1f);
 
-        // At the dial's ends the plain arm is the eye's forward times the
+        // At the dial's ends the plain arm is the converged aim — from the
+        // arrow's muzzle at the eye line's far end, the line meeting nothing
+        // (GetProjectileFireSetup, tf_weaponbase.cpp:5800-5807) — at the
         // full-charge 2600; the tired one is off it in both axes.
-        Assert.Equal(0f, plain.Y, 3);
-        Assert.Equal(0f, plain.Z, 3);
+        Vector muzzle = new(TFProjectileDefs.ArrowMuzzleForward, -TFProjectileDefs.ArrowMuzzleRight,
+                            64f + TFProjectileDefs.ArrowMuzzleUp);   // right is -Y at yaw 0
+        Vector aimed = (new Vector(TFProjectileEffects.FireSetupReach, 0f, 64f) - muzzle).Normalized
+                       * TFProjectileDefs.ArrowSpeed(1f);
+        Assert.Equal(aimed.Y, plain.Y, 3);
+        Assert.Equal(aimed.Z, plain.Z, 3);
         Assert.True(wild.Y != 0f || wild.Z != 0f);
         Assert.NotEqual(plain.X, wild.X, 3);
         Assert.NotEqual(plain.Z, wild.Z, 3);

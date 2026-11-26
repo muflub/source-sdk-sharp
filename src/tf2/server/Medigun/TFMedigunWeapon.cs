@@ -68,6 +68,28 @@ public interface ITFMedigunWeapons
 }
 
 /// <summary>
+/// <c>CWeaponMedigun::GetMedigunType</c> (tf_weapon_medigun.cpp:781-785): the medigun's <c>set_weapon_mode</c>, hooked on the
+/// medigun's own item, so the walk skips the owner's other weapons as stock's does (attribute_manager.cpp:469-475); with no item
+/// handed out (a rig that sets only the manager), the owner's manager.
+/// </summary>
+public static class TFMedigunType
+{
+    public static int Of(AttributeHooks hooks, TFPlayerItems items, int owner)
+        => hooks.Int(0, "set_weapon_mode", items.Of(owner, TFMedigunComponent.MedigunName) ?? items.ManagerOf(owner));
+}
+
+/// <summary>
+/// The Vaccinator's resist as its Medic's HUD shows it (the resist icon on the charge meter): stock's <c>GetResistType</c>
+/// (tf_weapon_medigun.cpp:906-914), 0 bullet, 1 blast, 2 fire; -1 for a player with no Vaccinator out (no medigun, or one
+/// that is not the resist medigun).
+/// </summary>
+public interface ITFMedigunResists
+{
+    /// <summary>The resist the owner's Vaccinator is on, or -1.</summary>
+    int ResistType(int ownerIndex);
+}
+
+/// <summary>
 /// The medigun itself: stock's <c>CWeaponMedigun</c> (tf_weapon_medigun.cpp) server arms —
 /// target acquisition and the beam stick rules, the heal per second through
 /// <see cref="ITFPlayerHealing"/>, the charge meter build (faster on a target that is
@@ -76,8 +98,8 @@ public interface ITFMedigunWeapons
 /// ÜberCharge release and its drain. The beam itself, the meter's networked state,
 /// the sounds and the achievement arms are the rows in docs/plans/tf2/deferred.tsv.
 /// </summary>
-[SideService(Side.Server, As = [typeof(ITFHealEffects), typeof(ITFMedigunWeapons)])]
-public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLifecycle, IClientLifecycle, IOrderedHook
+[SideService(Side.Server, As = [typeof(ITFHealEffects), typeof(ITFMedigunWeapons), typeof(ITFMedigunResists)])]
+public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, ITFMedigunResists, IGameLifecycle, IClientLifecycle, IOrderedHook
 {
     // The release rate is TFMedigunChargeRate's twin (weapon_medigun_chargerelease_rate,
     // still a const — docs/divergences.md); the build rate is the convar itself.
@@ -257,7 +279,7 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
         var ownerHandle = players.GetHandle(owner);
 
         // Resist medigun only (:841), and never mid-release (:844).
-        if (hooks.Int(0, "set_weapon_mode", items.ManagerOf(owner)) != ResistWeaponMode || state.Releasing)
+        if (MedigunType(owner) != ResistWeaponMode || state.Releasing)
             return;
 
         var oldPassive = SmallResistCond(ResistType(owner, state));
@@ -294,6 +316,19 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
     /// row plus the cycles pressed, folded onto the three resists. A manager that names no
     /// charge row answers the plain base, as stock's hook default does.
     /// </summary>
+    /// <summary>
+    /// <c>GetMedigunType</c> (:781-785): <c>set_weapon_mode</c> hooked on the medigun itself. Stock's walk from a weapon skips the
+    /// owner's other weapons (attribute_manager.cpp:469-475), so a crossbow's and an Ubersaw's own <c>set_weapon_mode</c> 1 do not
+    /// add to the medigun's; the owner's manager alone sums every item's (a Vaccinator beside both read 5, and played as the
+    /// plain gun). <see cref="TFMedigunType.Of"/>.
+    /// </summary>
+    private int MedigunType(int owner) => TFMedigunType.Of(hooks, items, owner);
+
+    public int ResistType(int ownerIndex)
+        => medics.TryGetValue(ownerIndex, out var state) && MedigunType(ownerIndex) == ResistWeaponMode
+            ? ResistType(ownerIndex, state)
+            : -1;
+
     private int ResistType(int owner, MedicState state)
     {
         int chargeType = hooks.Int(0, "set_charge_type", items.ManagerOf(owner)) + state.ResistIndex;   // :829
@@ -613,7 +648,7 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
 
         // The Vaccinator's attach (:1032-1037): the small resist pair lands on patient and
         // medic with the beam, this medic its provider.
-        if (hooks.Int(0, "set_weapon_mode", items.ManagerOf(owner)) == ResistWeaponMode)
+        if (MedigunType(owner) == ResistWeaponMode)
         {
             var passive = SmallResistCond(ResistType(owner, state));
             conditions.Add(patient, passive, TFConditions.Permanent, ownerHandle);       // :1035
@@ -713,7 +748,7 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
         var ownerHandle = players.GetHandle(owner);
         // Stock captures the patient whole (:1816-1820); without one the arms run solo.
         EntityHandle patientHandle = state.HealingTarget >= 0 ? players.GetHandle(state.HealingTarget) : default;
-        int mode = hooks.Int(0, "set_weapon_mode", items.ManagerOf(owner));    // GetMedigunType (:781-785)
+        int mode = MedigunType(owner);    // GetMedigunType (:781-785)
 
         // The Vaccinator's early outs (:1822-1834): a bubble already on the medic — and on
         // the patient too, when there is one — makes a held button answer nothing.
