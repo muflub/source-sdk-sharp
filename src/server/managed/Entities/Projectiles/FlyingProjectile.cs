@@ -332,11 +332,22 @@ public abstract class FlyingProjectile : AnimatingEntity
     /// <summary>
     /// A new shooter in flight: stock's <c>SetOwnerEntity</c> on a deflected
     /// projectile (<c>tf_projectile_rocket.cpp:165</c>). Told to the shell as
-    /// well, so the touch's "never the shooter" now spares the new one.
+    /// well, so the touch's "never the shooter" now spares the new one. Every
+    /// retarget is a deflection, so it counts one (<see cref="Deflections"/>).
     /// </summary>
-    protected void Retarget(EntityHandle shooter)
+    protected internal void Retarget(EntityHandle shooter)
     {
         Shooter = shooter;
         Entities.SetOwner(Handle, shooter);
+        Deflections++;
     }
+
+    /// <summary>
+    /// How often a deflection sent it back: stock's <c>m_iDeflected</c>, the
+    /// count <c>IncrementDeflected</c> raises in each projectile's
+    /// <c>Deflected</c> (<c>tf_projectile_rocket.cpp:179</c>,
+    /// <c>tf_projectile_arrow.cpp:1173</c>, <c>tf_projectile_flare.cpp:613</c>)
+    /// and <c>GetDeflected</c> answers (<c>tf_weaponbase_rocket.h:58</c>).
+    /// </summary>
+    public int Deflections { get; private set; }
 }

@@ -25,18 +25,32 @@ public static class TFJumpBudget
     public static float CostShare(IReadOnlyList<TFOwnKitItem> kit)
     {
         ArgumentNullException.ThrowIfNull(kit);
+        return Share(kit, static i => i.Slot, static i => i.WeaponKind, static i => i.Attributes);
+    }
+
+    /// <summary>The same share over the bot's HUD kit, as its tree reads it at the link (<c>TFDecider.BlastCostShare</c>):
+    /// one rule for the plan and the tree.</summary>
+    public static float CostShare(IEnumerable<Senses.TFKitItem> kit)
+    {
+        ArgumentNullException.ThrowIfNull(kit);
+        return Share(kit, static i => i.Slot, static i => i.WeaponKind, static i => i.Attributes);
+    }
+
+    private static float Share<T>(IEnumerable<T> kit, Func<T, TFLoadoutSlot> slotOf, Func<T, int> kindOf, Func<T, IReadOnlyList<TFOwnKitAttribute>> attributesOf)
+    {
         float share = 1f;
-        foreach (TFOwnKitItem item in kit)
+        foreach (T item in kit)
         {
-            if (item.Slot == TFLoadoutSlot.Primary && item.WeaponKind >= 0)
-                share *= Value(item, LauncherDamageScale, 1f);
+            if (slotOf(item) == TFLoadoutSlot.Primary && kindOf(item) >= 0)
+                share *= Value(attributesOf(item), LauncherDamageScale, 1f);
         }
 
-        foreach (TFOwnKitItem item in kit)
+        foreach (T item in kit)
         {
-            if (Has(item, NoSelfBlastDamage))
+            IReadOnlyList<TFOwnKitAttribute> attributes = attributesOf(item);
+            if (Has(attributes, NoSelfBlastDamage))
                 return 0f;
-            share *= Value(item, RocketJumpCostScale, 1f);
+            share *= Value(attributes, RocketJumpCostScale, 1f);
         }
 
         return MathF.Max(0f, share);
@@ -59,9 +73,9 @@ public static class TFJumpBudget
         return spends;
     }
 
-    private static bool Has(TFOwnKitItem item, string attributeClass)
+    private static bool Has(IReadOnlyList<TFOwnKitAttribute> attributes, string attributeClass)
     {
-        foreach (TFOwnKitAttribute a in item.Attributes)
+        foreach (TFOwnKitAttribute a in attributes)
         {
             if (a.Class == attributeClass)
                 return true;
@@ -70,9 +84,9 @@ public static class TFJumpBudget
         return false;
     }
 
-    private static float Value(TFOwnKitItem item, string attributeClass, float none)
+    private static float Value(IReadOnlyList<TFOwnKitAttribute> attributes, string attributeClass, float none)
     {
-        foreach (TFOwnKitAttribute a in item.Attributes)
+        foreach (TFOwnKitAttribute a in attributes)
         {
             if (a.Class == attributeClass)
                 return a.Value;

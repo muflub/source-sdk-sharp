@@ -94,7 +94,8 @@ public sealed class TFDashHandsTests
 
     /// <summary>
     /// A target in sight: the hands are the fight's, and the dash weapon stays away however near the triple jump is. Held on
-    /// the general hands themselves (a Soldier's play is theirs; the Scout's own hands keep a sighted fight from them anyway),
+    /// the general hands themselves (a Soldier on the general play: the Soldier's own play has hands of its own since its
+    /// lane landed; the Scout's own hands keep a sighted fight from them anyway),
     /// over a kit with a dash weapon in the melee slot, and a target past the guns' reach, so the hands are not firing and the
     /// general hands are asked.
     /// </summary>
@@ -102,7 +103,7 @@ public sealed class TFDashHandsTests
     public void ASightedTargetKeepsTheDashWeaponAway()
     {
         var dashes = new TFRouteDashes();
-        var f = new TFField(slot: 3, mates: [1, 2], routeDashes: dashes)
+        var f = new TFField(slot: 3, mates: [1, 2], routeDashes: dashes, plays: GeneralSoldier)
         {
             Hud = new([Item(TFLoadoutSlot.Primary, 18, "tf_weapon_rocketlauncher", TFField.Launcher), Item(TFLoadoutSlot.Secondary, 10, "tf_weapon_shotgun_soldier", TFField.Shotgun),
                        Item(TFLoadoutSlot.Melee, 450, "tf_weapon_shovel", TFField.Shovel, new TFOwnKitAttribute("air_dash_count", 1f))], [], []),
@@ -113,7 +114,7 @@ public sealed class TFDashHandsTests
         Assert.DoesNotContain(decides, c => Selects(c, TFField.Shovel));
         // The control: nobody about, the same general hands take it out.
         var other = new TFRouteDashes();
-        var h = new TFField(slot: 3, mates: [1, 2], routeDashes: other) { Hud = f.Hud };
+        var h = new TFField(slot: 3, mates: [1, 2], routeDashes: other, plays: GeneralSoldier) { Hud = f.Hud };
         other.Dashes(h.Bot, new Tick(0), 2);
         Assert.Contains(Enumerable.Range(0, 4).Select(_ => h.StepDrawn(soldier, TFField.Ctf())).ToArray(), c => Selects(c, TFField.Shovel));
     }
@@ -215,4 +216,9 @@ public sealed class TFDashHandsTests
         Assert.Contains(typeof(SourceSharp.Server.NetTrafficProfiler), lifecycles);
         Assert.Equal([nameof(TFRouteDashes)], lifecycles.Where(t => Order(t) == Order(typeof(TFRouteDashes))).Select(t => t.Name));
     }
+
+    /// <summary>A Soldier on the general play, so the fact holds the general hands and not the Soldier's own.</summary>
+    private static TFDecider.ClassPlay? GeneralSoldier(TFDecider d, TFClass c) => c == TFClass.Soldier ? new GeneralSoldierPlay(d) : null;
+
+    private sealed class GeneralSoldierPlay(TFDecider d) : TFDecider.ClassPlay(d, TFClass.Soldier);
 }

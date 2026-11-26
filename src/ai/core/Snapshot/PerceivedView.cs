@@ -122,6 +122,8 @@ public enum ThingKind : byte
 /// target ID shows, -1 when it shows none (stock shows a building's health only to its own team
 /// and to a Spy). <see cref="Type"/> is the binding's own number for the kind of projectile or
 /// building; <see cref="Id"/> the binding's id for the thing, the same while it lasts.
+/// <see cref="Flags"/> are the binding's own bits for what that client draws on the thing (a
+/// sapper on a building, a teleporter spun up: round 2's S7, S8), 0 for none.
 /// </summary>
 public readonly record struct ThingFacts(
     int Id,
@@ -132,7 +134,8 @@ public readonly record struct ThingFacts(
     int Team,
     int OwnerSlot = 0,
     int Level = 0,
-    int Health = -1);
+    int Health = -1,
+    int Flags = 0);
 
 /// <summary>
 /// One bot's perception at one tick: its own state, and the actors it holds

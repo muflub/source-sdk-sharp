@@ -20,6 +20,25 @@ public readonly record struct TFClassFacts(TFClass Class, float MaxSpeed, int Ma
 public readonly record struct TFBuildingFacts(TFObjectType Type, int Cost, float BuildSeconds, int UpgradeCost, int MaxLevel, ImmutableArray<int> MaxHealthByLevel);
 
 /// <summary>
+/// What a client draws on a building past its kind, level and health (round 2's S7, S8), the bits of a building's
+/// <see cref="ThingFacts.Flags"/>. Both show to anyone who sees the building, whatever his team: a sapper is a model on
+/// it (stock's <c>CObjectSapper</c> is an entity every client draws), and a ready teleporter spins and shows its charged
+/// effect and direction arrow (stock networks <c>m_iState</c> to every client, tf_obj_teleporter.cpp's
+/// <c>DT_ObjectTeleporter</c>).
+/// </summary>
+[Flags]
+public enum TFBuildingFlags
+{
+    None = 0,
+
+    /// <summary>A sapper on it (<c>HasSapper</c>).</summary>
+    Sapped = 1 << 0,
+
+    /// <summary>A teleporter end that is matched, built, not sapped and ready to send (<c>TELEPORTER_STATE_READY</c>).</summary>
+    Ready = 1 << 1,
+}
+
+/// <summary>
 /// What a TF2 bot knows of the game before it plays (plan_bots_teams_tf2 C.2, P6 step 4), every
 /// number read from the mod's own tables: the classes, the weapons (with a projectile's fall and a
 /// charge's time), the packs, the buildings, the abilities and where each aim point sits on a body.
@@ -159,6 +178,13 @@ public static class TFKnowledge
                                                           .Select(l => (int)(TFBaseObject.ObjectMaxHealth * MathF.Pow(TFBaseObject.UpgradeLevelHealthMultiplier, l - 1)))];
                return new TFBuildingFacts(t, info.Cost, info.BuildTime, info.UpgradeCost, TFBaseObject.MaxUpgradeLevel, health);
            })];
+
+    /// <summary>
+    /// The flags a client draws on a building (<see cref="TFBuildingFlags"/>): <paramref name="sapped"/> with a sapper on it,
+    /// <paramref name="ready"/> for a teleporter end in the ready state. The view (TFBotGameView) reads both off the building.
+    /// </summary>
+    public static int BuildingFlags(bool sapped, bool ready)
+        => (int)((sapped ? TFBuildingFlags.Sapped : 0) | (ready ? TFBuildingFlags.Ready : 0));
 
     /// <summary>Where an aim point sits over a TF2 body's feet, standing and ducked: the feet a blast is aimed at, the middle, the eye.</summary>
     public static StanceHeight AimHeight(AimPoint point, TFClass playerClass)

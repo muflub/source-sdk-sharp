@@ -1580,6 +1580,7 @@ public sealed class TFArrow : FlyingProjectile, ITFOwnedProjectile
     private readonly IEnginePrecache Precache;
     private readonly IEngineWorldQuery World;
     private readonly IEngineFrame Frame;
+    private readonly DamageInflictors Inflictors;
 
     private float _gravity = TFProjectileDefs.ArrowGravity(0f);
     private TFProjectile _projectile = TFProjectile.Arrow;
@@ -1587,7 +1588,8 @@ public sealed class TFArrow : FlyingProjectile, ITFOwnedProjectile
     public TFArrow(IEngineEntityPhysics physics, EntityMotion motion, IEngineDamage damage,
                    TFDamageScopes scopes, DamageHitGroups hitGroups, IEntityDirectory directory,
                    ITFWeaponOwners owners, AttributeHooks hooks, IEnginePlayers players,
-                   ITempEnts temps, IEnginePrecache precache, IEngineWorldQuery world, IEngineFrame frame)
+                   ITempEnts temps, IEnginePrecache precache, IEngineWorldQuery world, IEngineFrame frame,
+                   DamageInflictors inflictors)
         : base(physics, motion)
     {
         Damage = damage;
@@ -1601,6 +1603,7 @@ public sealed class TFArrow : FlyingProjectile, ITFOwnedProjectile
         Precache = precache;
         World = world;
         Frame = frame;
+        Inflictors = inflictors;
     }
 
     protected override float GravityScale => _gravity;
@@ -1705,8 +1708,11 @@ public sealed class TFArrow : FlyingProjectile, ITFOwnedProjectile
         if (headshot)
             custom = TFDamageCustom.Headshot;
 
+        // The arrow is the hit's inflictor (CTakeDamageInfo( this, pAttacker, ... ),
+        // :531): the damage rules' reflected arm reads it (tf_gamerules.cpp:6159).
         using (HitGroups.Push(group, Critical || headshot))
         using (Scopes.Push(custom, Weapon, WeaponName))
+        using (Inflictors.Push(Handle, Entities.GetOrigin(Handle)))
             Damage.TakeDamage(hit, Attribution, ShotDamage, bits);
     }
 
@@ -2670,6 +2676,7 @@ public sealed class TFFlare : FlyingProjectile, ITFOwnedProjectile
     private readonly TFPlayerCarriers Carriers;
     private readonly IEngineSound Sound;
     private readonly IUniformRandom Random;
+    private readonly DamageInflictors Inflictors;
 
     private float _gravity = TFProjectileDefs.FlareGravity;
     private Vector _spin = Vector.Zero;
@@ -2679,7 +2686,7 @@ public sealed class TFFlare : FlyingProjectile, ITFOwnedProjectile
                    ITFPlayerConditions conditions, IEnginePlayers players,
                    TFBlastApplier blast, AttributeHooks attributes, ITFWeaponOwners owners,
                    TFFlareTray tray, TFPlayerCarriers carriers, IEngineSound sound,
-                   IUniformRandom random)
+                   IUniformRandom random, DamageInflictors inflictors)
         : base(physics, motion)
     {
         Damage = damage;
@@ -2694,6 +2701,7 @@ public sealed class TFFlare : FlyingProjectile, ITFOwnedProjectile
         Carriers = carriers;
         Sound = sound;
         Random = random;
+        Inflictors = inflictors;
     }
 
     protected override float GravityScale => _gravity;
@@ -2840,8 +2848,11 @@ public sealed class TFFlare : FlyingProjectile, ITFOwnedProjectile
             if (plain && Conditions.InCond(hit, TFCond.Burning))
                 Critical = true;
 
+            // The flare is the hit's inflictor (CTakeDamageInfo( this, ... ),
+            // :347): the damage rules' reflected arm reads it (tf_gamerules.cpp:6159).
             using (HitGroups.Push(HitGroup.Generic, Critical))
             using (Scopes.Push(TFDamageCustom.BurningFlare, Weapon, WeaponName))
+            using (Inflictors.Push(Handle, Entities.GetOrigin(Handle)))
                 // The flare gun's own bits (g_aWeaponDamageTypes): a bullet
                 // that ignites what it lands on.
                 Damage.TakeDamage(hit, Attribution, ShotDamage, TFWeaponDamageTypes.Of(Weapon));
@@ -2892,6 +2903,7 @@ public sealed class TFFlare : FlyingProjectile, ITFOwnedProjectile
         // taunt flag (docs/plans/tf2/deferred.tsv, with the heat-seek).
         using (HitGroups.Push(HitGroup.Generic, Critical))
         using (Scopes.Push(TFDamageCustom.None, Weapon, WeaponName))
+        using (Inflictors.Push(Handle, Entities.GetOrigin(Handle)))
             Damage.TakeDamage(victim, Attribution, ShotDamage,
                               TFWeaponDamageTypes.Of(Weapon) | DamageType.PreventPhysicsForce);
 

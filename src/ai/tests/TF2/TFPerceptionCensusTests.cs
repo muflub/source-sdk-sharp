@@ -25,6 +25,7 @@ public sealed class TFPerceptionCensusTests
         "IEngineEntities::GetOrigin", "IEngineEntities::GetVelocity", "IEngineEntities::GetWorldSpaceCenter", "IEngineEntities::GetHealth",
         "IEntityDirectory::OfClass", "TFBaseObject::get_Health", "TFBaseObject::get_Level", "IEnginePlayers::GetTeam", "Arsenal::PoolOf",
         "IEnginePlayers::GetActiveWeaponEntity",
+        "TFBaseObject::get_HasSapper", "TFTeleporter::get_State",
     ];
 
     private static readonly string[] Forbidden =
@@ -47,8 +48,10 @@ public sealed class TFPerceptionCensusTests
         // respawn glow lasts (round 2's S11: stock's xray outlines them through walls to the respawned player, anywhere he
         // looks; the read is a place with no number, less than his screen shows). Each class's meter reader (P7) reads
         // only the bot's own state, which its own HUD draws: the Scout's drink and hype, the Soldier's rage, the Demoman's
-        // charge and heads, the Engineer's own buildings, the Sniper's scope, charge and jar, the Spy's cloak and disguise;
+        // charge and heads, the Engineer's own buildings, the Sniper's scope, charge and jar, the Spy's cloak and disguise, the Pyro's Mmmph;
         // the Medic's target ID the player under the crosshair, by stock's trace (the A7 ruling's second exception).
+        // The building tray's reader (round 2's S7) reads the bot's own slot's rows of the building carrier every client is
+        // sent, the rows its own HUD tray draws (a builder's own buildings, sapped or not), and no other slot's.
         // The experience feed's game (Part G, G.3; Q-G1 as ruled: the store learns from every player's
         // state) reads each player's real team and class as the key of a stored row: it answers the
         // feed, which hands them to its worker, and nothing a bot's view is built from.
@@ -58,7 +61,8 @@ public sealed class TFPerceptionCensusTests
                              typeof(SourceSharp.Ai.TF2.Trees.TFScoutMeters).FullName!, typeof(SourceSharp.Ai.TF2.Trees.TFDemomanMeters).FullName!,
                              typeof(SourceSharp.Ai.TF2.Trees.TFSoldierMeters).FullName!, typeof(SourceSharp.Ai.TF2.Trees.TFEngineerMeters).FullName!,
                              typeof(SourceSharp.Ai.TF2.Trees.TFSniperMeters).FullName!, typeof(SourceSharp.Ai.TF2.Trees.TFSpyMeters).FullName!,
-                             typeof(SourceSharp.Ai.TF2.Senses.TFTargetIdMeters).FullName!,
+                             typeof(SourceSharp.Ai.TF2.Senses.TFTargetIdMeters).FullName!, typeof(SourceSharp.Ai.TF2.Trees.TFPyroMeters).FullName!,
+                             typeof(SourceSharp.Ai.TF2.Senses.TFBuildingTrayMeters).FullName!,
                              typeof(TFExperienceGame).FullName! }.Order(StringComparer.Ordinal), callers);
     }
 

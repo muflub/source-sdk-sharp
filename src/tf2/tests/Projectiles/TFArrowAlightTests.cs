@@ -128,7 +128,8 @@ public class TFArrowAlightTests
         var rig = new ProjectileRig();
         var hits = new ScopedDamage(rig.Scopes);
         var arrow = new TFArrow(rig.Engine, rig.Motion, hits, rig.Scopes, rig.HitGroups,
-                                rig.Directory, rig.Owners, rig.Hooks, rig.Engine, rig.Temps, rig.Engine, rig.Engine, rig.Engine);
+                                rig.Directory, rig.Owners, rig.Hooks, rig.Engine, rig.Temps, rig.Engine, rig.Engine, rig.Engine,
+                                rig.Inflictors);
         arrow.BindAreas(TestServices.Areas(rig.Engine));
         arrow.ArmedBy(TFWeaponId.CompoundBow, "tf_weapon_compound_bow", critical: false, lit: true,
                       TFProjectileDefs.ArrowDamage(10f, 1f), TFProjectileDefs.ArrowGravity(1f));
@@ -153,7 +154,8 @@ public class TFArrowAlightTests
         var rig = new ProjectileRig();
         var hits = new ScopedDamage(rig.Scopes);
         var arrow = new TFArrow(rig.Engine, rig.Motion, hits, rig.Scopes, rig.HitGroups,
-                                rig.Directory, rig.Owners, rig.Hooks, rig.Engine, rig.Temps, rig.Engine, rig.Engine, rig.Engine);
+                                rig.Directory, rig.Owners, rig.Hooks, rig.Engine, rig.Temps, rig.Engine, rig.Engine, rig.Engine,
+                                rig.Inflictors);
         arrow.BindAreas(TestServices.Areas(rig.Engine));
         arrow.ArmedBy(TFWeaponId.CompoundBow, "tf_weapon_compound_bow", critical: false, lit: false,
                       TFProjectileDefs.ArrowDamage(10f, 0f), TFProjectileDefs.ArrowGravity(0f));

@@ -65,31 +65,14 @@ public sealed partial class TFDecider
     /// (<c>TFProjectileEntities</c>: <c>selfBaseDamage: Damage</c>), which the launcher's <c>mult_dmg</c> scales
     /// (<c>TFWeaponHooks</c>, stock's <c>GetProjectileDamage</c>: the Direct Hit's 1.25), and <c>rocket_jump_dmg_reduction</c>
     /// on any item multiplies (<c>TFBlastApplier</c>; the Gunboats' 0.4, measured live 44 against 17); a kit with
-    /// <c>no_self_blast_dmg</c> pays none. With no kit read (a replay) the whole cost, as before.
+    /// <c>no_self_blast_dmg</c> pays none. With no kit read (a replay) the whole cost, as before. One rule with the route
+    /// planner's (<see cref="Nav.TFJumpBudget.CostShare(IEnumerable{Senses.TFKitItem})"/>, round 2's S13), so the plan and
+    /// the tree agree.
     /// </summary>
-    private float BlastCostShare
-    {
-        get
-        {
-            if (Kit is not { } kit)
-                return 1f;
-            float share = kit.TryWielded(TFLoadoutSlot.Primary, out Senses.TFKitItem launcher) ? launcher.Attribute(LauncherDamageScale, 1f) : 1f;
-            foreach (Senses.TFKitItem item in kit.Kit)
-            {
-                if (item.Has(NoSelfBlastDamage))
-                    return 0f;
-                share *= item.Attribute(RocketJumpCostScale, 1f);
-            }
-
-            return Math.Max(0f, share);
-        }
-    }
+    private float BlastCostShare => Kit is { } kit ? Nav.TFJumpBudget.CostShare(kit.Kit) : 1f;
 
     /// <summary>What <paramref name="plan"/>'s blasts cost this bot, by its kit (<see cref="BlastCostShare"/>).</summary>
     private float CostOf(JumpPlan plan) => plan.Health * BlastCostShare;
-
-    /// <summary>The kit attributes that scale a jump's cost.</summary>
-    internal const string RocketJumpCostScale = "rocket_jump_dmg_reduction", NoSelfBlastDamage = "no_self_blast_dmg", LauncherDamageScale = "mult_dmg";
 
     /// <summary>The first part of <see cref="JumpAllowed"/>'s rule that fails now, or none.</summary>
     private JumpLinkRefusal JumpRefusalNow

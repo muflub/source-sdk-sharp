@@ -30,7 +30,7 @@ namespace TF2.Server.Combat;
 /// <param name="WeaponItem">The attacker's weapon as an attribute provider, the econ arms' walk root; null when there is no item to ask.</param>
 /// <param name="SameClass">Attacker and victim wear the same class (<c>GetPlayerClass()-&gt;GetClassIndex()</c> equal).</param>
 /// <param name="VictimWaterLevel">The victim's water level, 0 for out (<c>GetWaterLevel</c>); WL_NOTINWATER is 0.</param>
-/// <param name="DeflectedProjectile">The inflictor is a rocket or regular pipe a deflection sent back (<c>pBaseRocket/pBaseGrenade-&gt;GetDeflected()</c> with the grenade's <c>ShouldMiniCritOnReflect()</c>, tf_gamerules.cpp:6159).</param>
+/// <param name="DeflectedProjectile">The inflictor is a rocket, flare, arrow, energy ball or regular pipe a deflection sent back (<c>pBaseRocket/pBaseGrenade-&gt;GetDeflected()</c> with the grenade's <c>ShouldMiniCritOnReflect()</c>, tf_gamerules.cpp:6159).</param>
 /// <param name="VictimEyeAngles">The victim's eye angles, pitch yaw roll (<c>EyeAngles</c>); null when unreadable.</param>
 /// <param name="ToVictim">The victim's origin minus the attacker's (<c>GetAbsOrigin</c> difference); null without an attacker position.</param>
 /// <param name="AttackerAirborne">The attacker is in air due to an explosion (<c>CTFPlayer::InAirDueToExplosion</c>, tf_player.h:599).</param>

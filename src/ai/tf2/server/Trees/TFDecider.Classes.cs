@@ -63,6 +63,24 @@ public sealed partial class TFDecider
         /// <summary>Goes to the class's own place when its branch won; false when it has none now.</summary>
         public virtual bool GoPlace() => false;
 
+        /// <summary>
+        /// The class's terms for the shared ammo errand (round 2's S5, TFDecider.Ammo.cs): its floor and its utility. Off by
+        /// default: a class that names none never goes for ammo on its own account.
+        /// </summary>
+        public virtual TFAmmoErrand Ammo => TFAmmoErrand.Off;
+
+        /// <summary>
+        /// The rounds the errand's floor is weighed against (<see cref="Ammo"/>): the reserve of the weapon in hand by default;
+        /// under 0, not known (no errand). A class whose pool is one weapon's (the Heavy's minigun) answers that weapon's.
+        /// </summary>
+        public virtual int AmmoPool => D._self.Reserve;
+
+        /// <summary>
+        /// The score of the general play's answer to a sapped friendly building in reach (round 2's S7, TFDecider.Sapped.cs):
+        /// going to stand by it. <see cref="SappedAnswerUtility"/> by default; 0, never (a class whose own place answers it).
+        /// </summary>
+        public virtual float AnswersSapped => SappedAnswerUtility;
+
         /// <summary>Whether the class keeps out of a sentry's range (the general play's: yes); a class that kills or saps one says no.</summary>
         public virtual bool AvoidsSentries => true;
 
@@ -155,7 +173,10 @@ public sealed partial class TFDecider
     /// <summary>The ability one-shots the bot has sent, by row of the table, for the A/B harness (<c>/ai/classes</c>).</summary>
     public ReadOnlySpan<int> AbilityUses => _abilityUses;
 
-    /// <summary>The counters of every class the bot has played (<see cref="ClassPlay.Count"/>), each name once, for the A/B harness.</summary>
+    /// <summary>
+    /// The counters of every class the bot has played (<see cref="ClassPlay.Count"/>), each name once, for the A/B harness; then
+    /// the shared hooks' (round 2), each once it has counted: <c>shared.ammo_trips</c>, <c>shared.sapped_answer_decides</c>.
+    /// </summary>
     public List<KeyValuePair<string, long>> ClassCounters()
     {
         var into = new List<KeyValuePair<string, long>>();
@@ -165,14 +186,47 @@ public sealed partial class TFDecider
         if (_glowDecides > 0)
             into.Add(new("team.glow_decides", _glowDecides));
         CountDash(into);
+        Shared(into, "shared.ammo_trips", AmmoTrips);
+        Shared(into, "shared.sapped_answer_decides", SappedAnswerDecides);
         return into;
+
+        static void Shared(List<KeyValuePair<string, long>> into, string name, int count)
+        {
+            if (count > 0)
+                into.Add(new(name, count));
+        }
     }
 
     /// <summary>The archetype the bot plays its class as now ("" for none), for the routes and the facts.</summary>
     public string Archetype => _classPlay?.Archetype ?? "";
 
-    /// <summary>The class's own branch's score, weighed as every branch is.</summary>
-    private float ClassUtility() => _classPlay.PlaceUtility();
+    /// <summary>What the class branch goes to: the class's own place, or a shared errand the class asks for (round 2's hooks).</summary>
+    private enum ClassErrand : byte
+    {
+        Own = 0,
+        Ammo,
+        Sapped,
+    }
 
-    private bool GoClassPlace() => _classPlay.GoPlace();
+    private ClassErrand _classErrand;
+
+    /// <summary>
+    /// The class branch's score, weighed as every branch is: the best of the class's own place (<see cref="ClassPlay.PlaceUtility"/>)
+    /// and the shared errands it asks for: the ammo errand (<see cref="ClassPlay.Ammo"/>) and the answer to a sapped friendly
+    /// building (<see cref="ClassPlay.AnswersSapped"/>). The class's own place wins a tie, then the ammo.
+    /// </summary>
+    private float ClassUtility()
+    {
+        float own = _classPlay.PlaceUtility(), ammo = AmmoErrandUtility(), sapped = SappedUtility();
+        _classErrand = sapped > own && sapped > ammo ? ClassErrand.Sapped : ammo > own ? ClassErrand.Ammo : ClassErrand.Own;
+        return MathF.Max(own, MathF.Max(ammo, sapped));
+    }
+
+    /// <summary>To what won the class branch's score; the others, in the tie's order, when that has nothing now.</summary>
+    private bool GoClassPlace() => _classErrand switch
+    {
+        ClassErrand.Sapped => GoSapped() || _classPlay.GoPlace() || (AmmoErrandUtility() > 0f && GoAmmo()),
+        ClassErrand.Ammo => GoAmmo() || _classPlay.GoPlace() || (SappedUtility() > 0f && GoSapped()),
+        _ => _classPlay.GoPlace() || (AmmoErrandUtility() > 0f && GoAmmo()) || (SappedUtility() > 0f && GoSapped()),
+    };
 }

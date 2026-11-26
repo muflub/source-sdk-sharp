@@ -172,6 +172,7 @@ public sealed partial class TFDecider : IDecider
             _jumpUntil = default;
             (_courseNeed, _courseNoWaySince) = (0f, -1);
             HealthJumpDied();
+            AmmoDied();
             _classPlay?.Died();
             if (_endsLastTick.Value > 0)
                 ForgetEnds();
@@ -199,6 +200,8 @@ public sealed partial class TFDecider : IDecider
         SettleOwnNoise();
         _interrupted = NoteInterrupts();
         SeeThings();
+        SeeBuildings();
+        NoteAmmoLull();
         _tree.Decide(this, _run, tick);
         FollowTry();
         _classPlay.Engage();

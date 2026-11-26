@@ -142,7 +142,8 @@ public sealed class TFRescueBoltFacts
         var arrow = new TFArrow(rig.Engine, motion, rig.Engine, scopes,
                                 rig.Services.Resolve<DamageHitGroups>()!,
                                 rig.Services.Resolve<IEntityDirectory>()!, rig.Owners, rig.Hooks,
-                                rig.Engine, rig.Effects, rig.Engine, rig.Engine, rig.Engine);
+                                rig.Engine, rig.Effects, rig.Engine, rig.Engine, rig.Engine,
+                                rig.Services.Resolve<DamageInflictors>()!);
         arrow.BindAreas(TestServices.Areas(rig.Engine));
         arrow.Handle = rig.NewHandle();
         // The toucher's pass-through ask, as the projectile rig's default.
@@ -285,7 +286,8 @@ public sealed class TFRescueBoltFacts
         var arrow = new TFArrow(rig.Engine, motion, rig.Engine, scopes,
                                 rig.Services.Resolve<DamageHitGroups>()!,
                                 rig.Services.Resolve<IEntityDirectory>()!, rig.Owners, rig.Hooks,
-                                rig.Engine, rig.Effects, rig.Engine, rig.Engine, rig.Engine);
+                                rig.Engine, rig.Effects, rig.Engine, rig.Engine, rig.Engine,
+                                rig.Services.Resolve<DamageInflictors>()!);
         arrow.BindAreas(TestServices.Areas(rig.Engine));
         arrow.Handle = rig.NewHandle();
         rig.Engine.Returns("EntityPhysics.GetSolidFlags", SolidFlags.None);

@@ -369,9 +369,10 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
             ? (entities.GetWorldSpaceCenter(hit.Victim) - entities.GetWorldSpaceCenter(hit.Attacker)).Length
             : null;
 
-        // The inflictor's identity, where a blast dealt the hit: its open
-        // <see cref="DamageInflictors"/> scope names it, and a deflected
-        // rocket or regular pipe there is the reflected-blast arm's subject
+        // The inflictor's identity, where a blast or a projectile's touch
+        // dealt the hit: its open <see cref="DamageInflictors"/> scope names
+        // it, and a deflected rocket, flare, arrow, energy ball or regular
+        // pipe there is the reflected arm's subject
         // (<c>tf_gamerules.cpp:6159</c> — stock reads it off
         // <c>info.GetInflictor()</c>, the grenade arm under
         // <c>ShouldMiniCritOnReflect()</c>, which the remote-detonate sticky
@@ -1221,10 +1222,18 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
         return 1f;
     }
 
-    /// <summary>The open blast's inflictor is a rocket or regular pipe a deflection sent back (tf_gamerules.cpp:6159).</summary>
+    /// <summary>
+    /// The open inflictor is a projectile a deflection sent back
+    /// (tf_gamerules.cpp:6159-6164): any <c>CTFBaseRocket</c> — the rocket, the
+    /// flare, the arrow and the energy ball, each counting its deflections
+    /// (<see cref="SourceSharp.Server.FlyingProjectile.Deflections"/>) — or a
+    /// regular pipe, the grenade that <c>ShouldMiniCritOnReflect</c>.
+    /// </summary>
     private bool DeflectedProjectile() =>
         inflictors.TryCurrent(out EntityHandle blastInflictor, out _)
-        && directory.Get(blastInflictor) is TFRocket { Deflected: true } or TFPipebomb { DeflectedCount: > 0 };
+        && directory.Get(blastInflictor) is TFRocket { Deflected: true } or TFPipebomb { DeflectedCount: > 0 }
+            or TFArrow { Deflections: > 0 } or TFFlare { Deflections: > 0 }
+            or TFProjectileEnergyBall { Deflections: > 0 };
 
     /// <summary>The open blast's inflictor is a rocket whose touch was this victim, its owner's item carrying
     /// <c>rocket_specialist</c> (tf_gamerules.cpp:6299-6306).</summary>

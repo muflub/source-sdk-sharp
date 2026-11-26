@@ -253,7 +253,7 @@ internal sealed class ProjectileRig
     public TFArrow Arrow()
     {
         var arrow = new TFArrow(Engine, Motion, new TF2.Tests.Combat.ScopedDamage(Scopes), Scopes, HitGroups,
-                                Directory, Owners, Hooks, Engine, Temps, Engine, Engine, Engine);
+                                Directory, Owners, Hooks, Engine, Temps, Engine, Engine, Engine, Inflictors);
         arrow.BindAreas(TestServices.Areas(Engine));
         return BindStates(arrow);
     }
@@ -262,7 +262,7 @@ internal sealed class ProjectileRig
     public TFFlare Flare()
     {
         var flare = new TFFlare(Engine, Motion, Engine, Scopes, HitGroups, Conditions, Engine,
-                                Blast, Hooks, Owners, FlareTray, Carriers, Engine, Random);
+                                Blast, Hooks, Owners, FlareTray, Carriers, Engine, Random, Inflictors);
         flare.BindAreas(TestServices.Areas(Engine));
         return BindStates(flare);
     }

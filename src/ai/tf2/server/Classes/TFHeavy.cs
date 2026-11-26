@@ -102,20 +102,12 @@ public static class TFHeavyClass
     /// <summary>The minigun's pool (stock's 200 for the Heavy): under <see cref="AmmoLow"/> it holds no spin (stock's <c>!IsAmmoLow()</c>) and goes for ammo in a lull.</summary>
     public const int MinigunPool = 200, AmmoLow = 50;
 
-    /// <summary>Ammo is gone for within this; a lull is no enemy seen for <see cref="AmmoLullSeconds"/>.</summary>
-    public const float AmmoReach = 1500f, AmmoLullSeconds = 1f;
-
     /// <summary>
-    /// The ammo trip's utility: over the run for the enemy's flag (0.7-0.9 before the attacker's drive) and a remembered
-    /// target's fight, since a Heavy under a quarter of his rounds cannot hold a fight: stock's bot goes for ammo first too.
+    /// The ammo trip's utility (the shared errand's, TFDecider.Ammo.cs, under <see cref="AmmoLow"/>): over the run for the enemy's
+    /// flag (0.7-0.9 before the attacker's drive) and a remembered target's fight, since a Heavy under a quarter of his rounds
+    /// cannot hold a fight: stock's bot goes for ammo first too.
     /// </summary>
     public const float AmmoUtility = 0.95f;
-
-    /// <summary>A friendly dispenser seen within this long is an ammo place too (where the bot saw it; it may have been moved or lost since).</summary>
-    public const float DispenserMemorySeconds = 60f;
-
-    /// <summary>An ammo place not reached and paid in this long is given up for <see cref="AmmoSkipSeconds"/>.</summary>
-    public const float AmmoPatienceSeconds = 12f, AmmoSkipSeconds = 30f;
 
     /// <summary>
     /// The eat (research §4.3): the Sandvich under this share of health, with no enemy seen for <see cref="EatQuietSeconds"/> and
@@ -195,13 +187,8 @@ public sealed partial class TFDecider
         private int _heavyMinigunAmmo = -1;
         private Tick _heavyLunchboxEmptyUntil, _heavyPressedAt = new(-1), _heavySelectedAt;
         private KnownActor? _heavySightedBefore;
-        private bool _heavyAmmoGoing;
-        private AiVector _heavyAmmoAt, _heavyAmmoSkip;
-        private Tick _heavyAmmoSince, _heavyAmmoLast, _heavyAmmoSkipUntil;
-        private AiVector _heavyDispenserAt;
-        private Tick _heavyDispenserSeen = new(-1_000_000);
 
-        private long _spunDecides, _fireDecides, _burstDecides, _heldFire, _sightings, _sightingsSpun, _drySwaps, _ammoTrips, _eats, _eatMisses;
+        private long _spunDecides, _fireDecides, _burstDecides, _heldFire, _sightings, _sightingsSpun, _drySwaps, _eats, _eatMisses;
         private long _chaseDecides, _fireRange, _eatCalledOff, _aimingDecides, _sightingsAiming, _wantedSpun, _wantedIdle, _travelHeld, _hurtAnswers;
         private double _moved;
         private AiVector _heavyLastAt;
@@ -338,7 +325,6 @@ public sealed partial class TFDecider
             NoteSighting();
             NoteGun();
             NoteMoves();
-            NoteDispensers();
             if ((D._self.Conditions & ActorConditions.Taunting) == 0)
                 Choose();
             else if (_heavyEatPending)
@@ -363,20 +349,6 @@ public sealed partial class TFDecider
             (_heavyLastAt, _heavyHasLast) = (D._self.Origin, true);
             if (D._leaf == "chase")
                 _chaseDecides++;
-        }
-
-        /// <summary>The nearest friendly dispenser in sight, remembered (its ammo; research §4.7.7's ask, the cart still missing).</summary>
-        private void NoteDispensers()
-        {
-            float best = float.MaxValue;
-            foreach (ref readonly ThingFacts t in D._view.Things)
-            {
-                if (t.Kind != ThingKind.Building || (Senses.TFThingType)t.Type != Senses.TFThingType.Dispenser || t.Team != D._self.Team)
-                    continue;
-                float d = D._self.Origin.DistanceTo(t.Origin);
-                if (d < best)
-                    (best, _heavyDispenserAt, _heavyDispenserSeen) = (d, t.Origin, D._now);
-            }
         }
 
         /// <summary>A decide's step longer than this is not walked (TF2's fastest run, 520 u/s, covers 47 u a decide).</summary>
@@ -580,76 +552,15 @@ public sealed partial class TFDecider
         /// <summary>The share of its health under which the bot goes to heal: the archetype's.</summary>
         public override float HurtShare => Way.HurtShare;
 
-        /// <summary>The ammo trip: with the minigun's pool known low and no enemy seen for a moment, a pack or the cabinet within reach.</summary>
-        public override float PlaceUtility()
-            => _heavyMinigunAmmo is >= 0 and < TFHeavyClass.AmmoLow && Seconds(_heavyAnyEnemySeen) >= TFHeavyClass.AmmoLullSeconds && !D.Carrying
-               && AmmoPlace(out _) ? TFHeavyClass.AmmoUtility : 0f;
+        /// <summary>The ammo trip: the shared errand (TFDecider.Ammo.cs) under <see cref="TFHeavyClass.AmmoLow"/> rounds of the minigun's pool.</summary>
+        public override TFAmmoErrand Ammo => new(TFHeavyClass.AmmoLow, TFHeavyClass.AmmoUtility);
 
-        public override bool GoPlace()
-        {
-            if (!AmmoPlace(out AiVector at))
-                return false;
-            if (!_heavyAmmoGoing || at.DistanceTo(_heavyAmmoAt) > 1f || D._now - _heavyAmmoLast > DecideSchedule.Period + 1)
-            {
-                (_heavyAmmoGoing, _heavyAmmoAt, _heavyAmmoSince) = (true, at, D._now);
-                _ammoTrips++;
-            }
-            else if (Seconds(_heavyAmmoSince) > TFHeavyClass.AmmoPatienceSeconds)
-            {
-                // Not paid there in that long (the pack taken, or out of reach): another, for a while.
-                (_heavyAmmoSkip, _heavyAmmoSkipUntil, _heavyAmmoGoing) = (at, D._now + (int)(TFHeavyClass.AmmoSkipSeconds / D._tick), false);
-                return false;
-            }
-
-            _heavyAmmoLast = D._now;
-            D.GoTo(at, MoveSpeed.Run);
-            D._verdict = "ammo";
-            return true;
-        }
-
-        /// <summary>The nearest ammo pack the bot does not know taken, or its team's resupply cabinet, within <see cref="TFHeavyClass.AmmoReach"/>.</summary>
-        private bool AmmoPlace(out AiVector at)
-        {
-            at = default;
-            float best = TFHeavyClass.AmmoReach;
-            ReadOnlySpan<ItemBelief> beliefs = D._memory.Board.Items;
-            bool skipping = D._now < _heavyAmmoSkipUntil;
-            for (int i = 0; i < D._map.Items.Length; i++)
-            {
-                ItemSpawn item = D._map.Items[i];
-                if (item.Kind is not (ItemKind.AmmoSmall or ItemKind.AmmoMedium or ItemKind.AmmoLarge)
-                    || (i < beliefs.Length && beliefs[i].Present == false) || (skipping && item.Position.DistanceTo(_heavyAmmoSkip) <= 1f))
-                    continue;
-                float d = D._self.Origin.DistanceTo(item.Position);
-                if (d < best)
-                    (best, at) = (d, item.Position);
-            }
-
-            foreach (TeamZone z in D._map.TeamZones)
-            {
-                if (z.Kind != ZoneKind.Resupply || z.Team != D._self.Team)
-                    continue;
-                var mid = new AiVector((z.Mins.X + z.Maxs.X) * 0.5f, (z.Mins.Y + z.Maxs.Y) * 0.5f, z.Mins.Z);
-                if (skipping && mid.DistanceTo(_heavyAmmoSkip) <= 1f)
-                    continue;
-                float d = D._self.Origin.DistanceTo(mid);
-                if (d < best)
-                    (best, at) = (d, mid);
-            }
-
-            if (Seconds(_heavyDispenserSeen) <= TFHeavyClass.DispenserMemorySeconds && !(skipping && _heavyDispenserAt.DistanceTo(_heavyAmmoSkip) <= 1f))
-            {
-                float d = D._self.Origin.DistanceTo(_heavyDispenserAt);
-                if (d < best)
-                    (best, at) = (d, _heavyDispenserAt);
-            }
-
-            return best < TFHeavyClass.AmmoReach;
-        }
+        /// <summary>The minigun's pool as last read with it in hand (-1: not yet read this life).</summary>
+        public override int AmmoPool => _heavyMinigunAmmo;
 
         public override void Died()
         {
-            _heavySpun = _heavyEatPending = _heavyAmmoGoing = false;
+            _heavySpun = _heavyEatPending = false;
             _heavyPressedAt = new Tick(-1);
             _heavyMinigunAmmo = -1;
             _heavySightedBefore = null;
@@ -665,7 +576,7 @@ public sealed partial class TFDecider
             into.Add(new("heavy.sightings", _sightings));
             into.Add(new("heavy.sightings_spun", _sightingsSpun));
             into.Add(new("heavy.dry_swaps", _drySwaps));
-            into.Add(new("heavy.ammo_trips", _ammoTrips));
+            into.Add(new("heavy.ammo_trips", D.AmmoTrips));
             into.Add(new("heavy.eats", _eats));
             into.Add(new("heavy.eat_misses", _eatMisses));
             into.Add(new("heavy.eat_called_off", _eatCalledOff));
