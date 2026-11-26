@@ -399,4 +399,68 @@ public sealed class FamilyDecidersTests
             Assert.Equal(10 - level, HordeTemperament.Nerve(curves, p));
         }
     }
+
+    //-------------------------------------------------------------------------
+    // The leash (plan L25): horde.json's three doors, on eight rooms in a row
+    //-------------------------------------------------------------------------
+
+    /// <summary>A rocket soldier at home in room 0 of eight rooms in a row, standing in <paramref name="room"/>.</summary>
+    private static (FamilySim Sim, FamilySim.Bot Soldier) LeashedSoldier(int room)
+    {
+        var sim = new FamilySim(Row(8, markers: 0));
+        var soldier = sim.Robot(HordeWeapons.RocketLauncher, Centre(room), home: Centre(0));
+        return (sim, soldier);
+    }
+
+    [Fact]
+    public void A_soldier_fighting_a_hero_in_its_band_past_its_leash_fights_on()
+    {
+        // Room 3, the hero 300 units on in room 4: four doors from home, within its band.
+        var (sim, soldier) = LeashedSoldier(3);
+        sim.Hero(Centre(3) + At(300, 0));
+        Assert.True(300f < Band(Levels.Eleven()), "within its band");
+
+        sim.Step(60);
+
+        Assert.Contains(soldier.Node(sim), new FamilyNode?[] { FamilyNode.Band, FamilyNode.Strafe, FamilyNode.BackOff });
+    }
+
+    [Fact]
+    public void A_soldier_seeing_a_hero_past_its_leash_out_of_its_band_walks_home()
+    {
+        var (sim, soldier) = LeashedSoldier(2);
+        sim.Hero(Centre(5));
+        Assert.True(Centre(2).DistanceTo(Centre(5)) > Band(Levels.Eleven()), "out of its band");
+
+        sim.Step(60);
+
+        Assert.Equal(FamilyNode.Home, soldier.Node(sim));
+        Assert.True(soldier.At.X < Centre(2).X, $"it turned for home, at {soldier.At}");
+    }
+
+    [Fact]
+    public void A_soldier_seeing_a_hero_on_its_leash_closes_on_him()
+    {
+        var (sim, soldier) = LeashedSoldier(0);
+        sim.Hero(Centre(3));
+
+        sim.Step(60);
+
+        Assert.Equal(FamilyNode.Close, soldier.Node(sim));
+        Assert.True(soldier.At.X > Centre(0).X, $"it came on, at {soldier.At}");
+    }
+
+    [Fact]
+    public void A_boss_walks_and_fights_unleashed_where_its_pack_robots_are_leashed()
+    {
+        var sim = new FamilySim(Row(8, markers: 0));
+        var boss = sim.Robot(HordeWeapons.CritRockets, Centre(1), home: Centre(1));
+        var soldier = sim.Robot(HordeWeapons.RocketLauncher, Centre(0), home: Centre(0));
+
+        sim.Step(DecideSchedule.Period * 2);
+
+        Assert.IsType<TF2.Descent.Ai.Boss.BossDecider>(boss.Fights(sim));
+        Assert.False(Assert.IsAssignableFrom<IHordeRouted>(boss.Fights(sim)).Route!.Leash.Binds);
+        Assert.True(Assert.IsAssignableFrom<IHordeRouted>(soldier.Fights(sim)).Route!.Leash.Binds);
+    }
 }

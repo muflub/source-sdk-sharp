@@ -8,6 +8,19 @@ namespace SourceSharp.Ai.Server.Senses;
 /// <summary>One scoreboard row as every client's HUD has it (the player resource's kills and deaths).</summary>
 public readonly record struct ScoreRow(ActorId Actor, int Frags, int Deaths);
 
+/// <summary>
+/// The bots' kill feed, for a game that builds its own from what its clients' feed shows (TF2's <c>player_death</c>
+/// notices, a Dead Ringer's feign among them: <see cref="IBotGameView.OwnKillFeed"/>).
+/// </summary>
+public interface IBotKillFeed
+{
+    /// <summary>
+    /// A line of the feed: <paramref name="victim"/> killed by <paramref name="killer"/>, shown to every bot but, for a
+    /// <paramref name="silent"/> kill, the victim's teammates (stock's <c>tf_hud_deathnotice.cpp:695-702</c>).
+    /// </summary>
+    void Feed(EntityHandle victim, EntityHandle killer, bool silent);
+}
+
 /// <summary>When a bot last gave or took a hit, as its own HUD showed it (§3.6's "in a fight"); -1 for never.</summary>
 public interface IBotFightClock
 {
@@ -22,9 +35,10 @@ public interface IBotFightClock
 /// with their ranks, pushed when they change (Headhunter reads the leader,
 /// §5.4).
 /// </summary>
-[SideService(Side.Server, As = [typeof(IPlayerHurtHook), typeof(IPlayerDeathHook), typeof(IBotFightClock)])]
+[SideService(Side.Server, As = [typeof(IPlayerHurtHook), typeof(IPlayerDeathHook), typeof(IBotFightClock), typeof(IBotKillFeed)])]
 public sealed class CombatTap(AiSenses senses, VisionPass vision, AiBots bots, IEnginePlayers players, IEngineEntities entities,
-                              IPlayerDirectory directory, IEngineFrame frame, ShotTap shots, AimMeter aim, IRenderedTeams teams) : IPlayerHurtHook, IPlayerDeathHook, IGameLifecycle, IFrameLifecycle, IBotFightClock, IOrderedHook
+                              IPlayerDirectory directory, IEngineFrame frame, ShotTap shots, AimMeter aim, IRenderedTeams teams, IBotGame game)
+    : IPlayerHurtHook, IPlayerDeathHook, IGameLifecycle, IFrameLifecycle, IBotFightClock, IOrderedHook, IBotKillFeed
 {
     /// <summary>
     /// After the game's own death and hurt hooks, in the mods' range: unordered (0) it collided
@@ -112,8 +126,45 @@ public sealed class CombatTap(AiSenses senses, VisionPass vision, AiBots bots, I
         ActorId victim = ActorOf(death.Player, out _);
         ActorId killer = death.Attacker != death.Player ? ActorOf(death.Attacker, out _) : ActorId.None;
         _events.Clear();
-        Died(victim, killer, BotIds(), Tick, _events);
+        Died(victim, killer, BotIds(), Tick, _events, feed: !game.View.OwnKillFeed);
         Push();
+    }
+
+    public void Feed(EntityHandle victim, EntityHandle killer, bool silent)
+    {
+        if (bots.Bots.Count == 0)
+            return;
+        ActorId dead = ActorOf(victim, out _);
+        ActorId by = killer != victim ? ActorOf(killer, out _) : ActorId.None;
+        int hidden = silent ? players.GetTeam(victim) : 0;
+        _feedBots.Clear();
+        foreach (AiBot b in bots.Bots)
+        {
+            EntityHandle p = bots.Applier.PlayerOf(b.Id);
+            _feedBots.Add((b.Id, p == EntityHandle.None ? 0 : players.GetTeam(p)));
+        }
+
+        _events.Clear();
+        Fed(dead, by, System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_feedBots), hidden, Tick, _events);
+        Push();
+    }
+
+    private readonly List<(ActorId Bot, int Team)> _feedBots = new();
+
+    /// <summary>
+    /// A line of a game's own feed (<see cref="IBotKillFeed"/>): every bot's feed shows it, but a bot on
+    /// <paramref name="hiddenFromTeam"/> (a silent kill's victim's team, 0 for none) that is not the victim itself.
+    /// </summary>
+    public static void Fed(ActorId victim, ActorId killer, ReadOnlySpan<(ActorId Bot, int Team)> bots, int hiddenFromTeam, Tick tick, List<AiEvent> into)
+    {
+        if (!victim.IsValid)
+            return;
+        foreach ((ActorId b, int team) in bots)
+        {
+            if (hiddenFromTeam != 0 && team == hiddenFromTeam && b != victim)
+                continue;
+            into.Add(AiEvent.KillFeed(b, tick, victim, killer));
+        }
     }
 
     private Tick Tick => new(frame.TickCount());
@@ -143,14 +194,18 @@ public sealed class CombatTap(AiSenses senses, VisionPass vision, AiBots bots, I
         }
     }
 
-    /// <summary>A death: every bot's kill feed shows it; the victim, if a bot, is <c>Killed</c>.</summary>
-    public static void Died(ActorId victim, ActorId killer, ReadOnlySpan<ActorId> bots, Tick tick, List<AiEvent> into)
+    /// <summary>
+    /// A death: every bot's kill feed shows it (unless <paramref name="feed"/> is false: a game whose feed is its own,
+    /// <see cref="IBotKillFeed"/>); the victim, if a bot, is <c>Killed</c>.
+    /// </summary>
+    public static void Died(ActorId victim, ActorId killer, ReadOnlySpan<ActorId> bots, Tick tick, List<AiEvent> into, bool feed = true)
     {
         if (!victim.IsValid)
             return;
         foreach (ActorId b in bots)
         {
-            into.Add(AiEvent.KillFeed(b, tick, victim, killer));
+            if (feed)
+                into.Add(AiEvent.KillFeed(b, tick, victim, killer));
             if (b == victim)
                 into.Add(AiEvent.Killed(b, tick, killer));
         }

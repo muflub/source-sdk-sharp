@@ -20,6 +20,28 @@ public readonly record struct TFClassFacts(TFClass Class, float MaxSpeed, int Ma
 public readonly record struct TFBuildingFacts(TFObjectType Type, int Cost, float BuildSeconds, int UpgradeCost, int MaxLevel, ImmutableArray<int> MaxHealthByLevel);
 
 /// <summary>
+/// What a client draws on a building past its kind, level and health (round 2's S7, S8), the bits of a building's
+/// <see cref="ThingFacts.Flags"/>. Both show to anyone who sees the building, whatever his team: a sapper is a model on
+/// it (stock's <c>CObjectSapper</c> is an entity every client draws), and a ready teleporter spins and shows its charged
+/// effect and direction arrow (stock networks <c>m_iState</c> to every client, tf_obj_teleporter.cpp's
+/// <c>DT_ObjectTeleporter</c>).
+/// </summary>
+[Flags]
+public enum TFBuildingFlags
+{
+    None = 0,
+
+    /// <summary>A sapper on it (<c>HasSapper</c>).</summary>
+    Sapped = 1 << 0,
+
+    /// <summary>A teleporter end that is matched, built, not sapped and ready to send (<c>TELEPORTER_STATE_READY</c>).</summary>
+    Ready = 1 << 1,
+
+    /// <summary>Under construction, its scaffold drawn (<c>IsBuilding</c>, stock's <c>m_bBuilding</c> sent to every client): it works for nobody yet.</summary>
+    Building = 1 << 2,
+}
+
+/// <summary>
 /// What a TF2 bot knows of the game before it plays (plan_bots_teams_tf2 C.2, P6 step 4), every
 /// number read from the mod's own tables: the classes, the weapons (with a projectile's fall and a
 /// charge's time), the packs, the buildings, the abilities and where each aim point sits on a body.
@@ -68,13 +90,38 @@ public static class TFKnowledge
     /// </summary>
     public static float ProjectileGravity(TFProjectile projectile) => Gravity * projectile switch
     {
-        TFProjectile.Pipebomb or TFProjectile.PipebombRemote or TFProjectile.PipebombPractice => TFProjectileDefs.PipebombGravity,
+        // The Loose Cannon's ball is the pipebomb's body in its cannonball mode (tf_weapon_grenade_pipebomb.cpp:137-140,
+        // CTFGrenadePipebombProjectile::Create), falling as the pipe does.
+        TFProjectile.Pipebomb or TFProjectile.PipebombRemote or TFProjectile.PipebombPractice or TFProjectile.Cannonball
+            => TFProjectileDefs.GrenadeFallScale,
+        // A jar is a grenade projectile (CTFProjectile_Jar over CTFWeaponBaseGrenadeProj), a physics body as the pipe is: the
+        // game's own constant, never a copied number, so the aim follows the game's arc if it changes.
+        TFProjectile.Jar or TFProjectile.JarMilk or TFProjectile.FestiveJar => TFProjectileDefs.GrenadeFallScale,
         TFProjectile.Arrow or TFProjectile.FestiveArrow => TFProjectileDefs.ArrowGravity(TFProjectileDefs.ArrowChargeTime),
         TFProjectile.HealingBolt or TFProjectile.FestiveHealingBolt or TFProjectile.BuildingRepairBolt => TFProjectileDefs.CrossbowGravity,
         TFProjectile.Syringe => TFProjectileDefs.SyringeGravity,
         TFProjectile.Flare => TFProjectileDefs.FlareGravity,
         _ => 0f,
     };
+
+    /// <summary>
+    /// What a projectile's launch adds along the look's up, u/s: the pipes' and stickies' <c>+ up * 200</c>
+    /// (<see cref="TFProjectileDefs.PipeLaunchUp"/>, <c>FirePipeBomb</c>, tf_weaponbase_gun.cpp:687-688), which the lob takes
+    /// off the aim (<see cref="AimLead.LobLaunch"/>); 0 for every other launch.
+    /// </summary>
+    public static float LaunchUp(TFProjectile projectile) => projectile switch
+    {
+        TFProjectile.Pipebomb or TFProjectile.PipebombRemote or TFProjectile.PipebombPractice or TFProjectile.Cannonball
+            => TFProjectileDefs.PipeLaunchUp,
+        _ => 0f,
+    };
+
+    /// <summary>
+    /// The air's slowing of a thrown grenade (pipe or sticky), per unit: <c>a = -drag |v| v</c>, fitted to a stock grenade
+    /// launcher pipe's logged flight under VPhysics (within 7 u of its arc over 2 s). Short throws can leave it out (a pipe at
+    /// 900 u lands 22 u off without it); a sticky charged from a sentry's stand cannot (about 120 u short at 1,250 u).
+    /// </summary>
+    public const float GrenadeDrag = 1.48e-4f;
 
     /// <summary>
     /// The launch speed stock's launchers keep as C++ constants, which the mod's launch uses when the
@@ -124,7 +171,7 @@ public static class TFKnowledge
             : w.LaunchSpeed > 0f ? w.LaunchSpeed : TFProjectileDefs.Speed(primary.ProjectileSpeed, StockSpeed(projectile));
         float charge = projectile == TFProjectile.PipebombRemote ? TFProjectileBehaviour.MaxChargeTime : ChargeSeconds(w.Behaviour);
         return new WeaponFacts(kind, w.Name, w.ClipSize, w.Interval, reload, ReloadAudible: true, singly, speed,
-                               ProjectileGravity: ProjectileGravity(projectile), ChargeSeconds: charge);
+                               ProjectileGravity: ProjectileGravity(projectile), ChargeSeconds: charge, LaunchUp: LaunchUp(projectile));
     }
 
     /// <summary>
@@ -159,6 +206,14 @@ public static class TFKnowledge
                                                           .Select(l => (int)(TFBaseObject.ObjectMaxHealth * MathF.Pow(TFBaseObject.UpgradeLevelHealthMultiplier, l - 1)))];
                return new TFBuildingFacts(t, info.Cost, info.BuildTime, info.UpgradeCost, TFBaseObject.MaxUpgradeLevel, health);
            })];
+
+    /// <summary>
+    /// The flags a client draws on a building (<see cref="TFBuildingFlags"/>): <paramref name="sapped"/> with a sapper on it,
+    /// <paramref name="ready"/> for a teleporter end in the ready state, <paramref name="building"/> while it is under
+    /// construction. The view (TFBotGameView) reads them off the building.
+    /// </summary>
+    public static int BuildingFlags(bool sapped, bool ready, bool building = false)
+        => (int)((sapped ? TFBuildingFlags.Sapped : 0) | (ready ? TFBuildingFlags.Ready : 0) | (building ? TFBuildingFlags.Building : 0));
 
     /// <summary>Where an aim point sits over a TF2 body's feet, standing and ducked: the feet a blast is aimed at, the middle, the eye.</summary>
     public static StanceHeight AimHeight(AimPoint point, TFClass playerClass)

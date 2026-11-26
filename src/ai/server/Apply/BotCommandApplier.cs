@@ -123,6 +123,8 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
             b.Spawned = false;
             // What it had queued went with the old player and the old level.
             b.Waiting = 0;
+            b.AltHeld = false;
+            b.HeldAtFriend = false;
             EndProgram(b, AbilityEnd.Died);
         }
     }
@@ -285,10 +287,12 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
 
             bot.OneShots.Clear();
             bot.Spawned = false;
-            // An ability does not outlive the life that began it.
+            // An ability does not outlive the life that began it, nor a held spin (the next life may be another class).
             bot.AbilityTicks = 0;
+            bot.AltHeld = false;
+            bot.HeldAtFriend = false;
             bot.Sequence = default;
-            EndProgram(bot, AbilityEnd.Died, new AbilityBody(facts.Origin, facts.Velocity, bot.Motion.View, facts.OnGround));
+            EndProgram(bot, AbilityEnd.Died, new AbilityBody(facts.Origin, facts.Velocity, bot.Motion.View, facts.OnGround, bot.Id));
             SetView(ref cmd, facts.View);
             // On a tick of its own, by slot: pressed together, bots respawned in
             // one tick, each before the spawn check could see the other on the
@@ -342,11 +346,18 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
             Repeats++;
             FollowTheKick(bot, in facts, dt);
             buttons = (buttons & ~PressKeys) | bot.HeldKeys;
+            // A late command repeats what was down: the hold stands only if Attack2 is among it.
+            bot.AltHeld &= (buttons & (int)InputButtons.Attack2) != 0;
         }
         else
         {
             buttons = JumpLetGo(bot, intent.Move.Kind, buttons);
-            buttons |= HeldAction(bot, HandsWaitForTheEye(bot, in intent, in facts, view), in intent, in facts, dt);
+            ActionIntent pressed = HandsWaitForTheEye(bot, in intent, in facts, view);
+            int hands = HeldAction(bot, pressed, in intent, in facts, dt);
+            buttons |= hands;
+            // A held second trigger that is no shot (FireStyle.Hold: a minigun's spin) was pressed: it is kept down while the
+            // first waits for the eye (below). What was pressed, not the intent: during the wait the intent is the Fire.
+            bot.AltHeld = (hands & (int)InputButtons.Attack2) != 0 && pressed.Kind == ActionKind.AltFire && pressed.Style == FireStyle.Hold;
 
             if (bot.OneShots.TryDequeue(out ActionIntent once))
             {
@@ -377,13 +388,26 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     /// worse than the fifth. Close, a body is wide: inside <see cref="CloseBody"/>
     /// of the point at that distance the hands do not wait for the flick to end
     /// (user ruling 2026-11-02). A prefire's look at a corner waits the same (§5.4).
-    /// A scripted look at a point fires when told.
+    /// A scripted look at a point fires when told. A second trigger that is no shot (<see cref="FireStyle.Hold"/>: a minigun's
+    /// spin) is pressed whatever the view, and once down stays down while the first trigger waits for the eye: a person
+    /// spinning a minigun does not let it go to aim (plan_bots_teams_tf2 P7, the Heavy review's finding 3: live, the gun was
+    /// idle at 8-11 % of the fight decides the Heavy wanted it spun). A Spray AltFire (HL2MP's both barrels) is a shot and waits.
+    /// <para>Not held: a switch from one Fire to the next target's. While the minigun fires, Attack alone is down; the next
+    /// target's Fire waits with neither trigger down and the gun winds down 0.2 s after its last shot. Holding Attack2 after any
+    /// Fire would fire an SMG grenade or both barrels in HL2MP, so no generic rule can hold it: only an intent that declares
+    /// its hold could. Live after this rule the gun was still
+    /// idle at 6-8 % of the decides the Heavy wanted it spun.</para>
     /// </summary>
     private static ActionIntent HandsWaitForTheEye(BotState bot, in IntentCommand intent, in BotSelfFacts facts, AiAngles view)
     {
+        // A first trigger held on a drawn charge (FireStyle.Hold: a bow's draw) is kept down whatever the view: letting it go is the shot.
+        if (intent.Action.Kind == ActionKind.Fire && intent.Action.Style == FireStyle.Hold)
+            return intent.Action;
         // A grenade or a ball goes once and costs what it costs: only with the view there (§5.4).
         if (intent.Action.Kind == ActionKind.AltFire && intent.Look.Kind is (LookKind.Actor or LookKind.CornerCheck))
         {
+            if (intent.Action.Style == FireStyle.Hold)
+                return intent.Action;
             AiAngles at = AnglesTo(facts.Eye, intent.Look.Point);
             float up = at.Pitch - view.Pitch, across = HumanMotion.AngleDelta(view.Yaw, at.Yaw);
             // Spray is both barrels: wide and near, so a body's width will do.
@@ -395,11 +419,14 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
             return intent.Action;
         float distance = (intent.Look.Point - facts.Eye).Length;
         if (bot.Motion.Phase == AimPhase.Reacting || distance > AimStats.CloseRange)
-            return ActionIntent.None;
+            return KeptSecond(bot);
         AiAngles to = AnglesTo(facts.Eye, intent.Look.Point);
         float dp = to.Pitch - view.Pitch, dy = HumanMotion.AngleDelta(view.Yaw, to.Yaw);
-        return MathF.Sqrt(dp * dp + dy * dy) <= MathF.Atan2(CloseBody, distance) * (180f / MathF.PI) ? intent.Action : ActionIntent.None;
+        return MathF.Sqrt(dp * dp + dy * dy) <= MathF.Atan2(CloseBody, distance) * (180f / MathF.PI) ? intent.Action : KeptSecond(bot);
     }
+
+    /// <summary>While the first trigger waits for the eye: the second kept down if it was held, else nothing.</summary>
+    private static ActionIntent KeptSecond(BotState bot) => bot.AltHeld ? new ActionIntent(ActionKind.AltFire, FireStyle.Hold, 0, 0) : ActionIntent.None;
 
     /// <summary>How near its point the view must be for the second trigger to go.</summary>
     public const float AltFireOnAimDeg = 3f;
@@ -584,9 +611,24 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         return ++bot.JumpTicks % JumpCycle == 0 ? buttons & ~(int)InputButtons.Jump : buttons;
     }
 
-    /// <summary>The held action's buttons this tick: a spray or burst holds, a tap presses every other tick.</summary>
+    /// <summary>
+    /// The held action's buttons this tick: a spray or burst holds, a tap presses every other tick. A decide carrying a
+    /// one-shot holds nothing, unless the last decide without one held Fire at a teammate on purpose
+    /// (<see cref="IntentCommand.HoldsAtFriend"/>, round 2's S9) and this one still asks to: a Medic's beam heals only while
+    /// held, so a voice line or the pop keeps Attack down instead of dropping the patient until the next decide. A one-shot
+    /// decide that no longer asks (the beam let go to retarget, a weapon taken out) lets go and ends the hold (the review's
+    /// S9-2, ruled 2026-11-22). A Fire at an enemy is let go as before; HL2MP never holds at a friend. What was pressed, not the intent, as <see cref="BotState.AltHeld"/>: a Fire at a
+    /// friend still waiting for the eye held nothing, so the one-shot after it does not press Attack early, off aim, where a
+    /// medigun would latch whoever is under the crosshair (the review's S9-1).
+    /// </summary>
     private static int HeldAction(BotState bot, in ActionIntent action, in IntentCommand intent, in BotSelfFacts facts, float dt)
     {
+        if (intent.Action.OneShotSeq == 0)
+            bot.HeldAtFriend = intent.HoldsAtFriend && action.Kind == ActionKind.Fire;
+        else if (bot.HeldAtFriend && intent.HoldsAtFriend)
+            return (int)InputButtons.Attack;
+        else
+            bot.HeldAtFriend = false;
         if (action.OneShotSeq != 0)
             return 0;
 
@@ -743,7 +785,7 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
                 bot.SequenceTicks = Math.Max(1, a.Steps[0].Ticks);
                 break;
             case AbilityRun.Program when programs?.Named(a.Name) is { } program:
-                var body = new AbilityBody(facts.Origin, facts.Velocity, bot.Motion.View, facts.OnGround);
+                var body = new AbilityBody(facts.Origin, facts.Velocity, bot.Motion.View, facts.OnGround, bot.Id);
                 if (program.Begin(AbilityCall.Argument(slot), in body, bot.Motion.Parameters, dt) is not { } run)
                 {
                     AbilityProgramsRefused++;
@@ -763,14 +805,15 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     /// where the view is to come to, the move in the world's frame and the buttons: the view goes
     /// there through the bot's motion as a look of the program's own (a new look is reacted to, then
     /// flicked to), the move becomes the forward and side moves of the view the command does send,
-    /// and the buttons are the program's alone, so the intent's hands press nothing while it runs.
+    /// and the buttons are the program's alone, so the intent's hands press nothing while it runs; a weapon the
+    /// program names (<see cref="AbilityCommand.Weapon"/>) is selected with the command.
     /// What the intent queued as one-shots waits for the program to end, another program among them.
     /// </summary>
     private bool ProgramCommand(BotState bot, ref UserCmd cmd, in BotSelfFacts facts, float dt)
     {
         if (bot.Program is not { } run)
             return false;
-        var body = new AbilityBody(facts.Origin, facts.Velocity, bot.Motion.View, facts.OnGround);
+        var body = new AbilityBody(facts.Origin, facts.Velocity, bot.Motion.View, facts.OnGround, bot.Id);
         if (bot.ProgramTicks-- <= 0)
         {
             EndProgram(bot, AbilityEnd.TimedOut, in body);
@@ -791,6 +834,8 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         cmd.ForwardMove = step.Wish.X * fx + step.Wish.Y * fy;
         cmd.SideMove = step.Wish.X * fy - step.Wish.Y * fx;
         cmd.Buttons = step.Buttons;
+        if (step.Weapon is { } weapon)
+            cmd.WeaponSelect = self.WeaponSelectFor(bot.Player, weapon);
         bot.LastCorner = null;
         bot.LastMove = (cmd.ForwardMove, cmd.SideMove);
         bot.LastButtons = step.Buttons;
@@ -804,7 +849,7 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     private static void EndProgram(BotState bot, AbilityEnd why)
     {
         BotSelfFacts facts = bot.Facts;
-        EndProgram(bot, why, new AbilityBody(facts.Origin, facts.Velocity, bot.Motion.View, facts.OnGround));
+        EndProgram(bot, why, new AbilityBody(facts.Origin, facts.Velocity, bot.Motion.View, facts.OnGround, bot.Id));
     }
 
     private static void EndProgram(BotState bot, AbilityEnd why, in AbilityBody body)
@@ -959,6 +1004,13 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         public Queue<ActionIntent> OneShots { get; } = new();
         public bool Spawned { get; set; }
         public bool TapDown { get; set; }
+
+        /// <summary>The second trigger was held down as a <see cref="FireStyle.Hold"/> (no shot: a minigun's spin) on the last command: it stays down while the first trigger waits for the eye.</summary>
+        public bool AltHeld { get; set; }
+
+        /// <summary>The last decide without a one-shot held Fire at a teammate on purpose (<see cref="IntentCommand.HoldsAtFriend"/>): a one-shot decide that still asks keeps Attack down.</summary>
+        public bool HeldAtFriend { get; set; }
+
         public int JumpTicks { get; set; }
     }
 }

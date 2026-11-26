@@ -1,4 +1,5 @@
 using SourceSharp.Ai.TF2.Jump;
+using SourceSharp.Ai.TF2.Senses;
 using SourceSharp.Ai.TF2.Trees;
 using SourceSharp.Ai.Tests.Nav;
 using TF2.Shared;
@@ -313,6 +314,27 @@ public sealed class TFPointsTests
         AiVector near = new(700f, 256f, 0f), ahead = new(1450f, 256f, 0f);
         f.Step(Bot(At), Level(), Seen(MateId, near), Seen(new ActorId(4, 1), ahead));
         Assert.Equal((TFDecider.TeamBranch, ahead, "to the team"), (f.Branch, f.Decider.Doing.Goal, f.Decider.Doing.Verdict));
+    }
+
+    /// <summary>
+    /// Round 2's S11: a teammate out of sight whose respawn glow the bot's HUD shows (its own glow lasts) is placed, and the
+    /// team stance goes to him, counted; the control: with no glow shown he is not placed and the bot does not go "to the team".
+    /// </summary>
+    [Fact]
+    public void TheTeamStanceGoesToATeammateItsRespawnGlowShows()
+    {
+        var there = new AiVector(1450f, 256f, 0f);
+        TFField g = Follower();
+        g.Decider.HoldStance(TFStance.Team);
+        g.Step(Bot(At), Level());
+        Assert.NotEqual("to the team", g.Decider.Doing.Verdict);
+
+        TFField f = Follower();
+        f.Decider.HoldStance(TFStance.Team);
+        f.Hud = new TFHud([], [], [new TFMateHealth(Mate, -1, -1, TFMateSeen.Glowing, there)]);
+        f.Step(Bot(At), Level());
+        Assert.Equal((TFDecider.TeamBranch, there, "to the team"), (f.Branch, f.Decider.Doing.Goal, f.Decider.Doing.Verdict));
+        Assert.Equal(1L, f.Decider.ClassCounters().Single(c => c.Key == "team.glow_decides").Value);
     }
 
     [Fact]

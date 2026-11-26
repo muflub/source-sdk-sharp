@@ -12,6 +12,7 @@ using TF2.Shared.Combat;
 using TF2.Shared.Econ;
 using TF2.Tests.Combat;
 
+using TF2.Tests.Buildings;
 using Xunit;
 
 namespace TF2.Tests.Projectiles;
@@ -73,9 +74,10 @@ public sealed class TFCleaverFacts
             VictimBleed = (TFBleed)Bleeds.Create(ProjectileRig.Victim).Single();
             VictimBleed.Attach(ProjectileRig.Victim);
 
-            Cleaver = new TFCleaver(Base.Engine, Base.Motion, Base.Engine, Base.Engine, Base.HitGroups,
+            Cleaver = new TFCleaver(Base.Engine, Base.Engine, Base.Engine, Base.HitGroups,
                                     Base.Scopes, Bleeds, Base.Engine, Conditions, Base.Engine, Base.Engine,
-                                    Base.Engine, Giver);
+                                    Base.Engine, Giver, Base.Engine, Base.Directory);
+            Cleaver.RegisteredKind = ScriptedEntityKind.Prop; // a physics body, as the registration says
             Cleaver.BindAreas(TestServices.Areas(Base.Engine));
             Cleaver.NetStates = NetStateBinding.AttachLocal(Cleaver, Cleaver.Handle, new NetStateFields(new RecordingLog()));
             Cleaver.BindThinks(Thinks);
@@ -279,50 +281,70 @@ public sealed class TFCleaverFacts
         Assert.Empty(rig.Giver.Advanced);
     }
 
+    /// <summary>Anything that is neither world nor player is no touch (PipebombTouch :513-514): the body flies on as the solver has it.</summary>
     [Fact]
     public void The_cleaver_flies_through_what_is_neither_player_nor_world()
     {
         var rig = new Rig();
         var cleaver = rig.Arrived(Now + 1f);
-        rig.Base.Engine.Returns("Entities.GetVelocity", new Vector(1200f, 0f, 0f));
+        int sent = rig.Base.Engine.CountOf("Entities.SetVelocity");
 
         cleaver.OnTouch(new EntityHandle(0x0002_0000u | 7));
 
-        // Flown on at the flight it had: no wound, no pay, no thunk.
-        Assert.Equal(new Vector(1200f, 0f, 0f),
-                     rig.Base.Engine.Last("Entities.SetVelocity")!.Value.ArgAs<Vector>(1));
+        Assert.Equal(sent, rig.Base.Engine.CountOf("Entities.SetVelocity"));
         Assert.DoesNotContain(rig.Base.Engine.Calls, c => c.Member == "Damage.TakeDamage");
-        Assert.Empty(rig.Giver.Advanced);
+        Assert.DoesNotContain(rig.Thinks.Bookings(), b => MathF.Abs(b.Time - TFProjectileDefs.CleaverLingerSeconds) < 0.01f); // only the fuse's look, no linger
     }
 
+    /// <summary>Inside the grace (<see cref="TFProjectileDefs.CollideWithTeammatesDelay"/>) a dry teammate is passed (:517-533).</summary>
     [Fact]
-    public void A_dry_teammates_flesh_flies_the_cleaver_through()
+    public void A_dry_teammate_inside_the_grace_is_passed()
     {
         var rig = new Rig();
-        var cleaver = rig.Arrived(Now + 1f);
+        var cleaver = rig.Arrived(Now + 0.1f);
         rig.VictimTeam = 3; // the same side, thrower and touched
-        rig.Base.Engine.Returns("Entities.GetVelocity", new Vector(900f, 0f, 0f));
 
         cleaver.OnTouch(ProjectileRig.Victim);
 
-        Assert.Equal(new Vector(900f, 0f, 0f),
-                     rig.Base.Engine.Last("Entities.SetVelocity")!.Value.ArgAs<Vector>(1));
+        Assert.DoesNotContain(rig.Thinks.Bookings(), b => MathF.Abs(b.Time - TFProjectileDefs.CleaverLingerSeconds) < 0.01f); // only the fuse's look, no linger
         Assert.Empty(rig.VictimBleed.State.Bleeds);
     }
 
+    /// <summary>
+    /// Past the grace a dry teammate stops the cleaver unwounded: <c>OnHit</c> hides it, refuses its own team (:1013-1014),
+    /// and <c>Explode</c>'s miss thunks. Was flown through for the whole flight.
+    /// </summary>
     [Fact]
-    public void A_burning_teammate_takes_the_hit_the_grace_spares_the_dry()
+    public void Past_the_grace_a_dry_teammate_stops_the_cleaver_unwounded()
     {
-        // PipebombTouch's burning exception, the cleaver wearing the jar's
-        // projectile type: the aflame ally is hit like any enemy.
         var rig = new Rig();
         var cleaver = rig.Arrived(Now + 1f);
-        rig.VictimTeam = 3; // the same side the grace would spare
+        rig.VictimTeam = 3;
+
+        cleaver.OnTouch(ProjectileRig.Victim);
+
+        Assert.Empty(rig.VictimBleed.State.Bleeds);
+        Assert.Equal(TFProjectileDefs.CleaverImpactWorldSound,
+                     rig.Base.Engine.Last("Sound.EmitSoundAtPosition")!.Value.ArgAs<string>(0));
+        Assert.False(rig.Base.Engine.Last("EntityRender.SetVisible")!.Value.ArgAs<bool>(1));
+    }
+
+    /// <summary>
+    /// A burning teammate inside the grace is struck (the jar face's exception, the cleaver wearing the jar's type, :242) but
+    /// never wounded: <c>OnHit</c> refuses its own team (:1013-1014). Was bled like an enemy.
+    /// </summary>
+    [Fact]
+    public void A_burning_teammate_stops_the_cleaver_unwounded()
+    {
+        var rig = new Rig();
+        var cleaver = rig.Arrived(Now + 0.1f);
+        rig.VictimTeam = 3;
         rig.Conditions.Add(ProjectileRig.Victim, TFCond.Burning);
 
         cleaver.OnTouch(ProjectileRig.Victim);
 
-        Assert.Single(rig.VictimBleed.State.Bleeds);
+        Assert.Empty(rig.VictimBleed.State.Bleeds);
+        Assert.Single(rig.Thinks.Bookings());
     }
 
     [Fact]
@@ -373,5 +395,335 @@ public sealed class TFCleaverFacts
         Assert.Equal(1, rig.Base.Engine.CountOf("Entities.Remove"));
         Assert.DoesNotContain(rig.Base.Engine.Calls, c => c.Member == "Sound.EmitSoundAtPosition");
         Assert.Empty(rig.Giver.Advanced);
+    }
+
+    // ---- the flight: stock's cleaver is a physics body (lane r2s4, 2026-11-24)
+
+    /// <summary>The cleaver registers as a physics prop, as stock's <c>CTFProjectile_Cleaver</c> is a <c>CTFProjectile_Jar</c>.</summary>
+    [Fact]
+    public void The_cleaver_is_a_physics_body()
+    {
+        var kind = (ScriptedEntityAttribute)Assert.Single(typeof(TFCleaver).GetCustomAttributes(typeof(ScriptedEntityAttribute), false));
+        Assert.Equal(ScriptedEntityKind.Prop, kind.Kind);
+    }
+
+    /// <summary>It is born facing the eye (<c>CreateJarProjectile( src, EyeAngles() )</c>, tf_weapon_jar.cpp:195).</summary>
+    [Fact]
+    public void The_cleaver_is_born_facing_the_eye()
+    {
+        var rig = new Rig();
+        rig.Base.Engine.Returns("Entities.GetEyeAngles", new Vector(-5f, 90f, 0f));
+        rig.Thrown();
+        Vector born = rig.Base.Engine.Last("Entities.SetAngles")!.Value.ArgAs<Vector>(1);
+        Assert.Equal((-5f, 90f), (born.X, born.Y));
+    }
+
+    /// <summary>
+    /// It is spun as stock's: <c>AngularImpulse(0, 500, 0)</c> twice about its own left (<c>GrenadeSpin</c>); thrown along
+    /// +y its left is the world's -x. Was 500 once in the pitch slot of a world-axis spin.
+    /// </summary>
+    [Fact]
+    public void The_cleaver_is_spun_twice_about_its_own_left()
+    {
+        var rig = new Rig();
+        rig.Base.Engine.Returns("Entities.GetEyeAngles", new Vector(0f, 90f, 0f));
+        rig.Thrown();
+        Vector spin = rig.Base.Engine.Last("Entities.SetAngularVelocity")!.Value.ArgAs<Vector>(1);
+        Assert.Equal(-2f * TFProjectileDefs.CleaverSpinPitch, spin.X, 0.5f);
+        Assert.Equal(0f, spin.Y, 0.5f);
+        Assert.Equal(0f, spin.Z, 0.5f);
+    }
+
+    /// <summary>The solved impact on the world is the miss with the body showing (the jar's <c>VPhysicsCollision</c>, :592-617).</summary>
+    [Fact]
+    public void A_world_collision_is_the_showing_miss()
+    {
+        var rig = new Rig();
+        var cleaver = rig.Arrived(Now + 1f);
+        var ev = new PhysicsEvent
+        {
+            KindRaw = (uint)PhysicsEventKind.PostCollision,
+            Flags = PhysicsEvent.FlagCollision,
+            Entity0 = cleaver.Handle.Value,
+            Entity1 = PhysicsEvent.NoEntity,
+            Static1 = 1,
+        };
+
+        cleaver.OnVPhysicsCollision(in ev, 0);
+
+        Assert.Equal(TFProjectileDefs.CleaverImpactWorldSound,
+                     rig.Base.Engine.Last("Sound.EmitSoundAtPosition")!.Value.ArgAs<string>(0));
+        Assert.True(rig.Base.Engine.Last("EntityRender.SetVisible")!.Value.ArgAs<bool>(1));
+        Assert.Single(rig.Thinks.Bookings());
+    }
+
+    /// <summary>A dynamic prop's solved impact stops it as the world's does (:607-614).</summary>
+    [Fact]
+    public void A_dynamic_prop_collision_is_the_miss()
+    {
+        var rig = new Rig();
+        var cleaver = rig.Arrived(Now + 1f);
+        rig.Base.Engine.Returns("Entities.GetClassName", "prop_dynamic");
+        var ev = new PhysicsEvent
+        {
+            KindRaw = (uint)PhysicsEventKind.PostCollision,
+            Flags = PhysicsEvent.FlagCollision,
+            Entity0 = cleaver.Handle.Value,
+            Entity1 = 0x0002_0000u | 7,
+        };
+
+        cleaver.OnVPhysicsCollision(in ev, 0);
+
+        Assert.Single(rig.Thinks.Bookings());
+    }
+
+    // ---- the review's holes (r2s4-2)
+
+    private static PhysicsEvent Collision(TFCleaver cleaver, int mySide, uint other, int otherStatic) => new()
+    {
+        KindRaw = (uint)PhysicsEventKind.PostCollision,
+        Flags = PhysicsEvent.FlagCollision,
+        Entity0 = mySide == 0 ? cleaver.Handle.Value : other,
+        Entity1 = mySide == 0 ? other : cleaver.Handle.Value,
+        Static0 = mySide == 0 ? 0 : otherStatic,
+        Static1 = mySide == 0 ? otherStatic : 0,
+    };
+
+    /// <summary>The thrower's own touch never stops the cleaver (PipebombTouch :507).</summary>
+    [Fact]
+    public void The_throwers_own_touch_never_stops_the_cleaver()
+    {
+        var rig = new Rig();
+        var cleaver = rig.Arrived(Now + 1f);
+        rig.Base.Engine.Returns("Entities.IsPlayer", true); // the thrower is a player like any other
+        cleaver.OnTouch(ProjectileRig.Player);
+        Assert.DoesNotContain(rig.Thinks.Bookings(), b => MathF.Abs(b.Time - TFProjectileDefs.CleaverLingerSeconds) < 0.01f); // only the fuse's look, no linger
+    }
+
+    /// <summary>The cleaver on the event's side 1 reads side 0 for the world.</summary>
+    [Fact]
+    public void A_world_collision_with_the_cleaver_on_side_one_is_the_miss()
+    {
+        var rig = new Rig();
+        var cleaver = rig.Arrived(Now + 1f);
+        PhysicsEvent ev = Collision(cleaver, mySide: 1, PhysicsEvent.NoEntity, otherStatic: 1);
+        cleaver.OnVPhysicsCollision(in ev, 1);
+        Assert.Single(rig.Thinks.Bookings());
+    }
+
+    /// <summary>A side that names no entity and is not static is no one's: no miss.</summary>
+    [Fact]
+    public void A_sideless_moving_body_does_not_stop_the_cleaver()
+    {
+        var rig = new Rig();
+        var cleaver = rig.Arrived(Now + 1f);
+        PhysicsEvent ev = Collision(cleaver, mySide: 0, PhysicsEvent.NoEntity, otherStatic: 0);
+        cleaver.OnVPhysicsCollision(in ev, 0);
+        Assert.DoesNotContain(rig.Thinks.Bookings(), b => MathF.Abs(b.Time - TFProjectileDefs.CleaverLingerSeconds) < 0.01f); // only the fuse's look, no linger
+    }
+
+    /// <summary>A physics prop bounces it: not the miss (the jar's collision arm stops it on the world and dynamic props only).</summary>
+    [Fact]
+    public void A_physics_prop_does_not_stop_the_cleaver()
+    {
+        var rig = new Rig();
+        var cleaver = rig.Arrived(Now + 1f);
+        rig.Base.Engine.Returns("Entities.GetClassName", "prop_physics");
+        PhysicsEvent ev = Collision(cleaver, mySide: 0, 0x0002_0000u | 7, otherStatic: 0);
+        cleaver.OnVPhysicsCollision(in ev, 0);
+        Assert.DoesNotContain(rig.Thinks.Bookings(), b => MathF.Abs(b.Time - TFProjectileDefs.CleaverLingerSeconds) < 0.01f); // only the fuse's look, no linger
+    }
+
+    /// <summary>A cleaver that has struck is spent: an enemy touching it after the world's impact is not wounded.</summary>
+    [Fact]
+    public void A_spent_cleaver_wounds_nobody()
+    {
+        var rig = new Rig();
+        var cleaver = rig.Arrived(Now + 1f);
+        PhysicsEvent ev = Collision(cleaver, mySide: 0, PhysicsEvent.NoEntity, otherStatic: 1);
+        cleaver.OnVPhysicsCollision(in ev, 0);
+        cleaver.OnTouch(ProjectileRig.Victim);
+        Assert.Empty(rig.VictimBleed.State.Bleeds);
+        Assert.DoesNotContain(rig.Base.Engine.Calls, c => c.Member == "Damage.TakeDamage");
+    }
+
+    // ---- stock's fuse and touched latch (review r2s4-2 item 3)
+
+    /// <summary>Past the 2 s fuse the cleaver's <c>Detonate</c> is <c>Explode</c>'s miss: the thunk and the two-second lie.</summary>
+    [Fact]
+    public void Past_the_fuse_the_cleaver_takes_its_miss()
+    {
+        var rig = new Rig();
+        var cleaver = rig.Arrived(Now + TFProjectileDefs.PipeFuse + 0.05f);
+        cleaver.OnThink();
+        Assert.Equal(TFProjectileDefs.CleaverImpactWorldSound,
+                     rig.Base.Engine.Last("Sound.EmitSoundAtPosition")!.Value.ArgAs<string>(0));
+        Assert.Contains(rig.Thinks.Bookings(), b => MathF.Abs(b.Time - TFProjectileDefs.CleaverLingerSeconds) < 0.01f);
+    }
+
+    /// <summary>Before the fuse the look books the next one 0.2 s on and takes no miss.</summary>
+    [Fact]
+    public void Before_the_fuse_the_cleavers_look_waits()
+    {
+        var rig = new Rig();
+        var cleaver = rig.Arrived(Now + 1f);
+        cleaver.OnThink();
+        Assert.DoesNotContain(rig.Base.Engine.Calls, c => c.Member == "Sound.EmitSoundAtPosition");
+        Assert.Equal(TFProjectileDefs.FuseCheckSeconds, Assert.Single(rig.Thinks.Bookings()).Time, 3);
+    }
+
+    /// <summary>After a solved impact on any body (here a physics prop) an enemy's touch no longer wounds (the touched latch, :555-556).</summary>
+    [Fact]
+    public void After_a_bounce_the_cleaver_wounds_no_touch()
+    {
+        var rig = new Rig();
+        var cleaver = rig.Arrived(Now + 1f);
+        rig.Base.Engine.Returns("Entities.GetClassName", "prop_physics");
+        PhysicsEvent ev = Collision(cleaver, mySide: 0, 0x0002_0000u | 7, otherStatic: 0);
+        cleaver.OnVPhysicsCollision(in ev, 0);
+        cleaver.OnTouch(ProjectileRig.Victim);
+        Assert.Empty(rig.VictimBleed.State.Bleeds);
+    }
+
+    // ---- the enemy's contact (lane r2s4)
+
+    /// <summary>The cleaver's ray one tick ahead (the grenade base's VPhysicsUpdate, :774) touches an enemy player first: OnHit wounds him.</summary>
+    [Fact]
+    public void The_cleavers_ray_touches_an_enemy_player_and_wounds_him()
+    {
+        var rig = new Rig();
+        var cleaver = rig.Arrived(Now + 1f);
+        rig.Base.Engine.Returns("Frame.GetFrameTime", 1f / 66f);
+        rig.Base.Engine.Returns("Entities.GetVelocity", new Vector(1000f, 0f, 0f));
+        rig.Base.Engine.Returns("Entities.GetClassName", "player");
+        rig.Base.Engine.Returns("Entities.GetAngularVelocity", default(Vector));
+        rig.Base.Engine.Returns("WorldQuery.TraceLine", new TraceResult(true, 0.5f, new Vector(10f, 0f, 0f), new Vector(-1f, 0f, 0f), ProjectileRig.Victim));
+
+        cleaver.OnPhysicsUpdate();
+
+        Assert.Single(rig.VictimBleed.State.Bleeds);
+    }
+
+    /// <summary>A player's physics collision is no impact (stock's grenades never collide with players): no latch, so his touch still wounds him.</summary>
+    [Fact]
+    public void A_players_collision_leaves_the_cleaver_for_his_touch()
+    {
+        var rig = new Rig();
+        var cleaver = rig.Arrived(Now + 1f);
+        PhysicsEvent ev = Collision(cleaver, mySide: 0, ProjectileRig.Victim.Value, otherStatic: 0);
+
+        cleaver.OnVPhysicsCollision(in ev, 0);
+        cleaver.OnTouch(ProjectileRig.Victim);
+
+        Assert.Single(rig.VictimBleed.State.Bleeds);
+    }
+
+    private sealed class DamageableBody : ScriptedEntity
+    {
+        public override bool TakesDamage => true;
+    }
+
+    /// <summary>
+    /// An enemy building it can damage is the cleaver's miss: the pipebomb base's arm (:877-881) detonates it, and the
+    /// cleaver's Detonate is its Explode, the miss with no player hit (tf_weapon_jar.cpp:1083-1111).
+    /// </summary>
+    [Fact]
+    public void An_enemy_building_is_the_cleavers_miss()
+    {
+        var (rig, cleaver, building) = CleaverAgainst(TFTeam.Red);
+        PhysicsEvent ev = Collision(cleaver, mySide: 0, building.Handle.Value, otherStatic: 0);
+
+        cleaver.OnVPhysicsCollision(in ev, 0);
+
+        Assert.Equal(TFProjectileDefs.CleaverLingerSeconds, Assert.Single(rig.Thinks.Bookings()).Time, 3);
+        Assert.Contains(rig.Base.Engine.Calls, c => c.Member == "Sound.EmitSoundAtPosition");
+    }
+
+    /// <summary>A building of the thrower's team does not stop the cleaver.</summary>
+    [Fact]
+    public void A_friendly_building_does_not_stop_the_cleaver()
+    {
+        var (rig, cleaver, building) = CleaverAgainst(TFTeam.Blue);
+        PhysicsEvent ev = Collision(cleaver, mySide: 0, building.Handle.Value, otherStatic: 0);
+
+        cleaver.OnVPhysicsCollision(in ev, 0);
+
+        Assert.DoesNotContain(rig.Base.Engine.Calls, c => c.Member == "Sound.EmitSoundAtPosition");
+    }
+
+    /// <summary>A Prop-kind prop_physics in the directory takes damage and has no team: it does not stop the cleaver.</summary>
+    [Fact]
+    public void A_prop_physics_that_takes_damage_does_not_stop_the_cleaver()
+    {
+        var rig = new Rig();
+        var cleaver = rig.Arrived(Now + 1f);
+        GrenadeContacts.ServerTeams(rig.Base.Engine, (ProjectileRig.Player, TFTeam.Blue), (ProjectileRig.Victim, TFTeam.Red));
+        var prop = new EntityHandle(0x0002_0000u | 7);
+        rig.Base.Directory.Holds(prop, new DamageableBody());
+        rig.Base.Engine.Returns("Entities.GetClassName", "prop_physics");
+        PhysicsEvent ev = Collision(cleaver, mySide: 0, prop.Value, otherStatic: 0);
+
+        cleaver.OnVPhysicsCollision(in ev, 0);
+
+        Assert.DoesNotContain(rig.Base.Engine.Calls, c => c.Member == "Sound.EmitSoundAtPosition");
+    }
+
+    /// <summary>A Blue thrower's cleaver against a building of <paramref name="team"/>, the server answering teams.</summary>
+    private static (Rig Rig, TFCleaver Cleaver, TestBuilding Building) CleaverAgainst(TFTeam team)
+    {
+        var rig = new Rig();
+        var cleaver = rig.Arrived(Now + 1f);
+        GrenadeContacts.ServerTeams(rig.Base.Engine, (ProjectileRig.Player, TFTeam.Blue), (ProjectileRig.Victim, TFTeam.Red));
+        TestBuilding building = GrenadeContacts.PlacedBuilding(team);
+        rig.Base.Directory.Holds(building.Handle, building);
+        rig.Base.Engine.Returns("Entities.GetClassName", "obj_sentrygun");
+        return (rig, cleaver, building);
+    }
+
+    // ---- the cleaver's ray bounce (lane r2s4, review r2s4-3 item 5)
+
+    /// <summary>A cleaver whose ray strikes the victim one tick ahead, the victim on <paramref name="victimTeam"/>.</summary>
+    private static (Rig Rig, TFCleaver Cleaver) CleaverRaying(int victimTeam, float landedAt)
+    {
+        var rig = new Rig { VictimTeam = victimTeam };
+        var cleaver = rig.Arrived(landedAt);
+        rig.Base.Engine.Returns("Frame.GetFrameTime", 1f / 66f);
+        rig.Base.Engine.Returns("Entities.GetVelocity", new Vector(1000f, 0f, 0f));
+        rig.Base.Engine.Returns("Entities.GetAngularVelocity", new Vector(40f, 0f, 0f));
+        rig.Base.Engine.Returns("WorldQuery.TraceLine", new TraceResult(true, 0.5f, new Vector(10f, 0f, 0f), new Vector(-1f, 0f, 0f), ProjectileRig.Victim));
+        return (rig, cleaver);
+    }
+
+    private static Vector LastVelocity(Rig rig) => EngineCallFacts.ArgAs<Vector>(rig.Base.Engine.Last("Entities.SetVelocity"), 1);
+
+    /// <summary>The ray's enemy is wounded and the cleaver bounced off him halved, as stock's bounce after the touch (:774-789).</summary>
+    [Fact]
+    public void The_cleavers_ray_bounces_it_off_the_enemy_it_wounds_halved()
+    {
+        var (rig, cleaver) = CleaverRaying(victimTeam: 2, Now + 1f);
+        cleaver.OnPhysicsUpdate();
+        Assert.Single(rig.VictimBleed.State.Bleeds);
+        Assert.Equal(new Vector(-225f, 0f, 0f), LastVelocity(rig));
+    }
+
+    /// <summary>A teammate past the 0.25 s pass bounces the cleaver at the elasticity alone, unwounded.</summary>
+    [Fact]
+    public void The_cleavers_ray_bounces_it_off_a_late_teammate()
+    {
+        var (rig, cleaver) = CleaverRaying(victimTeam: 3, Now + 1f);
+        cleaver.OnPhysicsUpdate();
+        Assert.Empty(rig.VictimBleed.State.Bleeds);
+        Assert.Equal(new Vector(-450f, 0f, 0f), LastVelocity(rig));
+    }
+
+    /// <summary>A teammate inside the pass: no wound and no bounce.</summary>
+    [Fact]
+    public void A_teammate_inside_the_pass_does_not_bounce_the_cleaver()
+    {
+        var (rig, cleaver) = CleaverRaying(victimTeam: 3, Now + 0.1f);
+        int spun = rig.Base.Engine.CountOf("Entities.SetAngularVelocity"); // the throw's own
+        cleaver.OnPhysicsUpdate();
+        Assert.Empty(rig.VictimBleed.State.Bleeds);
+        Assert.Equal(spun, rig.Base.Engine.CountOf("Entities.SetAngularVelocity"));
     }
 }

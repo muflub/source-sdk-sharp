@@ -208,6 +208,13 @@ public interface ITFWeaponEffects
     /// gates are the behaviour's; this is the ask.
     /// </summary>
     void UseRage(in WeaponAttackContext attack, int buffType);
+
+    /// <summary>
+    /// The Focus's battle cry (<c>ActivateRageBuff</c>'s case 6,
+    /// <c>tf_player_shared.cpp:13788-13791</c>, GAME_DLL): the server's speech
+    /// as the Heatmaker's press lights the buff. Nothing on a side with no voice.
+    /// </summary>
+    void FocusBattleCry(in WeaponAttackContext attack) { }
 }
 
 /// <summary>

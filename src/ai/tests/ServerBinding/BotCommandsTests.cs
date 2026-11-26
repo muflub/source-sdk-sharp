@@ -173,6 +173,31 @@ public class BotCommandsTests
 
     private void Add(string args) => new AiBotAddCommand(_roster, _log, _notices).RunLine(args, _log.Msg);
 
+    /// <summary>A bot's client commands as a fact's mods would take them.</summary>
+    private sealed class SentCommands : IBotClientCommand
+    {
+        public readonly List<(EntityHandle Bot, string Command)> All = new();
+
+        public void Run(EntityHandle bot, string command) => All.Add((bot, command));
+    }
+
+    /// <summary>
+    /// <c>ai_bot_cmd</c> sends the rest of its line as the named bot's own client command, whole; a name no bot has, or no
+    /// command, sends nothing and says why.
+    /// </summary>
+    [Fact]
+    public void ABotCommandIsSentAsThatBotsOwnClientCommand()
+    {
+        Add("Alyx hard");
+        var sent = new SentCommands();
+        var cmd = new AiBotCmdCommand(_bots, sent, _log);
+        cmd.Execute("Alyx", "build 1 0");
+        cmd.Execute("Nobody", "build 1 0");
+        cmd.Execute("Alyx");
+        Assert.Equal([(_players.Made[0].Player, "build 1 0")], sent.All);
+        Assert.Equal(2, _log.All.Count(l => l.Contains("ai_bot_cmd refused", StringComparison.Ordinal)));
+    }
+
     [Fact]
     public void APresetAddsABotWithThatPresetsSkills()
     {
@@ -656,7 +681,9 @@ public class BotCommandsTests
         var ai = new SourceSharp.Ai.Server.Senses.ServerAiSession(_nav, TestGames.Hl2mp(), null!, _log,
             DeclaredConVars.Fresh<SourceSharp.Ai.Server.Senses.AiThreadsConVar>(), DeclaredConVars.Fresh<SourceSharp.Ai.Server.Senses.AiSyncConVar>());
         var vision = new SourceSharp.Ai.Server.Senses.VisionPass(w.Engine(), w.Entities(), w.Traces());
-        var senses = new SourceSharp.Ai.Server.Senses.AiSenses(_bots, ai, vision, null!, null!, null!, _log,
+        // The builder only for who a bot takes a player for (its ShownActors), which every pushed event passes through.
+        var builder = new SourceSharp.Ai.Server.Senses.SnapshotBuilder(w.Engine(), WeaponCatalog.Stock(), null!, w.Stance(), null!, TestGames.Hl2mp(), null!, new SourceSharp.Ai.Server.Senses.ShownActors(TestGames.Hl2mp()));
+        var senses = new SourceSharp.Ai.Server.Senses.AiSenses(_bots, ai, vision, builder, null!, null!, _log,
                                                                 new SourceSharp.Ai.Server.Senses.ReferenceRecorder(ai, vision));
         Add("Alyx hard");
         AiBot bot = Assert.Single(_bots.Bots);

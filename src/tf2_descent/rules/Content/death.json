@@ -1,5 +1,5 @@
 {
-  "drops": { "equipped": true, "backpack": true, "belt": true, "australium": true },
+  "drops": { "equipped": true, "backpack": true, "belt": true },
   "corpse": { "lingerSeconds": 900, "lostAndFoundFeePct": 25 },
   "downed": {
     "windowSeconds": 20,

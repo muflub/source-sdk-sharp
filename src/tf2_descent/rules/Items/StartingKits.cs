@@ -14,6 +14,9 @@ public sealed record StartingKitRow(string Id, IReadOnlyList<string> Backpack, I
 {
     /// <summary>The source a kit item is rolled under: a craft's (identified, never cursed or promoted).</summary>
     public const string Source = "craft:starting_kit";
+
+    /// <summary>Whether <paramref name="item"/> is a starting kit's: rolled under <see cref="Source"/>.</summary>
+    public static bool IsKit(ItemInstance item) => string.Equals(item.Context.Source, Source, StringComparison.Ordinal);
 }
 
 public sealed class StartingKitTable : RowTable<StartingKitRow>

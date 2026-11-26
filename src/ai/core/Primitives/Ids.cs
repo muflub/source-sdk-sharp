@@ -12,6 +12,25 @@ public readonly record struct ActorId(int Slot, int Serial)
 
     public bool IsValid => Serial != 0;
 
+    /// <summary>
+    /// The serial bit an alias carries (plan_bots_teams_tf2 C.3, the Spy's honesty fix): a body a client draws as someone
+    /// it is not (a disguised Spy, to his enemies) is an actor of its own, one per disguise, so nothing a bot remembers of
+    /// the real player reaches the disguise. Internal: the memory keeps an alias's row apart, and no brain can ask. The
+    /// sign bit, which no other producer of serials sets: a bot's is a small counter, a person's the 0x4000_0000 mark over
+    /// its handle, and a recording's anonymised person's 31 bits at most (ActorAnonymiser masks with 0x7FFF_FFFF). Bit 29,
+    /// first used here, was set for half of all anonymised people, whose replays then saw them as aliases (review F1).
+    /// </summary>
+    internal const int AliasSerialBit = int.MinValue;
+
+    /// <summary>Whether this is an alias (<see cref="Alias"/>): the memory's question only.</summary>
+    internal bool IsAlias => Serial < 0;
+
+    /// <summary>
+    /// Alias number <paramref name="instance"/> (1 up), drawn in slot <paramref name="slot"/>: the binding names one per
+    /// disguise of a player, shared by every viewer the disguise fools (the review's "per (Spy, disguise instance)").
+    /// </summary>
+    public static ActorId Alias(int slot, int instance) => new(slot, AliasSerialBit | (Math.Max(1, instance) & 0x0FFF_FFFF));
+
     public override string ToString() => IsValid ? $"actor {Slot}#{Serial}" : "no actor";
 }
 

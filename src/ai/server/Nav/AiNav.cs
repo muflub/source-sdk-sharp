@@ -173,7 +173,7 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
             return null;
         state.Reach = profile.Reach(player);
         NavLinkAllowance links = profile.LinksFor(player);
-        (state.Links, state.LinkHealth, state.LinksShut) = (links.Links, links.Health, links.Shut);
+        (state.Links, state.LinkHealth, state.LinksShut, state.LinkSpends) = (links.Links, links.Health, links.Shut, links.Spends);
         int team = players.GetTeam(player);
         state.TeamCells = _teamBlockers.For(team);
         (state.Hazard, state.HazardWeight) = Current is { } loaded ? profile.HazardFor(player, team, loaded.Nav.Graph, state) : profile.HazardFor(player, team);
@@ -516,7 +516,7 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
         if (nav.Entities.Unread is { } unread)
             log.Warning($"[SourceSharp/Ai] {mapName}'s entities are not read ({unread}): the bots know none of its spawns, pickups, hurt volumes or team solids\n");
         long start = System.Diagnostics.Stopwatch.GetTimestamp();
-        NavSight sight = NavSight.Build(nav.Nav.Graph, nav.File.Space);
+        NavSight sight = NavSight.Build(nav.Nav.Graph, nav.File.Space, profile.LongSightLines);
         Install(nav, sight, System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds, cache, built: false);
     }
 

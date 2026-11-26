@@ -15,15 +15,16 @@ public sealed record CarriedGear(ImmutableArray<string> Equipped, ImmutableArray
 
 /// <summary>
 /// A dead hero's corpse (R5, D6): what it holds and whose it is. A hardcore hero's corpse
-/// (D7) is lootable by nobody and never reaches the Lost &amp; Found: its gear is lost.
+/// (D7) is lootable by nobody and never reaches the Lost &amp; Found: its gear is lost. A corpse
+/// holds items only: the Australium stays with the hero (the user, 2026-11-22, plan L26).
 /// </summary>
-public sealed record Corpse(string Owner, bool Hardcore, ImmutableArray<string> Items, long Australium);
+public sealed record Corpse(string Owner, bool Hardcore, ImmutableArray<string> Items);
 
-/// <summary>A death: the corpse, and what the hero keeps (nothing, as shipped).</summary>
+/// <summary>A death: the corpse, and what the hero keeps (his Australium, as shipped).</summary>
 public sealed record DeathResult(Corpse Corpse, CarriedGear Kept);
 
-/// <summary>What the Lost &amp; Found holds for an owner once the corpse's level server is gone (R5).</summary>
-public sealed record LostAndFoundEntry(string Owner, ImmutableArray<string> Items, long Australium);
+/// <summary>What the Lost &amp; Found holds for an owner once the corpse's level server is gone (R5): items only.</summary>
+public sealed record LostAndFoundEntry(string Owner, ImmutableArray<string> Items);
 
 /// <summary>
 /// The death rules that are not the downed state (plan_tf2_rpg 2g; D6, D7, R5): what falls
@@ -41,8 +42,9 @@ public sealed class DeathRules
 
     /// <summary>
     /// The corpse a death leaves and what the hero keeps. Each category the table drops
-    /// (equipped, backpack, belt, Australium) moves to the corpse whole; one it does not
-    /// stays with the hero.
+    /// (equipped, backpack, belt) moves to the corpse whole; one it does not stays with the
+    /// hero. The Australium always stays with the hero: it never goes to the corpse or the
+    /// Lost &amp; Found (the user, 2026-11-22, plan L26).
     /// </summary>
     public DeathResult Die(string owner, bool hardcore, CarriedGear gear)
     {
@@ -51,13 +53,12 @@ public sealed class DeathRules
         if (d.Equipped) dropped.AddRange(gear.Equipped);
         if (d.Backpack) dropped.AddRange(gear.Backpack);
         if (d.Belt) dropped.AddRange(gear.Belt);
-        long australium = d.Australium ? gear.Australium : 0;
         var kept = new CarriedGear(
             d.Equipped ? [] : gear.Equipped,
             d.Backpack ? [] : gear.Backpack,
             d.Belt ? [] : gear.Belt,
-            gear.Australium - australium);
-        return new DeathResult(new Corpse(owner, hardcore, dropped.ToImmutable(), australium), kept);
+            gear.Australium);
+        return new DeathResult(new Corpse(owner, hardcore, dropped.ToImmutable()), kept);
     }
 
     /// <summary>Only the owner loots a corpse (D6); nobody loots a hardcore one (D7).</summary>
@@ -72,9 +73,9 @@ public sealed class DeathRules
     /// hardcore corpse (D7: its gear is lost) or an empty one.
     /// </summary>
     public static LostAndFoundEntry? ToLostAndFound(Corpse corpse) =>
-        corpse.Hardcore || (corpse.Items.IsEmpty && corpse.Australium == 0)
+        corpse.Hardcore || corpse.Items.IsEmpty
             ? null
-            : new LostAndFoundEntry(corpse.Owner, corpse.Items, corpse.Australium);
+            : new LostAndFoundEntry(corpse.Owner, corpse.Items);
 
     /// <summary>
     /// The fee to reclaim from the Lost &amp; Found (D6): the table's share (25 %) of the

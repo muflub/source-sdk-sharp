@@ -41,8 +41,45 @@ Entries by owner (the file keeps its order; this is the index):
 - **User directions waiting on a stage**: the usercmd wire format.
 - **Stock A/B** (tools/stock-ab): what running stock hl2mp beside the test
   mod found and this mod still does differently.
+- **TF2 AI, round 2** (the Scout's lane): a Baby Face's Blaster bot's reach by
+  its own boost meter.
+- **TF2 AI, round 2** (lane r2s14): two derived jump edges on ctf_2fort no body
+  can take.
 - **Not open work**: the rulings and divergences kept only here, and the
   closed entries still cited, in the last two sections.
+
+## Two derived jump edges on ctf_2fort no body can take (2026-11-24)
+
+At each bridge end the derived graph has a plain Jump two columns along from
+the deck (z 3) to a strip 50 u up, over a column with no floor below the sky's
+cells at z 1536: cells 72837 -> 72834 at the blue end (-168 -856), 114965 ->
+114966 at the red end (168 856) (ctf_2fort.nav3d 7ee026d58b2a, map-tools
+dc1e00abbdb1; the lane r2s14 probe, `NavGraph` cells and edges). Bots
+crouch-jump to z 71 at the column's face and fall back: 15 stuck lines at those
+cells in six base runs of 8 Soldiers (7e79f0290c), a chaser standing 28 s and
+an escort 14 s. The follower now leaves out a face whose jumps up failed twice
+(r2s14, `NavFollower.WatchHop`), per bot and per chain of goals, so each bot
+still learns the trap with two falls. The edge is the derivation's: the near
+moves' two-column step (`NavGraphFromNav3d.cs`, `k == 2`, `OpenOver` /
+`CrossedAbove`) or map-tools' jump links pass a column that is solid to the
+sky. Next step: find which builds the edge, and refuse a two-column jump whose
+middle column holds no open space between the two floors. Owner: the nav
+derivation (src/ai/nav) or map-tools (another repo: ask first).
+
+## A first spawn into a class may read the eye height before the class (2026-11-22)
+
+Every still dev bot reads an eye height of 72 over its feet
+(`cs_sv_model_heights`, lane hb at 238de0835c), TF's VEC_VIEW, not its
+class's (65..75, `TFViewVectors.ClassEyeHeight`); the human Sniper reads 75.
+The spawn asks the class eye height (`ServerModule.SelectSpawnPoint`, after
+stock's `SetViewOffset( GetClassEyeHeight() )`, tf_player.cpp:3733) and
+movement re-applies it each command (`Movement.cs:1376`), so a bot reading 72
+was classless (or had no predicted record) when its spawn asked and has run
+no movement command since: the first spawn into a class likely reads the eye
+height before the class is written (code-read, not run). Any player's eye is
+VEC_VIEW for the first tick in a new class, a commandless bot's for good; it
+does not touch hitboxes, only a still dev bot used as a shooter. Owner: TF2
+player spawn.
 
 ## Depth 13 at seed 1 does not lint clean (2026-11-22)
 
@@ -53,6 +90,30 @@ Entries by owner (the file keeps its order; this is the index):
 after the dresser speedup (PR #43): the old code refuses it identically, and
 every other depth at both seeds lints clean. The facts dress seed 0, so
 nothing holds seed 1. Owner: the Descent map work.
+
+## A bot standing on an enemy's head is not on the ground for its jump program (2026-11-24)
+
+Staged on ss_ai_tf_jump (round 2 lane r2s1, `.scratch/r2s1-stage3-garden` at 5a213e3755): a Soldier's 250 u ledge
+link landed on a Heavy standing by its touch, and the bot stood there ("stuck at (1128 1144 348)": the ledge's 266 and
+the Heavy's 82) while its program counted it in the air: air 2.4 to 7.6 s against the plan's 1.59 s, ending Landed when
+it walked off or Moved when the try teleported it. The program reads the ground from the bot's facts
+(`AbilityBody.OnGround`, `BotSelfFacts.OnGround`), which a player resting on another player's box evidently does not set (the air times say so; not traced); so its
+flight, the hands it lends in the air (round 2's S1) and the jump's tally run on until it steps off. Open: whether the
+game's own ground entity is the player under it (stock's `CGameMovement::CategorizePosition` traces the hull down and takes what it meets),
+and which of the facts or the program should see it. Owner: the game's movement lane,
+then the jump program.
+
+## A Baby Face's Blaster bot plans the double jump whatever its boost (2026-11-22)
+
+Stock spends 75 boost on each of a BFB Scout's dashes, the meter clamped at 0
+(tf_gamemovement.cpp:1008-1016; SetScoutHypeMeter, tf_player_shared.cpp:14129):
+free at spawn, dear with a full meter. The coordinator's ruling (2026-11-22,
+round 2 lane r2j) keeps the BFB planning `JumpReach.Double` as any Scout
+(TFJumpKit.ReachOf, src/ai/tf2/server/Nav/TFJumpKit.cs), the behaviour before
+r2j. Open: plan by the meter, `Double` while the bot's own hype is under a
+dash's cost and none above it, with hysteresis so NavFollower.ReachChanged
+does not rebuild on every flicker; the profile needs the bot's own meter
+(TFScoutMeters). Owner: the Scout's round 2 lane.
 
 ## The client prediction still walks through box-solid entities (2026-11-15)
 
@@ -1489,3 +1550,23 @@ boundary-design task). **Owner:** the live gate / the physics boundary.
 **Next:** check in stock whether those debris settle against the fan (the
 A/B probe technique); if they rub there too, batch Friction natively into
 the event ring rather than one crossing per report.
+
+## TF2: the spawner's generic pipe is born unfaced and unspun (2026-11-24)
+
+From the r2s4 review (lane r2s4, worktree ss-r2-s4). `ITFProjectileSpawner.Spawn` (`TFProjectileSpawner.cs`, the
+pipe arm of its switch), the launch Descent's robots use, creates the pipe with `Born(className, origin)`: facing
+(0, 0, 0) and with no spin. The weapons' own launch (`TFProjectileEffects`) was fixed in `ba5c8d873a` to stock's
+`CreateNoSpawn( class, position, angEyes, owner )` and the doubled `AngularImpulse( 600, rand, 0 )` in the body's
+own axes (`TFProjectileEffects.GrenadeSpin`); without them a pipe thrown along y flies broadside and takes about
+1.6 times stock's air drag. Born it facing the request's velocity (or angles the request carries) and spin it
+through `GrenadeSpin`, with a fact on the spawner's pipe.
+
+## tools/stock-ab/build-stock: this repo's render tracer no longer compiles in stock's TF client (2026-11-24)
+
+Found by lane r2s4 (stock A/B of the grenade arc). `build-stock` copies `shell_render_trace_client.cpp` and its
+headers into the clone's gitignored `src/game/client/ss_ab/` on every build, and stock's client then fails:
+`shell_client_engine_interfaces.h: No such file or directory` and `ss_ab_client.cpp:184: too few arguments to
+function 'bool RenderTrace::Begin(const CClientEngineInterfaces&)'`. The lane built stock's server alone (a copy
+of the script that runs `ninja ... server_tf` and skips the copy). A shim patch in `tools/stock-ab/patches` that
+carries the new include and `Begin`'s argument, as patch 0007 did for `client_entity.h`, fixes it.
+

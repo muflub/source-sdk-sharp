@@ -158,8 +158,9 @@ public class RocketJumpProgramTests
         JumpLive live = Bot(Normal);
         Fly(live);
         JumpFlown flown = Assert.Single(live.Flown);
-        // The simulator's own flight of the plan rises the plan's apex; the applier's, launched a little late, as near as makes no difference.
-        Assert.Equal(Plan.Apex, flown.Rise, 0);
+        // The simulator's own flight of the plan rises the plan's apex; the applier's, launched a little late, as near as makes
+        // no difference: within a unit (the converged launch put the two 0.38 apart, across a rounding edge of the old test).
+        Assert.InRange(flown.Rise, Plan.Apex - 1f, Plan.Apex + 1f);
     }
 
     /// <summary>

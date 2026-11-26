@@ -162,10 +162,11 @@ public static class HordeTemperament
 /// </summary>
 public static class HordeFamilies
 {
-    /// <summary>The deciders of <paramref name="level"/> with every family registered, over <paramref name="rules"/>' numbers.</summary>
+    /// <summary>The deciders of <paramref name="level"/> with every family registered, over <paramref name="rules"/>' numbers, each hunt on horde.json's leash (<see cref="HordeLeash"/>).</summary>
     public static HordeDeciders Deciders(HordeLevel level, TF2DescentRules rules, IHordePaths? paths = null)
     {
-        var deciders = HordeDeciders.For(level, paths);
+        ArgumentNullException.ThrowIfNull(rules);
+        var deciders = HordeDeciders.For(level, paths, new HordeLeash(rules.Content.Horde.LeashDoors));
         var numbers = FamilyNumbers.For(rules);
         Register(deciders, numbers);
         Boss.BossFamilies.Register(deciders, rules, numbers);   // HO13: the bosses and the Tank, over the families

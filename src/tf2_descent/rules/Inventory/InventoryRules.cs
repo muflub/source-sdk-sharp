@@ -171,7 +171,10 @@ public sealed class InventoryRules
     /// level, the requirements with what is already back on, in the inventory's slot order);
     /// what hung on the belt goes back to its old belt slot when that is free; everything else,
     /// and whatever could not go back where it was, is picked up into the backpack. What does
-    /// not fit stays on the corpse, its place kept.
+    /// not fit stays on the corpse, its place kept. Last, since a death gives the starting kit
+    /// (plan L26), an item picked up because a starting kit item holds its old equipment or belt
+    /// slot takes that slot back when the equip rules take it, and the kit item goes into the
+    /// backpack slot the corpse's item had (a swap: the backpack never fills by it).
     /// </summary>
     public CorpseRecovery Recover(HeroInventory hero, HeroSheet sheet, IReadOnlyList<CorpseItem> corpse)
     {
@@ -205,6 +208,7 @@ public sealed class InventoryRules
         }
 
         var left = new List<CorpseItem>();
+        var packedAt = new List<(CorpseItem Item, int Slot)>();
         foreach (var c in corpse)
         {
             if (placed.Contains(c))
@@ -216,7 +220,29 @@ public sealed class InventoryRules
                 continue;
             }
             hero = hero with { Backpack = hero.Backpack.Add(slot, c.Item) };
+            packedAt.Add((c, slot));
             packed++;
+        }
+
+        // The kit a death gave gives its places back (plan L26).
+        foreach (var (c, at) in packedAt)
+        {
+            if (c.Equipped is { } worn && hero.Equipped.TryGetValue(worn, out var kitWorn) && StartingKitRow.IsKit(kitWorn.Item))
+            {
+                var others = hero.Equipped.Where(e => e.Key != worn).Select(e => new EquippedItem(e.Key, e.Value.Item)).ToList();
+                if (EquipRefusal(sheet, worn, c.Item.Item, others) is not null)
+                    continue;
+                hero = hero with { Equipped = hero.Equipped.SetItem(worn, c.Item), Backpack = hero.Backpack.SetItem(at, kitWorn) };
+                equipped++;
+                packed--;
+            }
+            else if (c.Belt is { } index && hero.Belt.TryGetValue(index, out var kitPotion) && StartingKitRow.IsKit(kitPotion.Item)
+                     && _content.ItemBases[c.Item.Item.BaseId].Slot == S.BeltAccepts)
+            {
+                hero = hero with { Belt = hero.Belt.SetItem(index, c.Item), Backpack = hero.Backpack.SetItem(at, kitPotion) };
+                belted++;
+                packed--;
+            }
         }
         return new CorpseRecovery(hero, left, equipped, belted, packed);
     }

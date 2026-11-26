@@ -78,6 +78,9 @@ internal sealed class FamilySim
         public float Most { get; set; } = 200f;
         public AiAngles Eye { get; set; }
 
+        /// <summary>The robot's scale: its eye stands this many times the brains' eye height (a giant's look turns from there, as the server's motion turns it).</summary>
+        public float Scale { get; set; } = 1f;
+
         /// <summary>A robot that does not move (its brain still decides).</summary>
         public bool Still { get; set; }
 
@@ -108,11 +111,11 @@ internal sealed class FamilySim
         public float Yaw { get; set; }
     }
 
-    /// <summary>A robot of family <paramref name="family"/> at <paramref name="at"/> with the core's eleven <paramref name="levels"/>.</summary>
-    public Bot Robot(int family, AiVector at, byte[]? levels = null, int pack = 0, ulong seed = 42)
+    /// <summary>A robot of family <paramref name="family"/> at <paramref name="at"/> with the core's eleven <paramref name="levels"/>; its home at <paramref name="home"/> (a roster post), where it stands first by default.</summary>
+    public Bot Robot(int family, AiVector at, byte[]? levels = null, int pack = 0, ulong seed = 42, AiVector? home = null)
     {
         var id = new ActorId(Bots.Count + 1, 1);
-        _s.AddBot(id, seed + (ulong)Bots.Count, levels ?? Levels.Eleven());
+        _s.AddBot(id, seed + (ulong)Bots.Count, levels ?? Levels.Eleven(), home: home);
         var bot = new Bot { Id = id, Family = family, Pack = pack, At = at };
         Bots.Add(bot);
         return bot;
@@ -125,8 +128,8 @@ internal sealed class FamilySim
         return h;
     }
 
-    /// <summary>The eye of a robot (scale 1) and of a hero.</summary>
-    public static AiVector EyeOf(Bot b) => b.At + new AiVector(0f, 0f, HordeBrains.EyeHeight);
+    /// <summary>The eye of a robot (the brains' eye height at its scale) and of a hero.</summary>
+    public static AiVector EyeOf(Bot b) => b.At + new AiVector(0f, 0f, HordeBrains.EyeHeight * b.Scale);
 
     public static AiVector EyeOf(HeroIn h) => h.At + new AiVector(0f, 0f, 64f);
 
@@ -151,7 +154,7 @@ internal sealed class FamilySim
             {
                 int line = DecideSchedule.IsDecideTick(tick, b.Id.Slot) ? (int)MathF.Min(HordeView.FireLineReach, LineOfFire(b)) : HordeView.NotTraced;
                 var self = new SelfState(b.At, b.Velocity, b.Eye, (int)MathF.Ceiling(b.Life), (int)MathF.Ceiling(b.Most), b.Family, -1, line,
-                                         SelfFlags.Alive | SelfFlags.Grounded, Team: HordeBrains.RobotTeam);
+                                         SelfFlags.Alive | SelfFlags.Grounded, Team: HordeBrains.RobotTeam, Metal: HordeView.Scaled(b.Scale));
                 var view = snap.Add(b.Id, self);
                 foreach (var h in Heroes)
                     if (h.Seen)

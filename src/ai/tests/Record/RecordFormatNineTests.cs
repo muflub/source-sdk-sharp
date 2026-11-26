@@ -115,8 +115,10 @@ public sealed class RecordFormatNineTests
     [InlineData((ushort)8, true)]
     [InlineData((ushort)9, true)]
     [InlineData((ushort)10, true)]
-    [InlineData((ushort)11, false)]
-    public void TheReaderTakesFormatsEightNineAndTen(ushort version, bool read)
+    [InlineData((ushort)11, true)]
+    [InlineData((ushort)12, true)]
+    [InlineData((ushort)13, false)]
+    public void TheReaderTakesFormatsEightToTwelve(ushort version, bool read)
     {
         using var ms = new MemoryStream();
         ms.Write(AiRecordFormat.Magic);
@@ -126,6 +128,6 @@ public sealed class RecordFormatNineTests
             AiRecordFormat.ReadFileHeader(ms);
         else
             Assert.Throws<InvalidDataException>(() => AiRecordFormat.ReadFileHeader(ms));
-        Assert.Equal(10, AiRecordFormat.Version);
+        Assert.Equal(12, AiRecordFormat.Version);
     }
 }

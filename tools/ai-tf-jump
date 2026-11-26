@@ -181,6 +181,12 @@ LANES = {"run": (16.0, 448.0), "low": (464.0, 800.0)}
 STRETCH = (500.0, 1700.0)
 HOP_UNITS = 24.0
 FLIGHT_UNITS = 200.0
+# The recording keeps a time off the floor that rose past this. Round 2's S1 (2026-11-24) tried 120 (over any hop on the legs,
+# 52 u or 60 crouched): the session then kept all 14 of its flights, and the three that peak at 198 to 199 u (the longest, 742
+# to 746 u over the floor) are flights the simulator does not fly to the facts' 0.1 u: one lands 1.2 u off, one walked from 20
+# ticks back is 38.8 u off its track (.scratch/r2s1-h1.log on that lane). Kept at 200 until that gap is understood; the cut is
+# named here so a recording's json (which lists every flight seen) is read against it.
+RECORD_UNITS = 200.0
 TELEPORT_SPEED = 1500.0
 WALK_SPEED = 240.0
 
@@ -400,6 +406,9 @@ def self_test():
     assert len(kept) == 2 + 2 * 335 and all(struct.unpack_from("<i", p, 0)[0] == 2 for _, p in kept[2:]), len(kept)
     assert {struct.unpack_from("<i", p, 8)[0] for _, p in kept[2:]} == set(range(200, 535))
     assert trim(session, 1)[1] == windows and trim(session, 3) == (session[:10] + rec(REC_HEADER, b"h") + rec(REC_BOT_ADDED, b"b"), [])
+    # The cut is RECORD_UNITS: a flight that peaks 1 u over it is kept, one 1 u under it is not.
+    hops = [(t, FLOOR_Z + (RECORD_UNITS + 1.0 if 300 <= t < 400 else RECORD_UNITS - 1.0 if 500 <= t < 540 else 0.0)) for t in range(100, 700)]
+    assert flight_windows(hops) == [(200, 434)], flight_windows(hops)
     # The course (lane G7a): a stage stood on, a bay, and the jumps a list of links makes of it.
     assert stage_of(192, 304, 656) == 0 and stage_of(1232, 1664, 1606) == 6 and stage_of(192, 304, 700) is None and stage_of(400, 300, 656) is None
     assert in_bay(1808, 464, 956) == 3 and stage_of(1808, 464, 956) == 3 and in_bay(1616, 464, 956) is None
@@ -1224,7 +1233,9 @@ def start_game(config, extra="", map_name=MAP):
 
 def add_jumper(game):
     """Adds the one red Soldier and answers its slot once it is in the world."""
-    game.cmd("ai_bot_add Jumper medium team=2")
+    # The stock Soldier (Rocket Launcher, Shotgun, Shovel): the gate flies the book's plans, made with the stock launcher; an
+    # unpinned bot draws its archetype by seed, and a Direct Hit or Gunboats kit changes what a jump costs and how far it throws.
+    game.cmd("ai_bot_add Jumper medium team=2 class=soldier archetype=Stock")
     deadline = time.time() + 120
     while time.time() < deadline:
         for b in lower(game.json("/ai/world")).get("bots") or []:
@@ -1255,7 +1266,7 @@ def airec_records(data):
 
 def flight_windows(frames):
     """The tick windows to keep, from [(tick, z)] of the bot's frames in tick order: each time
-    off the floor that rose past FLIGHT_UNITS, TRIM_BEFORE ticks before to TRIM_AFTER after. PURE."""
+    off the floor that rose past RECORD_UNITS, TRIM_BEFORE ticks before to TRIM_AFTER after. PURE."""
     out, start, peak = [], None, 0.0
     for i in range(1, len(frames)):
         (ta, za), (tb, zb) = frames[i - 1], frames[i]
@@ -1266,7 +1277,7 @@ def flight_windows(frames):
             continue
         peak = max(peak, zb - FLOOR_Z)
         if not up:
-            if peak > FLIGHT_UNITS:
+            if peak > RECORD_UNITS:
                 out.append((start - TRIM_BEFORE, tb + TRIM_AFTER))
             start = None
     return out

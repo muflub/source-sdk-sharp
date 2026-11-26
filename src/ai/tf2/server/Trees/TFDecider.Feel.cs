@@ -148,6 +148,7 @@ public sealed partial class TFDecider
         _choseAt = _now;
         _pickTier = -1;
         _pickRows = TargetScore.Rows(_memory);
+        BeginConditionPick();
     }
 
     private bool CarriesOurFlag(KnownActor a) => _ownFlag is { State: ObjectiveState.Carried } flag && flag.CarrierSlot == a.Id.Slot;
@@ -167,12 +168,13 @@ public sealed partial class TFDecider
             return false;
         if (tier > _pickTier)
             (_pickTier, _pick) = (tier, new TargetPick(TargetCloseUnits));
+        float cond = ConditionBonus(a, sighted);
         float bonus = _p.RankBonus * TargetScore.RankBonus(TargetScore.RankOf(_memory, a), _pickRows)
                       + (a.ClassBelieved == (int)TFClass.Medic ? MedicBonus : 0f) + (carrier ? CarrierBonus : 0f)
-                      + (_classPlay?.TargetBonus(a, sighted, dist) ?? 0f);
+                      + (_classPlay?.TargetBonus(a, sighted, dist) ?? 0f) + cond;
         float priority = TargetScore.Priority(sighted, a.Confidence, dist, _p.EasyTargetDiscount, bonus, TargetScore.Grudge(a, _now, _tick, _p.GrudgeWeight),
                                               ReferenceEquals(a, _aboutBefore));
-        return _pick.Takes(sighted, dist, priority);
+        return NoteConditionPick(a, tier, sighted, dist, priority, cond, _pick.Takes(sighted, dist, priority));
     }
 
     private PathGlance _glance;
@@ -210,13 +212,18 @@ public sealed partial class TFDecider
         // Fire at a teammate on purpose (a heal beam: FireAtFriend) is not held for one.
         if (!Feel.FriendGate || _action.Kind != ActionKind.Fire || !TeamRule.IsGameTeam(_self.Team) || _friendFire)
             return;
+        // A drawn charge (a bow's draw: a Fire held as FireStyle.Hold) is held, not let go: letting go is its shot. Stock keeps the
+        // button down while the line is not clear (bot/behavior/tf_bot_behavior.cpp:1382-1386); the play tests the line at its release.
+        if (_action.Style == FireStyle.Hold)
+            return;
         float blast = _memory.FriendlyFireOn && Splash(out _) ? SelfBlastUnits : 0f;
         // A shot goes at its aim point: a target's (a rocket at its feet goes at the floor beside them) or a prefire's place on the
         // floor. The line judges a teammate's body where the shot passes it (lane Ge), up to a crouched top for one drawn crouched,
         // so a rocket going down past a teammate standing between is held, and one over a crouched teammate's head is not.
         AiVector? aim = _prefireFiring || _look.Kind == LookKind.Actor ? _look.Point : null;
         StanceHeight body = TFKnowledge.AimHeight(AimPoint.Head, TFClass.Undefined);
-        if (!FriendLine.Blocked(_view, OwnEye.Z - _self.Origin.Z, aim, FireReach, blast, body.Standing, body.Crouched))
+        if (!FriendLine.Blocked(_view, OwnEye.Z - _self.Origin.Z, aim, FireReach, blast, body.Standing, body.Crouched,
+                                _target is { } t && t.Unmasked(_now, _tick) ? t.Id : default))
             return;
         _action = ActionIntent.None;
         _verdict = "held fire (teammate)";

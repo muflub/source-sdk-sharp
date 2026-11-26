@@ -33,12 +33,22 @@ namespace TF2.Descent.Ai.Brains;
 /// <see cref="SelfState.Grenades"/> the clearance class the robot plans by
 /// (<see cref="HordeHulls.ClassOf"/> of its scale; a robot has no second trigger and carries no
 /// grenades). The core's recording writes both, so a decider that plans on the graph replays.</item>
+/// <item><b>Its scale</b>: <see cref="SelfState.Metal"/> is the robot's scale in thousandths
+/// (<see cref="Scaled"/>, <see cref="Scale"/>; a robot carries no metal; 0 reads as 1): its eye
+/// stands that many times the brains' eye height, where the motion turns its look from, so a
+/// family judges its aim from there.</item>
 /// </list>
 /// </summary>
 public static class HordeView
 {
     /// <summary>The level graph's epoch the view was published under, 0 for none ready.</summary>
     public static int NavEpoch(in SelfState self) => self.AltAmmo;
+
+    /// <summary>A robot's scale as the view's <see cref="SelfState.Metal"/> carries it: in thousandths.</summary>
+    public static int Scaled(float scale) => (int)MathF.Round(scale * 1000f);
+
+    /// <summary>The robot's scale; 1 for a view that carries none.</summary>
+    public static float Scale(in SelfState self) => self.Metal > 0 ? self.Metal / 1000f : 1f;
 
     /// <summary>The clearance class the robot plans its paths by.</summary>
     public static ClearanceClass NavClass(in SelfState self) =>

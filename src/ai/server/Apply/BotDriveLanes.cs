@@ -31,11 +31,12 @@ public readonly record struct DriveInput(
     bool Frozen = false);
 
 /// <summary>What a bot's drive has done so far, by the lane's own count: read from the step's result, never from the driver.</summary>
-public readonly record struct DriveCounters(long Breaks, long BreaksGivenUp, long Mounts, long Climbs, long Stucks, long Yields, long Builds, long BuildsOnMain)
+public readonly record struct DriveCounters(long Breaks, long BreaksGivenUp, long Mounts, long Climbs, long Stucks, long Yields, long Builds, long BuildsOnMain,
+                                            long HopsFailed = 0)
 {
     public static DriveCounters operator +(DriveCounters a, DriveCounters b)
         => new(a.Breaks + b.Breaks, a.BreaksGivenUp + b.BreaksGivenUp, a.Mounts + b.Mounts, a.Climbs + b.Climbs, a.Stucks + b.Stucks, a.Yields + b.Yields,
-               a.Builds + b.Builds, a.BuildsOnMain + b.BuildsOnMain);
+               a.Builds + b.Builds, a.BuildsOnMain + b.BuildsOnMain, a.HopsFailed + b.HopsFailed);
 }
 
 /// <summary>
@@ -44,11 +45,14 @@ public readonly record struct DriveCounters(long Breaks, long BreaksGivenUp, lon
 /// driver. <see cref="BreakableCell"/> is the breakable the bot wants a line
 /// to, -1 for none: the trace is the main thread's, before the next step.
 /// <see cref="Link"/> is what the follower says of the route's next link
-/// (lane G5c-2b), which the main thread hands on to the game's brains.
+/// (lane G5c-2b), which the main thread hands on to the game's brains; <see cref="Dashes"/> the second presses in the air
+/// a jump on the route just ahead needs (round 2's S2, <see cref="BrainDriver.DashesAheadOf"/>), handed on likewise.
 /// </summary>
 public readonly record struct DriveOutput(IntentCommand Command, AiVector? Unreachable, string? StuckLine, int BreakableCell, DriveCounters Counters)
 {
     public NavLinkStep Link { get; init; }
+
+    public int Dashes { get; init; }
 }
 
 /// <summary>What <see cref="BotDriveLanes.Take"/> found for a bot.</summary>
@@ -131,6 +135,23 @@ public sealed class BotDriveLanes(Func<IAiTransport> transport, int slots)
 
             return all;
         }
+    }
+
+    /// <summary>
+    /// Each lane's latest failed jumps' faces (<see cref="NavBuildTally.LastHops"/>), as "slot:faces" joined by ';', for
+    /// <c>ai.follow.hops_failed.last</c>: where a soak's <c>ai.follow.hops_failed</c> were. A lane's string is replaced whole by
+    /// its worker, so a read sees one or the other.
+    /// </summary>
+    public string RecentHops()
+    {
+        var parts = new List<string>();
+        for (int slot = 0; slot < _lanes.Length; slot++)
+        {
+            if (_lanes[slot] is { } lane && lane.LastHops.Length > 0)
+                parts.Add($"{slot}:{lane.LastHops}");
+        }
+
+        return string.Join(';', parts);
     }
 
     /// <summary>Whether a step of <paramref name="slot"/>'s bot is on its way.</summary>
@@ -308,6 +329,8 @@ public sealed class BotDriveLanes(Func<IAiTransport> transport, int slots)
 
         public ActorId Bot { get; } = bot;
 
+        public string LastHops => _tally.LastHops;
+
         public BrainDriver Driver { get; } = new();
 
         public BotSelfFacts HandedSelf { get; private set; }
@@ -367,6 +390,7 @@ public sealed class BotDriveLanes(Func<IAiTransport> transport, int slots)
                 _output = new DriveOutput(command, Driver.TakeUnreachable(slot), Driver.TakeStuckLine(slot), _aim.Wanted, Driver.CountersOf(_tally))
                 {
                     Link = Driver.LinkStepOf(slot),
+                    Dashes = Driver.DashesAheadOf(slot),
                 };
                 _fault = null;
                 if (_routeAsked)

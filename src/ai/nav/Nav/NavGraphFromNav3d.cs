@@ -68,6 +68,12 @@ public static class NavGraphFromNav3d
     /// </summary>
     public const int ExtraHullRevision = 3;
 
+    /// <summary>
+    /// The revision of the rule that derives the triple jump (<see cref="NavNumbers.MaxTripleJumpRise"/>): part of the name of
+    /// a graph whose numbers have one, so a change to it renames only those graphs. 2: the room over the take-off.
+    /// </summary>
+    public const int TripleJumpRevision = 2;
+
     // The most leaves one column, or jump links one leaf, may answer.
     private const int MaxLinks = 512;
 
@@ -181,7 +187,7 @@ public static class NavGraphFromNav3d
                                 && !CrossedAbove(src, leaf, dx, dy, MathF.Max(l.FloorZ, floorO), n.HullWidth, n.CrouchHeight, between))
                                 continue;
                             NavEdgeType? type = MathF.Abs(rise) <= n.StepHeight ? NavEdgeType.Walk
-                                : rise > n.MaxCrouchJumpRise ? (rise <= n.MaxDoubleJumpRise ? NavEdgeType.DoubleJump : null)
+                                : rise > n.MaxCrouchJumpRise ? AirJump(src, leaf, l, rise, n)
                                 : rise > n.MaxJumpRise ? NavEdgeType.CrouchJump
                                 : rise > 0f ? NavEdgeType.Jump
                                 : -rise <= n.SafeDrop && FallsClear(src, leaf, dx * k, dy * k, l.FloorZ, floorO, n, fall) ? NavEdgeType.Drop
@@ -199,7 +205,7 @@ public static class NavGraphFromNav3d
                     if (!stand[link.Leaf])
                         continue;
                     float rise = src.Leaf(link.Leaf).FloorZ - l.FloorZ;
-                    NavEdgeType? type = rise > n.MaxCrouchJumpRise ? (rise <= n.MaxDoubleJumpRise ? NavEdgeType.DoubleJump : null)
+                    NavEdgeType? type = rise > n.MaxCrouchJumpRise ? AirJump(src, leaf, l, rise, n)
                         : rise > n.MaxJumpRise ? NavEdgeType.CrouchJump
                         : rise > 0f || link.Columns > 1 ? NavEdgeType.Jump
                         : -rise <= n.SafeDrop ? NavEdgeType.Drop : null;
@@ -427,12 +433,34 @@ public static class NavGraphFromNav3d
         return -1;
     }
 
+    /// <summary>
+    /// A rise past the crouch jump's from <paramref name="leaf"/>: a double jump's up to <see cref="NavNumbers.MaxDoubleJumpRise"/>,
+    /// past that a triple jump's up to <see cref="NavNumbers.MaxTripleJumpRise"/> (none for numbers without one: their graphs
+    /// keep their edges and hashes), else no move. A triple jump also needs the open space over its take-off to hold a crouched
+    /// body with its feet at the rise (<see cref="OpenTop"/>): a rise of 97 to 142 u is as often the floor of the storey above,
+    /// over a ceiling. Live on cp_granary (round 2's S2) 114 of 195 stuck lines were Atomizer Scouts jumping at such a floor
+    /// from under a ceiling 86 u up, and of the map's 142,318 triple jumps only 259 had the room.
+    /// </summary>
+    private static NavEdgeType? AirJump(INavSource src, int leaf, in NavLeaf l, float rise, in NavNumbers n)
+        => rise <= n.MaxDoubleJumpRise ? NavEdgeType.DoubleJump
+            : rise <= n.MaxTripleJumpRise && OpenTop(src, leaf) >= l.FloorZ + rise + n.CrouchHeight ? NavEdgeType.TripleJump
+            : null;
+
+    /// <summary>The top of the open space <paramref name="leaf"/> is the bottom of: its column's leaves touching it from above, to the last.</summary>
+    private static float OpenTop(INavSource src, int leaf)
+    {
+        float top = src.Leaf(leaf).TopZ;
+        for (int up = src.Above(leaf); up >= 0; up = src.Above(up))
+            top = src.Leaf(up).TopZ;
+        return top;
+    }
+
     private static void AddMove(INavSource src, NavGraphBuilder b, HashSet<(int, int)> added, NavObstacleInfo[] infos, int[] obstacleOfLeaf,
                                 NavEdgeCosts costs, int fromLeaf, int toLeaf, int from, int to, NavEdgeType type)
     {
         int a = obstacleOfLeaf[fromLeaf], c = obstacleOfLeaf[toLeaf];
         int obstacle = a >= 0 && (c < 0 || infos[a].Kind == NavObstacleKind.Door) ? a : c;
-        if ((obstacle < 0 || infos[obstacle].Kind != NavObstacleKind.Door) && type is NavEdgeType.Drop or NavEdgeType.Jump or NavEdgeType.CrouchJump or NavEdgeType.DoubleJump)
+        if ((obstacle < 0 || infos[obstacle].Kind != NavObstacleKind.Door) && type is NavEdgeType.Drop or NavEdgeType.Jump or NavEdgeType.CrouchJump or NavEdgeType.DoubleJump or NavEdgeType.TripleJump)
         {
             int pane = PaneAcross(infos, src.Leaf(fromLeaf), src.Leaf(toLeaf));
             if (pane >= 0)

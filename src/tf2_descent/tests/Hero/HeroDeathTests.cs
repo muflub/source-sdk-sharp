@@ -24,6 +24,9 @@ public sealed class HeroDeathTests
     private static long[] Carried(DownedRig rig, int index) =>
         [.. rig.Ledger.Find(rig.Key(index))!.Inventory.Items.Select(h => h.Id).Order()];
 
+    /// <summary>The Soldier's starting kit: three weapons and three potions, which a death gives again (plan L26).</summary>
+    private const int KitItems = 6;
+
     private static DownedRig DeadAt(Vector at, params int[] heroes)
     {
         var rig = new DownedRig(heroes);
@@ -48,7 +51,37 @@ public sealed class HeroDeathTests
         var corpse = rig.Ledger.Corpse(rig.Key(A))!;
         Assert.NotEmpty(expected.Items);
         Assert.Equal(expected.Items.Order(), corpse.Items.Select(i => i.ToString()).Order());
-        Assert.Equal(expected.Australium, corpse.Australium);
+        Assert.DoesNotContain(rig.Ledger.Find(rig.Key(A))!.Inventory.Items, h => corpse.Items.Contains(h.Id));
+    }
+
+    /// <summary>
+    /// The user, 2026-11-22 (plan L26): a hero respawns with the class's starting kit, whatever he
+    /// died with: the death gives it, after the corpse took what he carried, so it is his when he stands.
+    /// </summary>
+    [Fact]
+    public void A_respawned_hero_has_the_starting_kit_equipped_and_on_the_belt()
+    {
+        var rig = DeadAt(There);
+
+        rig.Clock.Respawn(PlayerOf(A));
+
+        var inv = rig.Ledger.Find(rig.Key(A))!.Inventory;
+        Assert.Equal(["rocket_launcher", "shotgun", "shovel"], new[] { "primary", "secondary", "melee" }.Select(s => inv.Equipped[s].Item.BaseId));
+        Assert.Equal(["health_small", "health_small", "mana_small"], inv.Belt.Values.Select(h => h.Item.BaseId));
+        Assert.All(inv.Items, h => Assert.True(StartingKitRow.IsKit(h.Item)));
+        Assert.NotEmpty(rig.Ledger.Corpse(rig.Key(A))!.Items);   // the stimulus: the old kit lies on the corpse
+    }
+
+    /// <summary>A hardcore hero falls and gets no kit (plan L26, as the host's 2.9 RecordDeath).</summary>
+    [Fact]
+    public void A_hardcore_death_gives_no_kit()
+    {
+        var rig = new DownedRig(A);
+        Assert.True(rig.Heroes.Sheets.Apply(A, s => s with { Hardcore = true }).Ok);
+
+        rig.Hit(A, 500);
+
+        Assert.NotEmpty(rig.Ledger.Corpse(rig.Key(A))!.Items);   // the stimulus: he died carrying the kit
         Assert.Empty(rig.Ledger.Find(rig.Key(A))!.Inventory.Items);
     }
 
@@ -75,12 +108,12 @@ public sealed class HeroDeathTests
     }
 
     /// <summary>
-    /// F24's cause: a hero who died again before taking his corpse back carries nothing (he respawned
-    /// unarmed), so his death line says 0, while the corpse, moved to the new death, still holds what
-    /// the first one left. The corpse's line says it moved and holds an earlier death's items.
+    /// F24's cause: a hero who died again before taking his corpse back carries only the kit the first
+    /// death gave (plan L26), so his death line says 6, while the corpse, moved to the new death, holds
+    /// what the first one left too. The corpse's line says it moved and holds an earlier death's items.
     /// </summary>
     [Fact]
-    public void A_second_death_before_the_corpse_is_taken_carries_nothing_and_the_moved_corpse_says_so()
+    public void A_second_death_before_the_corpse_is_taken_carries_the_new_kit_and_the_moved_corpse_says_so()
     {
         var rig = new DownedRig(A);
         int carried = rig.Ledger.Find(rig.Key(A))!.Inventory.Items.Count();
@@ -93,9 +126,9 @@ public sealed class HeroDeathTests
         rig.Hit(A, 500);
 
         var lines = rig.Heroes.Log.Lines.Skip(mark).Select(l => l.Text).ToList();
-        Assert.Contains(lines, l => l.Contains($"player {A} died carrying 0 item(s)", StringComparison.Ordinal));
+        Assert.Contains(lines, l => l.Contains($"player {A} died carrying {KitItems} item(s)", StringComparison.Ordinal));
         Assert.Contains(lines, l => l.Contains("[TF2Descent/Corpse]", StringComparison.Ordinal)
-                                    && l.Contains($"{carried} item(s)", StringComparison.Ordinal)
+                                    && l.Contains($"{carried + KitItems} item(s)", StringComparison.Ordinal)
                                     && l.Contains("moved", StringComparison.Ordinal));
     }
 
@@ -112,7 +145,7 @@ public sealed class HeroDeathTests
     }
 
     [Fact]
-    public void A_death_moves_the_carried_australium_to_the_corpse()
+    public void A_death_leaves_the_carried_australium_with_the_hero()
     {
         var rig = new DownedRig(A);
         var held = rig.Ledger.Find(rig.Key(A))!;
@@ -120,7 +153,8 @@ public sealed class HeroDeathTests
 
         rig.Hit(A, 500);
 
-        Assert.Equal((75L, 0L), (rig.Ledger.Corpse(rig.Key(A))!.Australium, rig.Ledger.Find(rig.Key(A))!.Inventory.Australium));
+        Assert.Equal((0L, 75L), (rig.Ledger.Corpse(rig.Key(A))!.Australium, rig.Ledger.Find(rig.Key(A))!.Inventory.Australium));
+        Assert.Contains("kept 0 item(s) and 75 Australium", rig.Costs.LastCosts);
     }
 
     [Fact]
@@ -170,7 +204,8 @@ public sealed class HeroDeathTests
         string done = await rig.Graves.Use(A);
 
         Assert.StartsWith("recovered", done);
-        Assert.Equal(before, Carried(rig, A));
+        Assert.Equal(before, Carried(rig, A).Intersect(before));
+        Assert.Equal(before.Length + KitItems, Carried(rig, A).Length);   // and the kit the death gave
         Assert.Empty(rig.Corpses.Standing);
         Assert.Null(rig.Graves.Of(rig.Key(A)));
     }
@@ -204,9 +239,17 @@ public sealed class HeroDeathTests
         rig.Hit(A, 500);
         rig.RunTo(1200);
         rig.Clock.Respawn(PlayerOf(A));
+        Assert.Equal(KitItems, Carried(rig, A).Length);   // the kit the death gave (plan L26)
         Assert.StartsWith("recovered", await rig.Graves.Use(A));
         return rig;
     }
+
+    /// <summary>
+    /// The backpack's ids but its starting kit items: after a recovery those are the kit the death
+    /// gave, which the corpse's items swapped out of his slots and belt (plan L26).
+    /// </summary>
+    private static long[] PackBesidesTheKit(DownedRig rig) =>
+        [.. rig.Ledger.Find(rig.Key(A))!.Inventory.Backpack.Values.Where(h => !StartingKitRow.IsKit(h.Item)).Select(h => h.Id).Order()];
 
     [Fact]
     public async Task His_worn_items_go_back_on_to_their_slots()
@@ -219,7 +262,8 @@ public sealed class HeroDeathTests
 
         Assert.Equal(worn.Keys, Containers(rig, A).Worn.Keys);
         Assert.Equal(rig.Ledger.LastRecovery!.Equipped, Containers(rig, A).Worn.Count);
-        Assert.Empty(Containers(rig, A).Backpack);
+        Assert.Empty(PackBesidesTheKit(rig));
+        Assert.Equal(KitItems, Containers(rig, A).Backpack.Length);   // the kit the death gave, swapped out of his slots and belt
     }
 
     [Fact]
@@ -233,10 +277,10 @@ public sealed class HeroDeathTests
             return Task.CompletedTask;
         });
 
-        var (worn, belt, pack) = Containers(rig, A);
+        var (worn, belt, _) = Containers(rig, A);
         Assert.Equal(before!.Value.Item1, worn);
         Assert.Equal(before.Value.Item2, belt);
-        Assert.Equal(before.Value.Item3, pack);
+        Assert.Equal(before.Value.Item3, PackBesidesTheKit(rig));
     }
 
     [Fact]
@@ -259,7 +303,7 @@ public sealed class HeroDeathTests
             given = r.Ledger.Find(r.Key(A))!.Inventory.Backpack.Values.Single().Id;
         });
 
-        Assert.Equal([given], Containers(rig, A).Backpack);
+        Assert.Equal([given], PackBesidesTheKit(rig));
     }
 
     [Fact]
@@ -279,7 +323,7 @@ public sealed class HeroDeathTests
 
         var (worn, _, pack) = Containers(rig, A);
         Assert.Equal(newShovel, worn["melee"]);
-        Assert.Equal([shovel], pack);
+        Assert.Contains(shovel, pack);
     }
 
     [Fact]
@@ -314,8 +358,9 @@ public sealed class HeroDeathTests
         rig.Hit(A, 500);
         rig.RunTo(1200);
 
-        long[] after = [.. Carried(rig, A).Concat(rig.Ledger.Corpse(rig.Key(A))!.Items).Order()];
-        Assert.Equal(before, after);
+        Assert.Equal(before, rig.Ledger.Corpse(rig.Key(A))!.Items.Order());
+        Assert.Empty(Carried(rig, A).Intersect(before));   // what he holds is the death's new kit (plan L26)
+        Assert.Equal(KitItems, Carried(rig, A).Length);
     }
 
     [Fact]
@@ -350,6 +395,9 @@ public sealed class HeroDeathTests
         rig.RunTo(1200);
         rig.Clock.Respawn(PlayerOf(A));
         rig.Clock.Origins[PlayerOf(A)] = There;
+        // He threw away the kit the death gave (plan L26), so the subject stays the fit rule.
+        var held = rig.Ledger.Find(rig.Key(A))!;
+        rig.Ledger.Replace(held with { Inventory = new TF2.Descent.Rules.Inventory.HeroInventory { Australium = held.Inventory.Australium } });
         int corpse = rig.Ledger.Corpse(rig.Key(A))!.Items.Count;
         // While he walked back he took up a shovel and filled his backpack: the corpse's
         // shovel can go neither to its old slot nor to the backpack; the rest goes back.
@@ -382,7 +430,7 @@ public sealed class HeroDeathTests
 
         var grave = Assert.Single(rig.Corpses.Standing);
         Assert.Equal(later, grave.Value.At);
-        Assert.Equal(first + 1, rig.Ledger.Corpse(rig.Key(A))!.Items.Count);
+        Assert.Equal(first + 1 + KitItems, rig.Ledger.Corpse(rig.Key(A))!.Items.Count);   // the shovel and the kit the first death gave
         Assert.Equal(1, rig.Corpses.Made);
     }
 

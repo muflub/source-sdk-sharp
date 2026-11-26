@@ -945,7 +945,7 @@ internal sealed unsafe partial class EngineEntityRender : IEngineEntityRender
     public float SequenceDuration(EntityHandle entity, int sequence)
         => _models.For(entity).SequenceDuration(sequence);
     public float SequenceGroundSpeed(EntityHandle entity, int sequence)
-        => Client?.SequenceGroundSpeed(entity, sequence) ?? 0f;
+        => Skeletons?.SequenceGroundSpeed(entity, sequence) ?? 0f;
 
     // THE SKELETON'S QUESTIONS (plan physics_bones_native_zero 1.2): both
     // sides' skeletons are managed and every member below asks the route.

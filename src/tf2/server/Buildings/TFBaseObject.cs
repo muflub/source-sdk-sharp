@@ -296,7 +296,10 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
         State.Mini = true;                      // the client's deferred arms read it (DT_BaseObject)
 
         if (Type == TFObjectType.Sentrygun)
+        {
             Render.SetModelScale(Handle, MiniSentryScale);
+            ResetHull();
+        }
 
         if (Type != TFObjectType.Dispenser)
             Skins.SetSkin(Handle, Team == (int)TFTeam.Red ? 2 : 3);
@@ -552,11 +555,30 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
         }
     }
 
-    /// <summary><c>SetModel</c> + drawn (stock's <c>m_nRenderMode</c> stays kRenderNormal over the life).</summary>
+    /// <summary>
+    /// <c>SetModel</c> + drawn (stock's <c>m_nRenderMode</c> stays kRenderNormal over the life), and the object's hull again:
+    /// each building's <c>SetModel</c> override resets the size after the model (<c>SetBuildingSize</c>,
+    /// tf_obj_sentrygun.cpp:2123-2126, 2146-2150; tf_obj_dispenser.cpp:356-361; tf_obj_teleporter.cpp:327-332), and the
+    /// engine's model change takes the model's own bounds (a building is no player). Without it a finished or upgraded
+    /// sentry's collision box was its model's: wider than the hull, it grew over an Engineer standing at his nest and held
+    /// him there (round 2's Engineer lane, cp_granary and ctf_2fort, 2026-11-24). A mini sentry's hull is its model's scale
+    /// of the full one, as stock's <c>SetModelScale</c> scales it.
+    /// </summary>
     private void Dress(string model)
     {
         SetModel(model);
         SetVisible(true);
+        ResetHull();
+    }
+
+    /// <summary>Stock's <c>SetBuildingSize</c>: the collision box is the object's hull (a mini sentry's scaled with its model).</summary>
+    private void ResetHull()
+    {
+        if (TFObjectInfo.Of(Type) is null)
+            return;
+        (Vector mins, Vector maxs) = TFObjectModels.Hull(Type);
+        float scale = _miniBuilding && Type == TFObjectType.Sentrygun ? MiniSentryScale : 1f;
+        Entities.SetBounds(Handle, mins * scale, maxs * scale);
     }
 
     /// <summary>
@@ -633,8 +655,7 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
         // (baseobject_shared.cpp:464-496).
         if (TFObjectInfo.Of(Type) is not null)
         {
-            (Vector mins, Vector maxs) = TFObjectModels.Hull(Type);
-            Entities.SetBounds(Handle, mins, maxs);
+            ResetHull();
             Entities.SetSolidity(Handle, SolidType.BoundingBox, SolidFlags.None);
             Dress(TFObjectModels.Building(Type));
 

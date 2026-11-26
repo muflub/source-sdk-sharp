@@ -71,6 +71,11 @@ internal sealed class RigVisibility : TF2.Descent.Server.Lamp.IHeroVisibility
     public double Reach { get; set; }
 
     public double LampReach(EntityHandle hero) => Reach;
+
+    /// <summary>Whether every hero's lamp is a Lamplighter's beacon (no, unless a fact sets it).</summary>
+    public bool Beacons { get; set; }
+
+    public bool Beacon(EntityHandle hero) => Beacons;
 }
 
 internal sealed class NoLandings : IHeroLandings

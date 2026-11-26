@@ -198,6 +198,34 @@ public class AbilityProgramTests
     }
 
     [Fact]
+    public void AProgramIsToldWhichBotItRunsFor()
+    {
+        Begin(Glide);
+        Command();
+        Assert.Equal(Bot, Assert.Single(_program.Bodies).Bot);
+    }
+
+    [Fact]
+    public void AWeaponAProgramNamesIsSelectedWithItsCommand()
+    {
+        _program.Answer = new AbilityCommand(default, 1, default, 0, Weapon: 5);
+        Begin(Glide);
+        Assert.Equal(45, Command().WeaponSelect);
+    }
+
+    [Fact]
+    public void ADefaultCommandSelectsNoWeapon()
+    {
+        // Round 2's S1, the review's item 8: a command built as default names no weapon, not slot 0.
+        _program.Answer = default;
+        Begin(Glide);
+        Assert.Equal(0, Command().WeaponSelect);
+        // The control: slot 0 named on purpose is selected.
+        _program.Answer = default(AbilityCommand) with { Weapon = 0 };
+        Assert.Equal(40, Command().WeaponSelect);
+    }
+
+    [Fact]
     public void AProgramIsToldTheViewItsLastCommandSent()
     {
         _program.Answer = new AbilityCommand(new AiAngles(30f, 120f, 0f), 1, default, 0);

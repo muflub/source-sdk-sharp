@@ -631,4 +631,18 @@ public partial class PlayerNetState
     /// </summary>
     [NoErrorCheck]
     [NetArray(MaxAmmoSlots)] public partial NetArray<short> Ammo { get; }
+
+    // ---- the eyes the other clients draw (stock's m_angEyeAngles[PITCH]) -----
+
+    /// <summary>
+    /// Where the player looks up or down, -180..180 (negative is up): stock
+    /// networks <c>m_angEyeAngles</c> to the other clients (DT_HL2MP_Player,
+    /// DT_TFNonLocalPlayerExclusive) and each poses the player's torso from it
+    /// (<c>C_HL2MP_Player</c> / <c>C_TFPlayer::EyeAngles</c>). The server's
+    /// animation state poses his hitboxes from the same pitch
+    /// (<c>SsPlayer.UpdateAnimState</c> writes this beside it), so the body
+    /// other clients draw and the boxes their shots meet agree. Not predicted:
+    /// the local player draws his own view angles.
+    /// </summary>
+    public partial float EyePitch { get; set; }
 }

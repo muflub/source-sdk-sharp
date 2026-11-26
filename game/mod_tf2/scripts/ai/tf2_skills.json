@@ -968,6 +968,24 @@
     0.0
    ]
   },
+  "reflectChance": {
+   "skill": "agility",
+   "direction": "up",
+   "note": "the share of seconds a Pyro reflects and shoves in (plan_bots_teams_tf2 P7): stock's ladder by difficulty (CTFBot::ShouldFireCompressionBlast, tf_bot.cpp:4081-4105: Easy never, Normal half, Hard 0.9, Expert always) at the presets' base Agility (easy 2, normal 3, hard 4, expert 5)",
+   "levels": [
+    0.0,
+    0.0,
+    0.0,
+    0.5,
+    0.9,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
   "voiceEverySeconds": {
    "skill": "teamwork",
    "direction": "down",

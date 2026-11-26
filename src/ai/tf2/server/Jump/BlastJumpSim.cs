@@ -56,6 +56,12 @@ public sealed record JumpFlight(JumpPoint[] Track, int Takeoff, int Landing, Vec
 /// own-pass (<c>TFBlastApplier</c>: reach, line, distance, damage, push).
 ///
 /// <para>
+/// A sticky launcher (<see cref="JumpProjectile.Sticky"/>, round 2's S3) lobs its shot at the launcher's gravity, sticks it
+/// where it meets a solid, and blasts it when a command holds the second trigger once it has been out its arm time
+/// (<c>DetonateRemotePipebombs</c>), with the Demoman's own scales.
+/// </para>
+///
+/// <para>
 /// No engine and no entity: nobody else is hurt, nothing is in the way but
 /// the map, the launcher is loaded, and the body cannot die. The same start
 /// and commands give the same flight, bit for bit. A simulator holds one
@@ -105,6 +111,12 @@ public sealed class BlastJumpSim
     {
         public Vector Origin, Velocity;
         public int Age;
+
+        /// <summary>The command that fired it.</summary>
+        public int Fired;
+
+        /// <summary>A sticky that has met a solid: it stays there until it is detonated.</summary>
+        public bool Stuck;
     }
 
     /// <summary>Runs <paramref name="commands"/> from <paramref name="start"/>.</summary>
@@ -150,21 +162,33 @@ public sealed class BlastJumpSim
         float now = (i + 1) * tick;
         if ((command.Buttons & GameMovement.InAttack) != 0 && now >= _readyAt)
         {
-            _rockets.Add(Fire());
+            _rockets.Add(Fire() with { Fired = i });
             _fired++;
             _readyAt = now + _launcher.RefireSeconds;
         }
 
-        // The projectiles' frame: each rocket one tick, the new one too.
+        // The projectiles' frame: each rocket one tick, the new one too. A sticky that meets a solid sticks there.
+        bool sticky = _launcher.Kind == JumpProjectile.Sticky;
         for (int r = _rockets.Count - 1; r >= 0; r--)
         {
             Rocket rocket = _rockets[r];
-            if (Advance(ref rocket, tick, out Vector struck))
+            if (rocket.Stuck)
             {
+                rocket.Age++;
+                _rockets[r] = rocket;
+            }
+            else if (Advance(ref rocket, tick, out Vector struck))
+            {
+                if (sticky)
+                {
+                    (rocket.Origin, rocket.Velocity, rocket.Stuck) = (struck, Vector.Zero, true);
+                    rocket.Age++;
+                    _rockets[r] = rocket;
+                    continue;
+                }
+
                 _rockets.RemoveAt(r);
-                float dealt = Blast(struck, out Vector impulse);
-                _blastDamage += dealt;
-                _impacts.Add(new JumpImpact(i, struck, dealt, impulse));
+                Explode(i, struck);
             }
             else if (++rocket.Age >= RocketLifeTicks)
             {
@@ -173,6 +197,21 @@ public sealed class BlastJumpSim
             else
             {
                 _rockets[r] = rocket;
+            }
+        }
+
+        // The second trigger detonates every sticky that is armed (stock's DetonateRemotePipebombs: one younger than its live
+        // time stays; JumpLauncher.ArmCommands: the game's arm think), after the projectiles' frame, as the weapon's.
+        if (sticky && (command.Buttons & GameMovement.InAttack2) != 0)
+        {
+            int armed = _launcher.ArmCommands(tick);
+            for (int r = _rockets.Count - 1; r >= 0; r--)
+            {
+                if (i - _rockets[r].Fired < armed)
+                    continue;
+                Vector at = _rockets[r].Origin;
+                _rockets.RemoveAt(r);
+                Explode(i, at);
             }
         }
 
@@ -243,7 +282,9 @@ public sealed class BlastJumpSim
     /// <summary>
     /// A rocket as the launcher bears it (<c>TFProjectileEffects</c>' rocket
     /// arm): at the eye, out along the aim by the muzzle's offsets, flying
-    /// straight along the aim. The eye is where the firing command's move
+    /// straight at where the aim converges (<see cref="Converged"/>, stock's
+    /// <c>GetProjectileFireSetup</c>). A sticky leaves along the eye's aim with
+    /// its climb: <c>FirePipeBomb</c> has no setup. The eye is where the firing command's move
     /// left it, and the muzzle's crouched height goes by the duck that same
     /// move left: the launcher reads the player's published flags
     /// (<c>TFWeaponOwners.DuckingOf</c>), and the server publishes a
@@ -257,17 +298,50 @@ public sealed class BlastJumpSim
         Vector forward = Angles.Forward(_mover.ViewAngles);
         (Vector right, Vector up) = Angles.RightUp(forward);
         float muzzleUp = _mover.Ducking ? _launcher.MuzzleUpDucked : _launcher.Muzzle.Z;
-        return new Rocket
-        {
-            Origin = _mover.EyePosition + forward * _launcher.Muzzle.X + right * _launcher.Muzzle.Y + up * muzzleUp,
-            Velocity = forward * _launcher.Speed,
-        };
+        Vector eye = _mover.EyePosition, muzzle = eye + forward * _launcher.Muzzle.X + right * _launcher.Muzzle.Y + up * muzzleUp;
+        Vector velocity = _launcher.Kind == JumpProjectile.Sticky
+            ? forward * _launcher.Speed + up * _launcher.LaunchUp
+            : Converged(eye, forward, muzzle) * _launcher.Speed;
+        return new Rocket { Origin = muzzle, Velocity = velocity };
     }
 
-    /// <summary>One tick of a rocket's flight (<c>EntityMotion.Integrate</c>): true when it met a solid, at <paramref name="struck"/>.</summary>
+    /// <summary>
+    /// <c>GetProjectileFireSetup</c>'s length of the eye's line (tf_weaponbase.cpp:5745), and the share of it under which a
+    /// stop is too near to aim at (:5795-5800), as the game's <c>TFProjectileEffects.Aimed</c> has them (lane r2g).
+    /// </summary>
+    public const float FireSetupReach = 2000f, FireSetupNear = 0.1f;
+
+    /// <summary>
+    /// The way a shot from <paramref name="muzzle"/> flies (stock's <c>GetProjectileFireSetup</c>, as the game's
+    /// <c>TFProjectileEffects.Aimed</c> ports it): the eye's line traced <see cref="FireSetupReach"/> out through the map, and
+    /// the shot sent at where it stopped, or at the line's far end when the stop is within a tenth of the reach (a jump's
+    /// shot at the floor by the feet). The map is all there is to stop it here: nobody else is in a simulated flight. A unit
+    /// vector.
+    /// </summary>
+    private Vector Converged(Vector eye, Vector forward, Vector muzzle)
+    {
+        Vector end = eye + forward * FireSetupReach;
+        MoveTrace line = _world.Trace(eye, end, Vector.Zero, Vector.Zero, 0u, 0);
+        Vector stopped = line.Fraction < 1f ? line.EndPos : end;
+        Vector aimAt = (stopped - eye).Length > FireSetupReach * FireSetupNear ? stopped : end;
+        return (aimAt - muzzle).Normalized;
+    }
+
+    /// <summary>A blast at <paramref name="at"/> after command <paramref name="command"/>: what it did to the shooter, noted.</summary>
+    private void Explode(int command, Vector at)
+    {
+        float dealt = Blast(at, out Vector impulse);
+        _blastDamage += dealt;
+        _impacts.Add(new JumpImpact(command, at, dealt, impulse));
+    }
+
+    /// <summary>The stickies out now, stuck or flying (round 2's S3).</summary>
+    public int StickiesOut => _launcher.Kind == JumpProjectile.Sticky ? _rockets.Count : 0;
+
+    /// <summary>One tick of a projectile's flight (<c>EntityMotion.Integrate</c>), at the launcher's gravity: true when it met a solid, at <paramref name="struck"/>.</summary>
     private bool Advance(ref Rocket rocket, float tick, out Vector struck)
     {
-        var input = new FlightInput(tick, _gravity, 0f, rocket.Origin, rocket.Velocity, 0);
+        var input = new FlightInput(tick, _gravity, _launcher.GravityScale, rocket.Origin, rocket.Velocity, 0);
         FlightStep step = MoveMath.AdvanceFlight(input);
         MoveTrace trace = _world.Trace(rocket.Origin, step.Destination, Vector.Zero, Vector.Zero, 0u, 0);
         FlightResult result = MoveMath.ResolveFlight(input, step, trace.Fraction, trace.EndPos, trace.PlaneNormal);
@@ -302,16 +376,19 @@ public sealed class BlastJumpSim
             return 0f;
 
         bool blast = (_launcher.Bits & DamageType.Blast) != 0, onGround = _mover.OnGround;
+        // The rocket is the Soldier's, the sticky the Demoman's: the Soldier's own scales are his alone (a Demoman's blast takes
+        // the demoman weapons' 0.75 in VictimDamage and the plain self push, DAMAGE_FORCE_SCALE_SELF).
+        bool soldier = _launcher.Kind == JumpProjectile.Rocket;
         float distance = TFRadiusDamage.VictimDistance(source, directHit: false, isPlayer: true, center, origin, line.EndPos);
         TFBlast own = TFBlast.Of(_launcher.Damage, _launcher.Radius, _launcher.Bits).SelfPass(_launcher.SelfRadius, _launcher.Damage);
         float forceDamage = TFRadiusDamage.VictimDamage(own, distance, self: true, _launcher.Weapon)
-                            * TFRadiusDamage.SelfDamageScale(soldier: true, blast, onGround, inWater: false);
+                            * TFRadiusDamage.SelfDamageScale(soldier, blast, onGround, inWater: false);
         if (forceDamage <= 0f)
             return 0f;
 
         Vector size = TFRadiusDamage.SelfPushSize(maxs - mins, _duckMaxs - _duckMins);
         impulse = TFRadiusDamage.Push(TFRadiusDamage.PushDirection(source, center), size, forceDamage, self: true,
-                                      TFRadiusDamage.SelfPushScale(soldier: true, blast, onGround, pyroFlareJump: false), heavy: false);
+                                      TFRadiusDamage.SelfPushScale(soldier, blast, onGround, pyroFlareJump: false), heavy: false);
         _mover.Push(impulse);
         if (blast)
             _mover.ForgiveAirDucks();

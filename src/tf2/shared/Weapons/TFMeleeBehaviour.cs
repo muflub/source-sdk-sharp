@@ -118,6 +118,18 @@ public class TFMeleeBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
 
     protected override bool RollsAsMelee => true;
 
+    /// <summary>
+    /// <c>CTFWeaponBaseMelee::CanHolster</c> (tf_weaponbase_melee.cpp:86-94):
+    /// the Buffalo Steak's <c>TF_COND_CANNOT_SWITCH_FROM_MELEE</c> locks the
+    /// owner into his melee; without it, the base's true.
+    /// </summary>
+    public override bool CanHolster(in WeaponAttackContext attack)
+    {
+        int owner = attack.Weapon.OwnerIndex;
+        return !(owner > 0 && Parts.Owners.ConditionsOf(owner) is { } conditions
+                 && conditions.Has(TFCond.CannotSwitchFromMelee));
+    }
+
     public override bool BeforePrimaryAttack(in WeaponAttackContext attack)
     {
         if (ScriptOf(attack.Type) is not { } script)

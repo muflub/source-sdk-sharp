@@ -33,7 +33,7 @@ public sealed class TFClassPickServiceTests
             ["ai_bot_classes_ready"] = "scout,sniper,demoman,medic,heavy,pyro,spy,engineer", ["ai_bot_class_cooldown"] = "30", ["ai_bot_class_stay"] = "120",
         }));
         _pick = new TFBotClassPick(null!, null!, null!, _commands, null!, new TFBotPins(), convars.Declare<AiBotClassCooldownConVar>(),
-                                   convars.Declare<AiBotClassStayConVar>(), convars.Declare<AiBotClassesReadyConVar>(), null!, null!);
+                                   convars.Declare<AiBotClassStayConVar>(), convars.Declare<AiBotClassesReadyConVar>(), null!, null!, null!);
     }
 
     private static EntityHandle Player(int slot) => new(0x0001_0000u | (uint)slot);

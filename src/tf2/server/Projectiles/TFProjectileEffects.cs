@@ -55,7 +55,7 @@ public sealed class TFProjectileEffects(IEngineEntities entities, ITFProjectileS
                                         ILog log, ITFWeaponOwners owners, IUniformRandom random,
                                         AttributeHooks attributes, ITempEnts temps,
                                         IEnginePrecache precache, IEngineEntityRender render,
-                                        TFStickybombConVars stickyConVars)
+                                        TFStickybombConVars stickyConVars, IEngineWorldQuery world)
     : ITFProjectileEffects, IOrderedHook
 {
     /// <summary>Stage 2.8's band (+800..+899 of TF2's thousand).</summary>
@@ -190,7 +190,8 @@ public sealed class TFProjectileEffects(IEngineEntities entities, ITFProjectileS
                                           SpecialistSpeedCap);
 
                     rocket.ArmedBy(shot.Damage, script.Id, script.Name, shot.Critical, attack.Command.OwnerIndex);
-                    rocket.FiredBy(owner, forward * speed);
+                    rocket.FiredBy(owner, Aimed(owner, forward, right, up, TFProjectileDefs.RocketMuzzleForward,
+                                                muzzleRight, muzzleUp, hitTeammates: false) * speed);
                     log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Rocket} created by {owner}"
                           + $" at {Speed(scriptSpeed, TFProjectileDefs.RocketSpeed):F0} u/s\n");
                     break;
@@ -212,18 +213,16 @@ public sealed class TFProjectileEffects(IEngineEntities entities, ITFProjectileS
                     // Loose Cannon's ball a TF_GL_MODE_CANNONBALL pipe.
                     int grenadeMode = TFProjectileDefs.PipebombMode(mode.Projectile);
                     IAttributeProvider? item = owners.ItemOf(attack.Command.OwnerIndex, script.Name);
-                    (forward, right, up) = SpreadBasis(eyes, item);
+                    (forward, right, up, Vector aimed) = SpreadBasis(eyes, item);
                     float speed = attributes.Float(Speed(scriptSpeed, TFProjectileDefs.PipeSpeed),
                                                    "mult_projectile_speed", item);
                     speed = attributes.Float(speed, "mult_projectile_range", item);
-                    if (Born(TFProjectileEntityNames.Pipebomb, owner, forward, right, up,
-                             TFProjectileDefs.PipeMuzzleForward, TFProjectileDefs.PipeMuzzleRight,
-                             TFProjectileDefs.PipeMuzzleUp) is not TFPipebomb pipe)
+                    if (BornFacing(TFProjectileEntityNames.Pipebomb, owner, forward, right, up, aimed) is not TFPipebomb pipe)
                         return;
                     pipe.ThrownBy(owner, Lob(forward, speed, right, up),
                                   shot.Damage, script.DamageRadius, script.Id, script.Name, shot.Critical,
                                   grenadeMode);
-                    Spin(pipe, item);
+                    Spin(pipe, item, aimed);
 
                     // FireProjectileInternal's charged fuse
                     // (tf_weapon_grenadelauncher.cpp:277-287): the held shot's
@@ -245,7 +244,7 @@ public sealed class TFProjectileEffects(IEngineEntities entities, ITFProjectileS
             case TFProjectile.PipebombPractice:
                 {
                     IAttributeProvider? item = owners.ItemOf(attack.Command.OwnerIndex, script.Name);
-                    (forward, right, up) = SpreadBasis(eyes, item);
+                    (forward, right, up, Vector aimed) = SpreadBasis(eyes, item);
 
                     // GetChargeMaxTime again (tf_weapon_pipebomblauncher.h:75): the
                     // speed remap runs to the same window the charge clamped to, the
@@ -254,9 +253,7 @@ public sealed class TFProjectileEffects(IEngineEntities entities, ITFProjectileS
                                                        TFProjectileBehaviour.ChargeRateAttribute, item);
                     float speed = attributes.Float(TFProjectileDefs.StickySpeed(charge, chargeMax),
                                                    "mult_projectile_range", item);
-                    if (Born(TFProjectileEntityNames.Stickybomb, owner, forward, right, up,
-                             TFProjectileDefs.PipeMuzzleForward, TFProjectileDefs.PipeMuzzleRight,
-                             TFProjectileDefs.PipeMuzzleUp) is not TFStickybomb sticky)
+                    if (BornFacing(TFProjectileEntityNames.Stickybomb, owner, forward, right, up, aimed) is not TFStickybomb sticky)
                         return;
 
                     // GetLiveTime (tf_weapon_grenade_pipebomb.cpp:1186-1190): the arm
@@ -271,7 +268,7 @@ public sealed class TFProjectileEffects(IEngineEntities entities, ITFProjectileS
                     sticky.ThrownBy(owner, Lob(forward, speed, right, up),
                                     shot.Damage, script.DamageRadius, script.Id, script.Name, shot.Critical,
                                     TFProjectileDefs.PipebombMode(mode.Projectile));
-                    Spin(sticky, item);
+                    Spin(sticky, item, aimed);
 
                     // FireProjectile's cap (tf_weapon_pipebomblauncher.cpp:381-392):
                     // TF_WEAPON_PIPEBOMB_COUNT (tf_shareddefs.h:391) through the
@@ -301,10 +298,15 @@ public sealed class TFProjectileEffects(IEngineEntities entities, ITFProjectileS
                     // the eye angles' pitch and yaw after the muzzle placement
                     // (tf_weaponbase_gun.cpp:611-623); GetProjectileSpread
                     // stands at 0 for the syringe gun.
+                    // The cone rides the converged aim (FireNail's GetProjectileFireSetup,
+                    // :621-623, teammates in the line taken as the aim point).
+                    Vector aimed = Angles.FromVector(Aimed(owner, forward, right, up, TFProjectileDefs.SyringeMuzzleForward,
+                                                           TFProjectileDefs.SyringeMuzzleRight,
+                                                           TFProjectileDefs.SyringeMuzzleUp, hitTeammates: true));
                     Vector cone = new(
-                        eyes.X + random.RandomFloat(-TFProjectileDefs.SyringeSpread, TFProjectileDefs.SyringeSpread),
-                        eyes.Y + random.RandomFloat(-TFProjectileDefs.SyringeSpread, TFProjectileDefs.SyringeSpread),
-                        eyes.Z);
+                        aimed.X + random.RandomFloat(-TFProjectileDefs.SyringeSpread, TFProjectileDefs.SyringeSpread),
+                        aimed.Y + random.RandomFloat(-TFProjectileDefs.SyringeSpread, TFProjectileDefs.SyringeSpread),
+                        0f);
                     Vector launch = Angles.Forward(cone) * Speed(scriptSpeed, TFProjectileDefs.SyringeSpeed);
                     syringe.FiredBy(owner, launch);
 
@@ -349,12 +351,16 @@ public sealed class TFProjectileEffects(IEngineEntities entities, ITFProjectileS
                     // (TFBowBehaviour.ModeTired) and the aim is re-drawn ±6° in
                     // pitch and yaw — stock's rand() pair, seeded as the pipes'
                     // cone is.
+                    Vector arrowAim = Aimed(owner, forward, right, up, TFProjectileDefs.ArrowMuzzleForward,
+                                            TFProjectileDefs.ArrowMuzzleRight, TFProjectileDefs.ArrowMuzzleUp,
+                                            hitTeammates: false);
                     if (TFBowBehaviour.Tired(attack.Weapon))
                     {
-                        eyes.X += random.RandomFloat(-TFBowBehaviour.TiredAim, TFBowBehaviour.TiredAim);
-                        eyes.Y += random.RandomFloat(-TFBowBehaviour.TiredAim, TFBowBehaviour.TiredAim);
-                        forward = Angles.Forward(eyes);
-                        (right, up) = Angles.RightUp(forward);
+                        // On the converged angles, after the base setup (:492-502).
+                        Vector tired = Angles.FromVector(arrowAim);
+                        tired.X += random.RandomFloat(-TFBowBehaviour.TiredAim, TFBowBehaviour.TiredAim);
+                        tired.Y += random.RandomFloat(-TFBowBehaviour.TiredAim, TFBowBehaviour.TiredAim);
+                        arrowAim = Angles.Forward(tired);
                     }
 
                     if (Born(TFProjectileEntityNames.Arrow, owner, forward, right, up,
@@ -370,7 +376,7 @@ public sealed class TFProjectileEffects(IEngineEntities entities, ITFProjectileS
                     arrow.ArmedBy(script.Id, script.Name, shot.Critical, lit,
                                   TFProjectileDefs.ArrowDamage(shot.Damage, charge),
                                   TFProjectileDefs.ArrowGravity(charge));
-                    arrow.FiredBy(owner, forward * TFProjectileDefs.ArrowSpeed(charge));
+                    arrow.FiredBy(owner, arrowAim * TFProjectileDefs.ArrowSpeed(charge));
                     log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Arrow} created by {owner}\n");
                     break;
                 }
@@ -392,7 +398,9 @@ public sealed class TFProjectileEffects(IEngineEntities entities, ITFProjectileS
                     arrow.ArmedBy(script.Id, script.Name, shot.Critical, false,
                                   shot.Damage, TFProjectileDefs.RescueBoltGravity,
                                   TFProjectile.BuildingRepairBolt);
-                    arrow.FiredBy(owner, forward * TFProjectileDefs.RescueBoltSpeed);
+                    arrow.FiredBy(owner, Aimed(owner, forward, right, up, TFProjectileDefs.ArrowMuzzleForward,
+                                               TFProjectileDefs.ArrowMuzzleRight, TFProjectileDefs.ArrowMuzzleUp,
+                                               hitTeammates: false) * TFProjectileDefs.RescueBoltSpeed);
                     log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Arrow} created by {owner}\n");
                     break;
                 }
@@ -410,7 +418,9 @@ public sealed class TFProjectileEffects(IEngineEntities entities, ITFProjectileS
                     // The crossbow's fixed charge (CTFCrossbow::GetProjectileSpeed,
                     // tf_weapon_rocketlauncher.cpp:751-754): no ramp to read.
                     bolt.ArmedBy(shot.Damage, script.Id, script.Name, shot.Critical, attack.Command.OwnerIndex);
-                    bolt.FiredBy(owner, forward * TFProjectileDefs.CrossbowSpeed);
+                    bolt.FiredBy(owner, Aimed(owner, forward, right, up, TFProjectileDefs.ArrowMuzzleForward,
+                                              TFProjectileDefs.ArrowMuzzleRight, TFProjectileDefs.ArrowMuzzleUp,
+                                              hitTeammates: false) * TFProjectileDefs.CrossbowSpeed);
                     log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.HealingBolt} created by {owner}\n");
                     break;
                 }
@@ -448,7 +458,8 @@ public sealed class TFProjectileEffects(IEngineEntities entities, ITFProjectileS
                     // the Detonator's damage penalty rides the touch.
                     flare.ArmedBy(shot.Damage, script.Id, script.Name, shot.Critical, gravity,
                                   attack.Command.OwnerIndex, flareMode);
-                    flare.FiredBy(owner, forward * speed);
+                    flare.FiredBy(owner, Aimed(owner, forward, right, up, TFProjectileDefs.FlareMuzzleForward,
+                                               TFProjectileDefs.FlareMuzzleRight, muzzleUp, hitTeammates: false) * speed);
 
                     // FireFlare's list (tf_weaponbase_gun.cpp:760-763): a
                     // detonating gun's flare joins it, the alt-fire's fuel.
@@ -479,7 +490,8 @@ public sealed class TFProjectileEffects(IEngineEntities entities, ITFProjectileS
 
                     float ringSpeed = Speed(scriptSpeed, TFProjectileDefs.EnergyRingSpeed);
                     ring.ArmedBy(shot.Damage, script.Id, script.Name, shot.Critical, attack.Command.OwnerIndex);
-                    ring.FiredBy(owner, forward * ringSpeed);
+                    ring.FiredBy(owner, Aimed(owner, forward, right, up, TFProjectileDefs.EnergyMuzzleForward,
+                                              TFProjectileDefs.EnergyMuzzleRight, muzzleUp, hitTeammates: false) * ringSpeed);
                     log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.EnergyRing} created by {owner}"
                           + $" at {ringSpeed:F0} u/s\n");
                     break;
@@ -506,7 +518,8 @@ public sealed class TFProjectileEffects(IEngineEntities entities, ITFProjectileS
                     // (CTFParticleCannon::GetChargedShot, m_bChargedShot).
                     ball.ArmedBy(shot.Damage, script.Id, script.Name, shot.Critical, charge > 0f,
                                  attack.Command.OwnerIndex);
-                    ball.FiredBy(owner, forward * ballSpeed);
+                    ball.FiredBy(owner, Aimed(owner, forward, right, up, TFProjectileDefs.EnergyMuzzleForward,
+                                              TFProjectileDefs.EnergyMuzzleRight, ballMuzzleUp, hitTeammates: false) * ballSpeed);
                     log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.EnergyBall} created by {owner}"
                           + $" at {ballSpeed:F0} u/s\n");
                     break;
@@ -519,13 +532,13 @@ public sealed class TFProjectileEffects(IEngineEntities entities, ITFProjectileS
             case TFProjectile.BreadmonsterMadmilk:
             case TFProjectile.JarGas:
                 {
-                    // The jar's lob is the pipe's own arc read off the plain
+                    // The jar's lob is the pipe's own launch read off the plain
                     // numbers (GetVelocityVector, tf_weapon_jar.cpp:153-157:
                     // forward at TF_JAR_LAUNCH_SPEED, +200 up, the two-draw
                     // jitter), from the pipe's muzzle offset (TossJarThink
                     // :176-182). No hook touches either: the jar's
                     // GetProjectileSpeed is the bare 1000 (tf_weapon_jar.cpp
-                    // :103), the flight under SetPipebombMode's gravity.
+                    // :103); the flight is the physics body's.
                     // The jar faces pick their entity name by the projectile
                     // type: milk, gas (CTFJarGas, tf_weapon_jar_gas.h) and the
                     // plain jarate, the overriding items' faces with them.
@@ -535,13 +548,15 @@ public sealed class TFProjectileEffects(IEngineEntities entities, ITFProjectileS
                         TFProjectile.JarGas => TFProjectileEntityNames.JarGas,
                         _ => TFProjectileEntityNames.Jar,
                     };
-                    if (Born(name, owner, forward, right, up,
-                             TFProjectileDefs.PipeMuzzleForward, TFProjectileDefs.PipeMuzzleRight,
-                             TFProjectileDefs.PipeMuzzleUp) is not TFJar jar)
+                    // Born facing the eye (TossJarThink's CreateJarProjectile( src, pPlayer->EyeAngles(), ... ),
+                    // tf_weapon_jar.cpp:195), a physics body the solver flies, spun as every grenade is.
+                    if (BornFacing(name, owner, forward, right, up, eyes) is not TFJar jar)
                         return;
 
                     jar.ArmedBy(shot.Critical, attack.Command.OwnerIndex);
                     jar.FiredBy(owner, Lob(forward, TFProjectileDefs.JarSpeed, right, up));
+                    entities.SetAngularVelocity(jar.Handle, entities.GetAngularVelocity(jar.Handle)
+                                                            + GrenadeSpin(eyes, TFJar.LaunchImpulse));
                     log.Msg($"[TF2/Projectiles] {name} created by {owner}\n");
                     break;
                 }
@@ -553,14 +568,16 @@ public sealed class TFProjectileEffects(IEngineEntities entities, ITFProjectileS
                     // of the sight basis, normalized, at the override's 3000 —
                     // the jar's muzzle, no jitter and no sideways draw, the
                     // tilt the lob's constants stand in for.
-                    if (Born(TFProjectileEntityNames.Cleaver, owner, forward, right, up,
-                             TFProjectileDefs.PipeMuzzleForward, TFProjectileDefs.PipeMuzzleRight,
-                             TFProjectileDefs.PipeMuzzleUp) is not TFCleaver cleaver)
+                    // Born facing the eye (TossJarThink's CreateJarProjectile, tf_weapon_jar.cpp:195), a physics body
+                    // the solver flies, spun as every grenade is.
+                    if (BornFacing(TFProjectileEntityNames.Cleaver, owner, forward, right, up, eyes) is not TFCleaver cleaver)
                         return;
 
                     cleaver.ArmedBy(shot.Critical, attack.Command.OwnerIndex, script.Name);
                     cleaver.FiredBy(owner, (forward * TFProjectileDefs.CleaverAimForward + up).Normalized
                                           * TFProjectileDefs.CleaverSpeed);
+                    entities.SetAngularVelocity(cleaver.Handle, entities.GetAngularVelocity(cleaver.Handle)
+                                                                + GrenadeSpin(eyes, TFCleaver.LaunchImpulse));
                     log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Cleaver} created by {owner}\n");
                     break;
                 }
@@ -590,7 +607,7 @@ public sealed class TFProjectileEffects(IEngineEntities entities, ITFProjectileS
     /// the basis from those angles (<c>tf_weaponbase_gun.cpp:652-665</c>).
     /// With no attribute the eye basis stands, undrawn.
     /// </summary>
-    private (Vector forward, Vector right, Vector up) SpreadBasis(Vector eyes, IAttributeProvider? item)
+    private (Vector forward, Vector right, Vector up, Vector angles) SpreadBasis(Vector eyes, IAttributeProvider? item)
     {
         float spreadAngle = attributes.Float(0f, "projectile_spread_angle", item);
         if (spreadAngle > 0f)
@@ -603,28 +620,37 @@ public sealed class TFProjectileEffects(IEngineEntities entities, ITFProjectileS
 
         Vector launch = Angles.Forward(eyes);
         (Vector right, Vector up) = Angles.RightUp(launch);
-        return (launch, right, up);
+        return (launch, right, up, eyes);
     }
 
     /// <summary>
-    /// The pipes' shared spin: <c>Create</c>'s
-    /// <c>ApplyLocalAngularVelocityImpulse</c>
-    /// (<c>baseentity_shared.cpp:2555</c>) of <c>FirePipeBomb</c>'s
-    /// <c>angImpulse</c> — the impulse swizzles into an angular velocity
-    /// (<c>vector.h:2198</c>), so the bomb rolls at 600°/s and tumbles in
-    /// pitch, added to what it already spins at (none at birth). Loch-n-load's
-    /// <c>grenade_no_spin</c> (<c>tf_weaponbase_gun.cpp:694-699</c>) zeroes it.
-    /// Stock's vphysics arm (<c>AddVelocity(NULL, &amp;impulse)</c>) waits on
-    /// the pipe's physics (deferred 2.8); the bounce already spins on this
-    /// seam (<c>TFStickybomb.OnPhysicsUpdate</c>).
+    /// The pipes' shared spin: <c>FirePipeBomb</c>'s <c>angImpulse</c>, <c>AngularImpulse( 600, RandomInt( -1200, 1200 ),
+    /// 0 )</c> (<c>tf_weaponbase_gun.cpp:694</c>), which Loch-n-load's <c>grenade_no_spin</c> zeroes (:695-699), given the
+    /// bomb as stock's grenades get it: <see cref="GrenadeSpin"/>.
     /// </summary>
-    private void Spin(ScriptedEntity bomb, IAttributeProvider? item)
+    private void Spin(ScriptedEntity bomb, IAttributeProvider? item, Vector bornAngles)
     {
-        var impulse = new Vector(random.RandomInt(-TFProjectileDefs.PipeSpinPitchMax, TFProjectileDefs.PipeSpinPitchMax),
-                                 0f, TFProjectileDefs.PipeSpinRoll);
+        var impulse = new Vector(TFProjectileDefs.PipeSpinRoll,
+                                 random.RandomInt(-TFProjectileDefs.PipeSpinPitchMax, TFProjectileDefs.PipeSpinPitchMax), 0f);
         if (attributes.Int(0, "grenade_no_spin", item) != 0)
             impulse = default;
-        entities.SetAngularVelocity(bomb.Handle, entities.GetAngularVelocity(bomb.Handle) + impulse);
+        entities.SetAngularVelocity(bomb.Handle, entities.GetAngularVelocity(bomb.Handle) + GrenadeSpin(bornAngles, impulse));
+    }
+
+    /// <summary>
+    /// What a grenade's <c>AngularImpulse</c> turns it at, degrees per second about the world's axes, for a body born
+    /// facing <paramref name="bornAngles"/>. Stock hands the impulse to the physics body twice: <c>InitGrenade</c>'s
+    /// <c>AddVelocity( &amp;velocity, &amp;angVelocity )</c> (<c>tf_weaponbase_grenadeproj.cpp:256</c>), then
+    /// <c>Create</c>'s <c>ApplyLocalAngularVelocityImpulse</c> (<c>tf_weapon_grenade_pipebomb.cpp:487</c>, the jar's
+    /// <c>tf_weapon_jar.cpp:310</c>), whose <c>MOVETYPE_VPHYSICS</c> arm is <c>AddVelocity( NULL, &amp;angImpulse )</c>
+    /// again (<c>baseentity_shared.cpp:2473-2476</c>). <c>AddVelocity</c>'s angular is in the body's own axes (vphysics'
+    /// <c>rot_speed_change</c>): x along its forward, y its left, z its up. Stock's flight measured it so: a pipe's
+    /// <c>(600, 0, 0)</c> turns at 1197°/s about its forward, a jar's 300 at 600 (lane r2s4's stock A/B, 2026-11-24).
+    /// </summary>
+    public static Vector GrenadeSpin(Vector bornAngles, Vector impulse)
+    {
+        Angles.Basis axes = Angles.Vectors(bornAngles);
+        return (axes.Forward * impulse.X - axes.Right * impulse.Y + axes.Up * impulse.Z) * 2f;
     }
 
     /// <summary>
@@ -647,8 +673,58 @@ public sealed class TFProjectileEffects(IEngineEntities entities, ITFProjectileS
     private ScriptedEntity? Born(string className, EntityHandle owner, Vector forward,
                                  Vector right, Vector up, float forwardOffset, float rightOffset,
                                  float upOffset)
-        => spawner.Born(className, entities.GetEyePosition(owner)
-                                   + forward * forwardOffset + right * rightOffset + up * upOffset);
+        => spawner.Born(className, Muzzle(owner, forward, right, up, forwardOffset, rightOffset, upOffset));
+
+    /// <summary>
+    /// A grenade's birth (<c>CTFGrenadePipebombProjectile::Create</c> and the jars', which name the throw's angles to
+    /// <c>CreateNoSpawn</c>): at the pipes' muzzle, facing <paramref name="angles"/>, so its physics body is made pointing
+    /// where the throw aimed.
+    /// </summary>
+    private ScriptedEntity? BornFacing(string className, EntityHandle owner, Vector forward, Vector right, Vector up, Vector angles)
+        => spawner.Born(className, Muzzle(owner, forward, right, up, TFProjectileDefs.PipeMuzzleForward,
+                                          TFProjectileDefs.PipeMuzzleRight, TFProjectileDefs.PipeMuzzleUp), angles);
+
+    /// <summary>The muzzle: the offset along the firing basis from the eye (<see cref="Born"/>).</summary>
+    private Vector Muzzle(EntityHandle owner, Vector forward, Vector right, Vector up, float forwardOffset,
+                          float rightOffset, float upOffset)
+        => entities.GetEyePosition(owner) + forward * forwardOffset + right * rightOffset + up * upOffset;
+
+    /// <summary><c>GetProjectileFireSetup</c>'s <c>flEndDist</c> default (tf_weaponbase.cpp:5745).</summary>
+    public const float FireSetupReach = 2000f;
+
+    /// <summary>How many of the shooter's teammates the aim's line looks past (<c>CTraceFilterIgnoreTeammates</c>).</summary>
+    private const int TeammatesLookedPast = 4;
+
+    /// <summary>
+    /// <c>GetProjectileFireSetup</c>'s aim (tf_weaponbase.cpp:5762-5808): the
+    /// eye's line traced <see cref="FireSetupReach"/> out against
+    /// <c>MASK_SOLID</c>, and the shot sent from the offset muzzle at where it
+    /// stopped — so it converges on what the crosshair is on — unless that is
+    /// within a tenth of the reach, where the line's far end is aimed at
+    /// instead. With <paramref name="hitTeammates"/> false the line looks past
+    /// the shooter's teammates (<c>CTraceFilterIgnoreTeammates</c>): the seam's
+    /// trace takes one entity to pass, so a teammate struck is passed and the
+    /// line traced on from him. The direction is a unit vector.
+    /// </summary>
+    private Vector Aimed(EntityHandle owner, Vector forward, Vector right, Vector up, float forwardOffset,
+                         float rightOffset, float upOffset, bool hitTeammates)
+    {
+        Vector shoot = entities.GetEyePosition(owner);
+        Vector end = shoot + forward * FireSetupReach;
+        TraceResult tr = world.TraceLine(shoot, end, TraceMask.Solid, owner);
+        if (!hitTeammates)
+        {
+            int team = players.GetTeam(owner);
+            for (int k = 0; k < TeammatesLookedPast && tr.Fraction < 1f && tr.Entity != EntityHandle.None
+                            && entities.IsPlayer(tr.Entity) && players.GetTeam(tr.Entity) == team; k++)
+                tr = world.TraceLine(tr.End, end, TraceMask.Solid, tr.Entity);
+        }
+
+        Vector src = Muzzle(owner, forward, right, up, forwardOffset, rightOffset, upOffset);
+        Vector stopped = tr.Fraction < 1f ? tr.End : end;
+        Vector aimAt = (stopped - shoot).Length > FireSetupReach * 0.1f ? stopped : end;
+        return (aimAt - src).Normalized;
+    }
 
     /// <summary>The script's speed, or stock's when the script names none.</summary>
     private static float Speed(float scriptSpeed, float stock) => TFProjectileDefs.Speed(scriptSpeed, stock);
@@ -728,7 +804,7 @@ public sealed class TFProjectileEffects(IEngineEntities entities, ITFProjectileS
     /// player — stock's sticky-jumping arm. The distance is the player's origin to the
     /// bomb's origin; only armed bombs pass the tray's own gate beside this test.
     /// </summary>
-    private static bool InView(IEngineEntities entities, Vector eyePosition, Vector forward,
+    internal static bool InView(IEngineEntities entities, Vector eyePosition, Vector forward,
                                Vector playerOrigin, TFStickybomb sticky)
     {
         Vector towards = entities.GetWorldSpaceCenter(sticky.Handle) - eyePosition;

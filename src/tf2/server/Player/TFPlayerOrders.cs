@@ -72,6 +72,13 @@ public static class TFPlayerOrders
     public const int ConditionEffectArms = Band + 98;
 
     /// <summary>
+    /// The steak's taunt-end switch to the melee (<see cref="TFSteakMeleeSwitch"/>): a
+    /// condition hook in its own chain beside <see cref="ConditionEffectArms"/>, on
+    /// <c>+1</c>, a value free in every band.
+    /// </summary>
+    public const int SteakMeleeSwitch = Band + 1;
+
+    /// <summary>
     /// The dropped weapon's pickup, on the use key's action-slot verbs
     /// (<c>TFDroppedWeaponPickup</c>): after the death walk whose lies it
     /// picks up, on <c>+99</c>.

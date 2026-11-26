@@ -63,7 +63,8 @@ public static class RobotDamageKinds
 /// <para>
 /// Models (HO0, 3.11 row 11): a robot model for each of the nine classes; a
 /// giant model for scout, soldier, pyro, demoman and heavy. A giant or a boss
-/// of another class (the giant medic) wears the ordinary model, scaled.
+/// of another class (the giant engineer, medic, sniper and spy: the user's
+/// ruling of 2026-11-22, plan L26) wears the ordinary model, scaled.
 /// </para>
 /// </summary>
 public static class RobotLooks

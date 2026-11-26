@@ -74,15 +74,50 @@ public class BlastJumpSimTests
     [Fact]
     public void ARocketFliesItsSpeedATickAndArrivesWhenThatCoversTheWay()
     {
-        // Level at a wall 512 east. The muzzle is 23.5 ahead of the eye; the rocket covers 16.5 a tick.
+        // Level at a wall 512 east: the eye's line stops on the wall over 200 u out, so the rocket converges on that point
+        // (stock's GetProjectileFireSetup, the game's TFProjectileEffects.Aimed): from the muzzle (23.5 ahead, 12 right, 3
+        // under the eye) to where the crosshair is, covering 16.5 a tick.
         VoxelColumns walled = Room((x, _) => x >= 48 ? [] : null);
         JumpFlight flight = Fly(walled, Standing(x: 256f), Hold(1, InAttack), Hold(60));
         JumpImpact impact = Assert.Single(flight.Impacts);
-        float way = 768f - (256f + TFProjectileDefs.RocketMuzzleForward), perTick = TFProjectileDefs.RocketSpeed * TickSeconds;
+        var muzzle = new Vector(256f + TFProjectileDefs.RocketMuzzleForward, 256f - TFProjectileDefs.RocketMuzzleRight, VoxelMoveWorld.DistEpsilon + 68f + TFProjectileDefs.RocketMuzzleUp);
+        var crosshair = new Vector(768f - VoxelMoveWorld.DistEpsilon, 256f, VoxelMoveWorld.DistEpsilon + 68f);
+        float way = Length(crosshair - muzzle), perTick = TFProjectileDefs.RocketSpeed * TickSeconds;
         Assert.Equal((int)MathF.Ceiling(way / perTick) - 1, impact.Command);
-        Assert.Equal(768f - VoxelMoveWorld.DistEpsilon, impact.At.X, 1);
-        // Fired standing: the eye's 68 and the muzzle's 3 under it.
-        Assert.Equal(VoxelMoveWorld.DistEpsilon + 68f + TFProjectileDefs.RocketMuzzleUp, impact.At.Z, 2);
+        Assert.Equal(crosshair.X, impact.At.X, 1);
+        Assert.Equal(crosshair.Y, impact.At.Y, 1);
+        Assert.Equal(crosshair.Z, impact.At.Z, 1);
+    }
+
+    /// <summary>
+    /// The eye's line stopped within 200 u (a tenth of its 2000) is too near to aim at: the rocket is sent at the line's far
+    /// end instead, so at a wall 120 u ahead it strikes on the way from the muzzle to a point 2000 u out at the eye's height,
+    /// not at the crosshair (the game's TFProjectileEffects.Aimed, stock's GetProjectileFireSetup :5795-5800).
+    /// </summary>
+    [Fact]
+    public void ANearStopIsNotAimedAtTheLinesFarEndIs()
+    {
+        float z = NearWallZ(Fly(NearWall, Standing(x: 200f), Hold(1, InAttack), Hold(30)), 68f, TFProjectileDefs.RocketMuzzleUp);
+        Assert.True(MathF.Abs(z - (VoxelMoveWorld.DistEpsilon + 68f)) > 2f, $"the control: not at the crosshair's height, {z}");
+    }
+
+    private static readonly VoxelColumns NearWall = Room((x, _) => x >= 20 ? [] : null);
+
+    /// <summary>
+    /// Where on the near wall (x 320) the rocket fired level from standing at x 200 strikes, worked by hand: from the muzzle
+    /// (<paramref name="muzzleUp"/> under or over the eye of <paramref name="eye"/>) toward the eye's line's far end; checked
+    /// against the flight's impact, and answered.
+    /// </summary>
+    private static float NearWallZ(JumpFlight flight, float eye, float muzzleUp, float originZ = VoxelMoveWorld.DistEpsilon)
+    {
+        JumpImpact impact = Assert.Single(flight.Impacts);
+        var muzzle = new Vector(200f + TFProjectileDefs.RocketMuzzleForward, 256f - TFProjectileDefs.RocketMuzzleRight, originZ + eye + muzzleUp);
+        var far = new Vector(200f + BlastJumpSim.FireSetupReach, 256f, originZ + eye);
+        float t = (impact.At.X - muzzle.X) / (far.X - muzzle.X);
+        Assert.Equal(320f - VoxelMoveWorld.DistEpsilon, impact.At.X, 0);
+        Assert.Equal(muzzle.Y + ((far.Y - muzzle.Y) * t), impact.At.Y, 1);
+        Assert.Equal(muzzle.Z + ((far.Z - muzzle.Z) * t), impact.At.Z, 1);
+        return impact.At.Z;
     }
 
     [Fact]
@@ -173,22 +208,21 @@ public class BlastJumpSimTests
     [Fact]
     public void ACrouchTakenInTheFiringCommandIsTheMuzzlesAlready()
     {
-        // Crouched for a second, then fires level: the muzzle is the crouched one, 8 over the crouched eye's 45.
-        VoxelColumns walled = Room((x, _) => x >= 48 ? [] : null);
-        JumpImpact settled = Assert.Single(Fly(walled, Standing(x: 256f), Hold(70, InDuck), Hold(1, InDuck | InAttack), Hold(60, InDuck)).Impacts);
-        Assert.Equal(VoxelMoveWorld.DistEpsilon + TFViewVectors.Params.DuckView.Z + TFProjectileDefs.RocketMuzzleUpDucked, settled.At.Z, 2);
+        // At a wall 120 u ahead (a stop too near to aim at, so the shot rides the muzzle's height toward the line's far end):
+        // crouched for a second, then fired level, the muzzle is the crouched one, 8 over the crouched eye's 45.
+        float duck = TFViewVectors.Params.DuckView.Z;
+        NearWallZ(Fly(NearWall, Standing(x: 200f), Hold(70, InDuck), Hold(1, InDuck | InAttack), Hold(30, InDuck)), duck, TFProjectileDefs.RocketMuzzleUpDucked);
 
         // In the air a duck is taken at once: the command that takes it and fires has the crouched eye and the crouched muzzle
         // (the server publishes the move's duck before the weapon's frame reads it).
-        JumpImpact taken = Assert.Single(Fly(walled, Standing(x: 256f), Hold(1, InJump), Hold(1, InDuck | InAttack), Hold(60, InDuck)).Impacts);
-        JumpPoint fired = Fly(walled, Standing(x: 256f), Hold(1, InJump), Hold(1, InDuck | InAttack)).Track[1];
+        JumpPoint fired = Fly(NearWall, Standing(x: 200f), Hold(1, InJump), Hold(1, InDuck | InAttack)).Track[1];
         Assert.True(fired.Ducking);
-        Assert.Equal(fired.Origin.Z + TFViewVectors.Params.DuckView.Z + TFProjectileDefs.RocketMuzzleUpDucked, taken.At.Z, 2);
+        NearWallZ(Fly(NearWall, Standing(x: 200f), Hold(1, InJump), Hold(1, InDuck | InAttack), Hold(30, InDuck)), duck, TFProjectileDefs.RocketMuzzleUpDucked, fired.Origin.Z);
 
         // The control: let go in the firing command, a duck held until then is no longer the muzzle's (his standing eye's 68).
-        JumpFlight let = Fly(walled, Standing(x: 256f), Hold(1, InJump), Hold(1, InDuck), Hold(1, InAttack), Hold(60));
+        JumpFlight let = Fly(NearWall, Standing(x: 200f), Hold(1, InJump), Hold(1, InDuck), Hold(1, InAttack), Hold(30));
         Assert.True(let.Track[1].Ducking && !let.Track[2].Ducking);
-        Assert.Equal(let.Track[2].Origin.Z + 68f + TFProjectileDefs.RocketMuzzleUp, Assert.Single(let.Impacts).At.Z, 2);
+        NearWallZ(let, 68f, TFProjectileDefs.RocketMuzzleUp, let.Track[2].Origin.Z);
     }
 
     [Fact]

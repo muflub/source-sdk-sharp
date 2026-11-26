@@ -36,7 +36,7 @@ namespace SourceSharp.Shared.Anim;
 /// engine reads; the client's are <c>ClientPoseParameters</c>/
 /// <c>ClientAnimationLayers</c>' plumbing over the predicted and interpolated
 /// net state. Where the two sides genuinely differ — the server has no layer
-/// or ground-speed arm — the TARGET answers honestly (NaN, or its own memory)
+/// arm — the TARGET answers honestly (its own memory)
 /// and this class does not branch on side at all. A machine that behaved
 /// differently per side would be two machines, and the client's whole claim
 /// to be predicting rests on it being the same rule.
@@ -292,7 +292,7 @@ public sealed class MultiplayerAnimState
     /// <summary>Stock's <c>m_PoseParameterData.m_flEstimateYaw</c>: the estimated travel direction.</summary>
     public float EstimateYawValue => _estimateYaw;
 
-    /// <summary>Stock's <c>m_flMaxGroundSpeed</c>: what the current sequence was last measured to travel at (0 until measured; the server's targets never measure — their ground-speed arm says NaN).</summary>
+    /// <summary>Stock's <c>m_flMaxGroundSpeed</c>: what the current sequence was last measured to travel at (0 until measured; a target with no ground-speed arm says NaN).</summary>
     public float MaxGroundSpeed => _maxGroundSpeed;
 
     /// <summary>Stock's <c>m_nSpecificMainSequence</c>: the forced full-body sequence, -1 for none.</summary>

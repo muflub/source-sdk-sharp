@@ -34,6 +34,57 @@ public sealed class HeroCommandsTests
         Assert.True(Logged(rig, "set to level 5: applied, audit ok"));
     }
 
+    private sealed class Picks : TF2.Descent.Server.Mode.IHeroClassPick
+    {
+        public List<TF2.Shared.TFClass> Made { get; } = [];
+
+        public void Pick(SourceSharp.Abi.EntityHandle player, TF2.Shared.TFClass cls) => Made.Add(cls);
+    }
+
+    [Fact]
+    public void Setclass_makes_the_hero_a_heavy_at_his_level_with_the_heavys_life()
+    {
+        var rig = new HeroRig();
+        var hero = rig.Join()!;
+        Assert.True(hero.Apply(s => rig.AtLevel(s, 10)).Ok);
+        var picks = new Picks();
+
+        new HeroSetClassCommand(Cheats(true), rig.Heroes, picks, rig.Log).Execute(HeroRig.Index, "heavy");
+
+        Assert.Equal(("heavy", 10), (hero.Sheet!.ClassId, hero.Sheet.Level));
+        Assert.True(rig.Rules.Heroes.Audit(hero.Sheet).Ok);
+        Assert.Equal(300 + 4 * 20 + 32 * 10, hero.Stats!.MaxLife, 9);   // plan L26: 32 a level
+        Assert.Equal([TF2.Shared.TFClass.HeavyWeapons], picks.Made);
+        Assert.True(Logged(rig, "set to class heavy level 10: applied, life max 700"));
+    }
+
+    [Fact]
+    public void Setclass_refuses_a_name_that_is_no_class()
+    {
+        var rig = new HeroRig();
+        var hero = rig.Join()!;
+        var picks = new Picks();
+
+        new HeroSetClassCommand(Cheats(true), rig.Heroes, picks, rig.Log).Execute(HeroRig.Index, "civilian");
+
+        Assert.Equal("soldier", hero.Sheet!.ClassId);
+        Assert.Empty(picks.Made);
+        Assert.True(Logged(rig, "'civilian' is no class"));
+    }
+
+    [Fact]
+    public void Setclass_does_nothing_without_cheats()
+    {
+        var rig = new HeroRig();
+        var hero = rig.Join()!;
+        var picks = new Picks();
+
+        new HeroSetClassCommand(Cheats(false), rig.Heroes, picks, rig.Log).Execute(HeroRig.Index, "scout");
+
+        Assert.Equal("soldier", hero.Sheet!.ClassId);
+        Assert.Empty(picks.Made);
+    }
+
     [Fact]
     public void Setlevel_refuses_a_level_the_hero_has_passed()
     {

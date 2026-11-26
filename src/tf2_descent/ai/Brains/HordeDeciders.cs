@@ -27,10 +27,10 @@ public sealed class HordeDeciders
     /// <summary>
     /// The level's deciders: <see cref="HuntDecider"/> for every family until one is registered,
     /// each walking by <paramref name="paths"/> once the level's graph is ready (none: the room
-    /// route always).
+    /// route always), each hunt keeping to <paramref name="leash"/> (none by default).
     /// </summary>
-    public static HordeDeciders For(HordeLevel level, IHordePaths? paths = null) =>
-        new(new HordeRoutes(level, paths), new Dictionary<int, Func<BrainSetup, HordeRoutes, IDecider>>());
+    public static HordeDeciders For(HordeLevel level, IHordePaths? paths = null, HordeLeash leash = default) =>
+        new(new HordeRoutes(level, paths, leash), new Dictionary<int, Func<BrainSetup, HordeRoutes, IDecider>>());
 
     public HordeLevel Level => _routes.Level;
 
@@ -50,8 +50,14 @@ public sealed class HordeDeciders
     public static IDecider Unwrap(IDecider decider) => decider is FamilyDecider { Inner: { } inner } ? inner : decider;
 
     /// <summary>The decider for <paramref name="family"/>.</summary>
-    public IDecider ForFamily(int family, BrainSetup setup) =>
-        _families.TryGetValue(family, out var make) ? make(setup, _routes) : new HuntDecider(setup, _routes.NewRoute(setup.Bot.Slot));
+    public IDecider ForFamily(int family, BrainSetup setup) => ForFamily(family, setup, _routes);
+
+    /// <summary>The decider for <paramref name="family"/>, walking by <paramref name="routes"/> (a boss's family fights unleashed: <see cref="HordeRoutes.Unleashed"/>).</summary>
+    public IDecider ForFamily(int family, BrainSetup setup, HordeRoutes routes)
+    {
+        ArgumentNullException.ThrowIfNull(routes);
+        return _families.TryGetValue(family, out var make) ? make(setup, routes) : new HuntDecider(setup, routes.NewRoute(setup.Bot.Slot));
+    }
 
     /// <summary>
     /// A brain's decider before its family is known: at its first decide it

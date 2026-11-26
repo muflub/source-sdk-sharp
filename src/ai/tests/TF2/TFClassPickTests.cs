@@ -21,12 +21,12 @@ public sealed class TFClassPickTests
 
     private static bool All(TFClass c) => true;
 
-    /// <summary>Until a class lane says so, only the Soldier is fielded: a team of nine Soldiers still gets a tenth.</summary>
+    /// <summary>Only a ready class is fielded: with the Soldier alone ready, a team of nine Soldiers still gets a tenth
+    /// (the composition would want another class). Which classes are ready is each class file's flag, so the fact
+    /// holds the rule with its own ready set, not today's.</summary>
     [Fact]
     public void OnlyAReadyClassIsFielded()
-        => Assert.Equal(TFClass.Soldier, TFClassComposition.Pick(Team((TFClass.Soldier, 9)), TFTeamStance.Symmetric, c => TFBotClassPickReady(c, "")));
-
-    private static bool TFBotClassPickReady(TFClass c, string extra) => TFBotClassPick.ReadyBy(c, extra);
+        => Assert.Equal(TFClass.Soldier, TFClassComposition.Pick(Team((TFClass.Soldier, 9)), TFTeamStance.Symmetric, c => c == TFClass.Soldier));
 
     /// <summary>A class lane's runs may field its class before it is ready (ai_bot_classes_ready): listed, the Medic is; not listed, it is not.</summary>
     [Fact]

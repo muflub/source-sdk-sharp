@@ -43,7 +43,7 @@ public readonly record struct AltFireFacts(AltFireKind Kind, float Speed = 0f, f
 /// </summary>
 public readonly record struct WeaponFacts(int Kind, string Name, int ClipSize, float CadenceSeconds, float ReloadSeconds, bool ReloadAudible,
                                           bool ShellByShell, float ProjectileSpeed, AltFireFacts Alt = default, float ProjectileGravity = 0f,
-                                          float ChargeSeconds = 0f)
+                                          float ChargeSeconds = 0f, float LaunchUp = 0f)
 {
     /// <summary>Whether the weapon has a clip to estimate (a melee weapon, a grenade or the RPG fires from its reserve).</summary>
     public bool HasClip => ClipSize > 0;
@@ -116,6 +116,15 @@ public enum ZoneKind : byte
 
     /// <summary>A cabinet's volume that refills health and ammunition when stood in (TF2's resupply), the team's own.</summary>
     Resupply,
+
+    /// <summary>A volume that kills whoever stands in it (a death pit's <c>trigger_hurt</c>, as hurt as the map set it); every team's.</summary>
+    Hurt,
+
+    /// <summary>
+    /// A volume no building may be put in (TF2's <c>func_nobuild</c>): for the team it names, or every team's (team 0). A
+    /// builder knows the map's no-build areas as a player does: the blueprint turns red there.
+    /// </summary>
+    NoBuild,
 }
 
 /// <summary>A volume of the map that belongs to a team (plan_bots_teams_tf2 C.7), as its brush's bounds; team 0 is every team's.</summary>

@@ -24,7 +24,7 @@ public sealed class BrainDriver
 
     /// <summary>This driver's counts, as the step that just ended left them: what a lane hands back.</summary>
     public DriveCounters CountersOf(NavBuildTally tally)
-        => new(Breaks, BreaksGivenUp, Mounts, Climbs, Stucks, Yields, tally.Builds, tally.OnMain);
+        => new(Breaks, BreaksGivenUp, Mounts, Climbs, Stucks, Yields, tally.Builds, tally.OnMain, tally.HopsFailed);
 
     /// <summary>The follower carrying out the bot's goal now, or null: the brain has no goal to walk to.</summary>
     public NavFollower? FollowerOf(int slot) => _driven.TryGetValue(slot, out Driven? d) ? d.Follower : null;
@@ -104,7 +104,15 @@ public sealed class BrainDriver
             _body.Remove(slot);
         }
 
-        return new IntentCommand(brain.Bot, tick, seq, tick + IntentCommand.LifetimeTicks, move, look, action, brain.Reason);
+        // A Fire the brain held at a teammate on purpose (a Medic's beam) is still that hold when the drive carries out the brain's own
+        // action, so the applier keeps it down through a one-shot (round 2's S9); an action the drive put in its place (a ladder's +use,
+        // a breakable's shot) holds at nobody. The test is by value: a brain's friend-fire that equals the drive's own action (the crate's
+        // (Fire, Tap, 0, 0) replacing an Engineer's build click or bolt, both (Fire, Tap, 0, 0)) keeps the hold, so the next one-shot decide
+        // that still holds at a friend keeps Attack down for it; a Medic's beam (Fire, Spray, with an actor look, which the crate's shot
+        // never replaces) cannot meet it. The brain's Say is not carried: the session takes callouts off the brain's intent
+        // (AiSession's scheduled and spoken callouts), and nothing reads it off the driven one.
+        return new IntentCommand(brain.Bot, tick, seq, tick + IntentCommand.LifetimeTicks, move, look, action, brain.Reason,
+                                 HoldsAtFriend: brain.HoldsAtFriend && action == brain.Action);
     }
 
     /// <summary>The shots asked for, for the counters: how many breakables a bot has gone at, and how many times it gave up on one.</summary>
@@ -609,6 +617,12 @@ public sealed class BrainDriver
 
     /// <summary>How far a bot off the field must move from where it was to count as moving.</summary>
     public const float ProgressRadius = 48f;
+
+    /// <summary>How far along a bot's route its next air jumps are looked for (<see cref="DashesAheadOf"/>): about a second of a Scout's run.</summary>
+    public const float DashLookahead = 384f;
+
+    /// <summary>The second presses in the air a jump on the bot's route within <see cref="DashLookahead"/> needs (round 2's S2): what its brain is told.</summary>
+    public int DashesAheadOf(int slot) => _driven.TryGetValue(slot, out Driven? d) ? d.Follower.DashesAhead(DashLookahead) : 0;
 
     /// <summary>The route's next link for the bot's follower, as its last move found it (lane G5c-2b): what its brain is told.</summary>
     public NavLinkStep LinkStepOf(int slot) => _driven.TryGetValue(slot, out Driven? d) ? d.Follower.LinkStep : NavLinkStep.None;

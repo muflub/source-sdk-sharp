@@ -144,4 +144,55 @@ public sealed class BrainDriverLinkTests
     {
         public const int Launch = SourceSharp.Ai.Server.Nav.NavFollower.LinkLaunchMoves;
     }
+
+    /// <summary>
+    /// The step's result carries how many presses in the air the route just ahead needs (round 2's S2): a triple jump two
+    /// cells on is 2, which the main thread hands the game's route reports.
+    /// </summary>
+    [Fact]
+    public void AStepsResultCarriesTheDashesAhead()
+    {
+        const ClearanceClasses Both = ClearanceClasses.Stand | ClearanceClasses.Crouch;
+        var b = new NavGraphBuilder();
+        CellId[] floor = [.. Enumerable.Range(0, 3).Select(i => b.AddCell(new NavCell(i * 64f, 0f, (i + 1) * 64f, 64f, 0f, Both, NavCellFlags.None, 1f)))];
+        CellId ledge = b.AddCell(new NavCell(192f, 0f, 256f, 64f, 130f, Both, NavCellFlags.None, 1f));
+        b.AddEdge(floor[0], floor[1], NavEdgeType.Walk);
+        b.AddEdge(floor[1], floor[2], NavEdgeType.Walk);
+        b.AddEdge(floor[2], ledge, NavEdgeType.TripleJump);
+        NavGraph g = b.Build();
+        var state = new NavObstacleState(0) { Reach = JumpReach.Double | JumpReach.Triple };
+        var transport = new InlineTransport();
+        var lanes = new BotDriveLanes(() => transport, 8);
+        AiVector start = g.Cell(floor[0]).Centre;
+        var input = new DriveInput(Brain(g.Cell(ledge).Centre, 1), start, new Tick(1), g, state, false, default, EntityHandle.None, [], [], false, BreakableSight.None);
+        Assert.True(lanes.Hand(input, new BotSelfFacts(true, false, start, start + new AiVector(0f, 0f, 64f), default)));
+        Assert.Equal(DriveTaken.Fresh, lanes.Take(Bot, out DriveOutput output, out _));
+        Assert.Equal(2, output.Dashes);
+    }
+
+    /// <summary>
+    /// The bot's lane plans with the agent's own spends (round 2's S13): the lane copies the live state into its own each step
+    /// (BotDriveLanes' CopyFrom), so a link that costs 30 against 20 to spend is not the route's at first, and is once the
+    /// agent's spends say 10 on the next step.
+    /// </summary>
+    [Fact]
+    public void TheLanePlansWithTheAgentsOwnSpendsAsTheyStandEachStep()
+    {
+        var (g, ids, state) = Rig();
+        state.LinkHealth = 20f;
+        var transport = new InlineTransport();
+        var lanes = new BotDriveLanes(() => transport, 8);
+        AiVector start = Centre(g, ids, 7, 2);
+        bool Step(int tick)
+        {
+            var input = new DriveInput(Brain(Centre(g, ids, 14, 2), tick), start, new Tick(tick), g, state, false, default, EntityHandle.None, [], [], false, BreakableSight.None);
+            Assert.True(lanes.Hand(input, new BotSelfFacts(true, false, start, start + new AiVector(0f, 0f, 64f), default)));
+            Assert.Equal(DriveTaken.Fresh, lanes.Take(Bot, out DriveOutput output, out _));
+            return output.Link.IsLink;
+        }
+
+        Assert.False(Step(1));
+        state.LinkSpends = [10f];
+        Assert.True(Step(400));
+    }
 }

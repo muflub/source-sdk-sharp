@@ -402,6 +402,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.Add<BoundedConVarInputs>();
         var boundedConVars = new BoundedConVars(_services.Require<IClientConVarSlots>(), _services.Require<BoundedConVarInputs>());
         _services.AddInstance(boundedConVars);
+        _services.AddInstance<IInterpolationAmount>(boundedConVars);
+        // The other players' networked looks, followed once a frame (a frame think).
+        _services.Add<Standalone.RemotePlayerLooks>();
         boundedConVars.Start();
         new Render.MaterialConfigConVars(_services.Require<IClientConVarFlags>(), Log).Mark();
         _userMessages = new UserMessageRegistry(Log);

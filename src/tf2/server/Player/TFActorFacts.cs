@@ -52,7 +52,22 @@ public readonly record struct TFActorFacts(
     /// <summary>Bleeding (<c>TF_COND_BLEEDING</c>): the blood every client draws.</summary>
     bool Bleeding = false,
     /// <summary>The health a disguised Spy's disguise shows an enemy (stock's <c>m_iDisguiseHealth</c>): 0 when not disguised.</summary>
-    int DisguiseHealth = 0);
+    int DisguiseHealth = 0,
+    /// <summary>Soaked in Mad Milk (<c>TF_COND_MAD_MILK</c>): its drips, <c>peejar_drips_milk</c> (tf_player_shared.cpp:3827).</summary>
+    bool Milked = false,
+    /// <summary>Soaked in gas (<c>TF_COND_GAS</c>), the Gas Passer's.</summary>
+    bool Gassed = false,
+    /// <summary>
+    /// A condition stock draws the mark for death over (<c>C_TFPlayer::UpdatedMarkedForDeathEffect</c>,
+    /// c_tf_player.cpp:5181): <c>TF_COND_MARKEDFORDEATH</c>, its silent twin, or the PASS Time penalty.
+    /// </summary>
+    bool MarkedForDeath = false,
+    /// <summary>Thrown by a blast (<c>TF_COND_BLASTJUMPING</c>, set with the blast-jump state, tf_player.cpp:8701).</summary>
+    bool BlastJumping = false,
+    /// <summary>Flying on a Thermal Thruster (<c>TF_COND_ROCKETPACK</c>).</summary>
+    bool Rocketpack = false,
+    /// <summary>Scoped (<c>TF_COND_ZOOMED</c>): a zoomed Sniper, his dot drawn for everyone (tf_weapon_sniperrifle.cpp:541).</summary>
+    bool Zoomed = false);
 
 /// <summary>What a client renders of one player, by player index.</summary>
 public interface ITFActorFacts
@@ -102,7 +117,14 @@ public sealed class TFServerActorFacts(ITFPlayerData players, ITeamRoundRoster r
             Jarated: state.InCond(TFCond.Urine),
             Blinking: state.InCond(TFCond.StealthedBlink),
             Bleeding: state.InCond(TFCond.Bleeding),
-            DisguiseHealth: state.InCond(TFCond.Disguised) ? state.DisguiseHealth : 0);
+            DisguiseHealth: state.InCond(TFCond.Disguised) ? state.DisguiseHealth : 0,
+            Milked: state.InCond(TFCond.MadMilk),
+            Gassed: state.InCond(TFCond.Gas),
+            MarkedForDeath: state.InCond(TFCond.Markedfordeath) || state.InCond(TFCond.MarkedfordeathSilent)
+                            || state.InCond(TFCond.PasstimePenaltyDebuff),
+            BlastJumping: state.InCond(TFCond.Blastjumping),
+            Rocketpack: state.InCond(TFCond.Rocketpack),
+            Zoomed: state.InCond(TFCond.Zoomed));
         return true;
     }
 }

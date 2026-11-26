@@ -25,10 +25,14 @@ public readonly record struct SoundEvent(int Room, AiVector Position, float Loud
 /// <see cref="HearingSenses.RoomsFor"/> doors of the sound's. A robot that hears
 /// remembers where and when; its pack is alerted to the sound, and the pack's sleepers wake.
 /// Bodied robots hear through the server's senses, not here.</item>
-/// <item>A pack whose contact is older than <see cref="HordeSettings.AlertMemorySeconds"/> calms.</item>
+/// <item>A pack whose contact is older than <see cref="HordeSettings.AlertMemorySeconds"/> calms; so
+/// does one whose contact is past its leash (<see cref="HordeLeash"/>: more than
+/// <see cref="HordeSettings.LeashDoors"/> doors from the room the pack was placed in), the boss's
+/// pack aside.</item>
 /// <item>Each far robot, in row order: its statuses tick (the rules, through the roster); a
 /// stunned robot, the boss, and a robot in a room a hero can see into hold. An alerted pack's
-/// robots walk to its contact; a calm robot walks home and patrols its room's markers (waiting
+/// robots walk to its contact, until the room the walk enters next is past the leash: then the pack
+/// calms, as a lapse does, and the robot turns for home; a calm robot walks home and patrols its room's markers (waiting
 /// <see cref="HordeSettings.PatrolDwellSeconds"/> at each), or holds at its only marker.</item>
 /// <item>A robot walks the room graph a door at a time at its stats' speed times its status
 /// slow. It never enters a room a hero can see into: it queues at that door in its own room,
@@ -45,11 +49,13 @@ public sealed class FarSimulation
     private readonly long _memoryTicks;
     private readonly int[] _queued;   // per door and side, this tick
     private readonly HordeAlerts? _alerts;
+    private readonly HordeLeash _leash;
 
     public FarSimulation(HordeSettings settings, HordeLevel level, float dt, long dwellTicks, long memoryTicks, int[] queued, HordeAlerts? alerts = null)
     {
         _alerts = alerts;
         _settings = settings;
+        _leash = new HordeLeash(settings.LeashDoors);
         _level = level;
         _dt = dt;
         _dwellTicks = dwellTicks;
@@ -74,7 +80,7 @@ public sealed class FarSimulation
             Hear(roster, s, now);
 
         for (int p = 0; p < roster.PackCount; p++)
-            if (roster.PackAlert(p) != AlertLevel.Calm && roster.ContactTick(p) < now - _memoryTicks)
+            if (roster.PackAlert(p) != AlertLevel.Calm && (roster.ContactTick(p) < now - _memoryTicks || Leashed(roster, p)))
                 roster.CalmPack(p);
 
         Array.Clear(_queued);
@@ -86,6 +92,10 @@ public sealed class FarSimulation
             Move(roster, sight, i, now);
         }
     }
+
+    /// <summary>Whether pack <paramref name="p"/>'s contact is past its leash from the room it was placed in (never the boss's pack: it holds its arena).</summary>
+    private bool Leashed(RobotRoster roster, int p) =>
+        roster.PackSize(p) > 0 && !roster.IsBoss(roster.PackFirst(p)) && _leash.Past(_level, roster.PackRoom(p), -1, roster.ContactRoom(p));
 
     private void Hear(RobotRoster roster, in SoundEvent s, long now)
     {
@@ -128,6 +138,13 @@ public sealed class FarSimulation
         FarActivity activity;
         var markers = _level.Rooms[roster.HomeRoom(i)].Markers;
         ref int patrol = ref roster.PatrolMarkerRef(i);
+        if (roster.PackAlert(pack) != AlertLevel.Calm && roster.ContactRoom(pack) >= 0
+            && _leash.Past(_level, roster.HomeRoom(i), HordeLeash.NextOf(_level, room, roster.ContactRoom(pack)), roster.ContactRoom(pack)))
+        {
+            // The walk to the contact would take it past its leash: the pack gives up, as a lapse does, and it turns for home.
+            roster.CalmPack(pack);
+        }
+
         if (roster.PackAlert(pack) != AlertLevel.Calm && roster.ContactRoom(pack) >= 0)
         {
             goalRoom = roster.ContactRoom(pack);

@@ -229,7 +229,18 @@ public sealed class NavLinks
     /// body, the cell it reaches is not blocked, and the experience has not shut it (<see cref="NavObstacleState.LinksShut"/>).
     /// </summary>
     public bool Admits(NavGraph graph, int index, ClearanceClass cls, NavObstacleState obstacles)
-        => AdmitsBarHealth(graph, index, cls, obstacles) && _links[index].Health <= obstacles.LinkHealth;
+        => AdmitsBarHealth(graph, index, cls, obstacles) && SpendOf(index, obstacles) <= obstacles.LinkHealth;
+
+    /// <summary>
+    /// What the agent whose state is <paramref name="obstacles"/> spends on link <paramref name="index"/>: its own
+    /// (<see cref="NavObstacleState.LinkSpends"/>, round 2's S13) when it has a list for these links, else the link's
+    /// <see cref="NavLink.Health"/>.
+    /// </summary>
+    public float SpendOf(int index, NavObstacleState obstacles)
+    {
+        ArgumentNullException.ThrowIfNull(obstacles);
+        return obstacles.LinkSpends is { } own && own.Count == _links.Length ? own[index] : _links[index].Health;
+    }
 
     /// <summary>
     /// <see cref="Admits"/>' rule but its health: whether link <paramref name="index"/> would be the agent's to take with
@@ -249,7 +260,7 @@ public sealed class NavLinks
 
     /// <summary>Whether the agent's health alone keeps it off link <paramref name="index"/>: every other part of <see cref="Admits"/> lets it.</summary>
     public bool ShortOfHealth(NavGraph graph, int index, ClearanceClass cls, NavObstacleState obstacles)
-        => _links[index].Health > obstacles.LinkHealth && AdmitsBarHealth(graph, index, cls, obstacles);
+        => SpendOf(index, obstacles) > obstacles.LinkHealth && AdmitsBarHealth(graph, index, cls, obstacles);
 
     private static (int[] Order, int[] Start) Csr(int cells, NavLink[] links, Func<NavLink, int> key)
     {

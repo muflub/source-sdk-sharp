@@ -654,7 +654,7 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
                     // (:2458-2470); any other gun skips the healer and leaves both drains on.
                     if (!healActual && !healDisguise)
                     {
-                        if (hooks.Int(0, "set_weapon_mode", items.ManagerOf(index)) == QuickFixWeaponMode)
+                        if (TFMedigunType.Of(hooks, items, index) == QuickFixWeaponMode)
                         {
                             decayHealth = false;
                             decayDisguiseHealth = false;

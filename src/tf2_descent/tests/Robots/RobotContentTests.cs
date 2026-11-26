@@ -28,13 +28,73 @@ public sealed class RobotContentTests
         Assert.All(ordinary, r => Assert.Equal((0.85, 1.15), (r.ScaleMin, r.ScaleMax)));
     }
 
+    /// <summary>
+    /// The user's ruling (2026-11-22, plan L26): a class with no giant model (the engineer, medic,
+    /// sniper and spy) has a giant all the same, wearing its ordinary model scaled up.
+    /// </summary>
     [Fact]
-    public void Giants_are_the_classes_mvm_has_giants_of()
+    public void Every_class_has_one_giant()
     {
-        var giants = Content.Robots.Rows.Where(r => r.Size == "giant" && r.Attack != "sentry_buster").Select(r => r.Class).Order();
+        Assert.Equal(["demoman", "engineer", "heavy", "medic", "pyro", "scout", "sniper", "soldier", "spy"], Giants().Select(r => r.Class).Order());
+    }
 
-        Assert.Equal(["demoman", "heavy", "medic", "pyro", "scout", "soldier"], giants);
-        Assert.All(Content.Robots.Rows.Where(r => r.Size == "giant" && r.Attack != "sentry_buster"), r => Assert.Equal((1.5, 1.9), (r.ScaleMin, r.ScaleMax)));
+    [Fact]
+    public void Giants_roll_their_scale_from_the_giant_range()
+    {
+        Assert.All(Giants(), r => Assert.Equal((1.5, 1.9), (r.ScaleMin, r.ScaleMax)));
+    }
+
+    [Fact]
+    public void A_giant_fights_with_its_classs_ordinary_weapon()
+    {
+        Assert.All(Giants(), g => Assert.Equal((Ordinary(g).Family, Ordinary(g).Attack), (g.Family, g.Attack)));
+    }
+
+    [Fact]
+    public void A_giant_has_twice_its_ordinary_robots_life_half_again_its_damage_and_its_speed()
+    {
+        Assert.All(Giants(), g => Assert.Equal((Ordinary(g).Life * 2, Ordinary(g).Damage * 1.5, Ordinary(g).Speed, Ordinary(g).Reach),
+                                               (g.Life, g.Damage, g.Speed, g.Reach)));
+    }
+
+    /// <summary>The six giants before the ruling each paid 1.775 times their ordinary robot's XP, rounded half away (44, 71, 62, 62, 107, 62).</summary>
+    [Fact]
+    public void A_giant_pays_its_ordinary_robots_xp_times_1_775()
+    {
+        Assert.All(Giants(), g => Assert.Equal(Math.Round(Ordinary(g).Xp * 1.775, MidpointRounding.AwayFromZero), g.Xp));
+    }
+
+    [Fact]
+    public void A_giant_keeps_its_ordinary_robots_resists_but_shock_hurts_it_half_again()
+    {
+        Assert.All(Giants(), g =>
+        {
+            var expected = new Dictionary<string, double>(Ordinary(g).Resist) { ["shock"] = -50 };
+            Assert.Equal(expected.OrderBy(kv => kv.Key), g.Resist.OrderBy(kv => kv.Key));
+        });
+    }
+
+    [Fact]
+    public void A_giant_has_its_ordinary_robots_temperament_and_is_a_miniboss()
+    {
+        Assert.All(Giants(), g =>
+        {
+            Assert.Equal(Ordinary(g).Weights.OrderBy(kv => kv.Key), g.Weights.OrderBy(kv => kv.Key));
+            Assert.Equal(Ordinary(g).Caps.OrderBy(kv => kv.Key), g.Caps.OrderBy(kv => kv.Key));
+            Assert.Equal(["miniboss"], g.Flags);
+        });
+    }
+
+    /// <summary>The giants with no giant model of their own join the packs where the last of the others (the giant medic) does: depth 10 and deeper.</summary>
+    [Theory]
+    [InlineData("giant_engineer")]
+    [InlineData("giant_sniper")]
+    [InlineData("giant_spy")]
+    public void A_scaled_up_giant_is_drawn_from_depth_10(string id)
+    {
+        var drawnAt = Content.Levels.Rows.Where(l => l.Templates.Any(t => t.Template == id && t.Weight > 0)).Select(l => l.Depth);
+
+        Assert.Equal(Enumerable.Range(10, 6), drawnAt);
     }
 
     [Fact]
@@ -179,6 +239,10 @@ public sealed class RobotContentTests
     }
 
     //-------------------------------------------------------------------------
+
+    private static IEnumerable<RobotTemplate> Giants() => Content.Robots.Rows.Where(r => r.Size == "giant" && r.Attack != "sentry_buster");
+
+    private static RobotTemplate Ordinary(RobotTemplate giant) => Content.Robots.Rows.Single(r => r.Size == "ordinary" && r.Class == giant.Class);
 
     private static JsonObject Row(JsonNode table, string id) =>
         table.AsArray().Select(n => n!.AsObject()).Single(o => (string?)o["id"] == id);

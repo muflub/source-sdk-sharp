@@ -196,7 +196,8 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
         _gathered = n;
         for (int k = 0; k < n; k++)
             _poses[k] = new HeroPose(_places[k].Seat, _places[k].Position, HordeVectors.ToAi(_eyes[k].Eye), _places[k].Room, _eyes[k].Yaw,
-                                     (float)visibility.SightScale(_eyes[k].Player), VeilOf(_places[k].Seat, now), (float)visibility.LampReach(_eyes[k].Player));
+                                     (float)visibility.SightScale(_eyes[k].Player), VeilOf(_places[k].Seat, now), (float)visibility.LampReach(_eyes[k].Player),
+                                     visibility.Beacon(_eyes[k].Player));
         brains.Heroes(now, _poses.AsSpan(0, n));
         for (int k = 0; k < n; k++)
         {

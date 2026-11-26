@@ -55,6 +55,12 @@ public sealed class TFKnowledgeTests
         Assert.Equal(0.92f + 4 * 0.8f, f.ReloadSeconds, 4);
     }
 
+    /// <summary>
+    /// A pipe and a sticky fall at the whole of the world's gravity (<c>TFProjectileDefs.GrenadeFallScale</c>: a physics
+    /// body, which no <c>SetGravity(0.4)</c> reaches; stock's flight measured at about 800 u/s², lane r2s4's A/B). Was 0.4 of
+    /// it: a solver reading 320 alone would land short, and the base's lobs hit only because that error happened to cancel
+    /// the launch's +200 up-kick, which the lob takes off the aim on its own (<c>AimLead.LobLaunch</c>).
+    /// </summary>
     [Fact]
     public void APipeFallsAndAStickyChargesForFourSeconds()
     {
@@ -62,8 +68,8 @@ public sealed class TFKnowledgeTests
                                                 TFProjectile.Pipebomb, Mode(1.24f, 0.6f), singly: true);
         WeaponFacts sticky = TFKnowledge.WeaponOf(2, Row("tf_weapon_pipebomblauncher", TFWeaponKinds.Key(TFWeaponKind.Projectile), 8),
                                                   TFProjectile.PipebombRemote, Mode(1.09f, 0.67f, 925f), singly: true);
-        Assert.Equal((0.4f * G, 0f), (pipe.ProjectileGravity, pipe.ChargeSeconds));
-        Assert.Equal((0.4f * G, 4f, 925f), (sticky.ProjectileGravity, sticky.ChargeSeconds, sticky.ProjectileSpeed));
+        Assert.Equal((G, 0f), (pipe.ProjectileGravity, pipe.ChargeSeconds));
+        Assert.Equal((G, 4f, 925f), (sticky.ProjectileGravity, sticky.ChargeSeconds, sticky.ProjectileSpeed));
     }
 
     [Fact]
@@ -151,8 +157,9 @@ public sealed class TFKnowledgeTests
     [Fact]
     public void EveryBuildingCommandRowIsTheModsBuildOrDestroyOrder()
     {
-        AbilityRow[] commands = [.. TFAbilities.Table().Rows.Where(r => r.Run == AbilityRun.Command && r.Name != TFClassSpecs.Unused
-                                                                       && !r.Name.StartsWith("voice_", StringComparison.Ordinal))];
+        // The shared block's rows: a class's own block holds its own words (the Spy's disguise, sapper).
+        AbilityRow[] commands = [.. TFAbilities.Shared().Where(r => r.Run == AbilityRun.Command && r.Name != TFClassSpecs.Unused
+                                                                    && !r.Name.StartsWith("voice_", StringComparison.Ordinal))];
         Assert.Equal(8, commands.Length);
         Assert.All(commands, r => Assert.Contains(r.Command.Split(' ')[0], new[] { TFBuildCommand.Verb, TFDestroyCommand.Verb }));
         Assert.Contains(commands, r => r.Command == "build 2 0");
@@ -178,5 +185,13 @@ public sealed class TFKnowledgeTests
     {
         string[] names = [.. TFAbilities.Table().Rows.Select(r => r.Name)];
         Assert.Equal((TFAbilities.RocketJump, 11), (names[0], Array.FindIndex(names, n => n.StartsWith("voice_", StringComparison.Ordinal))));
+    }
+
+    /// <summary>The Loose Cannon's ball is the pipebomb's body in cannonball mode: it falls as a pipe does, and the lob aims for it.</summary>
+    [Fact]
+    public void TheLooseCannonsBallFallsAsAPipe()
+    {
+        Assert.True(TFKnowledge.ProjectileGravity(TFProjectile.Cannonball) > 0f);
+        Assert.Equal(TFKnowledge.ProjectileGravity(TFProjectile.Pipebomb), TFKnowledge.ProjectileGravity(TFProjectile.Cannonball));
     }
 }

@@ -197,6 +197,12 @@ public sealed class ServerSkeletons : IServerStandaloneSkeletons, IStandaloneHit
     /// <summary>The engine's traces an entity answered itself (<see cref="ICustomTraceTarget"/>).</summary>
     public long CustomTraces { get; private set; }
 
+    /// <summary>The pose asks (look up, set, get, ground speed): the dials the players' animation state turns.</summary>
+    public long PoseAsks { get; private set; }
+
+    /// <summary><see cref="Stopwatch"/> ticks spent inside those pose asks.</summary>
+    public long PoseTicks { get; private set; }
+
     private readonly Func<EntityHandle, ICustomTraceTarget?>? _customTargets;
 
     /// <summary>The cost counters back to zero.</summary>
@@ -206,6 +212,8 @@ public sealed class ServerSkeletons : IServerStandaloneSkeletons, IStandaloneHit
         Builds = 0;
         AskTicks = 0;
         HitboxTraces = 0;
+        PoseAsks = 0;
+        PoseTicks = 0;
     }
 
     private BoneConVars ConVars => new(_threeWayBlend?.Value ?? true, JiggleBones.DefaultFramerateCutoff, 0);
@@ -680,6 +688,14 @@ public sealed class ServerSkeletons : IServerStandaloneSkeletons, IStandaloneHit
     /// <inheritdoc/>
     public int LookupPoseParameter(EntityHandle entity, string name)
     {
+        long started = Stopwatch.GetTimestamp();
+        int index = LookupPoseParameterCore(entity, name);
+        PoseCost(started);
+        return index;
+    }
+
+    private int LookupPoseParameterCore(EntityHandle entity, string name)
+    {
         if (string.IsNullOrEmpty(name) || HdrOf(entity, out _) is not { } hdr)
         {
             return -1;
@@ -743,6 +759,14 @@ public sealed class ServerSkeletons : IServerStandaloneSkeletons, IStandaloneHit
     /// <inheritdoc/>
     public float SetPoseParameter(EntityHandle entity, int parameter, float value)
     {
+        long started = Stopwatch.GetTimestamp();
+        float stored = SetPoseParameterCore(entity, parameter, value);
+        PoseCost(started);
+        return stored;
+    }
+
+    private float SetPoseParameterCore(EntityHandle entity, int parameter, float value)
+    {
         if (!PoseState(entity, parameter, out StudioHdr hdr, out BoneEntityState state))
         {
             return 0f;
@@ -761,10 +785,71 @@ public sealed class ServerSkeletons : IServerStandaloneSkeletons, IStandaloneHit
     }
 
     /// <inheritdoc/>
-    public float GetPoseParameter(EntityHandle entity, int parameter) =>
-        PoseState(entity, parameter, out StudioHdr hdr, out BoneEntityState state)
+    public float GetPoseParameter(EntityHandle entity, int parameter)
+    {
+        long started = Stopwatch.GetTimestamp();
+        float value = PoseState(entity, parameter, out StudioHdr hdr, out BoneEntityState state)
             ? BoneSetupQuery.GetPoseParameter(hdr, parameter, state.PoseParameter[parameter])
             : 0f;
+        PoseCost(started);
+        return value;
+    }
+
+    /// <summary>One pose ask counted (the dials the players' animation state turns each frame).</summary>
+    private void PoseCost(long started)
+    {
+        PoseAsks++;
+        PoseTicks += Stopwatch.GetTimestamp() - started;
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// Stock's <c>GetSequenceGroundSpeed</c> over the server's own pose (the client's twin is
+    /// ClientSkeletons'): the root's travel over the sequence's duration, read at the pose the entity
+    /// holds once its model's defaults were read, the model's defaults before that.
+    /// </remarks>
+    public float SequenceGroundSpeed(EntityHandle entity, int sequence)
+    {
+        long started = Stopwatch.GetTimestamp();
+        float speed = SequenceGroundSpeedCore(entity, sequence);
+        PoseCost(started);
+        return speed;
+    }
+
+    private float SequenceGroundSpeedCore(EntityHandle entity, int sequence)
+    {
+        if (sequence < 0 || !Find(entity, out EngineBlock block, out BoneEntityState state))
+        {
+            return 0f;
+        }
+
+        StudioHdr? hdr = _models.OpenStudioHdr(block.Head.ModelIndex);
+
+        if (hdr is null || sequence >= hdr.NumSequences)
+        {
+            return 0f;
+        }
+
+        float[]? pose = state.PoseParametersForDuration(block.Head.ModelIndex);
+
+        if (pose is null)
+        {
+            pose = new float[BoneEntityState.MaxPoseParameters];
+            BoneSetupHdrRead.CalcDefaultPoseParameters(hdr, pose, BoneEntityState.MaxPoseParameters);
+        }
+
+        if (!BoneLibrary.SequenceFacts(hdr, sequence, pose, out float duration, out _) || duration <= 0f)
+        {
+            return 0f;
+        }
+
+        if (!BoneSetupQuery.SeqMovement(hdr, sequence, 0f, 1f, pose, out NVector movement, out _))
+        {
+            return 0f;
+        }
+
+        return movement.Length() / duration;
+    }
 
     /// <summary>
     /// A stored pose changed: the generation moves (the bone cache's key), and

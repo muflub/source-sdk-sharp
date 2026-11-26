@@ -173,4 +173,142 @@ public sealed partial class TFDecider
 
         FightStep(-0.6f);
     }
+
+    // ------------------------------------------------------------------ round 2's S4: the enemy a hit does more to
+
+    /// <summary>
+    /// What an enemy in sight that every hit mini-crits is worth over one as near: Jarated or marked for death (stock's
+    /// mini-crit arm, tf_gamerules.cpp:6126-6129; milk heals the hitter and crits nothing, so it adds nothing here). Stock's
+    /// tf_bot weighs no condition in its pick (<c>SelectMoreDangerousThreatInternal</c>, tf_bot_behavior.cpp:1062-1140:
+    /// sentries, immediate threats, nearness), so the term is ours and small: of <see cref="TargetScore.Priority"/>'s
+    /// nearness, at 500 u it is worth what about 110 u closer is, and inside <see cref="TargetCloseUnits"/> the nearest is
+    /// taken whatever it carries.
+    /// </summary>
+    public const float MiniCritBonus = 0.05f;
+
+    /// <summary>
+    /// What an enemy thrown by a blast is worth to a bot whose weapon in hand mini-crits the airborne: stock's
+    /// <c>mini_crit_airborne</c> 1 (tf_gamerules.cpp:6268-6276), the Direct Hit's (127) and the Reserve Shooter's (415). As
+    /// small as <see cref="MiniCritBonus"/>, for the same reason.
+    /// </summary>
+    public const float AirborneBonus = 0.05f;
+
+    /// <summary>The weapon attribute whose 1 mini-crits a victim in the air from a blast (the game's own rule reads it so).</summary>
+    public const string MiniCritAirborne = "mini_crit_airborne";
+
+    /// <summary>The conditions every hit mini-crits.</summary>
+    public const ActorConditions MiniCritConditions = ActorConditions.Jarated | ActorConditions.MarkedForDeath;
+
+    private TargetPick _plainPick;
+    private int _plainTier;
+    private KnownActor? _plainTarget, _condTarget;
+    private bool _condSeen, _jaratedSeen, _airborneOn;
+    private ActorConditions _seenThisDecide;
+
+    /// <summary>Decides on which an enemy offered in sight carried a mini-crit condition, and a Jarated one: for the facts and the counters.</summary>
+    public int MiniCritSeenDecides { get; private set; }
+
+    public int JaratedSeenDecides { get; private set; }
+
+    /// <summary>Decides on which an enemy offered in sight was drawn marked, wet, or thrown by a blast: the view's reads live, whatever the pick made of them.</summary>
+    public int MarkedSeenDecides { get; private set; }
+
+    public int WetSeenDecides { get; private set; }
+
+    public int AirborneSeenDecides { get; private set; }
+
+    /// <summary>Decides whose pick carried a condition's bonus, and those whose pick the bonus changed (the pick with none went elsewhere).</summary>
+    public int ConditionTargetDecides { get; private set; }
+
+    public int ConditionSwings { get; private set; }
+
+    /// <summary>Decides whose pick carried the airborne bonus.</summary>
+    public int AirborneTargetDecides { get; private set; }
+
+    /// <summary>
+    /// The bonus the conditions drawn on <paramref name="a"/> earn it (<see cref="MiniCritBonus"/>, <see cref="AirborneBonus"/>):
+    /// only for an enemy in sight, by what this decide's view draws on him.
+    /// </summary>
+    private float ConditionBonus(KnownActor a, bool sighted)
+    {
+        if (!sighted || !_view.TryActor(a.Id, out ActorFacts f))
+            return 0f;
+        _seenThisDecide |= f.Conditions;
+        float bonus = 0f;
+        if ((f.Conditions & MiniCritConditions) != 0)
+        {
+            bonus += MiniCritBonus;
+            _condSeen = true;
+            _jaratedSeen |= (f.Conditions & ActorConditions.Jarated) != 0;
+        }
+
+        if ((f.Conditions & ActorConditions.BlastAirborne) != 0 && HandMiniCritsAirborne)
+            bonus += AirborneBonus;
+        return bonus;
+    }
+
+    /// <summary>Whether the weapon in the bot's hands carries <see cref="MiniCritAirborne"/> 1, as its kit lists it; with no kit, no.</summary>
+    private bool HandMiniCritsAirborne
+        => Kit is { } kit && kit.TryKind(_self.ActiveWeapon, out Senses.TFKitItem item) && item.Attribute(MiniCritAirborne, 0f) == 1f;
+
+    /// <summary>The decide's choice begins for the conditions: the last decide's is counted, and the pick with no condition bonus starts over.</summary>
+    private void BeginConditionPick()
+    {
+        if (_condSeen)
+            MiniCritSeenDecides++;
+        if (_jaratedSeen)
+            JaratedSeenDecides++;
+        MarkedSeenDecides += (_seenThisDecide & ActorConditions.MarkedForDeath) != 0 ? 1 : 0;
+        WetSeenDecides += (_seenThisDecide & ActorConditions.Wet) != 0 ? 1 : 0;
+        AirborneSeenDecides += (_seenThisDecide & ActorConditions.BlastAirborne) != 0 ? 1 : 0;
+        _seenThisDecide = ActorConditions.None;
+        if (_condTarget is not null)
+        {
+            ConditionTargetDecides++;
+            if (!ReferenceEquals(_condTarget, _plainTarget))
+                ConditionSwings++;
+            if (_airborneOn)
+                AirborneTargetDecides++;
+        }
+
+        (_condSeen, _jaratedSeen, _airborneOn) = (false, false, false);
+        (_plainTarget, _condTarget, _plainTier) = (null, null, -1);
+    }
+
+    /// <summary>
+    /// The same offer to the pick with no condition bonus (<paramref name="cond"/> taken out of <paramref name="priority"/>),
+    /// and whether the real pick took it with one, so the counters can tell a pick the bonus made. <paramref name="took"/> is
+    /// the real pick's answer.
+    /// </summary>
+    private bool NoteConditionPick(KnownActor a, int tier, bool sighted, float dist, float priority, float cond, bool took)
+    {
+        if (tier > _plainTier)
+            (_plainTier, _plainPick) = (tier, new TargetPick(TargetCloseUnits));
+        float plain = priority - cond * (ReferenceEquals(a, _aboutBefore) ? TargetScore.Stick : 1f);
+        if (_plainPick.Takes(sighted, dist, plain))
+            _plainTarget = a;
+        if (took)
+        {
+            _condTarget = cond > 0f ? a : null;
+            _airborneOn = cond > 0f && sighted && _view.TryActor(a.Id, out ActorFacts f) && (f.Conditions & ActorConditions.BlastAirborne) != 0
+                          && HandMiniCritsAirborne;
+        }
+
+        return took;
+    }
+
+    /// <summary>The conditions' counters for <c>/ai/classes</c>, once any is set.</summary>
+    private void CountConditions(List<KeyValuePair<string, long>> into)
+    {
+        if (MiniCritSeenDecides == 0 && ConditionTargetDecides == 0 && WetSeenDecides == 0 && AirborneSeenDecides == 0)
+            return;
+        into.Add(new("shared.minicrit_seen_decides", MiniCritSeenDecides));
+        into.Add(new("shared.jarated_seen_decides", JaratedSeenDecides));
+        into.Add(new("shared.marked_seen_decides", MarkedSeenDecides));
+        into.Add(new("shared.wet_seen_decides", WetSeenDecides));
+        into.Add(new("shared.airborne_seen_decides", AirborneSeenDecides));
+        into.Add(new("shared.condition_target_decides", ConditionTargetDecides));
+        into.Add(new("shared.condition_swings", ConditionSwings));
+        into.Add(new("shared.airborne_target_decides", AirborneTargetDecides));
+    }
 }

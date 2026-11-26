@@ -9,6 +9,7 @@ using TF2.Shared;
 using TF2.Shared.Combat;
 using TF2.Shared.Econ;
 
+using TF2.Tests.Buildings;
 using Xunit;
 
 namespace TF2.Tests.Projectiles;
@@ -234,6 +235,7 @@ public sealed class TFProjectileEntityFacts
         pipe.ThrownBy(ProjectileRig.Player, new Vector(1200f, 0f, 0f), 90f, 146f,
                       TFWeaponId.Grenadelauncher, "tf_weapon_grenadelauncher", critical: false);
 
+        rig.Engine.Returns("Clock.Now", pipe.DetonateAt + 0.05f); // past the fuse
         pipe.OnThink(); // the fuse
 
         // 60% of 90 at the fuse, half kept at the edge: 54 - 27 * 60/146.
@@ -292,16 +294,31 @@ public sealed class TFProjectileEntityFacts
     }
 
     [Fact]
-    public void The_pipes_touch_explodes_on_a_hurtable_enemy_prop()
+    public void The_pipes_touch_explodes_on_an_enemy_building()
     {
         var rig = new ProjectileRig();
-        EnemyTouch(rig);
+        GrenadeContacts.ServerTeams(rig.Engine, (ProjectileRig.Player, TFTeam.Blue));
+        var building = GrenadeContacts.PlacedBuilding(TFTeam.Red);
+        rig.Directory.Holds(building.Handle, building);
+        var pipe = ThrownPipe(rig);
+
+        pipe.OnTouch(building.Handle);
+
+        Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
+    }
+
+    /// <summary>A prop that takes damage has no team (the server's GetTeam answers -1): its touch is no enemy's.</summary>
+    [Fact]
+    public void The_pipes_touch_passes_a_hurtable_prop()
+    {
+        var rig = new ProjectileRig();
+        GrenadeContacts.ServerTeams(rig.Engine, (ProjectileRig.Player, TFTeam.Blue));
         rig.Directory.Instance = new TouchTarget(true);
         var pipe = ThrownPipe(rig);
 
         pipe.OnTouch(ProjectileRig.Victim);
 
-        Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
+        Assert.Equal(0, rig.Engine.CountOf("Entities.Remove"));
     }
 
     [Fact]
@@ -370,6 +387,7 @@ public sealed class TFProjectileEntityFacts
 
         pipe.OnTouch(EntityHandle.None);
         pipe.OnTouch(EntityHandle.None);
+        rig.Engine.Returns("Clock.Now", pipe.DetonateAt + 0.05f); // past the fuse
         pipe.OnThink(); // the fuse, at the scaled damage
 
         // 90 * 0.6 (the throw's timer reduction, :476) * 0.75 — a second
@@ -434,6 +452,7 @@ public sealed class TFProjectileEntityFacts
                                             AttributeDescriptionFormat.Percentage, 0.75f);
         var pipe = ThrownPipe(rig);
 
+        rig.Engine.Returns("Clock.Now", pipe.DetonateAt + 0.05f); // past the fuse
         pipe.OnThink(); // the fuse
 
         Assert.Equal(39.2f, DamageTo(rig, ProjectileRig.Victim), 1f);
@@ -455,7 +474,9 @@ public sealed class TFProjectileEntityFacts
         pipe.ThrownBy(ProjectileRig.Player, new Vector(1200f, 0f, 0f), 90f, 146f,
                       TFWeaponId.Grenadelauncher, "tf_weapon_grenadelauncher", critical: false);
 
-        Assert.Equal(1.4f, Assert.Single(thinks.Bookings()).Time, 4);
+        Assert.Equal(1.4f, pipe.DetonateAt - rig.Engine.Answer<float>("Clock.Now"), 4);
+        // DetonateThink looks at it every 0.2 s from the spawn (tf_weaponbase_grenadeproj.cpp:294).
+        Assert.Equal(TFProjectileDefs.FuseCheckSeconds, Assert.Single(thinks.Bookings()).Time, 4);
     }
 
     [Fact]
@@ -580,23 +601,6 @@ public sealed class TFProjectileEntityFacts
     }
 
     [Fact]
-    public void The_cannonball_explodes_on_the_hostile_thing_the_push_skips()
-    {
-        // The arm's own gate (:776): no thrower or a victim that is neither
-        // player nor building, and the touch falls through to the blast every
-        // pipe takes (:820-826).
-        var rig = VictimAtSixty();
-        EnemyTouch(rig);
-        rig.Directory.Instance = new TouchTarget(true);
-        var ball = ThrownCannonball(rig);
-
-        ball.OnTouch(ProjectileRig.Victim);
-
-        Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
-        Assert.Equal(TFWeaponDamageTypes.Of(TFWeaponId.Cannon), SeenBits(rig));
-    }
-
-    [Fact]
     public void The_cannonballs_blast_carries_the_cannons_bits()
     {
         // GetWeaponID (tf_weapon_grenade_pipebomb.cpp:137-140): the ball's
@@ -605,6 +609,7 @@ public sealed class TFProjectileEntityFacts
         var rig = VictimAtSixty();
         var ball = ThrownCannonball(rig);
 
+        rig.Engine.Returns("Clock.Now", ball.DetonateAt + 0.05f); // past the fuse
         ball.OnThink(); // the fuse
 
         Assert.Equal(TFWeaponDamageTypes.Of(TFWeaponId.Cannon), SeenBits(rig));
@@ -628,7 +633,7 @@ public sealed class TFProjectileEntityFacts
 
         ball.ChargedFuse(1.5f);
 
-        Assert.Equal(1.5f, Assert.Single(thinks.Bookings()).Time, 3);
+        Assert.Equal(1.5f, ball.DetonateAt - rig.Engine.Answer<float>("Clock.Now"), 3);
     }
 
     [Fact]
@@ -900,6 +905,9 @@ public sealed class TFProjectileEntityFacts
         rig.Engine.Returns("WorldQuery.TraceLine",
                            new TraceResult(true, 0.5f, new Vector(640f, 1368f, 300f),
                                            new Vector(-1f, 0f, 0f), ProjectileRig.Victim));
+        // The victim and the thrower are players: the ray returns only what has a team.
+        rig.Engine.ReturnsEachCall("Entities.IsPlayer", () =>
+            rig.Engine.Calls[^1].Args[0] is EntityHandle h && (h == ProjectileRig.Victim || h == ProjectileRig.Player));
         return (rig, sticky);
     }
 
@@ -1000,11 +1008,17 @@ public sealed class TFProjectileEntityFacts
         rig.Engine.Returns("WorldQuery.TraceLine",
                            new TraceResult(true, 0.5f, new Vector(640f, 1368f, 300f),
                                            new Vector(-1f, 0f, 0f), ProjectileRig.Victim));
+        // The victim and the thrower are players: the ray returns only what has a team.
+        rig.Engine.ReturnsEachCall("Entities.IsPlayer", () =>
+            rig.Engine.Calls[^1].Args[0] is EntityHandle h && (h == ProjectileRig.Victim || h == ProjectileRig.Player));
+        // A clear surface: the touch's sky check (PipebombTouch :730-742) finds no sky.
+        rig.Engine.Returns("WorldQuery.TraceLineSurface",
+                           new SurfaceTraceResult(true, 1f, default, default, EntityHandle.None, 0, 0));
         return (rig, pipe);
     }
 
     [Fact]
-    public void The_pipes_ray_cast_bounces_an_enemy_player_reflected_elastic_and_halved()
+    public void The_pipes_ray_cast_bounces_a_latched_pipe_off_an_enemy_player_elastic_and_halved()
     {
         // CTFWeaponBaseGrenadeProj::VPhysicsUpdate serves both bombs
         // (tf_weaponbase_grenadeproj.cpp:716-795): the ray reaches one tick
@@ -1012,13 +1026,15 @@ public sealed class TFProjectileEntityFacts
         // the velocity off the normal (:781), absorbs the 0.45 elasticity
         // (:784) and is half again (:786-789): 2400 straight at a -x wall of
         // player reflects to -2400, then -1080, then -540. The angular
-        // velocity is reversed and halved (:791). Without the pipe's own
-        // override this stays red: only the sticky answers the physics
-        // update today.
+        // velocity is reversed and halved (:791). The pipe has struck the
+        // world first, so the ray's touch of the enemy (:774) no longer sets
+        // it off (the latch, :753-754) and the bounce is what is left.
         var (rig, pipe) = PipeInFlight();
         rig.Engine.ReturnsEachCall("Players.GetTeam", () =>
             rig.Engine.Calls[^1].Args[0] is EntityHandle h && h == ProjectileRig.Victim
                 ? (int)TFTeam.Red : (int)TFTeam.Blue);
+        PhysicsEvent world = WorldImpact(pipe);
+        pipe.OnVPhysicsCollision(in world, 0);
 
         pipe.OnPhysicsUpdate();
 
@@ -1072,6 +1088,306 @@ public sealed class TFProjectileEntityFacts
         pipe.OnPhysicsUpdate();
 
         Assert.Equal(launched, rig.Engine.CountOf("Entities.SetVelocity"));
+        Assert.Equal(0, rig.Engine.CountOf("Entities.SetAngularVelocity"));
+    }
+
+    // ---- stock's fuse look and the solved impact (lane r2s4, review r2s4-2 item 6)
+
+    /// <summary>Before the timer the fuse's look books the next one 0.2 s on and sets nothing off (DetonateThink :447-454).</summary>
+    [Fact]
+    public void The_pipes_fuse_look_before_the_timer_waits_another_fifth()
+    {
+        var rig = VictimAtSixty();
+        var pipe = ThrownPipe(rig);
+        var thinks = new ThinkScheduler();
+        pipe.BindThinks(thinks);
+
+        rig.Engine.Returns("Clock.Now", pipe.DetonateAt - 0.1f);
+        pipe.OnThink();
+
+        Assert.Equal(0, rig.Engine.CountOf("Damage.TakeDamageAnswered"));
+        Assert.Equal(TFProjectileDefs.FuseCheckSeconds, Assert.Single(thinks.Bookings()).Time, 4);
+    }
+
+    private static PhysicsEvent WorldImpact(TFPipebomb pipe) => new()
+    {
+        KindRaw = (uint)PhysicsEventKind.PostCollision,
+        Flags = PhysicsEvent.FlagCollision,
+        Entity0 = pipe.Handle.Value,
+        Entity1 = PhysicsEvent.NoEntity,
+        Static1 = 1,
+    };
+
+    /// <summary>The solved world impact is the pipe's first contact: its fuse damage scaled once (VPhysicsCollision :883-885).</summary>
+    [Fact]
+    public void The_pipes_world_impact_scales_its_fuse_damage_once()
+    {
+        var rig = VictimAtSixty();
+        rig.Owners.Item = rig.AttributeItem("grenade_damage_reduction_on_world_contact",
+                                            AttributeDescriptionFormat.Percentage, 0.75f);
+        var pipe = ThrownPipe(rig);
+        PhysicsEvent ev = WorldImpact(pipe);
+
+        pipe.OnVPhysicsCollision(in ev, 0);
+        pipe.OnVPhysicsCollision(in ev, 0);
+        rig.Engine.Returns("Clock.Now", pipe.DetonateAt + 0.05f);
+        pipe.OnThink();
+
+        Assert.Equal(32.2f, DamageTo(rig, ProjectileRig.Victim), 1f);
+    }
+
+    /// <summary>After a solved impact an enemy's touch no longer sets the pipe off (the touched latch, :753-754, :900).</summary>
+    [Fact]
+    public void After_a_world_impact_an_enemys_touch_passes()
+    {
+        var rig = VictimAtSixty();
+        EnemyTouch(rig);
+        rig.Engine.Returns("Entities.IsPlayer", true);
+        var pipe = ThrownPipe(rig);
+        PhysicsEvent ev = WorldImpact(pipe);
+
+        pipe.OnVPhysicsCollision(in ev, 0);
+        pipe.OnTouch(ProjectileRig.Victim);
+
+        Assert.Equal(0, rig.Engine.CountOf("Damage.TakeDamageAnswered"));
+        Assert.Equal(0, rig.Engine.CountOf("Entities.Remove"));
+    }
+
+    /// <summary>A grenade-taking training prop (spawnflag 512) struck by an untouched pipe sets it off at once, the timer far off (:863-868).</summary>
+    [Fact]
+    public void A_training_prop_sets_off_an_untouched_pipe_at_once()
+    {
+        var rig = VictimAtSixty();
+        var pipe = ThrownPipe(rig);
+        var prop = new EntityHandle(0x0002_0000u | 9);
+        rig.Engine.Returns("Entities.GetClassName", "training_prop_dynamic");
+        rig.Engine.Returns("Entities.GetSpawnFlags", TFStickybomb.GrenadeCollisionSpawnFlag);
+        PhysicsEvent ev = WorldImpact(pipe) with { Entity1 = prop.Value, Static1 = 0 };
+
+        pipe.OnVPhysicsCollision(in ev, 0);
+        pipe.OnThink();
+
+        Assert.True(rig.Engine.CountOf("Damage.TakeDamageAnswered") > 0);
+    }
+
+    /// <summary>The same prop without the spawnflag is a bounce: the pipe waits for its timer.</summary>
+    [Fact]
+    public void A_training_prop_without_the_flag_is_a_bounce()
+    {
+        var rig = VictimAtSixty();
+        var pipe = ThrownPipe(rig);
+        var prop = new EntityHandle(0x0002_0000u | 9);
+        rig.Engine.Returns("Entities.GetClassName", "training_prop_dynamic");
+        rig.Engine.Returns("Entities.GetSpawnFlags", 0);
+        PhysicsEvent ev = WorldImpact(pipe) with { Entity1 = prop.Value, Static1 = 0 };
+
+        pipe.OnVPhysicsCollision(in ev, 0);
+        pipe.OnThink();
+
+        Assert.Equal(0, rig.Engine.CountOf("Damage.TakeDamageAnswered"));
+    }
+
+    /// <summary>A side naming nothing that is not static is no one's (:856-857): no latch, so an enemy's touch still sets the pipe off.</summary>
+    [Fact]
+    public void A_sideless_moving_body_leaves_the_pipe_untouched()
+    {
+        var rig = VictimAtSixty();
+        EnemyTouch(rig);
+        rig.Engine.Returns("Entities.IsPlayer", true);
+        var pipe = ThrownPipe(rig);
+        PhysicsEvent ev = WorldImpact(pipe) with { Static1 = 0 };
+
+        pipe.OnVPhysicsCollision(in ev, 0);
+        pipe.OnTouch(ProjectileRig.Victim);
+
+        Assert.True(rig.Engine.CountOf("Damage.TakeDamageAnswered") > 0);
+    }
+
+    // ---- the enemy's contact (lane r2s4, coordinator round after review r2s4-2)
+
+    /// <summary>
+    /// The ray's Touch first (tf_weaponbase_grenadeproj.cpp:774): an enemy player one tick ahead sets the pipe off through
+    /// PipebombTouch, as stock's grenades meet players (they never collide with them, tf_gamerules.cpp:18053-18060).
+    /// </summary>
+    [Fact]
+    public void The_pipes_ray_touches_an_enemy_player_and_sets_it_off()
+    {
+        var (rig, pipe) = PipeInFlight();
+        EnemyTouch(rig);
+        rig.Engine.Returns("Entities.IsPlayer", true);
+        rig.Engine.Returns("Entities.GetClassName", "player");
+
+        pipe.OnPhysicsUpdate();
+
+        Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
+        Assert.Equal(0, rig.Engine.CountOf("Entities.SetAngularVelocity")); // gone, so not bounced
+    }
+
+    /// <summary>The ray is entities-only (CTraceFilterCollisionGrenades, :667): the world one tick ahead is no bounce.</summary>
+    [Fact]
+    public void The_pipes_ray_passes_the_world()
+    {
+        var (rig, pipe) = PipeInFlight();
+        rig.Engine.ReturnsEachCall("Players.GetTeam", () => (int)TFTeam.Blue);
+        rig.Engine.Returns("Clock.Now", 11f); // past the collide delay, where a friend bounces it
+        rig.Engine.Returns("Entities.GetClassName", "worldspawn");
+        rig.Engine.Returns("WorldQuery.TraceLine",
+                           new TraceResult(true, 0.5f, new Vector(640f, 1368f, 300f), new Vector(-1f, 0f, 0f), new EntityHandle(0u)));
+
+        pipe.OnPhysicsUpdate();
+
+        Assert.Equal(0, rig.Engine.CountOf("Entities.SetAngularVelocity"));
+    }
+
+    /// <summary>The ray skips another projectile, which has no team here (stock's filter skips the grenade and rocket groups).</summary>
+    [Fact]
+    public void The_pipes_ray_passes_another_projectile()
+    {
+        var (rig, pipe) = PipeInFlight();
+        rig.Engine.ReturnsEachCall("Players.GetTeam", () => (int)TFTeam.Blue);
+        rig.Engine.Returns("Clock.Now", 11f);
+        rig.Engine.Returns("Entities.GetClassName", "tf_projectile_rocket");
+        rig.Engine.Returns("WorldQuery.TraceLine",
+                           new TraceResult(true, 0.5f, new Vector(640f, 1368f, 300f), new Vector(-1f, 0f, 0f),
+                                           new EntityHandle(0x0002_0000u | 11)));
+
+        pipe.OnPhysicsUpdate();
+
+        Assert.Equal(0, rig.Engine.CountOf("Entities.SetAngularVelocity"));
+    }
+
+    private static PhysicsEvent PlayerCollision(TFPipebomb pipe, EntityHandle player) => new()
+    {
+        KindRaw = (uint)PhysicsEventKind.PostCollision,
+        Flags = PhysicsEvent.FlagCollision,
+        Entity0 = pipe.Handle.Value,
+        Entity1 = player.Value,
+    };
+
+    /// <summary>
+    /// A player's physics collision is no impact (stock's grenades never collide with players): no latch, so his touch
+    /// still sets the pipe off.
+    /// </summary>
+    [Fact]
+    public void A_players_collision_leaves_the_pipe_for_his_touch()
+    {
+        var rig = VictimAtSixty();
+        EnemyTouch(rig);
+        rig.Engine.Returns("Entities.IsPlayer", true);
+        var pipe = ThrownPipe(rig);
+        PhysicsEvent ev = PlayerCollision(pipe, ProjectileRig.Victim);
+
+        pipe.OnVPhysicsCollision(in ev, 0);
+        pipe.OnTouch(ProjectileRig.Victim);
+
+        Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
+    }
+
+    /// <summary>
+    /// An enemy it can damage that is no player (a building) sets the pipe off at once (VPhysicsCollision :877-881): the
+    /// next think detonates it, the timer far off.
+    /// </summary>
+    [Fact]
+    public void An_enemy_building_sets_the_pipe_off_at_once()
+    {
+        var (rig, pipe, building) = PipeBy(TFTeam.Red);
+        PhysicsEvent ev = PlayerCollision(pipe, building.Handle);
+
+        pipe.OnVPhysicsCollision(in ev, 0);
+        pipe.OnThink();
+
+        Assert.True(rig.Engine.CountOf("Damage.TakeDamageAnswered") > 0);
+    }
+
+    /// <summary>A building of the pipe's own team is a bounce: the pipe waits for its timer.</summary>
+    [Fact]
+    public void A_friendly_building_is_a_bounce()
+    {
+        var (rig, pipe, building) = PipeBy(TFTeam.Blue);
+        PhysicsEvent ev = PlayerCollision(pipe, building.Handle);
+
+        pipe.OnVPhysicsCollision(in ev, 0);
+        pipe.OnThink();
+
+        Assert.Equal(0, rig.Engine.CountOf("Damage.TakeDamageAnswered"));
+    }
+
+    /// <summary>
+    /// A Prop-kind <c>prop_physics</c> takes damage and has no team (the server's GetTeam answers -1): its collision is a
+    /// bounce, not an enemy's (stock's arm asks the team first, :877).
+    /// </summary>
+    [Fact]
+    public void A_prop_physics_that_takes_damage_is_a_bounce()
+    {
+        var rig = VictimAtSixty();
+        GrenadeContacts.ServerTeams(rig.Engine, (ProjectileRig.Player, TFTeam.Blue));
+        rig.Directory.Instance = new TouchTarget(true);
+        rig.Engine.Returns("Entities.GetClassName", "prop_physics");
+        var pipe = ThrownPipe(rig);
+        PhysicsEvent ev = PlayerCollision(pipe, new EntityHandle(0x0002_0000u | 7));
+
+        pipe.OnVPhysicsCollision(in ev, 0);
+        pipe.OnThink();
+
+        Assert.Equal(0, rig.Engine.CountOf("Damage.TakeDamageAnswered"));
+    }
+
+    /// <summary>A Blue pipe on the victim's rig with a building of <paramref name="buildingTeam"/> in the directory.</summary>
+    private static (ProjectileRig Rig, TFPipebomb Pipe, TestBuilding Building) PipeBy(TFTeam buildingTeam)
+    {
+        var rig = VictimAtSixty();
+        GrenadeContacts.ServerTeams(rig.Engine, (ProjectileRig.Player, TFTeam.Blue), (ProjectileRig.Victim, TFTeam.Red));
+        TestBuilding building = GrenadeContacts.PlacedBuilding(buildingTeam);
+        rig.Directory.Holds(building.Handle, building);
+        rig.Engine.Returns("Entities.GetClassName", "obj_sentrygun");
+        return (rig, ThrownPipe(rig), building);
+    }
+
+    /// <summary>A <c>prop_dynamic</c> one tick ahead has no team: the ray neither sets the pipe off nor bounces it.</summary>
+    [Theory]
+    [InlineData("prop_dynamic")]
+    [InlineData("tf_ammo_pack")]
+    public void The_pipes_ray_passes_what_has_no_team(string className)
+    {
+        var (rig, pipe) = PipeInFlight();
+        GrenadeContacts.ServerTeams(rig.Engine, (ProjectileRig.Player, TFTeam.Blue));
+        rig.Directory.Instance = new TouchTarget(true);
+        rig.Engine.Returns("Clock.Now", 11f); // past the collide delay
+        rig.Engine.Returns("Entities.GetClassName", className);
+
+        pipe.OnPhysicsUpdate();
+
+        Assert.Equal(0, rig.Engine.CountOf("Entities.Remove"));
+        Assert.Equal(0, rig.Engine.CountOf("Entities.SetAngularVelocity"));
+    }
+
+    /// <summary>An enemy building one tick ahead: the ray's touch sets the pipe off.</summary>
+    [Fact]
+    public void The_pipes_ray_touches_an_enemy_building_and_sets_it_off()
+    {
+        var (rig, pipe) = PipeInFlight();
+        GrenadeContacts.ServerTeams(rig.Engine, (ProjectileRig.Player, TFTeam.Blue));
+        TestBuilding building = GrenadeContacts.PlacedBuilding(TFTeam.Red);
+        rig.Directory.Instance = building;
+        rig.Engine.Returns("Entities.GetClassName", "obj_sentrygun");
+
+        pipe.OnPhysicsUpdate();
+
+        Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
+    }
+
+    /// <summary>The sticky's ray passes the world one tick ahead (entities only, :667): no bounce off it.</summary>
+    [Fact]
+    public void The_stickys_ray_passes_the_world()
+    {
+        var (rig, sticky) = StickyInFlight();
+        rig.Engine.ReturnsEachCall("Players.GetTeam", () => (int)TFTeam.Blue);
+        rig.Engine.Returns("Clock.Now", 11f);
+        rig.Engine.Returns("WorldQuery.TraceLine",
+                           new TraceResult(true, 0.5f, new Vector(640f, 1368f, 300f), new Vector(-1f, 0f, 0f), new EntityHandle(0u)));
+
+        sticky.OnPhysicsUpdate();
+
         Assert.Equal(0, rig.Engine.CountOf("Entities.SetAngularVelocity"));
     }
 }

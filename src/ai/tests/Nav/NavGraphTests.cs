@@ -60,4 +60,28 @@ public class NavGraphTests
     [Fact]
     public void ACostMultiplierBelowOneIsRefused()
         => Assert.Throws<ArgumentException>(() => new NavGraphBuilder().AddCell(new NavCell(0, 0, 10, 10, 0, ClearanceClasses.Stand, 0, 0.5f)));
+
+    /// <summary>Round 2's S14: a cell beside the start with no way to it is not within the walk, however near it is.</summary>
+    [Fact]
+    public void ACellWithNoWayToItIsNotWithinTheWalk()
+    {
+        var (g, ids) = Grids.Parse("... .");
+        var into = new List<int>();
+        g.CellsWithin(Grids.At(ids, 2, 0), 1000f, ClearanceClass.Stand, new NavObstacleState(g.ObstacleCount), into);
+        Assert.Equal([ids[0, 0], ids[1, 0], ids[2, 0]], into.Order());
+    }
+
+    /// <summary>Round 2's S14: the walk's reach is the way's cost, not the distance: a cell 64 u off past a wall is a walk of 160 u round it.</summary>
+    [Fact]
+    public void TheWalksReachIsTheWayRoundNotTheDistance()
+    {
+        var (g, ids) = Grids.Parse("...", ". .", ". .");
+        var into = new List<int>();
+        var open = new NavObstacleState(g.ObstacleCount);
+        g.CellsWithin(Grids.At(ids, 0, 2), 128f, ClearanceClass.Stand, open, into);
+        Assert.DoesNotContain(ids[2, 2], into);
+        Assert.Contains(ids[2, 0], into);
+        g.CellsWithin(Grids.At(ids, 0, 2), 192f, ClearanceClass.Stand, open, into);
+        Assert.Contains(ids[2, 2], into);
+    }
 }

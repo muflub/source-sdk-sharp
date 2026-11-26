@@ -114,6 +114,36 @@ public sealed class TFActorFactsTests
         Assert.True(facts.Ubered);
     }
 
+    /// <summary>
+    /// Round 2's S4: the conditions a hit reads and a client draws ride the facts, each from its own condition: milk, gas,
+    /// the mark for death (any of the three stock draws it for, c_tf_player.cpp:5181), a blast jump, a thruster's flight.
+    /// </summary>
+    [Theory]
+    [InlineData(TFCond.MadMilk, "Milked")]
+    [InlineData(TFCond.Gas, "Gassed")]
+    [InlineData(TFCond.Markedfordeath, "MarkedForDeath")]
+    [InlineData(TFCond.MarkedfordeathSilent, "MarkedForDeath")]
+    [InlineData(TFCond.PasstimePenaltyDebuff, "MarkedForDeath")]
+    [InlineData(TFCond.Blastjumping, "BlastJumping")]
+    [InlineData(TFCond.Rocketpack, "Rocketpack")]
+    [InlineData(TFCond.Zoomed, "Zoomed")]
+    public void AConditionAHitReadsRidesTheFacts(TFCond cond, string field)
+    {
+        string[] fields = ["Milked", "Gassed", "MarkedForDeath", "BlastJumping", "Rocketpack", "Zoomed"];
+        bool[] Read(SpyRig r)
+        {
+            Assert.True(SpyService(r).TryRead(SpyRig.Spy.EntryIndex, out TFActorFacts f));
+            return [f.Milked, f.Gassed, f.MarkedForDeath, f.BlastJumping, f.Rocketpack, f.Zoomed];
+        }
+
+        var rig = new SpyRig();
+        Assert.All(Read(rig), Assert.False);
+        rig.Conditions.Add(SpyRig.Spy, cond);
+        bool[] after = Read(rig);
+        for (int i = 0; i < fields.Length; i++)
+            Assert.Equal(fields[i] == field, after[i]);
+    }
+
     [Fact]
     public void TryReadIsFalseForAnEmptySlot()
     {

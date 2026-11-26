@@ -27,6 +27,12 @@ namespace TF2.Descent.Ai.Brains;
 /// spawned by hand), and holds there.</item>
 /// </list>
 ///
+/// <b>The leash</b> (plan L25, <see cref="HordeRoute.Leash"/>): a hero in sight out of its engage
+/// range, and a place to go and look, past the leash from its home room (<see cref="HordeLeash"/>:
+/// the room it would go to next, or the hero's or the place's, too many doors from home) are let
+/// go: the place is searched without going, and it walks home. A hero in sight within its engage
+/// range is fought wherever he stands: a robot in a fight finishes it.
+///
 /// A lost contact outranks a sound. Each contact, sound or hit is searched once:
 /// one newer than the last searched starts a new hunt. Every threshold is a
 /// temperament parameter; the one number of its own is <see cref="ArriveUnits"/>,
@@ -83,6 +89,7 @@ public sealed class HuntDecider : IDecider, IHordeRouted
 
     private bool _started;
     private AiVector _post;
+    private int _homeRoom = -1;
     private GoalKind _goal;
     private AiVector _goalAt;
     private Tick _goalStamp;
@@ -123,12 +130,14 @@ public sealed class HuntDecider : IDecider, IHordeRouted
         {
             _started = true;
             _post = _setup.Home ?? self;
+            _homeRoom = _route.Level.RoomAt(_post);
         }
 
         DecisionParams p = _setup.Params;
         float engage = HordeWeapons.EngageRange(view.Self.ActiveWeapon) * p.PreferredRangeScale;
 
-        // 1. A hero in sight: the nearest.
+        // 1. A hero in sight: the nearest, unless he is out of its engage range and past its leash.
+        bool letGo = false;
         if (Nearest(view, self) is { } seen)
         {
             _goal = GoalKind.None;
@@ -137,20 +146,31 @@ public sealed class HuntDecider : IDecider, IHordeRouted
             _searchedSound = tick;
             _searchedHit = tick;
             _searchedAlly = tick;
-            var look = new LookIntent(LookKind.Actor, seen.Origin, seen.Id, AimPoint.Body, 0f, 0);
-            return self.DistanceTo(seen.Origin) > engage
-                ? End(tick, seq, Node.Chase, _route.Follow(tick, view.Self, self, seen.Origin, MoveSpeed.Run), look, seen.Origin, seen.Id)
-                : End(tick, seq, Node.Engage, MoveIntent.Hold, look, seen.Origin, seen.Id);
+            letGo = _route.Leash.LetsGo(_route.Level, _homeRoom, self, seen.Origin, engage);
+            if (!letGo)
+            {
+                var look = new LookIntent(LookKind.Actor, seen.Origin, seen.Id, AimPoint.Body, 0f, 0);
+                return self.DistanceTo(seen.Origin) > engage
+                    ? End(tick, seq, Node.Chase, _route.Follow(tick, view.Self, self, seen.Origin, MoveSpeed.Run), look, seen.Origin, seen.Id)
+                    : End(tick, seq, Node.Engage, MoveIntent.Hold, look, seen.Origin, seen.Id);
+            }
         }
 
-        // 2.-3. Something to go and look at: a lost contact first, else the newest sound or hit.
+        // 2.-3. Something to go and look at: a lost contact first, else the newest sound or hit; one
+        // past the leash is searched without going.
         Blackboard board = _setup.Memory.Board;
-        if (LostContact(board, out AiVector lostAt, out Tick lostStamp, out ActorId lost))
+        ActorId lost = ActorId.None;
+        if (letGo)
+            _goal = GoalKind.None;
+        else if (LostContact(board, out AiVector lostAt, out Tick lostStamp, out lost))
             Aim(GoalKind.Contact, lostAt, lostStamp);
         else if (Unsearched(board, tick, self, engage, out GoalKind kind, out AiVector at, out Tick stamp))
             Aim(kind, at, stamp);
         else
             _goal = GoalKind.None;
+
+        if (_goal != GoalKind.None && !_searching && _route.Leash.Past(_route.Level, _homeRoom, self, _goalAt))
+            Searched();
 
         if (_goal != GoalKind.None)
         {

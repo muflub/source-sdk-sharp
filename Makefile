@@ -241,12 +241,12 @@ HOST_ROOT ?= $(abspath ../source-sdk-sharp-host)
 SLN := SourceSharp.slnx
 export SS_SLN := $(SLN)
 # What `make setup` must find in $(HOST_ROOT)/bin/nupkg, else it runs host-pack.
-HOST_PACKAGES := $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.2.0.nupkg \
-                 $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Sdk.2.8.1.nupkg
+HOST_PACKAGES := $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.3.0.nupkg \
+                 $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Sdk.2.9.0.nupkg
 
 PHONY_LOADPROF := loadprof loadprof-probe
 PHONY_TESTS := managed-test managed-legs descent-test tf2-test ai-test ai-jank
-.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack mapformats-pack ai-nav ai-nav-tf ai-maps ai-maps-tf windows-cross dedicated join town descent-view descent-rooms descent-level descent-install descent-brightness descent-reach descent-budget mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow managed-legs-mapgen mapgen-test cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \        ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate \
+.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack mapformats-pack ai-nav ai-nav-tf ai-maps ai-maps-tf windows-cross dedicated join town descent descent-view descent-rooms descent-level descent-install descent-brightness descent-reach descent-budget mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow managed-legs-mapgen mapgen-test cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \        ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate \
         sdk-census
 
 help:
@@ -267,6 +267,7 @@ help:
 	@echo "  make descent-rooms [DEPTH=n]         write and pack depth n's Descent room library (MAPTOOLS_DIR=...)"
 	@echo "  make descent-level DEPTH=n SEED=s    lay out, link and preview a Descent level from it"
 	@echo "  make descent-install DEPTH=n SEED=s  copy that level into the tf2_descent mod's pool/maps (map tf2_descent-n-ss)"
+	@echo "  make descent [DESCENT_PLAY_DEPTHS='1 2 3 4 5']  build what TF2 Descent lacks (setup, build, town, levels), then play it"
 	@echo "  make descent-brightness|descent-reach|descent-budget [DESCENT_DEPTHS=1,2,3,4,6,7,8,9] [DESCENT_SEEDS=1,2,3]"
 	@echo "                                       the Descent levels' gates (tools/descent-gate; MAPTOOLS_DIR=...)"
 	@echo "  make mod-image [CONFIG=release] [MOD_IMAGE=ref]      build (never push) the hosted mod image"
@@ -313,7 +314,7 @@ help:
 SETUP_ARGS ?=
 # The host's packages (SourceSharp.Host.Sdk, SourceSharp.Host.Contracts) that
 # the TF2Descent projects restore from $(HOST_ROOT)/bin/nupkg (src/tf2_descent/
-# Directory.Build.props: Sdk 2.8.1, Contracts 1.2.0). A host change within a
+# Directory.Build.props: Sdk 2.9.0, Contracts 1.3.0). A host change within a
 # version keeps the same package identity, so the machine-wide NuGet cache is
 # cleared of them first, or restore keeps a stale copy.
 # SourceSharp.MapFormats, the .nav3d reader the AI restores from map-tools'
@@ -818,6 +819,30 @@ descent-install:
 	@for f in bsp nav3d map2d; do rm -f $(DESCENT_POOL)/$(DESCENT_LEVEL).$$f && cp $(DESCENT_D)/maps/$(DESCENT_LEVEL).$$f $(DESCENT_POOL)/$(DESCENT_LEVEL).$$f || exit 1; done
 	$(call require-setup,$(CONFIG))
 	@echo "==> map $(DESCENT_LEVEL) (copied into $(DESCENT_POOL))"
+
+# `make descent`: build whatever TF2 Descent still lacks, then play it from the
+# town. Each step runs only when its output is missing: make setup (when the
+# setup check fails), the build (make $(CONFIG), incremental), the town, and
+# seed 1 of each depth in DESCENT_PLAY_DEPTHS (its room library when that is
+# missing, then descent-level and descent-install). A level already in
+# pool/maps is kept as it is: rebuild one with descent-level + descent-install.
+# DESCENT_RUN=headless plays it with no dialogs, as make headless does. The map
+# tools go down as an absolute path: tools/descent-breakables resolves a
+# relative MAPTOOLS_DIR from its own folder and fails the level's preview.
+DESCENT_PLAY_DEPTHS ?= 1 2 3 4 5
+DESCENT_RUN         ?= run
+DESCENT_MAKE         = $(MAKE) MAPTOOLS_DIR=$(abspath $(MAPTOOLS_DIR))
+descent:
+	@tools/setup --check --config $(CONFIG) > /dev/null 2>&1 || $(DESCENT_MAKE) setup
+	@$(MAKE) $(CONFIG)
+	@test -f $(TOWN_MOD)/maps/tf2_descent_town.bsp || $(DESCENT_MAKE) town
+	@for d in $(DESCENT_PLAY_DEPTHS); do \
+	  test -f $(DESCENT_POOL)/tf2_descent-$$d-s1.bsp && continue; \
+	  dd=$$(printf %02d $$d); \
+	  { test -f $(DESCENT_DIR)/d$$dd/descent_d$$dd.roompack || $(DESCENT_MAKE) descent-rooms DEPTH=$$d; } \
+	    && $(DESCENT_MAKE) descent-level DEPTH=$$d SEED=1 && $(DESCENT_MAKE) descent-install DEPTH=$$d SEED=1 || exit 1; \
+	done
+	@$(MAKE) $(DESCENT_RUN) RUN_MOD_ID=tf2_descent MAP=tf2_descent_town
 
 # The Descent levels' gates (plan tasks B4-B6), tools/descent-gate: each builds
 # DESCENT_DEPTHS' libraries and DESCENT_SEEDS' levels of each with the two

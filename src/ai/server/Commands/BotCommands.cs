@@ -172,6 +172,30 @@ public sealed class AiBotSayCommand(AiBots bots, HostSay say, ILog log)
     }
 }
 
+/// <summary>
+/// <c>ai_bot_cmd &lt;name&gt; &lt;client command&gt;</c>: the bot sends a client command as its own player's, through the
+/// mods' command chain a player's typed verb takes (<see cref="IBotClientCommand"/>): a scripted order a live proof needs
+/// that the bot's play does not give, such as an Engineer's <c>build 1 0</c>.
+/// </summary>
+[ConCommand("ai_bot_cmd", Help = "ai_bot_cmd <name> <client command>: the bot sends a client command as its own (build 1 0, destroy 2 0)", Flags = ConVarFlags.Cheat)]
+public sealed class AiBotCmdCommand(AiBots bots, IBotClientCommand commands, ILog log)
+{
+    private IEnumerable<string> BotNames() => bots.Bots.Select(b => b.Name);
+
+    public void Execute([Complete(From = nameof(BotNames))] string name, [Rest] string command = "")
+    {
+        EntityHandle player = bots.PlayerNamed(name);
+        if (player == EntityHandle.None || command.Length == 0)
+        {
+            log.Warning($"[SourceSharp/Ai] ai_bot_cmd refused: {(command.Length == 0 ? "usage: ai_bot_cmd <name> <client command>" : $"no bot called '{name}'")}\n");
+            return;
+        }
+
+        commands.Run(player, command);
+        log.Msg($"[SourceSharp/Ai] ai_bot_cmd {name}: {command}\n");
+    }
+}
+
 /// <summary><c>ai_bot_count</c>: the roster: each bot's name, skills and drawn levels, active or benched and why.</summary>
 [ConCommand("ai_bot_count", Help = "ai_bot_count: the bots wanted, in the game or benched and why")]
 public sealed class AiBotCountCommand(AiRoster roster, ILog log)

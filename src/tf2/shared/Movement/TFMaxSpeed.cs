@@ -150,7 +150,10 @@ public static class TFMaxSpeed
 
     /// <summary><c>set_weapon_mode</c>, the medigun type's hook — the
     /// Quick-Fix arm's <c>GetMedigunType</c> (tf_weapon_medigun.cpp:781-785),
-    /// read off the owner's manager as the medigun's own arms do.</summary>
+    /// read on the active medigun's own item as stock hooks it on the weapon
+    /// (tf_player_shared.cpp:11014-11023): a walk from a weapon skips the
+    /// owner's other weapons (attribute_manager.cpp:469-475), so a Crossbow's
+    /// and an Ubersaw's own row do not add to it, as the owner's manager would.</summary>
     public const string MedigunModeAttrib = "set_weapon_mode";
 
     /// <summary><c>MEDIGUN_QUICKFIX</c> (tf_weapon_medigun.h:23-29).</summary>
@@ -184,7 +187,7 @@ public static class TFMaxSpeed
     private static float Walk(TFClassTable classes, in TFMoveInputs inputs, float spyMaxCloakedSpeed,
                               AttributeHooks attribs, IAttributeProvider? playerAttributes,
                               Func<int, TFPeerInput?> peers, int playerIndex, HashSet<int> inFlight,
-                              IAttributeProvider? activeItem)
+                              IAttributeProvider? activeItem, bool ignoreSpecialAbility = false)
     {
         TFClass playerClass = inputs.Class;
 
@@ -262,8 +265,9 @@ public static class TFMaxSpeed
         // The charge (tf_player_shared.cpp:10970-10973): a charging demoman
         // moves at tf_max_charge_speed outright — the assignment stock makes
         // inside the demoman gate, before the carry toll and the item hooks.
-        // Stock's bIgnoreSpecialAbility rider is the MvM giant's to lift.
-        if (playerClass == TFClass.Demoman && conditions.Has(TFCond.ShieldCharge))
+        // Stock's bIgnoreSpecialAbility rider (:10970): a medic matching his patient asks the patient's speed with it set
+        // (:11024), so a charge is no speed to match unless the Quick-Fix attaches to it.
+        if (playerClass == TFClass.Demoman && conditions.Has(TFCond.ShieldCharge) && !ignoreSpecialAbility)
             maxfbspeed = MaxChargeSpeed;
 
         // Not a Halloween bomb head: stock's bAllowSlowing (:10875), the gate
@@ -295,25 +299,28 @@ public static class TFMaxSpeed
         if (inputs.ShieldEquipped)
             maxfbspeed = attribs.Float(maxfbspeed, ShieldRequiredSpeedAttrib, playerAttributes);
 
-        // The medic matches a faster patient (tf_player_shared.cpp:11029-11045,
+        // The medic matches a faster patient (tf_player_shared.cpp:11010-11027,
         // after the hook as stock's order runs): the patient runs the same
-        // walk, arms and all. Only the medigun publishes a target, so the
+        // walk, arms and all, with his special ability left out
+        // (TeamFortress_CalculateMaxSpeed( true ), :11024): a charge is no
+        // speed to match. Only the medigun publishes a target, so the
         // index stands for stock's active-medigun cast.
         if (playerClass == TFClass.Medic && inputs.HealTargetIndex >= 0)
         {
             if (peers(inputs.HealTargetIndex) is { } target)
             {
                 // The Quick-Fix attaches to charging demos (:11021-11024): a
-                // healing Quick-Fix (set_weapon_mode MEDIGUN_QUICKFIX, the
-                // same owner-manager walk the medigun's own arms take) on a
-                // patient in TF_COND_SHIELD_CHARGE answers
+                // healing Quick-Fix (set_weapon_mode MEDIGUN_QUICKFIX, hooked
+                // on the active medigun: only the medigun publishes a target,
+                // so the active item is it; a rig with no item, the manager)
+                // on a patient in TF_COND_SHIELD_CHARGE answers
                 // tf_max_charge_speed outright, the patient's walk unmatched.
-                bool quickFix = attribs.Int(0, MedigunModeAttrib, playerAttributes) == QuickFixMedigunMode;
+                bool quickFix = attribs.Int(0, MedigunModeAttrib, activeItem ?? playerAttributes) == QuickFixMedigunMode;
                 float healTargetSpeed =
                     quickFix && target.Inputs.Conditions.Has(TFCond.ShieldCharge)
                         ? MaxChargeSpeed
                         : Walk(classes, target.Inputs, spyMaxCloakedSpeed, target.Attribs, target.Manager,
-                               peers, target.Index, inFlight, target.ActiveItem);
+                               peers, target.Index, inFlight, target.ActiveItem, ignoreSpecialAbility: true);
                 maxfbspeed = MathF.Max(maxfbspeed, healTargetSpeed);
             }
         }

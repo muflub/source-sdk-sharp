@@ -54,7 +54,13 @@ public sealed class BotMemory
         Board = new Blackboard(slots);
         Board.KnowItems(world.Map);
         _track = new Track[slots];
+        _drawnTrack = new Track[slots];
     }
+
+    // An alias's tracking (ActorId.Alias), apart from the real player's in the same slot, as its row is (Blackboard.Drawn).
+    private readonly Track[] _drawnTrack;
+
+    private ref Track TrackOf(ActorId id) => ref (id.IsAlias ? _drawnTrack : _track)[id.Slot];
 
     // The one working block this memory's predictors share (they step one after another on the
     // bot's own thread), made with the first of them.
@@ -318,6 +324,9 @@ public sealed class BotMemory
                 {
                     if (!Foe(attacker))
                     {
+                        // With friendly fire off a teammate cannot hurt the bot: the one that did is a Spy (stock's RealizeSpy).
+                        if (!FriendlyFireOn)
+                            attacker.UnmaskedAt = e.Tick;
                         FriendlyFire(attacker.Id, e.Tick);
                         break;
                     }
@@ -333,10 +342,15 @@ public sealed class BotMemory
                 {
                     victim.HealthEstimate = e.Code;
                     if (!Foe(victim))
+                    {
+                        // The bot's own hit on a teammate with friendly fire off: the game let it land, so it is a Spy.
+                        if (!FriendlyFireOn)
+                            victim.UnmaskedAt = e.Tick;
                         break;
+                    }
                     victim.TimesEngaged++;
-                    _track[victim.Id.Slot].HurtTick = e.Tick;
-                    _track[victim.Id.Slot].Hurt = true;
+                    TrackOf(victim.Id).HurtTick = e.Tick;
+                    TrackOf(victim.Id).Hurt = true;
                     if (victim.EverSeen)
                         HabitsOf(victim.Id).Engaged(Self.DistanceTo(victim.LastSeenPos));
                 }
@@ -431,6 +445,13 @@ public sealed class BotMemory
                 }
 
                 break;
+            case AiEventKind.Bumped:
+                // Solid to the bot: an enemy, whatever its client draws (stock's CTFBot::Touch, tf_bot.cpp:1445-1465).
+                // Only a body drawn as a teammate: a real enemy touched is no news, and his mark would call "Spy!" at him
+                // if he were ever balanced onto the bot's team (review 2, G5).
+                if (Board.Of(e.Other, make: true) is { } bumped && !Foe(bumped))
+                    bumped.UnmaskedAt = e.Tick;
+                break;
             case AiEventKind.HeroDowned:
                 if (Board.Of(e.Other, make: true) is { } hero)
                     hero.Downed = e.Code != 0;
@@ -488,6 +509,9 @@ public sealed class BotMemory
         bool wasFriend = IsFriend(a);
         a.Team = team;
         bool friend = IsFriend(a);
+        // A team change (an autobalance, a swap) is a new standing: a mark from the old one never names a real teammate a Spy.
+        if (friend != wasFriend)
+            a.UnmaskedAt = default;
         if (friend && !wasFriend)
         {
             a.Ammo.Reset();
@@ -609,7 +633,7 @@ public sealed class BotMemory
         {
             a.GoneToWatch();
             Board.ForgetSource(actor);
-            _track[actor.Slot] = default;
+            TrackOf(actor) = default;
         }
         else
         {
@@ -621,10 +645,13 @@ public sealed class BotMemory
     {
         if (Board.Of(e.Other, make: true) is not { } a)
             return;
+        // Out of sight longer than the forget, a mark is gone: the disguise is a stranger again (KnownActor.UnmaskForgetSeconds).
+        if (a.UnmaskedAt.Value > 0 && !a.InSight && (e.Tick - a.LastSeenTick) * Dt >= KnownActor.UnmaskForgetSeconds)
+            a.UnmaskedAt = default;
         a.InSight = true;
         a.Dead = false;
         Seen(a, e.Position, e.Velocity, e.Tick);
-        ref Track t = ref _track[a.Id.Slot];
+        ref Track t = ref TrackOf(a.Id);
         t.ContactFrom = Self.DistanceTo(e.Position);
         t.ContactTick = e.Tick;
         t.ContactJudged = false;
@@ -643,7 +670,7 @@ public sealed class BotMemory
         if (!Foe(a))
             return;
         Belief(a, a.LastKnownCell)?.LostAt(a.LastKnownCell, e.Velocity);
-        ref Track t = ref _track[a.Id.Slot];
+        ref Track t = ref TrackOf(a.Id);
         OpponentHabits h = HabitsOf(a.Id);
         h.LostSight(t.Hurt && (e.Tick - t.HurtTick) * Dt <= HurtRetreatSeconds);
         if (a.Ammo.ReloadInProgress && !t.ReloadJudged)
@@ -667,7 +694,7 @@ public sealed class BotMemory
             return;
         }
 
-        ref Track t = ref _track[a.Id.Slot];
+        ref Track t = ref TrackOf(a.Id);
         if (cell != a.LastKnownCell)
         {
             if (cell.IsValid)
@@ -759,7 +786,7 @@ public sealed class BotMemory
             return;
         }
 
-        ref Track t = ref _track[a.Id.Slot];
+        ref Track t = ref TrackOf(a.Id);
         int counted = t.ShotTick == tick ? t.ShotRounds : 0;
         int add = rounds - counted;
         if (add <= 0)
@@ -776,7 +803,7 @@ public sealed class BotMemory
     {
         if (!Foe(a) || !Facts(weapon, out WeaponFacts f))
             return;
-        ref Track t = ref _track[a.Id.Slot];
+        ref Track t = ref TrackOf(a.Id);
         switch (phase)
         {
             case ReloadPhase.Start:
@@ -840,7 +867,7 @@ public sealed class BotMemory
 
             if (!Foe(a))
                 continue;
-            ref Track t = ref _track[a.Id.Slot];
+            ref Track t = ref TrackOf(a.Id);
             if (!t.ContactJudged && (view.Tick - t.ContactTick) * Dt >= ContactSeconds)
             {
                 HabitsOf(a.Id).Contact(Self.DistanceTo(f.Origin) < t.ContactFrom - 32f);

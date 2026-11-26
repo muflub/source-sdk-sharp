@@ -47,12 +47,14 @@ public sealed class SkeletonCostCommand(ServerSkeletons skeletons, IServerTicks 
 
         int frames = Math.Max(1, ticks.Count - _ticksAtReset);
         double us = skeletons.AskTicks * 1e6 / Stopwatch.Frequency;
+        double poseUs = skeletons.PoseTicks * 1e6 / Stopwatch.Frequency;
 
         console.Msg(string.Create(CultureInfo.InvariantCulture,
             $"SSBONECOST\tticks\t{frames}\tasks\t{skeletons.Asks}\tbuilds\t{skeletons.Builds}" +
             $"\thitboxtraces\t{skeletons.HitboxTraces}\tus\t{us:F1}\tus_per_tick\t{us / frames:F3}" +
             $"\tbuilds_per_tick\t{(double)skeletons.Builds / frames:F3}\tstates\t{skeletons.States.Count}" +
-            $"\tmodels\t{skeletons.Models.Count}\timages\t{skeletons.Models.ImagesRead}\tbytes\t{skeletons.Models.BytesRead}\n"));
+            $"\tmodels\t{skeletons.Models.Count}\timages\t{skeletons.Models.ImagesRead}\tbytes\t{skeletons.Models.BytesRead}" +
+            $"\tposeasks\t{skeletons.PoseAsks}\tpose_us\t{poseUs:F1}\tpose_us_per_tick\t{poseUs / frames:F3}\n"));
     }
 }
 
@@ -382,6 +384,108 @@ public sealed class ModelHeightsCommand(IEnginePlayers players, IEngineEntities 
 
         foreach ((int group, float from) in low)
             line.Append(CultureInfo.InvariantCulture, $" | group {group} {from:0.0}..{high[group]:0.0}");
+
+        // Where each head box sits about the feet, its corners' mean: a head beside the body's line is missed by a
+        // shot through the origin however high it goes.
+        Vector origin = entities.GetOrigin(player);
+        for (int i = 0; i < set.NumHitboxes; i++)
+        {
+            MstudioBBox box = set.Hitbox(i);
+            if (box.Group != (int)HitGroup.Head)
+                continue;
+
+            int m = box.Bone * StandaloneBones.FloatsPerMatrix;
+            System.Numerics.Vector3 mid = (box.BbMin + box.BbMax) * 0.5f;
+            float[] w = bones.BoneToWorld;
+            var at = new Vector(w[m] * mid.X + w[m + 1] * mid.Y + w[m + 2] * mid.Z + w[m + 3],
+                                w[m + 4] * mid.X + w[m + 5] * mid.Y + w[m + 6] * mid.Z + w[m + 7],
+                                w[m + 8] * mid.X + w[m + 9] * mid.Y + w[m + 10] * mid.Z + w[m + 11]) - origin;
+            line.Append(CultureInfo.InvariantCulture, $" | head box {i} bone {hdr.Bone(box.Bone).Name} at ({at.X:0.0} {at.Y:0.0} {at.Z:0.0})");
+        }
+
+        render.SequenceState(player, out int sequence, out float cycle, out _, out _, out _);
+        line.Append(CultureInfo.InvariantCulture, $" | sequence {sequence} cycle {cycle:0.00} yaw {entities.GetAngles(player).Y:0.0}");
+
+        log.Msg(line.Append('\n').ToString());
+    }
+}
+/// <summary>
+/// <c>cs_sv_hitbands &lt;slot&gt; [from-yaw]</c>: the player in that slot swept with level shot-mask lines, one
+/// per unit of height over his feet, from 64 u out (in front of him by default, or from the given world yaw) through
+/// his origin, as a hitscan round is traced; each run of heights that stopped on him in one hit group is a band. His
+/// collision box (the partition box, here) is printed beside it: a line over that box never reaches his hitboxes.
+/// </summary>
+[ConCommand("cs_sv_hitbands", Help = "cs_sv_hitbands <slot> [from-yaw]: the heights over a player's feet where a level shot stops on him, by hit group")]
+public sealed class HitBandsCommand(IEnginePlayers players, IEngineEntities entities, IEngineWorldQuery world, ILog log)
+{
+    public void Execute(int slot, string fromYaw = "")
+    {
+        EntityHandle player = players.GetHandle(slot);
+        if (player == EntityHandle.None)
+        {
+            log.Warning("[SourceSharp] usage: cs_sv_hitbands <slot> [from-yaw]\n");
+            return;
+        }
+
+        Vector feet = entities.GetOrigin(player);
+        float yaw = float.TryParse(fromYaw, NumberStyles.Float, CultureInfo.InvariantCulture, out float given)
+            ? given
+            : entities.GetEyeAngles(player).Y;
+        float radians = yaw * MathF.PI / 180f;
+        var toward = new Vector(MathF.Cos(radians), MathF.Sin(radians), 0f);
+        (Vector mins, Vector maxs) = entities.GetBounds(player);
+
+        var line = new System.Text.StringBuilder(string.Create(CultureInfo.InvariantCulture,
+            $"[SourceSharp] hitbands slot {slot} from yaw {yaw:0.#}: eye pitch {entities.GetEyeAngles(player).X:0.#}, box z {mins.Z:0.#}..{maxs.Z:0.#}"));
+        string? band = null;
+        int bandFrom = 0;
+        for (int h = 0; h <= 96; h++)
+        {
+            Vector at = new(feet.X, feet.Y, feet.Z + h);
+            SurfaceTraceResult tr = world.TraceLineSurface(at + toward * 64f, at - toward * 64f, TraceMask.Shot);
+
+            // Another body in the way (the viewer standing by him) is passed once, as a round through it would be
+            // asked again; the world or a second body is named.
+            if (tr.Hit && tr.Entity != player && entities.GetIndex(tr.Entity) > 0)
+                tr = world.TraceLineSurface(at + toward * 64f, at - toward * 64f, TraceMask.Shot, tr.Entity);
+            string name = !tr.Hit ? "-"
+                : tr.Entity != player ? "other:" + entities.GetClassName(tr.Entity)
+                : tr.HitGroup.ToString();
+            if (name != band)
+            {
+                if (band is not null)
+                    line.Append(CultureInfo.InvariantCulture, $" | {band} {bandFrom}..{h - 1}");
+                band = name;
+                bandFrom = h;
+            }
+        }
+
+        line.Append(CultureInfo.InvariantCulture, $" | {band} {bandFrom}..96");
+        log.Msg(line.Append('\n').ToString());
+    }
+}
+/// <summary>
+/// <c>cs_sv_looks</c>: every player's eyes against his body: the eye pitch and yaw, the entity's yaw, and how far the
+/// eye yaw stands from the body's (the server and the clients pose the torso with the body's yaw, so a gap here is a
+/// twist neither draws).
+/// </summary>
+[ConCommand("cs_sv_looks", Help = "cs_sv_looks: each player's eye pitch and yaw, his body's yaw, and the gap between the yaws")]
+public sealed class LooksCommand(IEngineEntities entities, IEntityDirectory directory, ILog log)
+{
+    public void Execute()
+    {
+        var line = new System.Text.StringBuilder("[SourceSharp] looks:");
+        foreach (var entity in directory.OfClass(EntityNames.Player))
+        {
+            if (entity is not SsPlayer player || !player.State.Alive)
+                continue;
+
+            Vector eyes = entities.GetEyeAngles(player.Handle);
+            float body = entities.GetAngles(player.Handle).Y;
+            float gap = MathF.Abs(SourceSharp.Shared.Anim.MultiplayerAnimState.NormalizeAngle(eyes.Y - body));
+            line.Append(CultureInfo.InvariantCulture,
+                        $" | {entities.GetIndex(player.Handle)} pitch {eyes.X:0.#} eyeyaw {eyes.Y:0.#} bodyyaw {body:0.#} gap {gap:0.##} net {player.State.EyePitch:0.#}");
+        }
 
         log.Msg(line.Append('\n').ToString());
     }

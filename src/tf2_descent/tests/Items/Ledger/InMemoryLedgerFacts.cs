@@ -142,25 +142,90 @@ public sealed class InMemoryLedgerFacts : LedgerFacts
     }
 
     [Fact]
-    public async Task A_death_puts_everything_carried_on_the_corpse_and_looting_brings_it_back()
+    public async Task A_death_puts_every_item_carried_on_the_corpse_and_looting_brings_it_back()
     {
         await _ledger.Load(A);
         await SetAustralium(A, 77);
         int carried = _ledger.Find(A)!.Inventory.Items.Count();
         int belted = _ledger.Find(A)!.Inventory.Belt.Count;
 
+        var ids = _ledger.Find(A)!.Inventory.Items.Select(i => i.Id).ToHashSet();
+        var beltIds = _ledger.Find(A)!.Inventory.Belt.Values.Select(i => i.Id).ToList();
+
         bool died = await _ledger.RecordDeath(A, default);
         var bare = _ledger.Find(A)!;
         var loot = await _ledger.LootCorpse(A);
 
         Assert.True(died);
-        Assert.Empty(bare.Inventory.Items);
-        Assert.Equal(0, bare.Inventory.Australium);
+        Assert.DoesNotContain(bare.Inventory.Items, i => ids.Contains(i.Id));   // he holds only the new kit
+        Assert.Equal(77, bare.Inventory.Australium);
         Assert.Equal((true, carried), (loot.Ok, loot.Recovered));
-        // Each back where it was carried (InventoryRules.Recover): the kit's potions on the belt, its weapons in the backpack.
-        Assert.Equal(carried, _ledger.Find(A)!.Inventory.Items.Count());
-        Assert.Equal(belted, _ledger.Find(A)!.Inventory.Belt.Count);
+        // Each back where it was carried (InventoryRules.Recover): his potions take their belt slots back from the new kit's.
+        Assert.All(ids, id => Assert.Contains(_ledger.Find(A)!.Inventory.Items, i => i.Id == id));
+        Assert.Equal(beltIds, _ledger.Find(A)!.Inventory.Belt.Values.Select(i => i.Id));
+        Assert.Equal(belted, beltIds.Count);
         Assert.Equal(77, _ledger.Find(A)!.Inventory.Australium);
+    }
+
+    /// <summary>
+    /// The user, 2026-11-22 (plan L26): a death gives the class's starting kit after the corpse takes
+    /// what he carried, in the same write, as the host's StartingKit places it: each weapon in its
+    /// slot, each potion on the belt; every kit item rolled under the kit's source.
+    /// </summary>
+    [Fact]
+    public async Task A_death_gives_the_starting_kit_equipped_and_on_the_belt()
+    {
+        await _ledger.Load(A);
+
+        Assert.True(await _ledger.RecordDeath(A, default));
+
+        var h = _ledger.Find(A)!;
+        Assert.Equal([("melee", "shovel"), ("primary", "rocket_launcher"), ("secondary", "shotgun")],
+                     h.Inventory.Equipped.Select(e => (e.Key, e.Value.Item.BaseId)));
+        Assert.Equal(["health_small", "health_small", "mana_small"], h.Inventory.Belt.Values.Select(v => v.Item.BaseId));
+        Assert.Empty(h.Inventory.Backpack);
+        Assert.All(h.Inventory.Items, i => Assert.Equal(StartingKitRow.Source, i.Item.Context.Source));
+        Assert.Equal("death", Changes.Seen[^1].Operation);
+    }
+
+    /// <summary>The kit he respawns with is new: the corpse keeps the old kit, so both exist (plan L26).</summary>
+    [Fact]
+    public async Task The_kit_a_death_gives_is_new_items_and_the_corpse_keeps_the_old_kit()
+    {
+        var carried = (await _ledger.Load(A)).Hero!.Inventory.Items.Select(i => i.Id).ToHashSet();
+
+        Assert.True(await _ledger.RecordDeath(A, default));
+
+        Assert.Equal(carried.Order(), _ledger.Corpse(A)!.Items.Order());
+        Assert.Equal(6, _ledger.Find(A)!.Inventory.Items.Count());
+        Assert.DoesNotContain(_ledger.Find(A)!.Inventory.Items, i => carried.Contains(i.Id));
+    }
+
+    /// <summary>A hardcore hero gets no kit (plan L26, the host's proposal): he is fallen and never respawns.</summary>
+    [Fact]
+    public async Task A_hardcore_death_gives_no_kit()
+    {
+        var h = (await _ledger.Load(A)).Hero!;
+        _ledger.Replace(h with { Sheet = h.Sheet with { Hardcore = true } });
+
+        Assert.True(await _ledger.RecordDeath(A, default));
+
+        Assert.NotEmpty(_ledger.Corpse(A)!.Items);   // the stimulus: he died carrying the kit
+        Assert.Empty(_ledger.Find(A)!.Inventory.Items);
+    }
+
+    /// <summary>The user, 2026-11-22 (plan L26): a death leaves the purse with the hero; the corpse holds no Australium.</summary>
+    [Fact]
+    public async Task A_death_leaves_the_australium_in_the_purse_and_none_on_the_corpse()
+    {
+        await _ledger.Load(A);
+        await SetAustralium(A, 77);
+
+        Assert.True(await _ledger.RecordDeath(A, default));
+
+        Assert.Equal(77, _ledger.Find(A)!.Inventory.Australium);
+        Assert.Equal(0, _ledger.Corpse(A)!.Australium);
+        Assert.NotEmpty(_ledger.Corpse(A)!.Items);   // the stimulus: the death made a corpse
     }
 
     [Fact]

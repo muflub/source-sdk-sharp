@@ -67,7 +67,7 @@ public class BoundedConVarsTests
 
     // ---- the push -------------------------------------------------------
 
-    private sealed class Slots : IClientConVarSlots
+    internal sealed class Slots : IClientConVarSlots
     {
         public readonly Dictionary<string, float> Values = new(StringComparer.OrdinalIgnoreCase);
         public bool SetValue(string name, float value) { Values[name] = value; return true; }
@@ -83,6 +83,14 @@ public class BoundedConVarsTests
             DeclaredConVars.Holding<SvMaxUpdateRateConVar>("60"));
         var slots = new Slots();
         return (new BoundedConVars(slots, inputs), slots, inputs);
+    }
+
+    /// <summary>Stock's defaults, started: the interpolation amount pushed is 0.1 s (for other facts' clocks).</summary>
+    internal static BoundedConVars Started()
+    {
+        BoundedConVars bounded = Rig().Bounded;
+        bounded.Start();
+        return bounded;
     }
 
     [Fact]

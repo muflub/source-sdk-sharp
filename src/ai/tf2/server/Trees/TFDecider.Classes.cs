@@ -63,8 +63,48 @@ public sealed partial class TFDecider
         /// <summary>Goes to the class's own place when its branch won; false when it has none now.</summary>
         public virtual bool GoPlace() => false;
 
+        /// <summary>
+        /// The class's terms for the shared ammo errand (round 2's S5, TFDecider.Ammo.cs): its floor and its utility. Off by
+        /// default: a class that names none never goes for ammo on its own account.
+        /// </summary>
+        public virtual TFAmmoErrand Ammo => TFAmmoErrand.Off;
+
+        /// <summary>
+        /// The rounds the errand's floor is weighed against (<see cref="Ammo"/>): the reserve of the weapon in hand by default;
+        /// under 0, not known (no errand). A class whose pool is one weapon's (the Heavy's minigun) answers that weapon's.
+        /// </summary>
+        public virtual int AmmoPool => D._self.Reserve;
+
+        /// <summary>
+        /// The general play's weight for answering a sapped friendly building, every class's default (round 2's S7): over the run
+        /// for a far flag (0.7) and a far fight (0.6), under a near fight (0.8), a heal (0.82) and the run for a near flag (0.9).
+        /// Ours: a Spy at a sentry is the nearest threat to the team's hold. Each class lane rules on it for its class by
+        /// overriding <see cref="AnswersSapped"/> (a Medic leaving his patient, a Demoman leaving a sentry kill).
+        /// </summary>
+        public const float SappedAnswerWeight = 0.75f;
+
+        /// <summary>
+        /// The score of the general play's answer to a sapped friendly building in reach (TFDecider.Sapped.cs): going to stand by
+        /// it. <see cref="SappedAnswerWeight"/> by default; 0, never (a class whose own place answers it).
+        /// </summary>
+        public virtual float AnswersSapped => SappedAnswerWeight;
+
         /// <summary>Whether the class keeps out of a sentry's range (the general play's: yes); a class that kills or saps one says no.</summary>
         public virtual bool AvoidsSentries => true;
+
+        /// <summary>
+        /// Whether the bot backs off and loads when its primary is dry with the target in sight (the shared fight's first
+        /// leaf, "launcher dry"): yes by default. A class with a loaded secondary, or a target within a swing, says no and
+        /// fights on with its own footwork while its hands swap (round 2's S10: the Scout).
+        /// </summary>
+        public virtual bool BacksOffDry => true;
+
+        /// <summary>
+        /// What the class asks of the hands its rocket jump's program lends it in flight (round 2's S1, <see cref="Jump.JumpHands"/>):
+        /// asked each decide the bot is in the air of <paramref name="flight"/>, its program's; null, nothing: the program flies the
+        /// jump exactly as it would with no class at all. None by default.
+        /// </summary>
+        public virtual Jump.AirAsk? InFlight(Jump.AirFlight flight) => null;
 
         /// <summary>Whether the bot carries out the reflex <paramref name="verdict"/> names (a dodge, backing off an Über, a sentry's range): yes by default; a Pyro may shove the Über instead.</summary>
         public virtual bool TakesReflex(string verdict) => true;
@@ -81,6 +121,7 @@ public sealed partial class TFDecider
         /// <summary>
         /// Holds the trigger at teammate <paramref name="mate"/> on purpose (the Medic's beam, a Pyro's spy-check puff), aimed at
         /// <paramref name="at"/>: the friend gate lets it go this decide. Call it from <see cref="Engage"/> or <see cref="OneShots"/>.
+        /// Every friend-fire is a hold: a one-shot this decide keeps the trigger down; a decide that does not call it lets go.
         /// </summary>
         protected void FireAtFriend(ActorId mate, AiVector at) => D.FireAtFriend(mate, at);
 
@@ -147,20 +188,81 @@ public sealed partial class TFDecider
     /// <summary>The ability one-shots the bot has sent, by row of the table, for the A/B harness (<c>/ai/classes</c>).</summary>
     public ReadOnlySpan<int> AbilityUses => _abilityUses;
 
-    /// <summary>The counters of every class the bot has played (<see cref="ClassPlay.Count"/>), each name once, for the A/B harness.</summary>
+    /// <summary>
+    /// The counters of every class the bot has played (<see cref="ClassPlay.Count"/>), each name once, for the A/B harness; then
+    /// the shared hooks' (round 2), each once it has counted: <c>shared.ammo_trips</c>, <c>shared.sapped_answer_decides</c>,
+    /// <c>shared.teleporter_trips</c>, <c>shared.teleporter_give_ups</c>, <c>shared.teleporter_weighs</c> (with the last one's
+    /// <c>shared.teleporter_last_saving_u</c>), <c>shared.friendly_building_sightings</c>, <c>shared.ready_entrance_sightings</c>,
+    /// the weighs' skips (<c>shared.teleporter_skips_far|no_exit|no_walk</c>) and their work (<c>shared.teleporter_searches</c>,
+    /// <c>_expanded</c>, <c>_search_us</c>, <c>_weigh_most_us</c>).
+    /// </summary>
     public List<KeyValuePair<string, long>> ClassCounters()
     {
         var into = new List<KeyValuePair<string, long>>();
         foreach (ClassPlay? play in _plays)
             play?.Count(into);
+        // The general play's: decides whose team place read a teammate by his respawn glow (round 2's S11), once there is one.
+        if (_glowDecides > 0)
+            into.Add(new("team.glow_decides", _glowDecides));
+        CountDash(into);
+        CountConditions(into);
+        Shared(into, "shared.ammo_trips", AmmoTrips);
+        Shared(into, "shared.sapped_answer_decides", SappedAnswerDecides);
+        Shared(into, "shared.teleporter_trips", TeleporterTrips);
+        Shared(into, "shared.teleporter_give_ups", TeleporterGiveUps);
+        Shared(into, "shared.friendly_building_sightings", FriendlyBuildingSightings);
+        Shared(into, "shared.ready_entrance_sightings", ReadyEntranceSightings);
+        Shared(into, "shared.teleporter_weighs", TeleporterWeighs);
+        Shared(into, "shared.teleporter_skips_far", TeleporterSkipsFar);
+        Shared(into, "shared.teleporter_skips_no_exit", TeleporterSkipsNoExit);
+        Shared(into, "shared.teleporter_skips_no_walk", TeleporterSkipsNoWalk);
+        SharedLong(into, "shared.teleporter_searches", TeleporterSearches);
+        SharedLong(into, "shared.teleporter_expanded", TeleporterExpanded);
+        SharedLong(into, "shared.teleporter_search_us", TeleporterSearchMicros);
+        SharedLong(into, "shared.teleporter_weigh_most_us", TeleporterWeighMostMicros);
+        if (TeleporterWeighs > 0)
+            into.Add(new("shared.teleporter_last_saving_u", float.IsFinite(TeleporterLastSaving) ? (long)TeleporterLastSaving : long.MinValue));
         return into;
+
+        static void Shared(List<KeyValuePair<string, long>> into, string name, int count) => SharedLong(into, name, count);
+
+        static void SharedLong(List<KeyValuePair<string, long>> into, string name, long count)
+        {
+            if (count > 0)
+                into.Add(new(name, count));
+        }
     }
 
     /// <summary>The archetype the bot plays its class as now ("" for none), for the routes and the facts.</summary>
     public string Archetype => _classPlay?.Archetype ?? "";
 
-    /// <summary>The class's own branch's score, weighed as every branch is.</summary>
-    private float ClassUtility() => _classPlay.PlaceUtility();
+    /// <summary>What the class branch goes to: the class's own place, or a shared errand the class asks for (round 2's hooks).</summary>
+    private enum ClassErrand : byte
+    {
+        Own = 0,
+        Ammo,
+        Sapped,
+    }
 
-    private bool GoClassPlace() => _classPlay.GoPlace();
+    private ClassErrand _classErrand;
+
+    /// <summary>
+    /// The class branch's score, weighed as every branch is: the best of the class's own place (<see cref="ClassPlay.PlaceUtility"/>)
+    /// and the shared errands it asks for: the ammo errand (<see cref="ClassPlay.Ammo"/>) and the answer to a sapped friendly
+    /// building (<see cref="ClassPlay.AnswersSapped"/>). The class's own place wins a tie, then the ammo.
+    /// </summary>
+    private float ClassUtility()
+    {
+        float own = _classPlay.PlaceUtility(), ammo = AmmoErrandUtility(), sapped = SappedUtility();
+        _classErrand = sapped > own && sapped > ammo ? ClassErrand.Sapped : ammo > own ? ClassErrand.Ammo : ClassErrand.Own;
+        return MathF.Max(own, MathF.Max(ammo, sapped));
+    }
+
+    /// <summary>To what won the class branch's score; the others, in the tie's order, when that has nothing now.</summary>
+    private bool GoClassPlace() => _classErrand switch
+    {
+        ClassErrand.Sapped => GoSapped() || (_classPlay.PlaceUtility() > 0f && _classPlay.GoPlace()) || (AmmoErrandUtility() > 0f && GoAmmo()),
+        ClassErrand.Ammo => GoAmmo() || (_classPlay.PlaceUtility() > 0f && _classPlay.GoPlace()) || (SappedUtility() > 0f && GoSapped()),
+        _ => _classPlay.GoPlace() || (AmmoErrandUtility() > 0f && GoAmmo()) || (SappedUtility() > 0f && GoSapped()),
+    };
 }

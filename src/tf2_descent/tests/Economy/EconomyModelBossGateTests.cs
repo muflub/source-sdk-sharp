@@ -97,18 +97,13 @@ public sealed class EconomyModelBossGateTests
     public void Boss_gate2_a_solo_fight_at_depth_5_is_won_inside_its_band() => SoloFightsHoldTheirBand(5);
 
     /// <summary>
-    /// Major Crits and the Tank alone: won inside M14's 10 to 20 minutes. Does not hold, and
-    /// cannot without a design change: a solo hero does not live through ten minutes of the
-    /// fight. Measured in the lane (seeds 1, 2; the runs' heroes, level 14 to 15): Major Crits at
-    /// life 19,200 and damage 4 (a crit rocket of 14) still lost two of six solo fights
-    /// (artillery 713 s won and 1,434 s lost, gunman 822 and 868 s won, trolldier 1,265 s lost
-    /// and 997 s won); at damage 12 all six were lost. After RU14's pacing (a level gives 18
-    /// life), at life 19,200 and damage 6: artillery 538 and 754 s, gunman 747 and 844 s won,
-    /// trolldier lost both (1,371 and 1,407 s, 4 deaths): the builds are 2.5 times apart
-    /// against Major Crits, wider than the band's 2. Shipped (life 8,000, damage 12): won in
-    /// 212 to 342 s, under the band's 600.
+    /// Major Crits and the Tank alone: won inside 90 to 360 s (the user, 2026-11-22, plan L26:
+    /// depth 10's fight is shortened, between its neighbours' bands; M14's 10 to 20 minutes was
+    /// longer than a solo hero lives through the fight: an earlier lane measured Major Crits at
+    /// life 19,200 losing two of six solo fights and the builds 2.5 times apart). Shipped (life
+    /// 8,000, damage 12), seeds 1 and 2: won in 214.0 to 354.2 s.
     /// </summary>
-    [Fact(Skip = "RU14 boss gate 2 at depth 10 cannot hold without a design change: M14's 10 to 20 minutes is longer than a solo hero survives the fight (solo wins at 212 to 342 s); see the lane's hand-back")]
+    [Fact]
     public void Boss_gate2_a_solo_fight_at_depth_10_is_won_inside_its_band() => SoloFightsHoldTheirBand(10);
 
     /// <summary>Every A.6 build, the Sergeant too, wins every boss alone where its own descent brings it (the band's other half, which holds at depth 10 as well).</summary>

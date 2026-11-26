@@ -118,6 +118,39 @@ public sealed class HeroSetLevelCommand(SvCheatsConVar cheats, Heroes heroes, IL
     }
 }
 
+/// <summary>
+/// <c>tf2_descent_setclass &lt;slot&gt; &lt;class&gt;</c>: the hero's sheet becomes a new character of
+/// a rules class (<c>heavy</c>, <c>scout</c>, ...) with his name, hardcore and experience, its
+/// points unspent (so the audit holds), and he is made that TF class at once
+/// (<see cref="Mode.IHeroClassPick"/>). Unhosted play has no class choice (every hero is a
+/// Soldier); this lets a dev see a class's numbers (plan L26's life per level). His items stay.
+/// </summary>
+[ConCommand("tf2_descent_setclass", Help = "tf2_descent_setclass <player slot> <class>: make the hero a new character of that class at his experience (sv_cheats).")]
+public sealed class HeroSetClassCommand(SvCheatsConVar cheats, Heroes heroes, Mode.IHeroClassPick pick, ILog log)
+{
+    public void Execute([ArgRange(1, 64)] int slot, string classId)
+    {
+        var gate = new HeroCommandGate(cheats, heroes, log);
+        if (gate.Hero("tf2_descent_setclass", slot) is not { } hero)
+            return;
+
+        var heroRules = hero.Rules.Heroes;
+        var cls = HeroClasses.ToTF(classId);
+        if (cls == TF2.Shared.TFClass.Undefined || !hero.Rules.Content.Classes.Contains(classId))
+        {
+            log.Warning($"[TF2Descent/Hero] tf2_descent_setclass: '{classId}' is no class\n");
+            return;
+        }
+
+        var result = hero.Apply(sheet =>
+            heroRules.GainXp(heroRules.New(classId, sheet.Name) with { Hardcore = sheet.Hardcore }, sheet.Xp).Sheet);
+        if (result.Ok && hero.Player != EntityHandle.None)
+            pick.Pick(hero.Player, cls);
+        log.Msg(string.Create(CultureInfo.InvariantCulture,
+            $"[TF2Descent/Hero] {slot} set to class {hero.Sheet!.ClassId} level {hero.Sheet.Level}: {(result.Ok ? "applied" : "refused " + result.Rule)}, life max {hero.Stats!.MaxLife:0.#}\n"));
+    }
+}
+
 /// <summary><c>tf2_descent_mana &lt;slot&gt; &lt;amount&gt;</c>: sets the hero's current mana (held inside 0..max).</summary>
 [ConCommand("tf2_descent_mana", Help = "tf2_descent_mana <player slot> <amount>: set the hero's current mana (sv_cheats).")]
 public sealed class HeroManaCommand(SvCheatsConVar cheats, Heroes heroes, ILog log)

@@ -408,7 +408,7 @@ public sealed class NavBuildJob
         if (loaded.Nav is not { } nav)
             return new NavBuildOutcome.Failed($"the built file does not load: {loaded.Refusal}", Retry: false);
         long sightStart = Stopwatch.GetTimestamp();
-        NavSight sight = NavSight.Build(nav.Nav.Graph, nav.File.Space);
+        NavSight sight = NavSight.Build(nav.Nav.Graph, nav.File.Space, _profile?.LongSightLines ?? false);
         double sightMs = Stopwatch.GetElapsedTime(sightStart).TotalMilliseconds;
         return new NavBuildOutcome.Built(nav, sight, sightMs, stamp, level.Leaves.Length, bytes.Length, result.Warnings, checkLine);
     }
@@ -598,7 +598,7 @@ public sealed class NavRoomJob
         double graphMs = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
         token.ThrowIfCancellationRequested();
         start = Stopwatch.GetTimestamp();
-        NavSight? sight = _sight ? NavSight.Build(derived.Graph, file.Space) : null;
+        NavSight? sight = _sight ? NavSight.Build(derived.Graph, file.Space, _profile?.LongSightLines ?? false) : null;
         double sightMs = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
         var nav = new LoadedNav(name, file, derived, _level.Entities, _level.BspSha256, navSha, fromCache, graphMs, key);
         return new NavRoomOutcome.Ready(_room.Region, nav, sight, openMs, graphMs, sightMs);

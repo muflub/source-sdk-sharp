@@ -31,6 +31,7 @@ public sealed class InventoryTests
     private static Held Gear(string baseId = "shovel", int tier = 0, int level = 20) =>
         New(R.ItemRules.Roller.Roll(Ctx(tier, level, table: "base:" + baseId, source: "craft"), (ulong)Interlocked.Increment(ref _ids)));
     private static Held Stack(string baseId, int count) => New(R.ItemRules.Roller.Roll(Ctx(0, 1, table: "base:" + baseId, source: "craft"), 1) with { Count = count });
+    private static Held Kit(string baseId) => New(R.ItemRules.Roller.Roll(Ctx(0, 1, table: "base:" + baseId, source: StartingKitRow.Source), 1));
 
     private static HeroInventory Fill(HeroInventory hero, HeroSheet sheet, int count)
     {
@@ -252,6 +253,66 @@ public sealed class InventoryTests
 
         Assert.Equal(mine.Id, Assert.Single(r.Hero.Backpack).Value.Id);
         Assert.Equal((0, 1), (r.Belted, r.Packed));
+    }
+
+    /// <summary>
+    /// A death gives the starting kit (plan L26), so the slots a corpse's items come back to hold
+    /// kit items: the corpse's worn item takes its slot back and the kit item goes to the backpack,
+    /// in the slot the corpse's item would have taken (this lane's rule).
+    /// </summary>
+    [Fact]
+    public void A_recovered_worn_item_takes_its_slot_back_from_a_starting_kit_item()
+    {
+        var kit = Kit("shovel");
+        var hero = new HeroInventory { Equipped = ImmutableSortedDictionary<string, Held>.Empty.WithComparers(StringComparer.Ordinal).Add("melee", kit) };
+        var mine = Gear("shovel");
+
+        var r = Inv.Recover(hero, Sheet(), [new CorpseItem(mine, Equipped: "melee")]);
+
+        Assert.Equal(mine.Id, r.Hero.Equipped["melee"].Id);
+        Assert.Equal(kit.Id, Assert.Single(r.Hero.Backpack).Value.Id);
+        Assert.Equal((1, 0), (r.Equipped, r.Packed));
+    }
+
+    [Fact]
+    public void A_recovered_potion_takes_its_belt_slot_back_from_a_starting_kit_potion()
+    {
+        var kit = Kit("mana_small");
+        var hero = new HeroInventory { Belt = ImmutableSortedDictionary<int, Held>.Empty.Add(0, kit) };
+        var mine = Stack("health_small", 1);
+
+        var r = Inv.Recover(hero, Sheet(), [new CorpseItem(mine, Belt: 0)]);
+
+        Assert.Equal(mine.Id, r.Hero.Belt[0].Id);
+        Assert.Equal(kit.Id, Assert.Single(r.Hero.Backpack).Value.Id);
+        Assert.Equal((1, 0), (r.Belted, r.Packed));
+    }
+
+    [Fact]
+    public void A_worn_item_whose_requirement_no_longer_holds_leaves_the_kit_item_in_its_slot()
+    {
+        var kit = Kit("rocket_launcher");
+        var hero = new HeroInventory { Equipped = ImmutableSortedDictionary<string, Held>.Empty.WithComparers(StringComparer.Ordinal).Add("primary", kit) };
+        var box = Gear("black_box");
+
+        var r = Inv.Recover(hero, Sheet(brawn: 34), [new CorpseItem(box, Equipped: "primary")]);
+
+        Assert.Equal(kit.Id, r.Hero.Equipped["primary"].Id);
+        Assert.Equal(box.Id, Assert.Single(r.Hero.Backpack).Value.Id);
+    }
+
+    [Fact]
+    public void A_worn_item_a_full_backpack_cannot_take_leaves_the_kit_item_in_its_slot()
+    {
+        var kit = Kit("shovel");
+        var full = Fill(new HeroInventory(), Sheet(), Inv.BackpackSlots(Sheet()));
+        var hero = full with { Equipped = full.Equipped.Add("melee", kit) };
+        var worn = new CorpseItem(Gear("shovel"), Equipped: "melee");
+
+        var r = Inv.Recover(hero, Sheet(), [worn]);
+
+        Assert.Equal(kit.Id, r.Hero.Equipped["melee"].Id);
+        Assert.Equal([worn], r.Left);
     }
 
     [Fact]

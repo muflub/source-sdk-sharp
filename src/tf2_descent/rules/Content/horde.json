@@ -8,6 +8,7 @@
   "farTickHz": 2,
   "patrolDwellSeconds": 4,
   "alertMemorySeconds": 30,
+  "leashDoors": 3,
   "arriveRadius": 24,
   "doorQueue": { "backoff": 64, "spacing": 48 },
   "director": {
@@ -25,7 +26,8 @@
       "aroundRadius": 200,
       "fullLight": 60,
       "darkScale": 0.35,
-      "lampReachScale": 1
+      "lampReachScale": 1,
+      "beaconReachScale": 1.5
     },
     "hearing": {
       "rooms": 1,

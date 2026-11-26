@@ -338,10 +338,13 @@ public sealed partial class TFDecider
     /// Where the team stance goes: a teammate's call for help heard within the bot's <c>followSeconds</c>; else the
     /// teammate whose place the bot knows that is nearest the point in play (the points' goal), or with no point in play
     /// the nearest; and back to the nearest when the bot is ahead of them all. Counts the teammates placed and on a point.
+    /// A teammate's place is known in sight, by its respawn glow while the bot's own lasts (<see cref="GlowPlace"/>, round
+    /// 2's S11), or seen lately.
     /// </summary>
     private void ReadTeamPlace()
     {
         (_teamPlaceKnown, _matesPlaced, _matesOnPoint, _teamWhy) = (false, 0, 0, "");
+        int glowing = 0;
         AiVector? front = _pointsGoal?.Position;
         float bestFront = float.PositiveInfinity, bestNear = float.PositiveInfinity;
         AiVector frontAt = default, nearAt = default;
@@ -354,6 +357,8 @@ public sealed partial class TFDecider
             AiVector at;
             if (_view.TryActor(a.Id, out ActorFacts drawn))
                 at = drawn.Origin;
+            else if (GlowPlace(a.Id.Slot) is { } glow)
+                (at, glowing) = (glow, glowing + 1);
             else if (a.EverSeen && (_now - a.LastSeenTick) * _tick < TeamSeenSeconds && _self.Origin.DistanceTo(a.LastSeenPos) >= GatherArriveUnits)
                 at = a.LastSeenPos;
             else
@@ -369,6 +374,8 @@ public sealed partial class TFDecider
                 (bestFront, frontAt) = (forward, at);
         }
 
+        if (glowing > 0)
+            _glowDecides++;
         BotMemory.HeardCallout call = _memory.LastHelpCall;
         if (call.Kind == CalloutKind.Help && call.Speaker != _bot && (_now - call.Tick) * _tick < _p.FollowSeconds)
         {
@@ -385,6 +392,16 @@ public sealed partial class TFDecider
         bool ahead = front is { } f && _self.Origin.DistanceTo(f) < bestFront;
         (_teamPlaceKnown, _teamPlace, _teamWhy) = ahead ? (true, nearAt, "back to the team") : (true, frontAt, "to the team");
     }
+
+    /// <summary>
+    /// The place of the teammate in <paramref name="slot"/> while the bot's HUD outlines him (its own respawn glow lasts:
+    /// <see cref="Senses.TFMateSeen.Glowing"/>, round 2's S11): a place through walls, no number; null otherwise.
+    /// </summary>
+    private AiVector? GlowPlace(int slot)
+        => _lastHud is { } hud && hud.TryMate(slot, out Senses.TFMateHealth m) && (m.Why & Senses.TFMateSeen.Glowing) != 0 ? m.At : null;
+
+    /// <summary>Decides on which the team place read at least one teammate by his glow (the <c>team.glow_decides</c> counter).</summary>
+    private long _glowDecides;
 
     /// <summary>
     /// With no teammate's place known, where the team is fighting as the bot hears or reads it: a teammate's enemy callout

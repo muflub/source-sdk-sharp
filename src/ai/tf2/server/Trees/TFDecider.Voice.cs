@@ -74,7 +74,8 @@ public sealed partial class TFDecider
     {
         NoteLines();
         // A reload, a weapon change or a rocket jump is this decide's one-shot already; the trigger can be let go for a decide.
-        if (_action.Kind is not (ActionKind.None or ActionKind.Fire) || Busy || (_spoke && _now < _nextVoice))
+        // A drawn charge (a Fire held as FireStyle.Hold) is not: letting it go is a shot (a bow's arrow).
+        if (_action.Kind is not (ActionKind.None or ActionKind.Fire) || _action.Style == FireStyle.Hold || Busy || (_spoke && _now < _nextVoice))
             return;
         TFVoiceLine line = Due(TFVoiceLine.Spy) ? TFVoiceLine.Spy
             : Due(TFVoiceLine.SentryAhead) ? TFVoiceLine.SentryAhead
@@ -134,7 +135,8 @@ public sealed partial class TFDecider
         foreach (ref readonly ActorFacts f in _view.Sighted)
         {
             bool friend = TeamRule.Friends(_self.Team, f.Team);
-            if (!friend && f.Class == (int)TFClass.Spy && TeamRule.IsGameTeam(f.Team))
+            if ((!friend && f.Class == (int)TFClass.Spy && TeamRule.IsGameTeam(f.Team))
+                || (friend && _memory.Board.Of(f.Id, make: false) is { } unmasked && unmasked.Unmasked(_now, _tick)))
                 Call(TFVoiceLine.Spy);
             healer |= friend && f.Class == (int)TFClass.Medic && _self.Origin.DistanceTo(f.Origin) < HealerWithin;
         }

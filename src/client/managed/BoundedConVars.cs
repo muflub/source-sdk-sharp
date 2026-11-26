@@ -72,8 +72,11 @@ public sealed class BoundedConVarInputs(ClPredictConVar predict, SvClientPredict
 /// stored, so a read costs no crossing. A change of any input recomputes all four
 /// values and pushes them.
 /// </summary>
-public sealed class BoundedConVars(IClientConVarSlots slots, BoundedConVarInputs inputs)
+public sealed class BoundedConVars(IClientConVarSlots slots, BoundedConVarInputs inputs) : IInterpolationAmount
 {
+    /// <inheritdoc/>
+    public float Amount => Pushed.Amount;
+
     /// <summary>The stored value GetClientInterpAmount answers.</summary>
     public const string InterpAmountName = "GetClientInterpAmount";
 
@@ -112,6 +115,17 @@ public sealed class BoundedConVars(IClientConVarSlots slots, BoundedConVarInputs
         Pushed = (predict, ratio, interp, amount);
         Pushes++;
     }
+}
+
+/// <summary>
+/// The interpolation amount this client draws the other entities with (stock's
+/// <c>GetClientInterpAmount</c>), for game logic that reads networked history
+/// the same delay in the past.
+/// </summary>
+public interface IInterpolationAmount
+{
+    /// <summary>Seconds in the past the entities are drawn at.</summary>
+    float Amount { get; }
 }
 
 /// <summary>The bounded convars' pushed values and their inputs (the live check of C8's push).</summary>

@@ -106,11 +106,12 @@ public class TFTeleporterLevelTests
     /// <summary><paramref name="end"/> wrenched up to <paramref name="level"/>, the clock run past each upgrade.</summary>
     private static void UpgradeTo(BuildingsRig rig, TFTeleporter end, EntityHandle builder, int level)
     {
-        rig.Purse.Pockets[MetalName] = 400;
-        float duration = TFObjectInfo.Of(TFObjectType.Teleporter)!.UpgradeDuration;
+        TFObjectInfo info = TFObjectInfo.Of(TFObjectType.Teleporter)!;
+        rig.Purse.Pockets[MetalName] = info.UpgradeCost * (level - 1);
+        float duration = info.UpgradeDuration;
         for (int l = 2; l <= level; l++)
         {
-            for (int swing = 0; swing < 4; swing++)   // 100 metal at 25 the swing
+            for (int swing = 0; swing < info.UpgradeCost / 25; swing++)   // the level's metal at 25 the swing
                 end.WrenchHit(builder);
             rig.Clock.Now += duration;
             end.OnThink();

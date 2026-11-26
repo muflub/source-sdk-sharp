@@ -145,6 +145,7 @@ public static class Primitives
         "orders_stack",      // issuing an Order no longer cancels the one in force
         "blast_jumping",     // the hero is BlastJumping until it lands (a mana-cast jump counts as one)
         "burn",              // the target burns (E9's burn on a robot)
+        "lamp_beacon",       // robots see the hero's lit lamp from farther (horde.json sight.beaconReachScale; Lamplighter, L26)
     ];
 
     /// <summary>What a cast requires of the hero besides mana and cooldown.</summary>

@@ -140,6 +140,12 @@ public sealed class AiNavCarryTests : IDisposable
         Assert.Same(shut, nav.ObstaclesFor(player)!.LinksShut);
         profile.Links = new NavLinkAllowance(links, 12f);
         Assert.Null(nav.ObstaclesFor(player)!.LinksShut);
+        // Round 2's S13: and what the player spends on each link, by its kit.
+        float[] spends = [];
+        profile.Links = new NavLinkAllowance(links, 12f, null, spends);
+        Assert.Same(spends, nav.ObstaclesFor(player)!.LinkSpends);
+        profile.Links = new NavLinkAllowance(links, 12f);
+        Assert.Null(nav.ObstaclesFor(player)!.LinkSpends);
     }
 
     [Fact]

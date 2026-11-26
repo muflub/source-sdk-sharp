@@ -25,6 +25,28 @@ public sealed class HordeSettingsTests
     }
 
     [Fact]
+    public void The_shipped_leash_is_three_doors()
+    {
+        Assert.Equal(3, Rules.Content.Horde.LeashDoors);
+    }
+
+    [Fact]
+    public void A_leash_of_no_doors_is_refused()
+    {
+        var errors = RobotContentTests.Errors(ContentTables.Horde, n => n["leashDoors"] = 0);
+
+        Assert.Contains(errors, e => e.Table == ContentTables.Horde && e.Rule == ContentRule.OutOfRange && e.Message.Contains("leashDoors"));
+    }
+
+    [Fact]
+    public void A_leash_longer_than_any_level_is_refused()
+    {
+        var errors = RobotContentTests.Errors(ContentTables.Horde, n => n["leashDoors"] = 33);
+
+        Assert.Contains(errors, e => e.Table == ContentTables.Horde && e.Rule == ContentRule.OutOfRange && e.Message.Contains("leashDoors"));
+    }
+
+    [Fact]
     public void The_horde_table_is_one_of_the_content_tables()
     {
         Assert.Contains(ContentTables.Horde, ContentTables.Names());

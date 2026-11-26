@@ -138,7 +138,7 @@ public sealed class TFTauntAttackTests
                                                           owners ?? new NoTFWeaponOwners(), hooks ?? new AttributeHooks(),
                                                           new ProjectileRig.Resupply(), Engine, Engine,
                                                           new ProjectileRig.DirectoryView(), Carriers,
-                                                          DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>()), Temps, Mediguns, Stats, Projectile);
+                                                          DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>(), new TF2.Tests.Rules.ListHooks<TF2.Server.Projectiles.ITFSelfBlastHook>()), Temps, Mediguns, Stats, Projectile);
             Attack.Attach(Fighter);
 
             Engine.Returns("Networking.EntityGetState", EntityState.Solid);

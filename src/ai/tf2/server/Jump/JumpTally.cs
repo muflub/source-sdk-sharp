@@ -123,7 +123,7 @@ public sealed class JumpTally
                 $"{{\"serial\":{j.Serial},\"plan\":{f.Planned.Id},\"end\":\"{f.End}\",\"launched\":{(f.Launched ? "true" : "false")},\"felt\":{(f.Felt ? "true" : "false")},"
                 + $"\"slid\":{f.Slid:F1},\"approach_seconds\":{f.ApproachCommands * f.TickSeconds:F3},\"stood_seconds\":{f.Stood * f.TickSeconds:F3},"
                 + $"\"air_seconds\":{f.AirCommands * f.TickSeconds:F3},\"rise\":{f.Rise:F1},\"plan_apex\":{f.Planned.Apex:F1},"
-                + $"\"felt_after_shot\":{f.FeltAfterShot},\"leap\":{P(f.Leap)},\"rockets\":{f.Recipe.Rockets},\"second_after_shot\":{f.SecondAfterShot},"
+                + $"\"felt_after_shot\":{f.FeltAfterShot},\"leap\":{P(f.Leap)},\"rockets\":{f.Recipe.Rockets},\"second_after_shot\":{f.SecondAfterShot},\"lent\":{f.Lent},\"chute_opened_air\":{f.ChuteOpenedAir},\"chute_closed_air\":{f.ChuteClosedAir},"
                 + $"\"takeoff\":{P(f.Recipe.Takeoff)},\"landing\":{P(f.Recipe.Landing)},\"touch\":{P(f.Touch)},\"plan_touch\":{P(f.Planned.Touch)},\"off_plan\":{j.OffPlan:F1},"
                 + $"\"plan_seconds\":{f.Planned.Seconds:F3},\"plan_air_seconds\":{f.Planned.AirSeconds:F3},\"plan_walk_seconds\":{f.Planned.WalkSeconds:F3},\"plan_health\":{f.Planned.Health:F1},"
                 + $"\"pitch\":{f.Recipe.Pitch:F1},\"yaw_offset\":{f.Recipe.YawOffset:F1},\"shot_delay\":{f.Recipe.ShotDelay},\"run_up\":{f.Recipe.RunUp:F0},"

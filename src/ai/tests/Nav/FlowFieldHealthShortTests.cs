@@ -92,4 +92,15 @@ public class FlowFieldHealthShortTests
             Assert.Equal(-1, with.LinkFrom(c));
         }
     }
+
+    /// <summary>Round 2's S13: the least the agent itself spends on a link it was left out of, from its own spends (20 and 25), not the links' 30 and 40.</summary>
+    [Fact]
+    public void TheHealthShortIsTheAgentsOwnSpend()
+    {
+        var (g, ids) = Grids.Parse(Islands);
+        NavLinks links = NavLinks.Build(g, Jumps(ids), Costs);
+        NavObstacleState agent = Agent(links, health: 10f);
+        agent.LinkSpends = [20f, 25f];
+        Assert.Equal(20f, Field(g, Grids.At(ids, 10, 0), agent).HealthShort);
+    }
 }

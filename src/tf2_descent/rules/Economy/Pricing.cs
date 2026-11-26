@@ -14,6 +14,9 @@ namespace TF2.Descent.Rules.Economy;
 /// the Stock price), so a sale reveals nothing.</item>
 /// <item>Anything else: its base value per unit of its stack. A crate: the Scout's price for its level.</item>
 /// <item>Buy = value · buy, rounded up; sell = value · sell, rounded down; vendor value = value.</item>
+/// <item>A starting kit item (rolled under <see cref="StartingKitRow.Source"/>) sells for 0: a
+/// respawn gives the kit again, so a kit that sold would be farmed by dying (the user,
+/// 2026-11-22, plan L26). The Lost &amp; Found's fee, a share of the sell price, is 0 on it too.</item>
 /// <item>The buyer's own price stats (plan_tf2_rpg Appendix A.5, Haggler: "−4 % vendor, repair,
 /// identify and crate prices; +4 % sell prices") move a price last (<see cref="ForBuyer"/>):
 /// what he pays by <c>price_buy_pct</c>, rounded up, what he is paid by <c>price_sell_pct</c>,
@@ -48,6 +51,8 @@ public sealed class Pricing
     /// <summary>A buy, a sell or the vendor value (<c>IGameRules.Price</c>).</summary>
     public long Price(ItemInstance item, PriceKind kind)
     {
+        if (kind == PriceKind.Sell && StartingKitRow.IsKit(item))
+            return 0;
         long value = Value(item);
         return kind switch
         {

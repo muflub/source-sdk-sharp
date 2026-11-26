@@ -23,8 +23,10 @@ public sealed class HordeAlertLogConVar : BoolConVar { }
 /// alerts recorded since the last frame, each with the nearest hero's distance, the rooms between
 /// them on the room graph and whether a line from the robot's eye reaches his: <c>ALERT</c> lines.
 /// Once a second the robots hunting: a bodied robot whose decider is on a hunting leaf (not home,
-/// hold or a medic's follow), and a far robot converging on its pack's contact: a <c>HUNT</c> line
-/// when the set changed.
+/// hold or a medic's follow), and a far robot converging on its pack's contact; the far robots
+/// queued at a door on the way, and how many hunters stand in the first hero's room and in it and
+/// its door neighbours, and the most doors any hunter stands from its home room (the leash's measures,
+/// plan L25): a <c>HUNT</c> line when the set changed.
 /// </summary>
 [SideService(Side.Server)]
 public sealed class HordeAlertWatch(HordeService horde, HordeSession session, IHordeHeroes heroes, ISightWorld world, IHordeClock clock,
@@ -112,7 +114,8 @@ public sealed class HordeAlertWatch(HordeService horde, HordeSession session, IH
     {
         var bodied = new SortedDictionary<int, int>();
         var far = new SortedDictionary<int, int>();
-        int nb = 0, nf = 0;
+        int nb = 0, nf = 0, queued = 0, inRoom = 0, near = 0, fromHome = 0;
+        int heroRoom = heroCount > 0 ? _places[0].Room : -1;
         float farthest = 0f;
         for (int i = 0; i < roster.Count; i++)
         {
@@ -130,9 +133,23 @@ public sealed class HordeAlertWatch(HordeService horde, HordeSession session, IH
                 nf++;
                 far[roster.Room(i)] = far.GetValueOrDefault(roster.Room(i)) + 1;
             }
+            else if (state == RobotState.Far && roster.Activity(i) == FarActivity.Queue)
+            {
+                queued++;
+            }
             else
             {
                 continue;
+            }
+
+            if (roster.HomeRoom(i) is var home and >= 0 && roster.Room(i) is var at and >= 0
+                && c.Level!.Distance(home, at) is var doors and < TF2.Descent.Ai.Level.HordeLevel.Unreachable)
+                fromHome = Math.Max(fromHome, doors);
+            if (Near(c.Level!, roster.Room(i), heroRoom) is var apart and >= 0)
+            {
+                near++;
+                if (apart == 0)
+                    inRoom++;
             }
 
             if (heroCount > 0)
@@ -144,7 +161,17 @@ public sealed class HordeAlertWatch(HordeService horde, HordeSession session, IH
         sb.AppendJoin(' ', bodied.Select(kv => $"{kv.Key}:{kv.Value}"));
         sb.Append(CultureInfo.InvariantCulture, $"], far converging {nf} in {far.Count} rooms [");
         sb.AppendJoin(' ', far.Select(kv => $"{kv.Key}:{kv.Value}"));
-        sb.Append(CultureInfo.InvariantCulture, $"], hero room {(heroCount > 0 ? _places[0].Room : -1)}, farthest {farthest:0}");
+        sb.Append(CultureInfo.InvariantCulture, $"], far queued {queued}, hero room {heroRoom}, farthest {farthest:0}; in his room {inRoom}, in it and its door neighbours {near}; most doors from home {fromHome}");
         return sb.ToString();
+    }
+
+    /// <summary>0 when <paramref name="room"/> is the hero's, 1 when a door joins them, else -1.</summary>
+    private static int Near(TF2.Descent.Ai.Level.HordeLevel level, int room, int heroRoom)
+    {
+        if (room < 0 || heroRoom < 0)
+            return -1;
+        if (room == heroRoom)
+            return 0;
+        return level.DoorBetween(room, heroRoom) >= 0 ? 1 : -1;
     }
 }

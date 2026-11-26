@@ -134,7 +134,8 @@ public sealed class TFKitPlayTests
     {
         IntentCommand At(float distance)
         {
-            var f = new TFField(weapons: Weapons) { Hud = ScoutKit() };
+            // The general play's hands (the Scout's own take the loaded Scattergun out over a Bat out of reach).
+            var f = new TFField(weapons: Weapons, plays: (d, c) => c == TFClass.Scout ? new GeneralScoutPlay(d) : null) { Hud = ScoutKit() };
             return f.Step(TFField.Self(Mid, weapon: Bat, clip: 0, playerClass: TFClass.Scout), TFField.Ctf(),
                           (Enemy, Mid + new AiVector(distance, 0f, 0f), AiVector.Zero, TFField.Blue));
         }
@@ -142,6 +143,9 @@ public sealed class TFKitPlayTests
         IntentCommand far = At(300f), near = At(60f);
         Assert.Equal((ActionKind.None, ActionKind.Fire), (far.Action.Kind, near.Action.Kind));
     }
+
+    /// <summary>A Scout that plays the general play: what the facts on the general hands hold.</summary>
+    private sealed class GeneralScoutPlay(TFDecider d) : TFDecider.ClassPlay(d, TFClass.Scout);
 
     private static readonly ActorId Between = new(6, 0x4000_0001);
 

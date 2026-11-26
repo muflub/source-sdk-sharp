@@ -233,6 +233,17 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
                 if (!ball.RefusesDeflect())
                     Deflect(ball, owner, eye, forward, targetCenter);
             }
+            else if (directory.Get(target) is TFFlare flare)
+            {
+                if (NotOwnTeam(flare.State.TeamNumber, owner))
+                    Deflect(flare, owner, eye, forward, targetCenter);
+            }
+            else if (directory.Get(target) is TFArrow arrow)
+            {
+                // The arrow's team is its owner's (CTFProjectile_Arrow keeps no row of its own here).
+                if (NotOwnTeam(players.GetTeam(players.GetHandle(arrow.OwnerIndex)), owner))
+                    Deflect(arrow, owner, eye, forward, targetCenter);
+            }
             else if (entities.IsPlayer(target))
                 DeflectPlayer(item, target, owner, eye, forward, targetCenter);
         }
@@ -317,6 +328,34 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
         rocket.DeflectBy(owner, direction * entities.GetVelocity(rocket.Handle).Length,
                          conditions.InCond(owner, TFCond.Critboosted));
         log.Msg($"[TF2/Flames] {TFProjectileEntityNames.Rocket} deflected by {owner}\n");
+    }
+
+    /// <summary>
+    /// A flare, through the same <c>DeflectEntity</c> (<c>tf_weaponbase.cpp:6043-6090</c>) and its own <c>Deflected</c>
+    /// (<c>tf_projectile_flare.cpp:589-615</c>): the arc at its old speed, the deflector's team, launcher and ownership, the
+    /// crit under the boost, and the facing.
+    /// </summary>
+    private void Deflect(TFFlare flare, EntityHandle owner, Vector eye, Vector forward, Vector flareCenter)
+    {
+        float speed = entities.GetVelocity(flare.Handle).Length;
+        Vector direction = Arc(flare.Handle, owner, eye, forward, flareCenter);
+        flare.DeflectBy(owner, direction * speed, conditions.InCond(owner, TFCond.Critboosted), players.GetActiveWeapon(owner));
+        entities.SetAngles(flare.Handle, Angles.FromVector(direction));
+        log.Msg($"[TF2/Flames] {TFProjectileEntityNames.Flare} deflected by {owner}\n");
+    }
+
+    /// <summary>
+    /// An arrow, through the same <c>DeflectEntity</c> (<c>tf_weaponbase.cpp:6043-6090</c>) and its own <c>Deflected</c>
+    /// (<c>tf_projectile_arrow.cpp:1149-1180</c>): the arc at its old speed, the deflector's ownership and launcher, the crit
+    /// under the boost, and the facing.
+    /// </summary>
+    private void Deflect(TFArrow arrow, EntityHandle owner, Vector eye, Vector forward, Vector arrowCenter)
+    {
+        float speed = entities.GetVelocity(arrow.Handle).Length;
+        Vector direction = Arc(arrow.Handle, owner, eye, forward, arrowCenter);
+        arrow.DeflectBy(owner, direction * speed, conditions.InCond(owner, TFCond.Critboosted), players.GetActiveWeapon(owner));
+        entities.SetAngles(arrow.Handle, Angles.FromVector(direction));
+        log.Msg($"[TF2/Flames] {TFProjectileEntityNames.Arrow} deflected by {owner}\n");
     }
 
     /// <summary>

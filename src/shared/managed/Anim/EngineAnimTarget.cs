@@ -22,26 +22,27 @@ namespace SourceSharp.Shared.Anim;
 /// LookupSequenceByActivity</c>, <c>ModelDescriptor</c> for the per-sequence
 /// activity and loop flag), the networked <see cref="PlayerNetState"/> for
 /// the movement flags, and everything the <c>SideAuditTests</c> rule keeps
-/// out of shared code — the CLIENT-only arms (pose parameters, dormancy,
+/// out of shared code — the side's arms (pose parameters, dormancy,
 /// <c>SetAnimLayer</c>) and the write the recording branch reaches — as
 /// <see cref="Arms"/> the host passes at construction. <b>No new ABI
 /// surface</b> (phase 0.10's rule): where a side has no arm for something,
 /// the delegate is null and the answer is the honest no-answer the interface
-/// documents — which for the server is exactly what its side's silent
-/// defaults already answered (no dials, never dormant, memory-only layers),
-/// now without the shared assembly leaning on a slot its side never fills.
+/// documents — which for the server is what its side's silent defaults
+/// already answered (never dormant, memory-only layers), without the shared
+/// assembly leaning on a slot its side never fills. The pose dials and the
+/// ground speed are both sides' (the server's skeleton holds and measures
+/// them, plan_descent_logic CR11).
 ///
 /// <para>
 /// <b>Why a delegate box rather than two classes.</b> The sides differ in
 /// which answers are theirs at all — which eyes to trust (the viewer's own
-/// view angles versus the server's replicated eye angles), whether sequence
-/// ground speed can be measured (client-only), where the base sequence's
+/// view angles versus the server's replicated eye angles), where the base sequence's
 /// running cycle comes from (the client's shell clock), how the main
 /// sequence reaches the skeleton (<c>PlaySequence</c> with the shell's
 /// rate/restart on the client; the server's own <c>EntitySetSequence</c>
 /// write, edge-triggered by its host, over there), whether gesture-layer pushes
-/// reach a shell or only this table, and the pose dials and dormancy, which
-/// have no server arm at all (the divergence rows name each). Each is one
+/// reach a shell or only this table, and dormancy, which has no server arm
+/// at all (the divergence rows name each). Each is one
 /// nullable function the host passes; branching on a side flag inside the
 /// machine would be the two-machines bug the class comment of
 /// <see cref="MultiplayerAnimState"/> warns about, and two near-copy
@@ -198,10 +199,8 @@ public sealed class EngineAnimTarget : IAnimTarget
     /// <summary>
     /// The blend the legs run, MEASURED against the model: the 9-way box
     /// when it declares both <c>move_x</c> and <c>move_y</c>, the 8-way
-    /// polar blend otherwise. The client can look both names up; the server
-    /// has no pose-parameter-name arm (divergence row: the server answers
-    /// 8-way, and its pose writes reach no shell anyway until a pose driver
-    /// exists).
+    /// polar blend otherwise, on either side (both look the names up on
+    /// their own skeleton).
     /// </summary>
     public LegAnimType LegAnimType =>
         PoseParameterIndex("move_x") >= 0 && PoseParameterIndex("move_y") >= 0

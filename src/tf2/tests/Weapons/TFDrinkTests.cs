@@ -269,7 +269,7 @@ public sealed class TFDrinkTests
                                                           new NoTFWeaponOwners(), new AttributeHooks(),
                                                           new ProjectileRig.Resupply(), rig.Engine, rig.Engine,
                                                           new ProjectileRig.DirectoryView(), rig.Carriers,
-                                                          DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>()), new RecordingEffectDispatch(), new TFTauntAttackTests.ChargeMeter(), new FakeStats(), new TFTauntAttackTests.RecordingProjectile());
+                                                          DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>(), new TF2.Tests.Rules.ListHooks<TF2.Server.Projectiles.ITFSelfBlastHook>()), new RecordingEffectDispatch(), new TFTauntAttackTests.ChargeMeter(), new FakeStats(), new TFTauntAttackTests.RecordingProjectile());
         attack.Attach(Player);
 
         var world = new TFWeaponWorld(files: WeaponFixtures.WithExtras(WeaponFixtures.Shipped()));
@@ -354,7 +354,7 @@ public sealed class TFDrinkTests
                                                           new NoTFWeaponOwners(), new AttributeHooks(),
                                                           new ProjectileRig.Resupply(), rig.Engine, rig.Engine,
                                                           new ProjectileRig.DirectoryView(), rig.Carriers,
-                                                          DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>()), new RecordingEffectDispatch(), new TFTauntAttackTests.ChargeMeter(), new FakeStats(), new TFTauntAttackTests.RecordingProjectile());
+                                                          DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>(), new TF2.Tests.Rules.ListHooks<TF2.Server.Projectiles.ITFSelfBlastHook>()), new RecordingEffectDispatch(), new TFTauntAttackTests.ChargeMeter(), new FakeStats(), new TFTauntAttackTests.RecordingProjectile());
         attack.Attach(Player);
 
         var world = new TFWeaponWorld(files: WeaponFixtures.WithExtras(WeaponFixtures.Shipped()));

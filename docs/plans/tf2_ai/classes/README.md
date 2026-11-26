@@ -80,9 +80,35 @@ have a global cool down for all bots to not thrash".
   it happened in. A round that restarts straight back to Preround (waiting for players, about 31 s in) is not
   counted (2026-11-21).
 
-## Where it stands, 2026-11-21
+## Where it stands, 2026-11-25
 
-The foundation is in its landing gate. The Scout and Demoman lanes are reviewed and fixed, and wait for the next
-landing. The Heavy is fixed, and its shared applier change is under review. The Spy's `Ready` flag is off until its
-door deadlock and bump cue are fixed. The Soldier, Pyro, Engineer, Medic and Sniper lanes are building. Each
-landing records its numbers in plan_bots_teams_tf2.md.
+All of round 1 and round 2's shared hooks are on main:
+
+| Batch | What landed | main |
+|---|---|---|
+| P7 foundation | class files, kit reads, archetypes, the class pick, the harness | `fba000b8f` |
+| 6 | Scout, Demoman, Heavy | `82333f6ab` |
+| 7 | Soldier, Spy, Medic, Sniper, Engineer; the per-class cap; captures counted | `0c68a93e2` (now `a2f8df8ab` after main's rebuild on GitHub) |
+| 8 | Pyro (the user's airblast tactics, death-pit pushes); S9, S10, S11; S2, S13, S3's sticky sim | `e2b68e996` |
+| 9 | S5, S7, S8; the game gaps (projectile convergence, Huntsman headshot, Steak lock, reflected mini-crits, Heatmaker, Quick-Fix jump share, kill feed names); the jump sim's convergence | `c0479fd35` |
+| 10 | server and client hitboxes agree: pose dials on the server, the networked eye pitch drawn each frame | `b310a2227` |
+| 11 | round 2 wave 2: S1 (the hands in flight: Market Gardener, B.A.S.E. Jumper), S4 (enemy conditions, recording format 12), S14 (CTF guards, defend spots, failed hops); the Engineer (Ready), Medic and Sniper class lanes; grenades fly as stock's (physics bodies, stock's spin, ray and contact rules), the Flying Guillotine, func_nobuild and trigger_hurt read | `597fd806a` |
+
+Ready (the composition fields them): Scout, Soldier, Pyro, Demoman, Heavy, Spy, Engineer. Not ready, playing when
+pinned: Medic, Sniper. Their leftovers and the open game gaps are in [round2.md](round2.md) §3, §5 and §8.
+
+Every round 2 shared hook (S1 to S14) is on main. S12's hurt zones are now read from `trigger_hurt`; granary and
+2fort have none, cp_foundry has four death pits. Round 2's class lanes so far: Engineer, Medic, Sniper (batch 11). Not started: Scout, Soldier,
+Pyro, Demoman, Heavy, Spy.
+
+### More rulings, 2026-11-22
+
+- **User:** "pryos should also use their air blast to push people of objectes, push ubered medics away from the
+  person they are healing and also push people off the cliffs to their death when posible. Pryos should also
+  refelect projectiles and try and guess when they are in bound".
+- **User:** "I would skip friendly ai": no friendly or joke bots.
+- **Coordinator:**
+  - Ready on a noisy map is judged on six runs per arm: the class's median must be no worse than the control's, or
+    within the control's own spread with the other map clearly better.
+  - The Spy is ready with two suspicion refinements moved to round 2.
+  - The Pyro may add the shared hurt-zone sense (S12).

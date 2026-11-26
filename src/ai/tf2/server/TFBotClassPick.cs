@@ -81,8 +81,12 @@ public sealed class TFClassChanges
     }
 }
 
-/// <summary>One bot as the class pick reads it each frame (<see cref="TFBotClassPick.Step"/>): its slot, player, team, asked-for class, life and pin.</summary>
-public readonly record struct TFClassSeat(int Slot, EntityHandle Player, int Team, TFClass Desired, bool Alive, TFBotPin? Pin);
+/// <summary>
+/// One bot as the class pick reads it each frame (<see cref="TFBotClassPick.Step"/>): its slot, player, team, asked-for class,
+/// life and pin, and whether it holds its class (<see cref="TFBotClassPick.HoldsClass"/>: an Engineer with a sentry or a
+/// teleporter exit standing).
+/// </summary>
+public readonly record struct TFClassSeat(int Slot, EntityHandle Player, int Team, TFClass Desired, bool Alive, TFBotPin? Pin, bool HoldsClass = false);
 
 /// <summary>
 /// A TF2 bot picks its class as a player does at the class menu (plan_bots_teams_tf2 C.4, P6 step 7, P7 step 4): on a
@@ -103,7 +107,7 @@ public readonly record struct TFClassSeat(int Slot, EntityHandle Player, int Tea
 [SideService(Side.Server)]
 public sealed class TFBotClassPick(AiBots bots, IEnginePlayers players, TFPlayerCarriers carriers, IBotClientCommand commands, IGameClock clock,
                                    TFBotPins pins, AiBotClassCooldownConVar cooldown, AiBotClassStayConVar stay, AiBotClassesReadyConVar extraReady,
-                                   ITFRoundFacts round, IEngineEnvironment environment)
+                                   ITFRoundFacts round, IEngineEnvironment environment, global::TF2.Server.Buildings.ITFBuildings buildings)
     : IFrameLifecycle, IGameLifecycle
 {
     /// <summary>A refused pick is asked again after this long.</summary>
@@ -169,7 +173,8 @@ public sealed class TFBotClassPick(AiBots bots, IEnginePlayers players, TFPlayer
             if (player == EntityHandle.None)
                 continue;
             TFClass desired = carriers.Part<TFPlayerClass>(player.EntryIndex)?.Desired ?? TFClass.Undefined;
-            _seats.Add(new TFClassSeat(bot.Id.Slot, player, players.GetTeam(player), desired, players.IsAlive(player), pins.Of(bot.Id)));
+            _seats.Add(new TFClassSeat(bot.Id.Slot, player, players.GetTeam(player), desired, players.IsAlive(player), pins.Of(bot.Id),
+                                       HoldsClass(buildings, player, desired)));
         }
 
         CountTeams();
@@ -213,7 +218,7 @@ public sealed class TFBotClassPick(AiBots bots, IEnginePlayers players, TFPlayer
                 continue;
             }
 
-            if (_weighed.GetValueOrDefault(slot))
+            if (_weighed.GetValueOrDefault(slot) || seat.HoldsClass)
                 continue;
             _weighed[slot] = true;
             counts[(int)desired]--;
@@ -271,6 +276,14 @@ public sealed class TFBotClassPick(AiBots bots, IEnginePlayers players, TFPlayer
                 (team == (int)TFTeam.Red ? _red : _blue)[(int)c]++;
         }
     }
+
+    /// <summary>
+    /// Stock's CanChangeClass (tf_bot.cpp:1156-1163), the Engineer's arm: an Engineer with a sentry or a teleporter exit of
+    /// his standing does not change class (the respawn would take them down). Read off the game's buildings by builder.
+    /// </summary>
+    public static bool HoldsClass(global::TF2.Server.Buildings.ITFBuildings buildings, EntityHandle player, TFClass desired)
+        => desired == TFClass.Engineer
+           && (buildings.OwnedBy(player, TFObjectType.Sentrygun, null).Any() || buildings.OwnedBy(player, TFObjectType.Teleporter, 1).Any());
 
     /// <summary>The word a bot that wants <paramref name="playerClass"/> sends: <c>joinclass soldier</c>.</summary>
     public static string Word(TFClass playerClass) => $"{TFJoinClassCommand.Verb} {TFClassNames.Raw(playerClass)}";

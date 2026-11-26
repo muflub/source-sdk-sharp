@@ -202,14 +202,28 @@ public sealed class HeroKitSourceFacts
     }
 
     [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
-    public async Task A_hero_stripped_by_a_death_carries_the_classs_three_stock_weapons()
+    public void A_hero_with_empty_weapon_slots_carries_the_classs_three_stock_weapons()
     {
         // The user, 2026-11-15: "when you die you should be respawned with default weapons".
         var rig = new EquipmentRig();
-        Assert.True(await rig.Ledger.RecordDeath(EquipmentRig.Key, default));
+        rig.Ledger.Replace(rig.Held with { Inventory = new TF2.Descent.Rules.Inventory.HeroInventory() });
         Assert.Empty(rig.Held.Inventory.Equipped);
 
         Assert.Equal(RocketLauncher, rig.Answer(TFLoadoutSlot.Primary).Item!.Defindex);
+        Assert.Equal(SoldierShotgun, rig.Answer(TFLoadoutSlot.Secondary).Item!.Defindex);
+        Assert.Equal(Shovel, rig.Answer(TFLoadoutSlot.Melee).Item!.Defindex);
+    }
+
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public async Task A_hero_after_a_death_carries_the_starting_kits_weapons_as_descent_items()
+    {
+        // The user, 2026-11-22 (plan L26): a death gives the class's starting kit, equipped.
+        var rig = new EquipmentRig();
+        Assert.True(await rig.Ledger.RecordDeath(EquipmentRig.Key, default));
+
+        var primary = rig.Answer(TFLoadoutSlot.Primary).Item!;
+        Assert.Equal(RocketLauncher, primary.Defindex);
+        Assert.Equal((ulong)rig.Held.Inventory.Equipped["primary"].Id, primary.Id);   // a ledger item, not the stock stand-in
         Assert.Equal(SoldierShotgun, rig.Answer(TFLoadoutSlot.Secondary).Item!.Defindex);
         Assert.Equal(Shovel, rig.Answer(TFLoadoutSlot.Melee).Item!.Defindex);
     }

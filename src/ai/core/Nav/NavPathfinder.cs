@@ -37,6 +37,16 @@ public sealed class NavPathfinder
     private int _search;
     private readonly PriorityQueue<int, (float, float, int)> _open = new();
 
+    /// <summary>The cells the last search expanded (its work, for a caller that measures it).</summary>
+    public int LastExpanded { get; private set; }
+
+    /// <summary>
+    /// What the last search knows of the cost when it ended <see cref="PathStatus.OutOfBudget"/>: the least estimate of a
+    /// whole path through any cell it had not yet expanded (g plus the straight line), a lower bound on the cheapest path's
+    /// cost. After a path found it is that path's cost; after no way, infinite.
+    /// </summary>
+    public float LastBound { get; private set; }
+
     /// <summary>
     /// The cells from <paramref name="start"/> to <paramref name="goal"/>,
     /// both included, into <paramref name="path"/> (cleared first), expanding
@@ -65,6 +75,7 @@ public sealed class NavPathfinder
         path.Clear();
         steps?.Clear();
         cost = float.PositiveInfinity;
+        (LastExpanded, LastBound) = (0, float.PositiveInfinity);
         int n = graph.CellCount;
         if (_g.Length != n)
         {
@@ -95,6 +106,7 @@ public sealed class NavPathfinder
             if (cell == goal.Index)
             {
                 cost = _g[cell];
+                LastBound = cost;
                 for (int c = cell; c >= 0; c = _parent[c])
                     path.Add(new CellId(c));
                 path.Reverse();
@@ -108,7 +120,12 @@ public sealed class NavPathfinder
             }
 
             if (++expanded > budget)
+            {
+                (LastExpanded, LastBound) = (expanded - 1, key.F);
                 return PathStatus.OutOfBudget;
+            }
+
+            LastExpanded = expanded;
 
             foreach (NavEdge e in graph.EdgesFrom(cell))
             {

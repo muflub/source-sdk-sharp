@@ -257,6 +257,7 @@ public sealed class HordeBrains : IHordeSightSink
             hero.Room = pose.Room;
             hero.SightScale = pose.SightScale;
             hero.LampReach = pose.LampReach;
+            hero.Beacon = pose.Beacon;
             hero.Veil = pose.Veil;
             hero.SeenAt = now;
         }
@@ -417,6 +418,7 @@ public sealed class HordeBrains : IHordeSightSink
             LostTicks = VisionParams.Ticks(VisionCurves.LostSightSeconds, _tickSeconds),
             Hearing = HordeSkillMap.Extra(_curves, profile, "hearingScale"),
             NavClass = (int)HordeHulls.ClassOf(scale),
+            Scaled = HordeView.Scaled(scale),
         };
         _vision.ForgetBody(b);
         _session.AddBot(actor, _roster.Seed(row), levels, home: HomeOf(row));
@@ -491,7 +493,7 @@ public sealed class HordeBrains : IHordeSightSink
             ref readonly Hero hero = ref _hero[h];
             _targets[h] = hero.Present
                 ? new HeroTarget(true, hero.Eye, hero.Feet + new AiVector(0f, 0f, 0.6f * (hero.Eye.Z - hero.Feet.Z)), hero.Feet, hero.Velocity,
-                                 hero.SightScale * RoomSight(hero.Room), hero.Veil, hero.LampReach * (float)_senses.Sight.LampReachScale)
+                                 hero.SightScale * RoomSight(hero.Room), hero.Veil, (float)_senses.Sight.LampReach(hero.LampReach, hero.Beacon))
                 : default;
         }
 
@@ -856,7 +858,7 @@ public sealed class HordeBrains : IHordeSightSink
             var stats = _roster.Stats(row);
             var self = new SelfState(at, s.Velocity, eye, (int)Math.Ceiling(_roster.Life(row)), (int)Math.Ceiling(stats.Life), s.Family,
                                      _roster.Clip(row), line, SelfFlags.Alive | SelfFlags.Grounded, AltAmmo: epoch, Grenades: s.NavClass,
-                                     Team: RobotTeam, Class: s.Class);
+                                     Team: RobotTeam, Class: s.Class, Metal: s.Scaled);
             PerceivedView view = snap.Add(s.Brain, self);
             for (int h = 0; h < _hero.Length; h++)
             {
@@ -1070,6 +1072,9 @@ public sealed class HordeBrains : IHordeSightSink
 
         /// <summary>The clearance class the robot plans by (<see cref="HordeHulls.ClassOf"/> of its scale).</summary>
         public int NavClass;
+
+        /// <summary>The robot's scale as its view carries it (<see cref="HordeView.Scaled"/>).</summary>
+        public int Scaled;
         public int Pending;
         public ActorId AppliedActor;
         public int AppliedSeq;
@@ -1093,6 +1098,7 @@ public sealed class HordeBrains : IHordeSightSink
         public int Room;
         public float SightScale;
         public float LampReach;
+        public bool Beacon;
         public HeroVeil Veil;
         public long SeenAt;
     }

@@ -17,7 +17,7 @@ public interface ITFLevelEntities
 /// <summary>
 /// The placements a TF2 map makes that its bots know before playing (P6 step 5), read from the
 /// level's own entities as it comes up: the team spawns, the packs, the respawn rooms and the
-/// resupply cabinets, each with its team and, for a brush, its volume; and the capture areas, each
+/// resupply cabinets, the no-build areas and the hurt triggers, each with its team and, for a brush, its volume; and the capture areas, each
 /// with the point it names, and the control points by name (lane Ge). A shipped TF2 map stores its
 /// entity lump LZMA-compressed, which the lump reader (<see cref="MapEntities.Read"/>) cannot
 /// read; the level's entities are the same placements, spawned from it.
@@ -70,6 +70,34 @@ public sealed class TFPlacedEntities(IEntityDirectory directory, IEngineEntities
 
         foreach (FuncRegenerate cabinet in directory.OfClass(FuncRegenerate.MapClass).OfType<FuncRegenerate>())
             all.Add(Brush(FuncRegenerate.MapClass, cabinet.Handle, cabinet.RegenerateVars.TeamNum));
+
+        // The no-build areas, with the team each denies and whether it is on now and which buildings it lets in
+        // (TFMapKnowledge's NoBuild zones).
+        foreach (FuncNoBuild area in directory.OfClass(FuncNoBuild.MapClass).OfType<FuncNoBuild>())
+        {
+            all.Add(Brush(FuncNoBuild.MapClass, area.Handle, area.Team) with
+            {
+                Keys =
+                [
+                    Key("TeamNum", area.Team), Key("StartDisabled", area.Active ? 0 : 1), Key(TFMapKnowledge.AllowSentryKey, area.Vars.AllowSentry ? 1 : 0),
+                    Key(TFMapKnowledge.AllowDispenserKey, area.Vars.AllowDispenser ? 1 : 0), Key(TFMapKnowledge.AllowTeleportersKey, area.Vars.AllowTeleporters ? 1 : 0),
+                ],
+            });
+        }
+
+        // The hurt triggers, with the keys TFMapKnowledge.Kills reads (their damage a second and whether they start off): a lethal
+        // one is a death pit (S12's hurt zones). Read once at the level's start, as the no-build areas are.
+        foreach (TriggerHurt hurt in directory.OfClass(TFMapKnowledge.TriggerHurtClass).OfType<TriggerHurt>())
+        {
+            all.Add(Brush(TFMapKnowledge.TriggerHurtClass, hurt.Handle, 0) with
+            {
+                Keys =
+                [
+                    new(TFMapKnowledge.DamageKey, hurt.TriggerHurtVars.Damage.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                    Key("StartDisabled", hurt.Vars.StartDisabled ? 1 : 0),
+                ],
+            });
+        }
 
         // The capture areas with the point each names, and the points by name: an area whose point the level does not
         // place is a course's end (TFCourseEnds, lane Ge).

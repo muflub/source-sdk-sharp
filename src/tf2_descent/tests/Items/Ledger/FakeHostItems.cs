@@ -22,7 +22,6 @@ internal sealed class FakeHostItems(TF2DescentRules r) : IHostItems
     public const int BuyBackKept = 12;
 
     private readonly Dictionary<(string Hero, int Tier), Queue<string>> _reserve = new();
-    private readonly Dictionary<string, long> _corpseAustralium = new(StringComparer.Ordinal);
     private int _next;
     private ulong _seed;
 
@@ -585,14 +584,31 @@ internal sealed class FakeHostItems(TF2DescentRules r) : IHostItems
         return Task.FromResult(HostResult<IReadOnlyList<HostItem>>.Success([into, from]));
     }
 
+    /// <summary>
+    /// SDK 2.9's death: the carried items move to the corpse, the Australium stays on the character,
+    /// and a softcore character is minted the class's <c>IGameRules.StartingKit</c> in the same write
+    /// (a hardcore one none).
+    /// </summary>
     public Task<bool> RecordDeath(string steamId, Vector position)
     {
         if (Fails("death", steamId))
             return Task.FromResult(false);
         foreach (var item in Owned(HostOwnerKind.Character, steamId).ToList())
             Store(item with { Owner = HostOwnerKind.Corpse, OwnerId = steamId });
-        _corpseAustralium[steamId] = _corpseAustralium.GetValueOrDefault(steamId) + Australium[steamId];
-        Australium[steamId] = 0;
+        var sheet = Sheets[steamId];
+        if (!sheet.Hardcore)
+        {
+            foreach (var kit in ((IGameRules)r).StartingKit(sheet.ClassId, r.SheetCodec.Write(sheet), ++_seed))
+            {
+                var container = kit.Container switch
+                {
+                    ItemContainer.Equipped => HostContainer.Equipped,
+                    ItemContainer.Belt => HostContainer.Belt,
+                    _ => HostContainer.Backpack,
+                };
+                Carry(steamId, r.ItemRules.Codec.Instance(kit.Item), container, kit.Slot);
+            }
+        }
         return Task.FromResult(true);
     }
 
@@ -608,8 +624,6 @@ internal sealed class FakeHostItems(TF2DescentRules r) : IHostItems
             Store(item with { Owner = HostOwnerKind.Character, Slot = slot, Container = HostContainer.Backpack });
             n++;
         }
-        Australium[steamId] += _corpseAustralium.GetValueOrDefault(steamId);
-        _corpseAustralium.Remove(steamId);
         return Task.FromResult(new LootAnswer(true, n, ""));
     }
 }

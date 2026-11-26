@@ -181,6 +181,64 @@ public partial class ServerSkeletonsTests
         Assert.Equal((90f, 0f, 50f), (MathF.Round(head.X, 3), MathF.Round(head.Y, 3), MathF.Round(head.Z, 3)));
     }
 
+    // ---- the ground speed the server's animation state scales its legs by ----
+
+    /// <summary>A walk whose root travels a hundred units over its one second (eleven frames at ten a second).</summary>
+    private static byte[] Walk()
+    {
+        StudioHdrBuilder b = new();
+        b.ModelName = "test/walk.mdl";
+        b.Bones.Add(new StudioHdrBuilder.BoneDef { Name = "root", Parent = -1, Flags = UsedByAnything });
+        var walk = new StudioHdrBuilder.AnimDef { Name = "walk", NumFrames = 11, Fps = 10f };
+        walk.Movements.Add(new StudioHdrBuilder.MovementDef
+        {
+            EndFrame = 10, V0 = 100f, V1 = 100f, Vector = new NVector(1f, 0f, 0f), Position = new NVector(100f, 0f, 0f),
+        });
+        b.Anims.Add(walk);
+        b.Sequences.Add(new StudioHdrBuilder.SeqDef { Label = "walk", AnimTable = [0], Weights = [1f] });
+        return b.Build();
+    }
+
+    /// <summary>
+    /// The server's skeleton measures a sequence's authored speed as the
+    /// client's does (stock's GetSequenceGroundSpeed: the root's travel over
+    /// the duration), so the server's move blend is scaled as stock's server
+    /// scales it; a sequence the model does not have measures nothing.
+    /// </summary>
+    [Fact]
+    public void TheServersSkeletonMeasuresASequencesGroundSpeed()
+    {
+        Rig rig = BodyRig(Walk());
+
+        Assert.Equal((100f, 0f, 0f),
+                     (MathF.Round(rig.Skeletons.SequenceGroundSpeed(Entity, 0), 3), rig.Skeletons.SequenceGroundSpeed(Entity, 1),
+                      rig.Skeletons.SequenceGroundSpeed(Entity, -1)));
+    }
+
+    /// <summary>The server's render binding answers it from the server's skeleton (the path the animation state takes).</summary>
+    [Fact]
+    public void TheServersRenderBindingAnswersTheGroundSpeedFromItsSkeleton()
+    {
+        Rig rig = BodyRig(Walk());
+
+        Assert.Equal(100f, MathF.Round(ServerRender(rig).SequenceGroundSpeed(Entity, 0), 3));
+    }
+
+    /// <summary>The cost report counts each pose ask (cs_sv_bonecost's poseasks), and its reset zeroes them.</summary>
+    [Fact]
+    public void ThePoseAsksAreCountedForTheCostReport()
+    {
+        Rig rig = BodyRig(Walk());
+        int dial = rig.Skeletons.LookupPoseParameter(Entity, "body_pitch");
+        rig.Skeletons.SetPoseParameter(Entity, 0, 1f);
+        rig.Skeletons.GetPoseParameter(Entity, 0);
+        rig.Skeletons.SequenceGroundSpeed(Entity, 0);
+        long counted = rig.Skeletons.PoseAsks;
+        rig.Skeletons.ResetCost();
+
+        Assert.Equal((-1, 4L, 0L), (dial, counted, rig.Skeletons.PoseAsks));
+    }
+
     // ---- what the model declares ---------------------------------------------
 
     [Fact]

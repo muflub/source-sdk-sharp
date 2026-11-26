@@ -202,8 +202,12 @@ public sealed class SkillTable : RowTable<SkillDef>
                 else
                     SkillChecks.LevelFloors(content, errors, t, row.Id, row.LevelFloor, row.MaxRank);
                 ContentChecks.Range(errors, t, row.Id, "maxRank", row.MaxRank, 1, s.SharedMaxRank);
-                if (row.Kind != SkillKind.Upgrade)
-                    errors.Add(t, row.Id, ContentRule.OutOfRange, $"'kind' is {KindName(row.Kind)}: the shared tab holds upgrades only");
+                // The shared tab is passive: upgrades, and toggles that cost nothing (Lamplighter,
+                // the user's ruling L26 of 2026-11-22: a passive the hero switches on and off).
+                if (row.Kind is not (SkillKind.Upgrade or SkillKind.Toggle))
+                    errors.Add(t, row.Id, ContentRule.OutOfRange, $"'kind' is {KindName(row.Kind)}: the shared tab holds upgrades and toggles only");
+                if (row.Kind == SkillKind.Toggle)
+                    SharedToggle(errors, t, row);
             }
             else
             {
@@ -262,6 +266,24 @@ public sealed class SkillTable : RowTable<SkillDef>
             errors.Add(t, row.Id, ContentRule.OutOfRange, $"'requires' is '{req}', not one of {string.Join(", ", Primitives.Requirements)}");
 
         SkillChecks.Effects(content, errors, t, row.Id, row.Effect, row.MaxRank, cast: row.IsCast);
+    }
+
+    /// <summary>A shared-tab toggle is a passive the hero switches: no mana to switch it on, no cooldown, no drain while on.</summary>
+    private static void SharedToggle(ContentErrors errors, string t, SkillDef row)
+    {
+        for (int r = 1; r <= Math.Clamp(row.MaxRank, 1, 100); r++)
+        {
+            if (row.ManaCost.At(r) != 0 || row.Cooldown.At(r) != 0)
+            {
+                errors.Add(t, row.Id, ContentRule.OutOfRange, $"a shared-tab toggle costs no mana and has no cooldown (rank {r})");
+                return;
+            }
+            foreach (var e in row.Effect.Where(e => e.Primitive == Primitive.Toggle && e.At("drain", r) != 0))
+            {
+                errors.Add(t, row.Id, ContentRule.OutOfRange, $"a shared-tab toggle drains no mana: {e.Spec.Name}.drain[{r}] is {e.At("drain", r)}");
+                return;
+            }
+        }
     }
 
     protected override void ValidateTable(DescentContent content, Table<SkillDef> table, ContentErrors errors)

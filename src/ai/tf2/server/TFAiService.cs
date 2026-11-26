@@ -36,6 +36,7 @@ public sealed class TFAiService(ILog log, TFBotGame game, ServerAiSession ai, TF
             line.Append(CultureInfo.InvariantCulture,
                 $": {map.TeamSpawns.Count(s => s.Team == 2)} red and {map.TeamSpawns.Count(s => s.Team == 3)} blue spawns, {map.Items.Length} packs, "
                 + $"{map.TeamZones.Count(z => z.Kind == ZoneKind.RespawnRoom)} respawn rooms, {map.TeamZones.Count(z => z.Kind == ZoneKind.Resupply)} resupply cabinets, "
+                + $"{map.TeamZones.Count(z => z.Kind == ZoneKind.Hurt)} death pits, {map.TeamZones.Count(z => z.Kind == ZoneKind.NoBuild)} no-build areas, "
                 + $"{map.Weapons.All.Length} weapons ({map.Weapons.All.Count(w => w.ProjectileGravity > 0f)} fall, {map.Weapons.All.Count(w => w.ChargeSeconds > 0f)} charge), "
                 + $"{map.Abilities.Count} abilities");
         }

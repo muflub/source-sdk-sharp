@@ -20,6 +20,18 @@ using TF2.Server.Player;
 namespace TF2.Server.Projectiles;
 
 /// <summary>
+/// Told when a player's own blast caught him blast jumping: stock's three jump
+/// flags in <c>CTFPlayer::OnTakeDamage</c> (<c>tf_player.cpp:8921-8922</c>, the
+/// Pyro's at :9797) — a Soldier's or Demoman's own <c>DMG_BLAST</c>, or any of a
+/// Pyro's own damage, caught airborne and dry — asked after the hit's push, so
+/// the player's velocity is the jump's.
+/// </summary>
+public interface ITFSelfBlastHook
+{
+    void SelfBlastJumped(EntityHandle player);
+}
+
+/// <summary>
 /// TF's blast, delivered: the traversal stock runs inside
 /// <c>CTFGameRules::RadiusDamage</c> (<c>tf_gamerules.cpp:5625-5892</c>) with
 /// the numbers <see cref="TFRadiusDamage"/> works out.
@@ -84,6 +96,7 @@ public sealed class TFBlastApplier
     private readonly IEntityDirectory Directory;
     private readonly TFPlayerCarriers Carriers;
     private readonly TFPreroundPushFromDamageEnableConVar PreroundPush;
+    private readonly IHooks<ITFSelfBlastHook> SelfBlastHooks;
 
     /// <summary>TFViewVectors' crouched hull size, the shape a self push folds (:10246-10252).</summary>
     private readonly Vector CrouchHullSize;
@@ -96,7 +109,8 @@ public sealed class TFBlastApplier
                           ITFPlayerResupply health, IEngineGameEvents events,
                           IEngineNetworking networking, IEntityDirectory directory,
                           TFPlayerCarriers carriers,
-                          TFPreroundPushFromDamageEnableConVar preroundPush)
+                          TFPreroundPushFromDamageEnableConVar preroundPush,
+                          IHooks<ITFSelfBlastHook> selfBlastHooks)
     {
         World = world;
         Damage = damage;
@@ -115,6 +129,7 @@ public sealed class TFBlastApplier
         Directory = directory;
         Carriers = carriers;
         PreroundPush = preroundPush;
+        SelfBlastHooks = selfBlastHooks;
         CrouchHullSize = new Vector(TFViewVectors.Params.DuckHullMax.X * 2f,
                                     TFViewVectors.Params.DuckHullMax.Y * 2f,
                                     TFViewVectors.Params.DuckHullMax.Z);
@@ -217,6 +232,7 @@ public sealed class TFBlastApplier
                 float victimDamage = TFRadiusDamage.VictimDamage(active, distance, self, weapon);
                 float forceDamage = victimDamage;
                 float selfPushMult = 1f;
+                bool selfJumping = false;
                 // The self arms are a player's (CTFPlayer::OnTakeDamage's
                 // scale and jump, the player block of
                 // ApplyOnDamageAliveModifyRules, tf_gamerules.cpp:7115): an
@@ -232,6 +248,7 @@ public sealed class TFBlastApplier
                                                  damagedOtherPlayers: selfRadius > 0f && enemiesDamaged > 0,
                                                  Entities.GetIndex(attacker));
                     selfPushMult = Hooks.Float(1f, "mult_dmgself_push_force", item);
+                    selfJumping = SelfBlastJumping(attacker, active.Bits);
                     ClaimBlastJump(attacker, victimDamage, active.Bits, item);
                 }
                 if (victimDamage <= 0f && !(self && forceDamage > 0f))
@@ -269,6 +286,8 @@ public sealed class TFBlastApplier
                 {
                     Push(victim, source, active, forceDamage, self: true, pyroFlareJump: flareJump,
                          selfPushMult: selfPushMult);
+                    if (selfJumping)
+                        SelfBlastJumped(victim);
                 }
                 else if (answered > 0
                          || Directory.Get(victim) is SsPlayer { LastHitDecision: Decision.EventsOnly })
@@ -281,6 +300,8 @@ public sealed class TFBlastApplier
                     }
                     Push(victim, source, active, forceDamage, self: self, pyroFlareJump: flareJump,
                          selfPushMult: selfPushMult);
+                    if (selfJumping)
+                        SelfBlastJumped(victim);
                 }
             }
         }
@@ -329,6 +350,7 @@ public sealed class TFBlastApplier
                     // (their answer is realDamage, :10535; only -1 stops it),
                     // and the push there reads the force damage (:10647-10656):
                     // the Rocket Jumper hurts nothing and throws as hard.
+                    bool selfJumping = player && SelfBlastJumping(attacker, selfBlast.Bits);
                     if (player)
                         ClaimBlastJump(attacker, selfDamage, selfBlast.Bits, item);
                     if (!player && IsBody(attacker))
@@ -351,8 +373,12 @@ public sealed class TFBlastApplier
                         bool hit = delivered
                                    || Directory.Get(attacker) is SsPlayer { LastHitDecision: Decision.EventsOnly };
                         if (hit && forceDamage > 0f)
+                        {
                             Push(attacker, source, selfBlast, forceDamage, self: true, pyroFlareJump: flareJump,
                                  selfPushMult: selfPushMult);
+                            if (selfJumping)
+                                SelfBlastJumped(attacker);
+                        }
                     }
                 }
             }
@@ -468,6 +494,24 @@ public sealed class TFBlastApplier
 
     private bool IsOnGround(EntityHandle player)
         => Networking.EntityGetState(player, out _).HasFlag(EntityState.OnGround);
+
+    /// <summary>
+    /// Stock's jump flags as the hit finds the player, before it lands
+    /// (<c>tf_player.cpp:8921-8922</c>, :9797): airborne and dry, and a
+    /// Soldier's or Demoman's own <c>DMG_BLAST</c> or any of a Pyro's own.
+    /// </summary>
+    private bool SelfBlastJumping(EntityHandle player, DamageType bits)
+    {
+        if (IsOnGround(player) || Directory.Get(player) is SsPlayer { State.WaterLevel: not 0 })
+            return false;
+
+        TFClass cls = Classes.ClassOf(player);
+        return cls == TFClass.Pyro || ((bits & DamageType.Blast) != 0 && cls is TFClass.Soldier or TFClass.Demoman);
+    }
+
+    /// <summary>The jump told to its hooks (<see cref="ITFSelfBlastHook"/>), after the push.</summary>
+    private void SelfBlastJumped(EntityHandle player)
+        => SelfBlastHooks.Each(nameof(ITFSelfBlastHook.SelfBlastJumped), h => h.SelfBlastJumped(player));
 
     /// <summary>
     /// One hit, in the scopes the damage layer reads the weapon, the crit and

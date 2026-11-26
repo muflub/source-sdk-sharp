@@ -245,9 +245,9 @@ public sealed class TFOwnedEntitiesRemovalTests
     /// own facts build it, areas, net states and thinks bound.</summary>
     private static TFCleaver MakeCleaver(ProjectileRig rig, TFBleeds bleeds, EntityHandle handle)
     {
-        var cleaver = new TFCleaver(rig.Engine, rig.Motion, rig.Engine, rig.Engine, rig.HitGroups, rig.Scopes,
+        var cleaver = new TFCleaver(rig.Engine, rig.Engine, rig.Engine, rig.HitGroups, rig.Scopes,
                                     bleeds, rig.Engine, rig.Conditions, rig.Engine, rig.Engine, rig.Engine,
-                                    new SpyGiver());
+                                    new SpyGiver(), rig.Engine, rig.Directory);
         cleaver.Handle = handle;
         cleaver.BindAreas(TestServices.Areas(rig.Engine));
         cleaver.NetStates = NetStateBinding.AttachLocal(cleaver, cleaver.Handle,

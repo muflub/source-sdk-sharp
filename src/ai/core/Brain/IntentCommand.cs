@@ -72,6 +72,13 @@ public enum FireStyle : byte
     Tap = 0,
     Burst,
     Spray,
+
+    /// <summary>
+    /// A second trigger held that is no shot (a minigun's spin, plan_bots_teams_tf2 P7): pressed whatever the view, and kept down
+    /// while a <see cref="ActionKind.Fire"/> waits for the eye; a Spray AltFire (HL2MP's both barrels) is a shot and waits as before.
+    /// A <see cref="ActionKind.Fire"/> takes it as a drawn charge (a bow's draw): kept down whatever the view, its letting go the shot.
+    /// </summary>
+    Hold,
 }
 
 /// <summary>
@@ -186,6 +193,9 @@ public readonly record struct DecisionReason(
 /// <summary>
 /// A brain's output for one bot from one decide tick, valid until
 /// <see cref="ExpiresTick"/> (§2.4: <c>fromTick + 16</c>, about 240 ms).
+/// <see cref="HoldsAtFriend"/>: the brain holds Fire at a teammate on purpose (a Medic's beam, which heals only while held),
+/// said on every decide, one carrying a one-shot too: after a decide that held it, a decide with a one-shot (a voice line, the
+/// pop) that still says so keeps the trigger down; one that does not lets it go (round 2's S9). HL2MP never sets it.
 /// </summary>
 public readonly record struct IntentCommand(
     ActorId Bot,
@@ -196,7 +206,8 @@ public readonly record struct IntentCommand(
     LookIntent Look,
     ActionIntent Action,
     DecisionReason Reason,
-    SayIntent Say = default)
+    SayIntent Say = default,
+    bool HoldsAtFriend = false)
 {
     /// <summary>How many ticks an intent lives (§2.4).</summary>
     public const int LifetimeTicks = 16;

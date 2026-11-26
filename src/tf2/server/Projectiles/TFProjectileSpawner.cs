@@ -85,6 +85,12 @@ public interface ITFProjectileSpawner
     /// than <see cref="TFProjectileSpawn"/> says. Null when the engine refuses.
     /// </summary>
     ScriptedEntity? Born(string className, Vector origin);
+
+    /// <summary>
+    /// <see cref="Born(string, Vector)"/> facing <paramref name="angles"/>: stock's <c>CreateNoSpawn( name, position,
+    /// angles, owner )</c>, which a physics body is made in, so a grenade starts its flight pointing where the throw aimed.
+    /// </summary>
+    ScriptedEntity? Born(string className, Vector origin, Vector angles);
 }
 
 /// <summary>
@@ -213,6 +219,18 @@ public sealed class TFProjectileSpawner(IEngineEntities entities, IEntityDirecto
             return null;
 
         entities.SetOrigin(handle, origin);
+        entities.Spawn(handle);
+        return directory.Get(handle);
+    }
+
+    public ScriptedEntity? Born(string className, Vector origin, Vector angles)
+    {
+        EntityHandle handle = entities.Create(className);
+        if (!entities.IsValid(handle))
+            return null;
+
+        entities.SetOrigin(handle, origin);
+        entities.SetAngles(handle, angles);
         entities.Spawn(handle);
         return directory.Get(handle);
     }

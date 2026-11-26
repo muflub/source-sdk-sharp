@@ -61,6 +61,13 @@ public class PlayerAnimStateDriveTests
                        "EntityRender.SequenceState.duration", "EntityRender.SequenceState.looping",
                        "EntityRender.SequenceState.starts");
 
+        // The model's dials, by name, as the server's skeleton answers them
+        // (ServerSkeletons.LookupPoseParameter); any other name is -1.
+        engine.ReturnsEachCall("EntityRender.LookupPoseParameter",
+                               () => PoseIndex(engine.AllOf("EntityRender.LookupPoseParameter").Last().ArgAs<string>(1)));
+        engine.Ignores("EntityRender.SetPoseParameter", "EntityRender.GetPoseParameter",
+                       "EntityRender.SequenceGroundSpeed");
+
         var models = new ModelDescriptors(_ => 1, _ => Model, new RecordingLog());
         models.AttachSource(new PlayerModel());
 
@@ -78,6 +85,25 @@ public class PlayerAnimStateDriveTests
 
         return (player, engine);
     }
+
+    private const int BodyPitch = 0;
+    private const int BodyYaw = 1;
+    private const int MoveX = 2;
+    private const int MoveY = 3;
+
+    private static int PoseIndex(string name) => name switch
+    {
+        "body_pitch" => BodyPitch,
+        "body_yaw" => BodyYaw,
+        "move_x" => MoveX,
+        "move_y" => MoveY,
+        _ => -1,
+    };
+
+    /// <summary>Every value the machine wrote to one of the server skeleton's dials, in order.</summary>
+    private static List<float> PoseWrites(RecordingEngine engine, int parameter)
+        => engine.AllOf("EntityRender.SetPoseParameter").Where(c => c.ArgAs<int>(1) == parameter)
+                 .Select(c => c.ArgAs<float>(2)).ToList();
 
     private static List<int> SkeletonWrites(RecordingEngine engine)
         => engine.AllOf("EntityRender.SetSequence").Select(c => c.ArgAs<int>(1)).ToList();
@@ -134,6 +160,111 @@ public class PlayerAnimStateDriveTests
         var writes = SkeletonWrites(engine);
         Assert.True(writes.SequenceEqual(new[] { RunSequence, RunSequence }),
             $"the run, then the run again once the skeleton plays 0 ({string.Join(",", writes)})");
+    }
+
+    //-------------------------------------------------------------------------
+    // The pose dials (stock's CMultiPlayerAnimState runs on the server too, and
+    // its SetPoseParameter writes the CBaseAnimating array SetupBones poses the
+    // hitboxes from): the machine's writes reach the server's skeleton.
+    //-------------------------------------------------------------------------
+
+    /// <summary>
+    /// A player looking 40 degrees up has his torso dial at 40 on the server's
+    /// skeleton (ComputePoseParam_AimPitch: body_pitch is the eye pitch
+    /// negated), which the server's hitbox trace poses from: he is hit where
+    /// he is drawn looking up.
+    /// </summary>
+    [Fact]
+    public void TheEyesPitchReachesTheServersBodyPitch()
+    {
+        var (player, engine) = Running();
+        engine.Returns("Entities.GetEyeAngles", new Vector(-40f, 0f, 0f));
+
+        player.UpdateAnimState(10f);
+        player.UpdateAnimState(10.015f);
+
+        var pitch = PoseWrites(engine, BodyPitch);
+        Assert.True(pitch.Count > 0 && pitch[^1] == 40f,
+            $"the server's body_pitch is the eyes' pitch negated ({string.Join(",", pitch)})");
+    }
+
+    /// <summary>
+    /// A player running straight ahead has his leg blend on the server's
+    /// skeleton: move_x forward, move_y level (ComputePoseParam_MoveYaw's
+    /// nine-way arm), scaled by the run's authored speed as the server's
+    /// skeleton measures it.
+    /// </summary>
+    [Fact]
+    public void ARunReachesTheServersLegBlend()
+    {
+        var (player, engine) = Running();
+        engine.Returns("EntityRender.SequenceGroundSpeed", 300f);
+
+        player.UpdateAnimState(10f);
+        player.UpdateAnimState(10.015f);
+
+        var x = PoseWrites(engine, MoveX);
+        var y = PoseWrites(engine, MoveY);
+        Assert.True(x.Count > 0 && MathF.Abs(x[^1] - 1f) < 1e-4f && y.Count > 0 && MathF.Abs(y[^1]) < 1e-4f,
+            $"move_x 1, move_y 0 for a run at the run's own speed (x {string.Join(",", x)}; y {string.Join(",", y)})");
+        Assert.True(engine.AllOf("EntityRender.SequenceGroundSpeed").Any(),
+            "the scale asked the server's skeleton for the run's authored speed");
+    }
+
+    /// <summary>
+    /// The server's torso dial is posed with the body's yaw, as every other
+    /// client draws this player: eyes turned 40 degrees from a body that has
+    /// not turned leave body_yaw at 0 on the server, where posing the eyes
+    /// would twist the server's hitboxes 40 degrees off the drawn body.
+    /// </summary>
+    [Fact]
+    public void TheServersTorsoDialIsPosedWithTheBodysYawAsClientsDrawIt()
+    {
+        var (player, engine) = Running();
+        player.State.Velocity = Vector.Zero;
+        engine.Returns("Entities.GetEyeAngles", new Vector(0f, 40f, 0f));
+        engine.Returns("Entities.GetAngles", Vector.Zero);
+
+        player.UpdateAnimState(10f);
+        player.UpdateAnimState(10.015f);
+        player.UpdateAnimState(10.03f);
+
+        var yaw = PoseWrites(engine, BodyYaw);
+        Assert.True(yaw.Count > 0 && yaw.All(v => v == 0f),
+            $"body_yaw stays 0 with the body unturned ({string.Join(",", yaw)})");
+    }
+
+    /// <summary>
+    /// A class change puts on a model whose dials are in another order (TF's
+    /// scout, heavy and sniper list move_x before move_y; the other six the
+    /// other way round): the machine looks them up again (stock's
+    /// OnNewModel), so a run straight ahead still writes move_x 1 to the new
+    /// model's move_x, not to the dial that was move_x on the old one.
+    /// </summary>
+    [Fact]
+    public void AModelChangeLooksTheLegDialsUpAgain()
+    {
+        var (player, engine) = Running();
+        player.UpdateAnimState(10f);
+        player.UpdateAnimState(10.015f);
+
+        engine.Returns("EntityRender.GetModelName", "models/humans/group03/female_01.mdl");
+        engine.ReturnsEachCall("EntityRender.LookupPoseParameter",
+                               () => engine.AllOf("EntityRender.LookupPoseParameter").Last().ArgAs<string>(1) switch
+                               {
+                                   "move_x" => MoveY,
+                                   "move_y" => MoveX,
+                                   string name => PoseIndex(name),
+                               });
+        int before = engine.AllOf("EntityRender.SetPoseParameter").Count();
+        player.UpdateAnimState(10.03f);
+        player.UpdateAnimState(10.045f);
+
+        var after = engine.AllOf("EntityRender.SetPoseParameter").Skip(before).ToList();
+        float LastAt(int index) => after.Last(c => c.ArgAs<int>(1) == index).ArgAs<float>(2);
+        Assert.True(MathF.Abs(LastAt(MoveY) - 1f) < 1e-4f && MathF.Abs(LastAt(MoveX)) < 1e-4f,
+            $"the new model's move_x (index {MoveY}) reads 1 and its move_y (index {MoveX}) 0 "
+            + $"({LastAt(MoveY)}, {LastAt(MoveX)})");
     }
 
     //-------------------------------------------------------------------------

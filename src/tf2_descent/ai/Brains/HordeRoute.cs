@@ -10,15 +10,24 @@ public interface IHordeRouted
     HordeRoute? Route { get; }
 }
 
-/// <summary>What a decider's routes are planned over: the level (the room route) and its graph's paths, when the server has them.</summary>
-public sealed class HordeRoutes(HordeLevel level, IHordePaths? paths)
+/// <summary>
+/// What a decider's routes are planned over: the level (the room route) and its graph's paths, when
+/// the server has them; and the leash its hunts keep to (<see cref="HordeLeash"/>; none by default).
+/// </summary>
+public sealed class HordeRoutes(HordeLevel level, IHordePaths? paths, HordeLeash leash = default)
 {
     public HordeLevel Level => level;
 
     public IHordePaths? Paths => paths;
 
+    /// <summary>The leash the hunts of these routes' brains keep to.</summary>
+    public HordeLeash Leash => leash;
+
+    /// <summary>The same routes with no leash: a boss's (it holds its arena).</summary>
+    public HordeRoutes Unleashed => leash.Binds ? new(level, paths) : this;
+
     /// <summary>A walker for the brain at <paramref name="slot"/>: its path and where it is along it.</summary>
-    public HordeRoute NewRoute(int slot) => new(level, paths, slot);
+    public HordeRoute NewRoute(int slot) => new(level, paths, slot, leash);
 }
 
 /// <summary>
@@ -87,12 +96,19 @@ public sealed class HordeRoute
     private int _epoch;
     private readonly int _slot;
 
-    public HordeRoute(HordeLevel level, IHordePaths? paths, int slot = 0)
+    public HordeRoute(HordeLevel level, IHordePaths? paths, int slot = 0, HordeLeash leash = default)
     {
         _level = level;
         _paths = paths;
         _slot = slot;
+        Leash = leash;
     }
+
+    /// <summary>The level this walker plans over.</summary>
+    public HordeLevel Level => _level;
+
+    /// <summary>The leash the hunt of the brain walking by it keeps to (<see cref="HordeLeash"/>; none by default).</summary>
+    public HordeLeash Leash { get; }
 
     /// <summary>Whether <paramref name="tick"/> is the brain at <paramref name="slot"/>'s turn to search.</summary>
     public static bool SearchTurn(Tick tick, int slot) => ((long)tick.Value + slot) % SearchEveryTicks == 0;

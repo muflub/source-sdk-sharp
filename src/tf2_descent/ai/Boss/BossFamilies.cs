@@ -28,12 +28,13 @@ public static class BossFamilies
             int fights = HordeWeapons.Of(template.Family);
             if (family == HordeWeapons.None)
                 throw new InvalidOperationException($"boss '{script.Id}' fights with '{template.Attack}', which has no family number");
+            // A boss holds its arena: no leash (plan L25), for its own walk or its family's fight.
             deciders.Register(family, (setup, routes) =>
-                new BossDecider(setup, routes, script, rules.Bosses, deciders.ForFamily(fights, setup), margin));
+                new BossDecider(setup, routes.Unleashed, script, rules.Bosses, deciders.ForFamily(fights, setup, routes.Unleashed), margin));
         }
 
         var tank = settings.Tank;
         int track = HordeWeapons.Of(rules.Robots.Template(tank.Template).Attack);
-        deciders.Register(track, (setup, routes) => new TankDecider(setup, routes, numbers, tank, margin));
+        deciders.Register(track, (setup, routes) => new TankDecider(setup, routes.Unleashed, numbers, tank, margin));
     }
 }

@@ -49,9 +49,10 @@ public class PlayerAnimatorTests
     /// </para>
     /// </summary>
     private static ClientSsPlayer Player(RecordingEngine engine, uint flags = 1u,
-                                         ViewReadout? view = null, AnimStateLayers? layers = null)
+                                         ViewReadout? view = null, AnimStateLayers? layers = null,
+                                         RemotePlayerLooks? looks = null)
     {
-        var player = new ClientSsPlayer(engine, clock: engine, view: view, screen: engine, layers: layers)
+        var player = new ClientSsPlayer(engine, clock: engine, view: view, screen: engine, layers: layers, looks: looks)
         {
             Handle = new EntityHandle(HandleRaw),
         };
@@ -432,6 +433,144 @@ public class PlayerAnimatorTests
 
         Assert.True(bodyYaw.Count >= 1, "the torso dial was written");
         Assert.True(bodyYaw[^1] == 0f, $"and it is zero after the small turn (got {bodyYaw[^1]})");
+    }
+
+    /// <summary>
+    /// A model that changes under a standing player (a class change, no
+    /// re-creation) has its dials looked up again, as the server's player
+    /// does: a run straight ahead writes move_x 1 to the new model's move_x.
+    /// </summary>
+    [Fact]
+    public void AModelChangeLooksTheLegDialsUpAgain()
+    {
+        var engine = Engine(bodyYaw: 0f);
+        var player = Player(engine);
+        player.State.Velocity = new Vector(200f, 0f, 0f);
+        Update(player, DataUpdateType.Created);
+        Update(player);
+
+        engine.Returns("EntityRender.GetModelName", "models/humans/group03/female_01.mdl");
+        Dials(engine, 1, 0, 3, 4, 2, 5);     // move_x and move_y swapped on the new model
+        int before = engine.AllOf("EntityRender.SetPoseParameter").Count();
+        Update(player);
+        Update(player);
+
+        var after = engine.AllOf("EntityRender.SetPoseParameter").Skip(before).ToList();
+        float LastAt(int index) => after.Last(c => c.ArgAs<int>(1) == index).ArgAs<float>(2);
+        Assert.True(MathF.Abs(LastAt(1) - 1f) < 1e-4f && MathF.Abs(LastAt(0)) < 1e-4f,
+            $"the new model's move_x (index 1) reads 1 and its move_y (index 0) 0 ({LastAt(1)}, {LastAt(0)})");
+    }
+
+    private const int BodyPitchDial = 3;   // body_pitch in NineWayDials
+    private const int BodyYawDial = 4;     // body_yaw in NineWayDials
+
+    /// <summary>A remote player (index 1, the viewer is nobody) and the looks his client follows.</summary>
+    private static (ClientSsPlayer Player, RemotePlayerLooks Looks) Looking(RecordingEngine engine, float eyePitch)
+    {
+        var holder = new ClientSsPlayer[1];
+        var looks = new RemotePlayerLooks(new LateOne(holder), engine, BoundedConVarsTests.Started(), engine);
+        var player = new ClientSsPlayer(engine, clock: engine, screen: engine, looks: looks)
+        {
+            Handle = new EntityHandle(HandleRaw),
+        };
+        holder[0] = player;
+        player.BindEngine(engine, engine);
+        player.BindIndex((int)(HandleRaw & 0x7FF));
+        player.State.BindLocal();
+        player.State.MaxSpeed = Cap;
+        player.State.Flags = 1u;
+        player.State.Alive = true;
+        player.State.EyePitch = eyePitch;
+        return (player, looks);
+    }
+
+    /// <summary>The live list the looks walk: the one player under test, filled once he is built.</summary>
+    private sealed class LateOne(ClientSsPlayer[] holder) : IClientStandalones
+    {
+        public IReadOnlyList<ClientStandaloneEntity> Live() => [holder[0]];
+        public ClientStandaloneEntity? GetByIndex(int entityIndex) => entityIndex == holder[0].Index ? holder[0] : null;
+    }
+
+    private static List<float> Dial(RecordingEngine engine, int index) =>
+        engine.AllOf("EntityRender.SetPoseParameter").Where(c => c.ArgAs<int>(1) == index)
+              .Select(c => c.ArgAs<float>(2)).ToList();
+
+    /// <summary>
+    /// A remote player looking 40 degrees up, by the pitch the server networks
+    /// (stock's C_HL2MP_Player / C_TFPlayer::EyeAngles answer m_angEyeAngles
+    /// for a remote player), is drawn with body_pitch 40, as the server's
+    /// skeleton poses his hitboxes; a player the server networks level is
+    /// drawn level.
+    /// </summary>
+    [Fact]
+    public void ARemotePlayerIsDrawnAtThePitchTheServerNetworks()
+    {
+        var up = Engine(bodyYaw: 0f);
+        var (looking, looks) = Looking(up, -40f);
+        var flat = Engine(bodyYaw: 0f);
+        var (level, levelLooks) = Looking(flat, 0f);
+
+        foreach ((ClientSsPlayer player, RemotePlayerLooks follow) in new[] { (looking, looks), (level, levelLooks) })
+        {
+            Update(player, DataUpdateType.Created);
+            Update(player);
+            for (int frame = 0; frame < 4; frame++)
+                follow.ClientThink(0.015f);
+        }
+
+        Assert.True(Dial(up, BodyPitchDial) is { Count: > 0 } u && u[^1] == 40f,
+            $"the networked pitch, negated, is the drawn body_pitch ({string.Join(",", Dial(up, BodyPitchDial))})");
+        Assert.True(Dial(flat, BodyPitchDial) is { Count: > 0 } f && f[^1] == 0f,
+            $"and a level look is drawn level ({string.Join(",", Dial(flat, BodyPitchDial))})");
+    }
+
+    /// <summary>
+    /// A new look shows within the interpolation delay without another decode
+    /// of the player: the decode that carries it reads the history the delay
+    /// in the past (the old look), and the frames after it follow the look
+    /// (stock poses remote players every frame), so a player who stops
+    /// decoding is not left drawn at his last look but one.
+    /// </summary>
+    [Fact]
+    public void ANewLookShowsWithinTheInterpolationDelayWithoutAnotherDecode()
+    {
+        var engine = Engine(bodyYaw: 0f);
+        var (player, looks) = Looking(engine, 0f);
+        Update(player, DataUpdateType.Created);
+        Update(player);
+        for (int frame = 0; frame < 4; frame++)
+            looks.ClientThink(0.015f);
+
+        player.State.EyePitch = -40f;
+        Update(player);                                   // the one decode that carries the new look
+        int decodes = player.Decodes;
+        float atDecode = Dial(engine, BodyPitchDial)[^1];
+        for (int frame = 0; frame < 6; frame++)           // the clock moves 0.05 s an ask: well past 0.1 s
+            looks.ClientThink(0.015f);
+
+        Assert.True(atDecode == 0f, $"the decode itself still draws the old look, the delay in the past ({atDecode})");
+        Assert.True(player.Decodes == decodes && Dial(engine, BodyPitchDial)[^1] == 40f,
+            $"and the frames after it draw the new one with no decode ({Dial(engine, BodyPitchDial)[^1]})");
+    }
+
+    /// <summary>
+    /// A remote player is posed with his body's yaw, not his eyes': the
+    /// client has no eye yaw for him at all (the server networks the pitch
+    /// alone and poses its own torso with the body's yaw too), so a body that
+    /// has not turned draws no torso twist whatever the look.
+    /// </summary>
+    [Fact]
+    public void ARemotePlayersTorsoIsPosedWithHisBodysYaw()
+    {
+        var engine = Engine(bodyYaw: 0f);
+        var (player, looks) = Looking(engine, -40f);
+        Update(player, DataUpdateType.Created);
+        Update(player);
+        for (int frame = 0; frame < 4; frame++)
+            looks.ClientThink(0.015f);
+
+        Assert.True(Dial(engine, BodyYawDial) is { Count: > 0 } yaw && yaw.All(v => v == 0f),
+            $"body_yaw 0 for an unturned body ({string.Join(",", Dial(engine, BodyYawDial))})");
     }
 
     [Fact]

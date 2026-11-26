@@ -52,11 +52,14 @@ public readonly record struct SelfState(
 
 /// <summary>
 /// The conditions a client renders on a player (plan_bots_teams_tf2 C.2), its
-/// own or another's: on fire, stunned, invulnerable, disguised, cloaked, taunting.
-/// A game without them leaves <see cref="None"/>.
+/// own or another's: on fire, stunned, invulnerable, disguised, cloaked, taunting;
+/// and (round 2's S4, recording format 12) soaked in Jarate, in milk, wet, marked
+/// for death, in the air from a blast, scoped. A game without them leaves <see cref="None"/>.
+/// The low byte is format 10's; the bits from <see cref="Jarated"/> up are format 12's
+/// tail (<see cref="PerceivedView.LowConditions"/>).
 /// </summary>
 [Flags]
-public enum ActorConditions : byte
+public enum ActorConditions : ushort
 {
     None = 0,
     Burning = 1 << 0,
@@ -65,6 +68,24 @@ public enum ActorConditions : byte
     Disguised = 1 << 3,
     Cloaked = 1 << 4,
     Taunting = 1 << 5,
+
+    /// <summary>Soaked in Jarate: the drips every client draws on him.</summary>
+    Jarated = 1 << 8,
+
+    /// <summary>Soaked in Mad Milk: its drips.</summary>
+    Milked = 1 << 9,
+
+    /// <summary>Wet as a game's water rule reads it: in the water, or soaked in something a client draws.</summary>
+    Wet = 1 << 10,
+
+    /// <summary>The mark for death drawn over his head.</summary>
+    MarkedForDeath = 1 << 11,
+
+    /// <summary>In the air from a blast: off the ground, out of the water, after an explosion threw him.</summary>
+    BlastAirborne = 1 << 12,
+
+    /// <summary>Looking down a scope: a Sniper zoomed in, slowed, his rifle's dot on what he aims at.</summary>
+    Zoomed = 1 << 13,
 }
 
 /// <summary>What a client renders of another actor's animation.</summary>
@@ -85,7 +106,8 @@ public enum ActorActivity : byte
 /// B.2: in HL2DM the model's team, in TF2 a disguise's), 0 when the mode plays no teams. <see cref="Class"/>
 /// is the class a client renders it as (a disguise's; 0 for a game without classes), <see cref="Conditions"/>
 /// the conditions drawn on it, and <see cref="NameSlot"/> the slot of the player whose name its target ID
-/// shows when that is not its own (a disguise's borrowed name, 0 for its own: plan_bots_teams_tf2 C.3). <see cref="Facing"/>
+/// shows: its own slot, or a disguise's borrowed one (plan_bots_teams_tf2 C.3), so the field reads alike for everyone;
+/// 0 only in a view no builder drew (a recording before format 10). <see cref="Facing"/>
 /// is where it looks, as every client sees a player's head and aim (plan_bots_teams_tf2 P7: a backstab, a dodge across a
 /// line of fire); not recorded, so a replay reads it as default (pitch and yaw 0).
 /// </summary>
@@ -121,6 +143,8 @@ public enum ThingKind : byte
 /// target ID shows, -1 when it shows none (stock shows a building's health only to its own team
 /// and to a Spy). <see cref="Type"/> is the binding's own number for the kind of projectile or
 /// building; <see cref="Id"/> the binding's id for the thing, the same while it lasts.
+/// <see cref="Flags"/> are the binding's own bits for what that client draws on the thing (a
+/// sapper on a building, a teleporter spun up: round 2's S7, S8), 0 for none.
 /// </summary>
 public readonly record struct ThingFacts(
     int Id,
@@ -131,7 +155,8 @@ public readonly record struct ThingFacts(
     int Team,
     int OwnerSlot = 0,
     int Level = 0,
-    int Health = -1);
+    int Health = -1,
+    int Flags = 0);
 
 /// <summary>
 /// One bot's perception at one tick: its own state, and the actors it holds
@@ -207,6 +232,23 @@ public sealed class PerceivedView
         Self = Self with { Team = self };
         for (int i = 0; i < SightedCount && i < sighted.Length; i++)
             _sighted[i] = _sighted[i] with { Team = sighted[i] };
+    }
+
+    /// <summary>The conditions format 10's byte holds; the rest ride format 12's tail.</summary>
+    public const int LowConditions = 0xFF;
+
+    /// <summary>
+    /// Format 12's tail: the conditions past <see cref="LowConditions"/>, the self's and each sighted actor's in
+    /// order, over what format 10's tail set.
+    /// </summary>
+    internal void SetHighConditions(int self, ReadOnlySpan<int> sighted)
+    {
+        Self = Self with { Conditions = (ActorConditions)(((int)Self.Conditions & LowConditions) | (self << 8)) };
+        for (int i = 0; i < SightedCount && i < sighted.Length; i++)
+        {
+            int low = (int)_sighted[i].Conditions & LowConditions;
+            _sighted[i] = _sighted[i] with { Conditions = (ActorConditions)(low | (sighted[i] << 8)) };
+        }
     }
 
     /// <summary>

@@ -72,6 +72,14 @@ public sealed record JumpFlown(JumpPlan Planned, JumpRecipe Recipe, JumpStart La
     /// trigger was pressed, or -1 when it never was (the view was not there in its time, or the jump ended first).
     /// </summary>
     public int SecondAfterShot { get; init; } = -1;
+
+    /// <summary>The commands of the flight that carried something lent to the class's play (round 2's S1): a key, a look or a weapon.</summary>
+    public int Lent { get; init; }
+
+    /// <summary>The commands in the air at which a parachute was lent open, and at which the program closed it; -1 for none.</summary>
+    public int ChuteOpenedAir { get; init; } = -1;
+
+    public int ChuteClosedAir { get; init; } = -1;
 }
 
 /// <summary>
@@ -163,8 +171,11 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
         return (int)MathF.Ceiling((motion.ReactionMs / 1000f + flick + correction) / tickSeconds) + TurnSlackCommands;
     }
 
-    /// <summary>The looks the program asks of the motion: the shot's, then the way it goes; the second shot's between them for a recipe with one.</summary>
-    public const int ShotLook = 1, WayLook = 2, SecondLook = 3;
+    /// <summary>
+    /// The looks the program asks of the motion: the shot's, then the way it goes; the second shot's between them for a recipe with one;
+    /// a look the class's play was lent in flight (round 2's S1).
+    /// </summary>
+    public const int ShotLook = 1, WayLook = 2, SecondLook = 3, LentLook = 4;
 
     /// <summary>Jumps begun, and one-shots that named no plan the book holds; of the jumps begun, those of a link's plan.</summary>
     public long Begun => Interlocked.Read(ref _begun);
@@ -174,6 +185,27 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
     public long LinksBegun => Interlocked.Read(ref _linksBegun);
 
     private long _begun, _unknown, _linksBegun;
+
+    /// <summary>
+    /// What the program lent in flight (round 2's S1, <see cref="JumpHands"/>): commands that carried anything lent, of them those
+    /// with a lent trigger, a lent look and a lent weapon; parachutes a lent press opened and those the program closed.
+    /// </summary>
+    public long LentCommands => Interlocked.Read(ref _lentCommands);
+
+    public long LentAttacks => Interlocked.Read(ref _lentAttacks);
+
+    public long LentLooks => Interlocked.Read(ref _lentLooks);
+
+    public long LentWeapons => Interlocked.Read(ref _lentWeapons);
+
+    public long ChuteOpens => Interlocked.Read(ref _chuteOpens);
+
+    public long ChuteCloses => Interlocked.Read(ref _chuteCloses);
+
+    private long _lentCommands, _lentAttacks, _lentLooks, _lentWeapons, _chuteOpens, _chuteCloses;
+
+    /// <summary>The book the program's plans and the class plays' asks are read from.</summary>
+    internal JumpBook Book => book;
 
     /// <summary>How near the recipe's start a plan that starts standing is placed before it is flown, and how slowly the body must be moving.</summary>
     public const float PlaceSlack = 8f, StillSpeed = 20f;
@@ -225,7 +257,7 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
         if (plan.StartsStanding)
             Interlocked.Increment(ref _linksBegun);
         JumpPilotLimits limits = JumpPilotLimits.Of(TFViewVectors.Params, classes[TFClass.Soldier].MaxSpeed, tickSeconds, motion.TurnPeakDegPerSec);
-        return new Run(plan, limits, motion, flew, approachCommands);
+        return new Run(plan, limits, motion, flew, approachCommands) { Owner = this, Bot = body.Bot, Before = book.HandsAsked(body.Bot) };
     }
 
     /// <summary>One jump under way.</summary>
@@ -250,6 +282,10 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
         private int _feltAfterShot = -1, _secondAfterShot = -1;
         private Vector _leap;
         private Vector? _lastOrigin;
+        private AirAsk? _ask;
+        private AirFlight? _flight;
+        private int _askAge, _pressing, _weaponing = -1, _lent, _chuteOpenedAir = -1, _chuteClosedAir = -1;
+        private bool _sentJump, _ownJumpLast, _chuteOpen, _chuteDeployed;
 
         internal Run(JumpPlan plan, in JumpPilotLimits limits, in MotionParams motion, Action<JumpFlown> flew, int approachMost)
         {
@@ -261,6 +297,19 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
             _tolerance = plan.Recipe.Second is null ? Tolerance(motion) : TightDegrees;
             _flew = flew;
             _recipe = plan.Recipe;
+        }
+
+        /// <summary>The program that began the run, whose book holds the class's asks (<see cref="JumpBook.HandsAsked"/>) and whose counters it adds to; null: nothing is lent.</summary>
+        internal RocketJumpProgram? Owner { get; init; }
+
+        /// <summary>The bot flying it, as the applier says (<see cref="AbilityBody.Bot"/>): its ask is the one lent to.</summary>
+        internal ActorId Bot { get; init; }
+
+        /// <summary>The ask the bot's play had standing when the run began (one a flight before left): never lent, only a fresh one is.</summary>
+        internal AirAsk? Before
+        {
+            get => _ask;
+            init => (_ask, _askAge) = (value, JumpHands.AskStaleCommands + 1);
         }
 
         /// <summary>The recipe as it is being flown: the plan's, its takeoff where the bot launched once it has.</summary>
@@ -289,6 +338,8 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
                 if (Approach(b, shot) is { } command)
                     return command;
                 _launched = true;
+                if (Owner is { } owner && Bot.IsValid)
+                    owner.Book.FlightBegan(_flight = new AirFlight(Bot, _plan));
                 _launch = new JumpStart(b.Origin, b.Velocity, b.View, Ducked: false, OnGround: true);
                 _top = b.Origin.Z;
             }
@@ -313,7 +364,75 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
             Vector second = _recipe.SecondView;
             int look = looks.X == shot.X && looks.Y == shot.Y ? ShotLook
                 : _recipe.Second is not null && looks.X == second.X && looks.Y == second.Y ? SecondLook : WayLook;
-            return new AbilityCommand(new AiAngles(looks.X, looks.Y, 0f), look, new AiVector(step.Wish.X, step.Wish.Y, 0f), step.Command.Buttons);
+            var own = new AbilityCommand(new AiAngles(looks.X, looks.Y, 0f), look, new AiVector(step.Wish.X, step.Wish.Y, 0f), step.Command.Buttons);
+            // In the air once the blast is felt, or once the pilot steers without it (JumpPilot.Step: past BlastWaitCommands after the
+            // trigger a blast that is coming has come), and with the view let go to the way it goes.
+            bool blasted = step.Next.Felt || step.Next.Count - 1 > Math.Max(0, _recipe.ShotDelay) + JumpPilot.BlastWaitCommands;
+            return Lend(own, blasted && step.Next.Airborne && !b.OnGround && look == WayLook);
+        }
+
+        /// <summary>
+        /// The command with what the program lends added (round 2's S1, <see cref="JumpHands"/>): in <paramref name="air"/> (in the air
+        /// after the launch, its blast felt and its triggers let go) the class's ask's held keys, its pressed keys on the first command
+        /// the ask is seen, its look and its weapon, none of the program's own keys (this command's or the last's) among them; outside it
+        /// the program's command alone. A parachute it lent open it closes with its own press for the landing it needs.
+        /// </summary>
+        private AbilityCommand Lend(AbilityCommand own, bool air)
+        {
+            AirAsk? ask = Owner is { } owner && Bot.IsValid ? owner.Book.HandsAsked(Bot) : null;
+            if (ReferenceEquals(ask, _ask))
+                _askAge++;
+            else
+                (_ask, _askAge, _pressing, _weaponing) = (ask, 0, ask?.Press ?? 0, ask?.Weapon ?? -1);
+            int buttons = own.Buttons;
+            bool ownJumpLast = _ownJumpLast;
+            _ownJumpLast = false;
+            if (air && _chuteOpen && _air * _limits.TickSeconds >= _plan.AirSeconds + JumpHands.ChuteKeepSeconds)
+            {
+                // The program's own press: the chute closes, and the bot comes down to its landing.
+                buttons |= GameMovement.InJump;
+                (_chuteOpen, _ownJumpLast, _chuteClosedAir) = (false, true, _air);
+                Interlocked.Increment(ref Owner!._chuteCloses);
+            }
+
+            int mine = buttons | (ownJumpLast ? GameMovement.InJump : 0);
+            AbilityCommand sent = own with { Buttons = buttons };
+            if (air && ask is { Empty: false } && _askAge <= JumpHands.AskStaleCommands)
+            {
+                // A press and a weapon go out once an ask's, on the first command in the air they may.
+                int lent = (ask.Hold | _pressing) & JumpHands.LendKeys & ~mine, weapon = _weaponing;
+                _pressing &= ~lent;
+                _weaponing = -1;
+                sent = sent with { Buttons = buttons | lent, Weapon = weapon >= 0 ? weapon : null };
+                if (ask.Look is { } at)
+                    sent = sent with { View = at, Look = LentLook };
+                if (lent != 0 || weapon >= 0 || ask.Look is not null)
+                {
+                    _lent++;
+                    Interlocked.Increment(ref Owner!._lentCommands);
+                    if ((lent & (GameMovement.InAttack | GameMovement.InAttack2)) != 0)
+                        Interlocked.Increment(ref Owner!._lentAttacks);
+                    if (ask.Look is not null)
+                        Interlocked.Increment(ref Owner!._lentLooks);
+                    if (weapon >= 0)
+                        Interlocked.Increment(ref Owner!._lentWeapons);
+                }
+
+                // A lent press of the jump key, on its edge: the parachute's toggle (stock's ToggleParachute: open, then shut, never open again).
+                if ((lent & GameMovement.InJump) != 0 && !_sentJump)
+                {
+                    if (_chuteOpen)
+                        (_chuteOpen, _chuteClosedAir) = (false, _air);
+                    else if (!_chuteDeployed)
+                    {
+                        (_chuteOpen, _chuteDeployed, _chuteOpenedAir) = (true, true, _air);
+                        Interlocked.Increment(ref Owner!._chuteOpens);
+                    }
+                }
+            }
+
+            _sentJump = (sent.Buttons & GameMovement.InJump) != 0;
+            return sent;
         }
 
         /// <summary>Whether what the body has done since the launch is a flight on a blast: see <see cref="FlownShare"/>.</summary>
@@ -445,10 +564,12 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
             if (!_over)
             {
                 _over = true;
+                if (_flight is { } flight)
+                    Owner!.Book.FlightEnded(flight);
                 _flew(new JumpFlown(_plan, _recipe, _launch, _launched, _slid, _approach - (_launched ? 1 : 0), _air, _pilot.Felt, at, end, _limits.TickSeconds)
                 {
                     Rise = _launched ? _top - _launch.Origin.Z : 0f, Stood = _stood, FeltAfterShot = _feltAfterShot, Leap = _leap,
-                    SecondAfterShot = _secondAfterShot,
+                    SecondAfterShot = _secondAfterShot, Lent = _lent, ChuteOpenedAir = _chuteOpenedAir, ChuteClosedAir = _chuteClosedAir,
                 });
             }
 

@@ -90,7 +90,7 @@ public sealed class JumpLinkCacheTests : IDisposable
         Assert.Equal(none.Length + Revision1Link + 4, one.Length);
         Assert.Equal(0, BitConverter.ToInt32(one, one.Length - 4));
         Assert.Equal(BitConverter.SingleToInt32Bits(35f), BitConverter.ToInt32(one, none.Length + 36));
-        Assert.Equal(3, JumpLinkCache.Revision);
+        Assert.Equal(4, JumpLinkCache.Revision);
     }
 
     [Fact]

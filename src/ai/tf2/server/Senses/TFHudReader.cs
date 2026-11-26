@@ -12,9 +12,10 @@ namespace SourceSharp.Ai.TF2.Senses;
 
 /// <summary>
 /// A reader of meters a TF2 bot's HUD shows (plan_bots_teams_tf2 P7): a class's lane registers one in its own file
-/// (<c>[SideService(Side.Server, As = [typeof(ITFHudMeters)])]</c>) for the meters its class reads (rage, a sticky
-/// count, a sentry's panel), each a <see cref="TFMeter"/> named <c>class.meter</c>. A chain: every reader is asked
-/// for every bot, on the main thread, and adds only what that bot's HUD shows.
+/// (<c>[SideService(Side.Server)]</c>, registered as itself) for the meters its class reads (rage, a sticky count, a
+/// sentry's panel), each a <see cref="TFMeter"/> named <c>class.meter</c>. A chain: every reader is asked for every
+/// bot, on the main thread, and adds only what that bot's HUD shows. Each reader holds its own order
+/// (<c>IOrderedHook</c>, 100 + its class): two at one order make the chain throw on every sense tick.
 /// </summary>
 public interface ITFHudMeters
 {
@@ -36,7 +37,7 @@ public sealed class TFHudRegistrar : ISideServiceRegistrar
 /// (<c>healed.by</c>, the Healer panel and the beam every player sees) and his charge (<c>healed.charge</c>, which his
 /// target ID shows).
 /// </summary>
-[SideService(Side.Server, As = [typeof(ITFHudMeters)])]
+[SideService(Side.Server)]
 public sealed class TFMedigunMeters(ITFMedigunWeapons mediguns, IEngineEnvironment environment) : ITFHudMeters
 {
     public const string Charge = "medic.charge", Releasing = "medic.releasing", Patient = "medic.patient", HealedBy = "healed.by", HealerCharge = "healed.charge";
@@ -68,13 +69,18 @@ public sealed class TFMedigunMeters(ITFMedigunWeapons mediguns, IEngineEnvironme
 /// Builds a TF2 bot's <see cref="TFHud"/> each sense tick (plan_bots_teams_tf2 P7): its kit off its own loadout
 /// (<see cref="ITFOwnKit"/>, kept while the kit's version holds), the meters its HUD shows (the
 /// <see cref="ITFHudMeters"/> chain) and the teammates the HUD shows it (its beam's patient's health; to a Medic, the
-/// callers: <see cref="TFHud.CallingShare"/> within <see cref="TFHud.CallingReach"/>, flagged). The only reader of another
+/// callers: <see cref="TFHud.CallingShare"/> within <see cref="TFHud.CallingReach"/>, flagged; for <c>tf_spawn_glows_duration</c>
+/// after its own respawn, every living teammate's place, <see cref="TFMateSeen.Glowing"/>). The only reader of another
 /// player's health in the AI (TFPerceptionCensusTests holds it); the crosshair's target ID is not read yet. The last HUD is kept per bot and
 /// handed again while nothing on it changed.
+/// <para>The glow read has no view cone (ruled 2026-11-22, the review's S11-2): stock paints every living teammate's
+/// outline on screen whichever way the player looks, so a player who turns sees them all; the read gives the place only,
+/// where stock also draws a name and a health bar (tf_hud_spectator_extras.cpp:232-247), so it stays on the conservative
+/// side of what a player sees.</para>
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFHudReader(ITFOwnKit kits, IHooks<ITFHudMeters> meters, ITFMapPlayers people, IEnginePlayers players, IEngineEntities entities,
-                                IEngineEnvironment environment, ITFActorFacts actors, TFClassTable classes)
+                                IEngineEnvironment environment, ITFActorFacts actors, TFClassTable classes, TFSpecXrayConVar xray)
 {
     private readonly Dictionary<int, (int Version, ImmutableArray<TFKitItem> Kit)> _kits = new();
     private readonly Dictionary<int, TFHud> _last = new();
@@ -123,12 +129,17 @@ public sealed class TFHudReader(ITFOwnKit kits, IHooks<ITFHudMeters> meters, ITF
 
     /// <summary>
     /// The teammates the bot's HUD shows: its beam's patient, with the exact health; to a Medic, every caller
-    /// (<see cref="TFMateSeen.Calling"/>: a flag and a place, no number), the patient not again. A Spy disguised as the
-    /// bot's team is a teammate here, as on stock's HUD.
+    /// (<see cref="TFMateSeen.Calling"/>: a flag and a place, no number), the patient not again; while its own respawn glow
+    /// lasts, every living teammate of its real team (<see cref="TFMateSeen.Glowing"/>: a place, no number). A Spy disguised
+    /// as the bot's team is a teammate here, as on stock's HUD, but does not glow.
     /// </summary>
     private void Mates(EntityHandle bot, TFClass cls, int patient)
     {
         int team = people.Team(bot);
+        // Stock's xray of the team (tf_hud_spectator_extras.cpp:122-135): a living player sees it only while his own
+        // TF_COND_TEAM_GLOWS lasts (his own condition, which his client is sent), with tf_spec_xray on and the client's
+        // tf_enable_glows_after_respawn at its default of 1.
+        bool glows = xray.Value != 0 && people.InCond(bot, TFCond.TeamGlows);
         Vector at = entities.GetOrigin(bot);
         int max = environment.Globals.IsAvailable ? environment.Globals.MaxClients : 0;
         for (int i = 1; i <= max; i++)
@@ -140,18 +151,23 @@ public sealed class TFHudReader(ITFOwnKit kits, IHooks<ITFHudMeters> meters, ITF
                 continue;
             Vector there = entities.GetOrigin(mate);
             var place = new AiVector(there.X, there.Y, there.Z);
+            // Stock force-transmits the glowing player's own team by real team (tf_player.cpp:22887-22891): a Spy shown only
+            // by his disguise is sent only inside the bot's PVS, so he never glows map-wide (the review's S11-1).
+            TFMateSeen glow = glows && people.Team(mate) == team ? TFMateSeen.Glowing : TFMateSeen.None;
             (int health, int most) = HealthShown(mate, i, team);
             if (i == patient)
             {
-                _mates.Add(new TFMateHealth(i, health, most, TFMateSeen.HealTarget, place));
+                _mates.Add(new TFMateHealth(i, health, most, TFMateSeen.HealTarget | glow, place));
                 continue;
             }
 
-            if (cls != TFClass.Medic)
-                continue;
+            TFMateSeen why = glow;
             float dx = there.X - at.X, dy = there.Y - at.Y, dz = there.Z - at.Z;
-            if (most > 0 && health <= TFHud.CallingShare * most && dx * dx + dy * dy + dz * dz <= TFHud.CallingReach * TFHud.CallingReach)
-                _mates.Add(new TFMateHealth(i, -1, -1, TFMateSeen.Calling, place));
+            if (cls == TFClass.Medic && most > 0 && health <= TFHud.CallingShare * most
+                && dx * dx + dy * dy + dz * dz <= TFHud.CallingReach * TFHud.CallingReach)
+                why |= TFMateSeen.Calling;
+            if (why != TFMateSeen.None)
+                _mates.Add(new TFMateHealth(i, -1, -1, why, place));
         }
     }
 
