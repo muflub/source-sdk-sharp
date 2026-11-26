@@ -80,21 +80,24 @@ have a global cool down for all bots to not thrash".
   it happened in. A round that restarts straight back to Preround (waiting for players, about 31 s in) is not
   counted (2026-11-21).
 
-## Where it stands, 2026-11-22
+## Where it stands, 2026-11-23
 
-- **On main:**
-  - the foundation (`fba000b8f`);
-  - the Scout, Demoman and Heavy, ready (landing batch 6, `82333f6ab7`), with the shared fixes they needed: the
-    ready-set facts, the meter readers in the perception census, the meter chain's order census, and three test
-    races found under load.
-- **Reviewed and fixed, for the next landing:**
-  - the Soldier and Spy, ready;
-  - the Medic, Sniper and Engineer, not ready;
-  - the Engineer's branch brings the per-class cap (stock's defence roster) and no class change with a sentry up;
-  - lane `cap`: point and flag captures counted, as stock does.
-- **The Pyro is ready**, and is building the user's airblast tactics with a hurt-zone sense for real cliff kills.
+All of round 1 and round 2's shared hooks are on main:
 
-Round 2 is planned in [round2.md](round2.md), and its shared hook lanes have started.
+| Batch | What landed | main |
+|---|---|---|
+| P7 foundation | class files, kit reads, archetypes, the class pick, the harness | `fba000b8f` |
+| 6 | Scout, Demoman, Heavy | `82333f6ab` |
+| 7 | Soldier, Spy, Medic, Sniper, Engineer; the per-class cap; captures counted | `0c68a93e2` (now `a2f8df8ab` after main's rebuild on GitHub) |
+| 8 | Pyro (the user's airblast tactics, death-pit pushes); S9, S10, S11; S2, S13, S3's sticky sim | `e2b68e996` |
+| 9 | S5, S7, S8; the game gaps (projectile convergence, Huntsman headshot, Steak lock, reflected mini-crits, Heatmaker, Quick-Fix jump share, kill feed names); the jump sim's convergence | `c0479fd35` |
+| 10 | server and client hitboxes agree: pose dials on the server, the networked eye pitch drawn each frame | `b310a2227` |
+
+Ready (the composition fields them): Scout, Soldier, Pyro, Demoman, Heavy, Spy. Not ready, playing when pinned:
+Engineer, Medic, Sniper. Their leftovers and the open game gaps are in [round2.md](round2.md) §3 and §5.
+
+Round 2's hook S4 (enemy conditions in the view, recording format 12), S1 (the hands in flight) and S14 (stuck
+carriers and guards) are not built. Round 2's class lanes have not started.
 
 ### More rulings, 2026-11-22
 

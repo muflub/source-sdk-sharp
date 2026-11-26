@@ -43,8 +43,43 @@ Entries by owner (the file keeps its order; this is the index):
   mod found and this mod still does differently.
 - **TF2 AI, round 2** (the Scout's lane): a Baby Face's Blaster bot's reach by
   its own boost meter.
+- **TF2 AI, round 2** (lane r2s14): two derived jump edges on ctf_2fort no body
+  can take.
 - **Not open work**: the rulings and divergences kept only here, and the
   closed entries still cited, in the last two sections.
+
+## Two derived jump edges on ctf_2fort no body can take (2026-11-24)
+
+At each bridge end the derived graph has a plain Jump two columns along from
+the deck (z 3) to a strip 50 u up, over a column with no floor below the sky's
+cells at z 1536: cells 72837 -> 72834 at the blue end (-168 -856), 114965 ->
+114966 at the red end (168 856) (ctf_2fort.nav3d 7ee026d58b2a, map-tools
+dc1e00abbdb1; the lane r2s14 probe, `NavGraph` cells and edges). Bots
+crouch-jump to z 71 at the column's face and fall back: 15 stuck lines at those
+cells in six base runs of 8 Soldiers (7e79f0290c), a chaser standing 28 s and
+an escort 14 s. The follower now leaves out a face whose jumps up failed twice
+(r2s14, `NavFollower.WatchHop`), per bot and per chain of goals, so each bot
+still learns the trap with two falls. The edge is the derivation's: the near
+moves' two-column step (`NavGraphFromNav3d.cs`, `k == 2`, `OpenOver` /
+`CrossedAbove`) or map-tools' jump links pass a column that is solid to the
+sky. Next step: find which builds the edge, and refuse a two-column jump whose
+middle column holds no open space between the two floors. Owner: the nav
+derivation (src/ai/nav) or map-tools (another repo: ask first).
+
+## A first spawn into a class may read the eye height before the class (2026-11-22)
+
+Every still dev bot reads an eye height of 72 over its feet
+(`cs_sv_model_heights`, lane hb at 238de0835c), TF's VEC_VIEW, not its
+class's (65..75, `TFViewVectors.ClassEyeHeight`); the human Sniper reads 75.
+The spawn asks the class eye height (`ServerModule.SelectSpawnPoint`, after
+stock's `SetViewOffset( GetClassEyeHeight() )`, tf_player.cpp:3733) and
+movement re-applies it each command (`Movement.cs:1376`), so a bot reading 72
+was classless (or had no predicted record) when its spawn asked and has run
+no movement command since: the first spawn into a class likely reads the eye
+height before the class is written (code-read, not run). Any player's eye is
+VEC_VIEW for the first tick in a new class, a commandless bot's for good; it
+does not touch hitboxes, only a still dev bot used as a shooter. Owner: TF2
+player spawn.
 
 ## Depth 13 at seed 1 does not lint clean (2026-11-22)
 
@@ -55,6 +90,18 @@ Entries by owner (the file keeps its order; this is the index):
 after the dresser speedup (PR #43): the old code refuses it identically, and
 every other depth at both seeds lints clean. The facts dress seed 0, so
 nothing holds seed 1. Owner: the Descent map work.
+
+## A bot standing on an enemy's head is not on the ground for its jump program (2026-11-24)
+
+Staged on ss_ai_tf_jump (round 2 lane r2s1, `.scratch/r2s1-stage3-garden` at 5a213e3755): a Soldier's 250 u ledge
+link landed on a Heavy standing by its touch, and the bot stood there ("stuck at (1128 1144 348)": the ledge's 266 and
+the Heavy's 82) while its program counted it in the air: air 2.4 to 7.6 s against the plan's 1.59 s, ending Landed when
+it walked off or Moved when the try teleported it. The program reads the ground from the bot's facts
+(`AbilityBody.OnGround`, `BotSelfFacts.OnGround`), which a player resting on another player's box evidently does not set (the air times say so; not traced); so its
+flight, the hands it lends in the air (round 2's S1) and the jump's tally run on until it steps off. Open: whether the
+game's own ground entity is the player under it (stock's `CGameMovement::CategorizePosition` traces the hull down and takes what it meets),
+and which of the facts or the program should see it. Owner: the game's movement lane,
+then the jump program.
 
 ## A Baby Face's Blaster bot plans the double jump whatever its boost (2026-11-22)
 

@@ -77,6 +77,8 @@ marking `partial` (§3).
 | The Sandman's ball; Crit-a-Cola's mark-for-death on attack | Scout | Scout lane marked 44 and 163 `partial` |
 | No mini-crit on a reflected flare or arrow; rockets and the energy ball turn before they retarget | Pyro | in docs/divergences.md |
 | Captures counted only on payload | every measure | lane `cap`, in progress |
+| A pit or fall death is credited to the world, not to the player who pushed (stock credits the last airblaster) | Pyro env kills | open (the Pyro lane, 2026-11-22) |
+| cp_foundry's nav build refuses it (5.99M leaves, over `ai_nav_build_max_leaves` 4M) | live pit pushes | open |
 | The Quick-Fix does not mirror its patient's blast jump | Medic | open |
 
 Each is a small port with a fact, owned by the class whose game code it is. A shared game base (`CanHolster`, the
