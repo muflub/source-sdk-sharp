@@ -1252,3 +1252,5 @@ src/ai/tf2/server/Classes/TFSoldierPlay.cs	ports CTFBot's soldier rules: the dry
 src/ai/tf2/server/Classes/TFEngineerSpots.cs	ports CTFBotEngineerMoveToBuild::CollectBuildAreas candidate rules (tf_bot_engineer_move_to_build.cpp)
 src/ai/tf2/server/Classes/TFEngineerNest.cs	ports CTFBotEngineerBuilding::Update and UpgradeAndMaintainBuildings order (tf_bot_engineer_building.cpp)
 src/ai/tf2/server/Classes/TFEngineer.cs	ports CTFBotEngineerBuild::ShouldAttack (tf_bot_engineer_build.cpp), CTFBotEngineerBuilding retries, out-of-position and retaliate range (tf_bot_engineer_building.cpp), CTFBot::GetMyControlPoint for an Engineer (tf_bot.cpp)
+src/ai/tf2/server/Classes/TFMedicHeal.cs	ports CTFBotMedicHeal patient choice, IsStable, follow/cover and uber rules (server/tf/bot/behavior/medic/tf_bot_medic_heal.cpp)
+src/ai/tf2/server/Classes/TFMedicTargetId.cs	ports C_TFPlayer::UpdateIDTarget (c_tf_player.cpp) and CTargetID::IsValidIDTarget / UpdateID health rules (tf_hud_target_id.cpp)
