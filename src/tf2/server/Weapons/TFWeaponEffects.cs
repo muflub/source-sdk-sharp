@@ -323,4 +323,12 @@ public sealed class TFWeaponEffects(ITFProjectileEffects projectiles, ITFFlameEf
 
     public void UseRage(in WeaponAttackContext attack, int buffType)
         => buffs.UseRage(attack.Command.OwnerIndex, buffType);
+
+    /// <summary><c>ActivateRageBuff</c>'s case 6 (tf_player_shared.cpp:13788-13789): the Focus's battle cry.</summary>
+    public void FocusBattleCry(in WeaponAttackContext attack)
+    {
+        int owner = attack.Command.OwnerIndex;
+        if (owner > 0)
+            _speech.Speak(owner, TFConceptSpeech.PlayerBattlecry);
+    }
 }

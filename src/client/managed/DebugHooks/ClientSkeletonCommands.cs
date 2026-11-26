@@ -270,4 +270,82 @@ public sealed class ClientSkeletonBatchCommand(ClientSkeletons skeletons, Client
     }
 }
 
+/// <summary>
+/// <c>cs_cl_hitbands &lt;entindex&gt; [from-yaw]</c>: the twin of the server's <c>cs_sv_hitbands</c> over the
+/// client's own skeleton, the one it draws: level lines, one per unit of height over the entity's feet, from 64 u out
+/// at the given world yaw (0 by default) through its origin, each against its hitboxes alone, and each run of heights
+/// in one hit group printed as a band; then where the drawn head bone stands about the feet.
+/// </summary>
+[ConCommand("cs_cl_hitbands",
+    Help = "SourceSharp: the heights over an entity's feet where a level line stops on the client's drawn hitboxes, by hit group -- `<entindex> [from-yaw]`")]
+public sealed class ClientHitBandsCommand(ClientSkeletons skeletons, IClientStandalones standalones, IEngineEntities entities,
+                                          IEngineConsole console)
+{
+    /// <summary><c>MASK_SHOT</c>.</summary>
+    private const int MaskShot = 0x46004003;
+
+    /// <summary>The head bone's name on TF's rig, then on HL2's.</summary>
+    private readonly string[] _headBones = ["bip_head", "ValveBiped.Bip01_Head1"];
+
+    /// <summary>The torso dials on TF's rig, then on HL2DM's.</summary>
+    private readonly string[] _torsoDials = ["body_pitch", "body_yaw", "aim_pitch", "aim_yaw"];
+
+    public void Execute(int entIndex, float fromYaw = 0f)
+    {
+        if (standalones.GetByIndex(entIndex) is not { } standalone)
+        {
+            console.Msg($"[SourceSharp] cs_cl_hitbands: no client entity at {entIndex}\n");
+            return;
+        }
+
+        EntityHandle entity = standalone.Handle;
+        Vector feet = entities.GetOrigin(entity);
+        float radians = fromYaw * MathF.PI / 180f;
+        var toward = new System.Numerics.Vector3(MathF.Cos(radians), MathF.Sin(radians), 0f);
+        var line = new StringBuilder(string.Create(CultureInfo.InvariantCulture,
+            $"[SourceSharp] cl hitbands #{entIndex} {skeletons.StudioName(entity)} from yaw {fromYaw:0.#}:"));
+        string? band = null;
+        int bandFrom = 0;
+        for (int h = 0; h <= 96; h++)
+        {
+            var at = new System.Numerics.Vector3(feet.X, feet.Y, feet.Z + h);
+            var tr = new SourceSharp.Shared.Bones.BoneTrace();
+            bool tested = skeletons.TestHitboxes(entity, at + toward * 64f, at - toward * 64f, MaskShot, tr);
+            string name = !tested ? "untested" : tr.Fraction < 1f ? ((HitGroup)tr.HitGroup).ToString() : "-";
+            if (name != band)
+            {
+                if (band is not null)
+                    line.Append(CultureInfo.InvariantCulture, $" | {band} {bandFrom}..{h - 1}");
+                band = name;
+                bandFrom = h;
+            }
+        }
+
+        line.Append(CultureInfo.InvariantCulture, $" | {band} {bandFrom}..96");
+        // The head bone and the torso dials by the rig's own names: TF's
+        // (bip_head, body_pitch / body_yaw), else HL2's (ValveBiped head,
+        // aim_pitch / aim_yaw); a rig with neither says so.
+        string? headName = _headBones.FirstOrDefault(name => skeletons.LookupBone(entity, name) >= 0);
+        if (headName is not null && skeletons.GetBonePosition(entity, skeletons.LookupBone(entity, headName), out Vector bone))
+            line.Append(CultureInfo.InvariantCulture, $" | {headName} at ({bone.X - feet.X:0.0} {bone.Y - feet.Y:0.0} {bone.Z - feet.Z:0.0})");
+        else
+            line.Append(" | no head bone");
+        skeletons.SequenceState(entity, out int sequence, out float cycle, out _, out _, out _);
+        line.Append(CultureInfo.InvariantCulture, $" | sequence {sequence} cycle {cycle:0.00} yaw {entities.GetAngles(entity).Y:0.0}");
+        bool anyDial = false;
+        foreach (string dial in _torsoDials)
+        {
+            int index = skeletons.LookupPoseParameter(entity, dial);
+            if (index < 0)
+                continue;
+            anyDial = true;
+            line.Append(CultureInfo.InvariantCulture, $" {dial} {skeletons.GetPoseParameter(entity, index):0.#}");
+        }
+
+        if (!anyDial)
+            line.Append(" no torso dials");
+
+        console.Msg(line.Append('\n').ToString());
+    }
+}
 #endif

@@ -1560,8 +1560,11 @@ public sealed class TFSyringe : FlyingProjectile, ITFOwnedProjectile
 /// the bow's shot — a <em>lit</em> arrow carrying the ignite bit and the
 /// flying-burn custom with it (<c>m_bArrowAlight</c>'s arm inside the
 /// non-teammate test, <c>:478-490</c>: <c>DMG_IGNITE</c> ORed onto the damage
-/// type, <c>TF_DMG_CUSTOM_FLYINGBURN</c>). The headshot and crit-bit arms
-/// (:492-501) ride the shot's own crit flag here, as elsewhere in this port.
+/// type, <c>TF_DMG_CUSTOM_FLYINGBURN</c>). The headshot arm (:446-450,
+/// :492-496): the hitbox the arrow struck, read from the touch's forward
+/// trace (:799-808), crits an enemy it hit in the head under the
+/// <c>TF_DMG_CUSTOM_HEADSHOT</c> custom; the crit rides the hit's crit flag
+/// beside the shot's own, as elsewhere in this port.
 /// </summary>
 [ScriptedEntity(TFProjectileEntityNames.Arrow, ScriptedEntityKind.Projectile)]
 public sealed class TFArrow : FlyingProjectile, ITFOwnedProjectile
@@ -1575,6 +1578,8 @@ public sealed class TFArrow : FlyingProjectile, ITFOwnedProjectile
     private readonly IEnginePlayers Players;
     private readonly ITempEnts Temps;
     private readonly IEnginePrecache Precache;
+    private readonly IEngineWorldQuery World;
+    private readonly IEngineFrame Frame;
 
     private float _gravity = TFProjectileDefs.ArrowGravity(0f);
     private TFProjectile _projectile = TFProjectile.Arrow;
@@ -1582,7 +1587,7 @@ public sealed class TFArrow : FlyingProjectile, ITFOwnedProjectile
     public TFArrow(IEngineEntityPhysics physics, EntityMotion motion, IEngineDamage damage,
                    TFDamageScopes scopes, DamageHitGroups hitGroups, IEntityDirectory directory,
                    ITFWeaponOwners owners, AttributeHooks hooks, IEnginePlayers players,
-                   ITempEnts temps, IEnginePrecache precache)
+                   ITempEnts temps, IEnginePrecache precache, IEngineWorldQuery world, IEngineFrame frame)
         : base(physics, motion)
     {
         Damage = damage;
@@ -1594,6 +1599,8 @@ public sealed class TFArrow : FlyingProjectile, ITFOwnedProjectile
         Players = players;
         Temps = temps;
         Precache = precache;
+        World = world;
+        Frame = frame;
     }
 
     protected override float GravityScale => _gravity;
@@ -1689,10 +1696,50 @@ public sealed class TFArrow : FlyingProjectile, ITFOwnedProjectile
             custom = TFDamageCustom.Flyingburn;
         }
 
-        using (HitGroups.Push(HitGroup.Generic, Critical))
+        // The headshot (:446-450, :492-496): a head hitbox on an enemy, from a
+        // scorer's arrow that is not the rescue claw (CanHeadshot, :295-309),
+        // crits under the headshot custom, which takes the flying burn's place.
+        HitGroup group = CanHeadshot ? StruckHitGroup(hit) : HitGroup.Generic;
+        bool headshot = group == HitGroup.Head && CanHeadshot && Entities.IsPlayer(hit)
+                        && Players.GetTeam(hit) != Players.GetTeam(Shooter);
+        if (headshot)
+            custom = TFDamageCustom.Headshot;
+
+        using (HitGroups.Push(group, Critical || headshot))
         using (Scopes.Push(custom, Weapon, WeaponName))
             Damage.TakeDamage(hit, Attribution, ShotDamage, bits);
     }
+
+    /// <summary>
+    /// <c>CanHeadshot</c> (<c>tf_projectile_arrow.cpp:295-309</c>): a scorer's
+    /// arrow, and not the rescue claw (the healing bolts are their own class).
+    /// </summary>
+    private bool CanHeadshot => Entities.IsValid(Shooter) && _projectile != TFProjectile.BuildingRepairBolt;
+
+    /// <summary>
+    /// The touch's hitbox (<c>ArrowTouch</c>, <c>tf_projectile_arrow.cpp:797-808</c>):
+    /// the line from the arrow on along its velocity for a frame, against
+    /// hitboxes; a hit on the struck entity names the box's group. Stock's
+    /// fallback for a line that misses every box, the box nearest the impact
+    /// by bone position (:810-844), has no bone seam here: such a hit is
+    /// generic, a body shot. The line starts a little behind the arrow, which
+    /// the sweep stopped on the box's face.
+    /// </summary>
+    private HitGroup StruckHitGroup(EntityHandle hit)
+    {
+        Vector velocity = Entities.GetVelocity(Handle);
+        if (velocity.LengthSquared <= 0f)
+            return HitGroup.Generic;
+
+        Vector at = Entities.GetOrigin(Handle);
+        Vector start = at - velocity.Normalized * HitboxTraceBackoff;
+        Vector end = at + velocity * Frame.GetFrameTime();
+        SurfaceTraceResult trace = World.TraceLineSurface(start, end, TraceMask.Shot, Handle);
+        return trace.Entity == hit ? trace.HitGroup : HitGroup.Generic;
+    }
+
+    /// <summary>How far behind the stopped arrow the hitbox line starts, in units.</summary>
+    public const float HitboxTraceBackoff = 8f;
 
     /// <summary><c>BuildingHealingArrow</c> (<c>tf_projectile_arrow.cpp:651-688</c>).</summary>
     private void RepairBuilding(EntityHandle hit)

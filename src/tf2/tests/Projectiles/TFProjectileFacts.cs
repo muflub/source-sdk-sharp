@@ -253,7 +253,7 @@ internal sealed class ProjectileRig
     public TFArrow Arrow()
     {
         var arrow = new TFArrow(Engine, Motion, new TF2.Tests.Combat.ScopedDamage(Scopes), Scopes, HitGroups,
-                                Directory, Owners, Hooks, Engine, Temps, Engine);
+                                Directory, Owners, Hooks, Engine, Temps, Engine, Engine, Engine);
         arrow.BindAreas(TestServices.Areas(Engine));
         return BindStates(arrow);
     }

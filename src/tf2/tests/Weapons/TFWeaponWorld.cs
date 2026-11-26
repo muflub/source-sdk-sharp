@@ -176,6 +176,11 @@ internal sealed class RecordingEffects : ITFWeaponEffects
 
     public void DeployBuff(in WeaponAttackContext attack, int buffType) => Buffs.Add((attack.Command.OwnerIndex, buffType));
 
+    /// <summary>How often the Focus's battle cry was asked (<see cref="ITFWeaponEffects.FocusBattleCry"/>).</summary>
+    public int FocusCries;
+
+    public void FocusBattleCry(in WeaponAttackContext attack) => FocusCries++;
+
     public readonly List<(int Owner, int BuffType)> Horns = new();
     public readonly List<(int Owner, int BuffType)> Raises = new();
 

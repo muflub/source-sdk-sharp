@@ -8,6 +8,8 @@
 using SourceSharp.Abi;
 using SourceSharp.Shared;
 
+using TF2.Shared.Player;
+
 namespace TF2.Shared;
 
 /// <summary>
@@ -267,6 +269,49 @@ public class TFSniperRifleBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(par
     {
         HandleZooms(in attack, script);
         UpdateCharge(in attack);
+        FocusPress(in attack);
+    }
+
+    /// <summary><c>k_RageBuffType_Sniper</c> (tf_player_shared.cpp:13866): the Focus's buff type.</summary>
+    public const int FocusBuffType = 6;
+
+    /// <summary>
+    /// Sniper Rage, the Heatmaker's Focus (<c>CTFSniperRifle::ItemPostFrame</c>,
+    /// tf_weapon_sniperrifle.cpp:420-431): reload held with any rage over 1
+    /// lights the held item's <c>set_buff_type</c> through
+    /// <c>ActivateRageBuff</c> (tf_player_shared.cpp:13753-13795) — the Focus
+    /// skips the full-meter gate (:13756), its pulse count is the meter's share
+    /// of the type's ten (:13790, an int scaled by a float), the drain stamp
+    /// goes up (:13794) and <c>SetupRageBuffTimer</c> stamps the slot and pulses
+    /// at once (:13741-13748). Stock asks it every frame the key is down, the
+    /// stamp re-made each time; the drain and the later pulses are the
+    /// player's tick's (<c>TFBuffRageTicker</c>).
+    /// </summary>
+    private void FocusPress(in WeaponAttackContext attack)
+    {
+        int owner = attack.Command.OwnerIndex;
+        if ((attack.Weapon.LastButtons & (int)InputButtons.Reload) == 0 || owner <= 0
+            || Parts.PlayerData.Predicted(owner) is not { } state || !(state.RageMeter > 1f))
+            return;
+
+        int buffType = _attributes.Int(0, TFRageMeter.BuffTypeAttribute, Parts.Owners.ItemOf(owner, attack.Type.Name));
+        if (buffType <= 0)
+            return;
+
+        if (state.RageMeter < TFRageMeter.FullMeter && buffType != FocusBuffType)
+            return;                                                    // :13756
+
+        int pulses = TFRageMeter.BuffPulses;
+        if (buffType == FocusBuffType)
+            pulses = (int)(pulses * (state.RageMeter / TFRageMeter.FullMeter));   // :13790
+        if (attack.EffectsLive && buffType == FocusBuffType)
+            Parts.Effects.FocusBattleCry(in attack);                   // :13789
+
+        state.RageDraining = true;                                     // :13794
+        state.RageBuffType = buffType;                                 // :13743
+        state.RageBuffPulsesLeft = pulses;                             // :13744
+        state.RageBuffNextPulseTime = attack.Now + TFBuffItemBehaviour.PulseInterval;   // :13745
+        Parts.Effects.DeployBuff(in attack, buffType);                 // :13747
     }
 
     /// <summary>The zoom is the rifle's own secondary (<c>CTFSniperRifle</c>'s attack2, tf_weapon_sniperrifle.cpp:479-490), not the class skill; <see cref="ItemPostFrame"/>'s zoom arm runs it.</summary>

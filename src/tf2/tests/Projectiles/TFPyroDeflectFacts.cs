@@ -188,4 +188,34 @@ public class TFPyroDeflectFacts
 
         Assert.Contains(damage.Hits, h => h.Victim == ProjectileRig.Victim);
     }
+
+    /// <summary>
+    /// A flare sent back at the player who fired it strikes him (review 2: the flare's Retarget-then-Steer order, held by no
+    /// fact before): the mover's sweep skips its owner, and the deflect hands it the deflector first.
+    /// </summary>
+    [Fact]
+    public void A_flare_sent_back_strikes_the_player_who_fired_it()
+    {
+        var rig = new ProjectileRig();
+        TFFlare flare = rig.Flare();
+        flare.Handle = ProjectileRig.ProjectileHandle;
+        rig.Directory.Instance = flare;
+        var struck = new TraceResult(true, 0.5f, new Vector(-7.5f, 0f, 0f), new Vector(1f, 0f, 0f), ProjectileRig.Victim);
+        rig.Engine.Returns("Entities.GetParent", EntityHandle.None)
+                  .Returns("Entities.GetOrigin", Vector.Zero)
+                  .ReturnsEachCall("Entities.IsPlayer", () => rig.Engine.Calls[^1].Args[0] is EntityHandle h && h == ProjectileRig.Victim)
+                  .ReturnsEachCall("Players.GetTeam", () => rig.Engine.Calls[^1].Args[0] is EntityHandle h && h == ProjectileRig.Victim ? 3 : 2)
+                  .Returns("WorldQuery.TraceLine", struck)
+                  .Returns("WorldQuery.TraceBox", struck)
+                  .Ignores("Entities.SetOrigin", "Entities.SetVelocity", "Entities.SetAngles");
+
+        rig.MotionDirectory.Bind(ProjectileRig.ProjectileHandle, flare);
+        flare.ArmedBy(30f, TFWeaponId.Flaregun, "tf_weapon_flaregun", critical: false, gravity: 0.3f, ownerIndex: ProjectileRig.Victim.EntryIndex,
+                      flareMode: TFProjectileBehaviour.FlareNormal, team: 3);
+        flare.FiredBy(ProjectileRig.Victim, new Vector(2000f, 0f, 0f));
+        flare.DeflectBy(ProjectileRig.Player, new Vector(-2000f, 0f, 0f), deflectorCritBoosted: false, "tf_weapon_flamethrower");
+        rig.Motion.RunFrame(0.015f);
+
+        Assert.Contains(rig.Engine.Calls, c => c.Member == "Damage.TakeDamage" && c.Args[0] is EntityHandle h && h == ProjectileRig.Victim);
+    }
 }

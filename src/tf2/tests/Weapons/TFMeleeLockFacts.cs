@@ -3,7 +3,9 @@ using SourceSharp.Server;
 using SourceSharp.Shared;
 using SourceSharp.Tests;
 
+using TF2.Server.Player;
 using TF2.Shared;
+using TF2.Tests.Entities.Items;
 
 using Xunit;
 
@@ -80,6 +82,63 @@ public sealed class TFMeleeLockFacts
         Assert.Equal(Fists, rig.Arsenal.ActiveWeaponName(Player));
     }
 
+    /// <summary>
+    /// The steak's taunt ending (<c>OnRemoveTaunting</c>, tf_player_shared.cpp:4062-4069):
+    /// the locked heavy is put to his melee, where the lock then holds him.
+    /// </summary>
+    [Fact]
+    public void TheLockedTauntsEndPutsTheHeavyToHisMelee()
+    {
+        var rig = new SwitchRig();
+        Assert.Equal(SwitchOutcome.Switched, rig.Arsenal.Switch(Player, Shotgun));
+        rig.Locked();
+
+        rig.Hook.OnRemoved(Player, TFCond.Taunting);
+
+        Assert.Equal(Fists, rig.Arsenal.ActiveWeaponName(Player));
+        Assert.Equal(SwitchOutcome.CannotHolster, rig.Arsenal.Switch(Player, Shotgun));
+        Assert.Contains(TFCond.CannotSwitchFromMelee, rig.MapPlayer.Conditions);
+    }
+
+    /// <summary>The control: a taunt ending without the lock leaves the hands as they were.</summary>
+    [Fact]
+    public void AnUnlockedTauntsEndKeepsTheHands()
+    {
+        var rig = new SwitchRig();
+        Assert.Equal(SwitchOutcome.Switched, rig.Arsenal.Switch(Player, Shotgun));
+
+        rig.Hook.OnRemoved(Player, TFCond.Taunting);
+
+        Assert.Equal(Shotgun, rig.Arsenal.ActiveWeaponName(Player));
+    }
+
+    /// <summary>The arm is the taunt's alone: another condition's end under the lock switches nothing.</summary>
+    [Fact]
+    public void AnotherConditionsEndUnderTheLockKeepsTheHands()
+    {
+        var rig = new SwitchRig();
+        Assert.Equal(SwitchOutcome.Switched, rig.Arsenal.Switch(Player, Shotgun));
+        rig.Locked();
+
+        rig.Hook.OnRemoved(Player, TFCond.Zoomed);
+
+        Assert.Equal(Shotgun, rig.Arsenal.ActiveWeaponName(Player));
+    }
+
+    /// <summary>The safety net (:4071-4075): with no melee carried, the buff and the lock go.</summary>
+    [Fact]
+    public void WithNoMeleeTheTauntsEndTakesTheBuffAndTheLock()
+    {
+        var rig = new SwitchRig(fists: false);
+        rig.Locked();
+
+        rig.Hook.OnRemoved(Player, TFCond.Taunting);
+
+        Assert.Equal(Shotgun, rig.Arsenal.ActiveWeaponName(Player));
+        Assert.DoesNotContain(TFCond.CannotSwitchFromMelee, rig.MapPlayer.Conditions);
+        Assert.DoesNotContain(TFCond.EnergyBuff, rig.MapPlayer.Conditions);
+    }
+
     // ---------------------------------------------------------------------
 
     /// <summary>One heavy's carry over the real TF behaviour chain and the arsenal whose switch asks it.</summary>
@@ -93,7 +152,12 @@ public sealed class TFMeleeLockFacts
         private readonly EntityHandle _weapon = new(0x0003_0010u);
         private readonly EntityHandle _viewModel = new(0x0003_0011u);
 
-        public SwitchRig()
+        /// <summary>The hook under test, over the rig's arsenal and the shipped scripts.</summary>
+        public readonly TFSteakMeleeSwitch Hook;
+        public readonly FakeMapPlayers MapPlayers = new();
+        public readonly FakeMapPlayer MapPlayer = new() { Class = TFClass.HeavyWeapons };
+
+        public SwitchRig(bool fists = true)
         {
             var created = new Queue<EntityHandle>([_weapon, _viewModel]);
             Engine = new RecordingEngine()
@@ -121,8 +185,20 @@ public sealed class TFMeleeLockFacts
                                   Registry, Engine, new DamageHitGroups(),
                                   weapons: Weapons.Catalog, ammo: Weapons.Ammo, behaviours: Weapons.Behaviours);
 
-            Assert.True(Arsenal.GiveWeapon(Player, Fists), "the rig's heavy carries the fists");
+            if (fists)
+                Assert.True(Arsenal.GiveWeapon(Player, Fists), "the rig's heavy carries the fists");
             Assert.True(Arsenal.GiveWeapon(Player, Shotgun), "the rig's heavy carries the shotgun");
+
+            MapPlayers.All[Player] = MapPlayer;
+            Hook = new TFSteakMeleeSwitch(MapPlayers, Arsenal, Weapons.Parts.Scripts);
+        }
+
+        /// <summary>The steak's bite (tf_weapon_lunchbox.cpp:399-400): the buff and the lock, on both seams.</summary>
+        public void Locked()
+        {
+            MapPlayers.AddCond(Player, TFCond.EnergyBuff, 16f);
+            MapPlayers.AddCond(Player, TFCond.CannotSwitchFromMelee, 16f);
+            Weapons.Owners.Of(TFWeaponWorld.Owner).Add(TFCond.CannotSwitchFromMelee, 16f);
         }
 
         /// <summary>The fists drawn by a real switch, from the shotgun.</summary>

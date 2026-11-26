@@ -1260,3 +1260,4 @@ src/ai/tf2/server/Classes/TFSpyPlay.cs	ports the TFBot Spy behaviours (tf_bot_sp
 src/ai/tf2/server/Classes/TFPyro.cs	ports CTFBot::GetMaxAttackRange, GetDesiredAttackRange, EquipBestWeaponForThreat's Pyro arm (tf_bot.cpp) and CTFBotAttack::Update's circle strafe (behavior/tf_bot_attack.cpp)
 src/ai/tf2/server/Classes/TFPyro.Airblast.cs	ports CTFBot::ShouldFireCompressionBlast (tf_bot.cpp)
 src/ai/tf2/server/Classes/TFPyro.Shoves.cs	ports CTFBot::ShouldFireCompressionBlast's shove ladder (tf_bot.cpp:4111-4144): the Uber always, the juggle and the pushy draws
+src/tf2/server/Player/TFSteakMeleeSwitch.cs	ports CTFPlayerShared::OnRemoveTaunting's steak arm (tf_player_shared.cpp:4062-4077: the switch to the melee, the safety net)
