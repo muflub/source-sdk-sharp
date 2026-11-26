@@ -120,6 +120,67 @@ public sealed class TFHeavyTests
         Assert.DoesNotContain(fetching, c => c.Action.Kind is ActionKind.Fire or ActionKind.AltFire);
     }
 
+    /// <summary>
+    /// On the way to the flag a gun already spun (an enemy at 500 u) fires on when he steps back to 700 u, inside the reach of
+    /// fire at will: the Heavy pays the spin's speed anyway. The control is the off-band fact: from cold, 800 u, no fire.
+    /// </summary>
+    [Fact]
+    public void OnTheWayToTheFlagASpunGunFiresOnPastTheBand()
+    {
+        TFField f = Field();
+        for (int i = 0; i < 3; i++)
+            f.Step(Heavy(Mid), TFField.Ctf(), At(500f));
+        List<IntentCommand> past = [.. Enumerable.Range(0, 10).Select(_ => f.Step(Heavy(Mid), TFField.Ctf(), At(700f)))];
+        Assert.Equal(TFDecider.Fetch, f.Branch);
+        Assert.Contains(past, c => c.Action.Kind == ActionKind.Fire);
+    }
+
+    /// <summary>
+    /// On the way to the flag a target lost 700 u off (past the band) is not pre-spun for; with no objective (a fight) the same
+    /// lost target is, within the pre-spin's 800 u.
+    /// </summary>
+    [Fact]
+    public void OnTheWayToTheFlagThePreSpinReachesOnlyTheBand()
+    {
+        bool PreSpun(ObjectiveKnowledge? objectives)
+        {
+            TFField f = Field();
+            for (int i = 0; i < 3; i++)
+                f.Step(Heavy(Mid), objectives, At(700f));
+            return Quiet(f, 1f, objectives, none: objectives is null).Any(c => c.Action.Kind == ActionKind.AltFire);
+        }
+
+        Assert.Equal((true, false), (PreSpun(NoObjective), PreSpun(TFField.Ctf())));
+    }
+
+    /// <summary>
+    /// On the way to the flag, hurt by an enemy 800 u off (past the band, inside the reach), the Heavy answers him: he fires.
+    /// The control is the off-band fact, the same enemy unhurt; and a hurt 4 s old is no reason any more.
+    /// </summary>
+    [Fact]
+    public void OnTheWayToTheFlagAHeavyShotAtAnswers()
+    {
+        (List<IntentCommand> Intents, long Answers) Hurt(float secondsAgo)
+        {
+            TFField f = Field();
+            // Five seconds on the way first, so a hurt 4 s ago is a tick of this run.
+            for (int i = 0; i < 5 * StepsPerSecond; i++)
+                f.Step(Heavy(Mid), TFField.Ctf(), At(800f));
+            int at = f.Tick - (int)(secondsAgo / 0.015f);
+            f.Memory.Apply(AiEvent.Damaged(f.Bot, new Tick(at), Enemy, 30f, new AiVector(1f, 0f, 0f), 0));
+            List<IntentCommand> all = [.. Enumerable.Range(0, 8).Select(_ => f.Step(Heavy(Mid), TFField.Ctf(), At(800f)))];
+            Assert.Equal(TFDecider.Fetch, f.Branch);
+            return (all, f.Decider.ClassCounters().Single(c => c.Key == "heavy.travel_hurt_answers").Value);
+        }
+
+        (List<IntentCommand> now, long answers) = Hurt(0f);
+        Assert.Contains(now, c => c.Action.Kind == ActionKind.Fire);
+        Assert.True(answers > 0, "the answers were not counted");
+        (List<IntentCommand> old, long none) = Hurt(4f);
+        Assert.DoesNotContain(old, c => c.Action.Kind == ActionKind.Fire);
+        Assert.Equal(0, none);
+    }
+
     /// <summary>On the way to the flag an enemy inside the band (520 u: the attacker's tree still walks on) is fought.</summary>
     [Fact]
     public void OnTheWayToTheFlagAnEnemyInTheBandIsFought()
@@ -127,7 +188,8 @@ public sealed class TFHeavyTests
         TFField f = Field();
         List<IntentCommand> all = [.. Enumerable.Range(0, 20).Select(_ => f.Step(Heavy(Mid), TFField.Ctf(), At(520f)))];
         Assert.Equal(TFDecider.Fetch, f.Branch);
-        Assert.Contains(all, c => c.Action.Kind == ActionKind.Fire);
+        // From cold, at the first sight: not only once a spin (which a sighting inside the band also holds) has the gun turning.
+        Assert.Equal(ActionKind.Fire, all[0].Action.Kind);
     }
 
     /// <summary>The spin goes to the applier as a Hold (no shot: pressed whatever the view, kept through the Fire's wait), not a Spray shot.</summary>
@@ -139,6 +201,59 @@ public sealed class TFHeavyTests
             f.Step(Heavy(Mid), NoObjective, At(1000f));
         IntentCommand spin = Quiet(f, 1f, none: true)[^1];
         Assert.Equal((ActionKind.AltFire, FireStyle.Hold), (spin.Action.Kind, spin.Action.Style));
+    }
+
+    /// <summary>A Heavy on the points or the escort with a low Aggression (fightDrive 0.3), so an enemy in sight does not win the Fight branch over his walk.</summary>
+    private static TFField Walker(int[]? mates = null)
+        => new(seed: SeedFor(TFHeavyClass.Standard), weapons: Weapons, mates: mates ?? [4], tune: p => p with { GlanceRate = 0f, ScoreNoise = 0f, FightDrive = 0.3f }) { Hud = Kit() };
+
+    private static readonly AiVector PointA = new(1600f, 256f, 0f);
+
+    private static ObjectiveKnowledge PointLevel()
+        => new([new Objective(20, ObjectiveKind.Capture, TFField.Blue, 1 << TFField.Red, ObjectiveState.Open, PointA)]);
+
+    /// <summary>The fire decides of a Heavy at <paramref name="at"/> on the Points stance, an enemy 700 u off (past the band, inside the fire reach), and its branch.</summary>
+    private static (int Fires, string Branch) OnThePoints(AiVector at)
+    {
+        TFField f = Walker();
+        f.Decider.HoldStance(TFStance.Points);
+        int fires = Enumerable.Range(0, 15).Count(_ => f.Step(Heavy(at), PointLevel(), (Enemy, at + new AiVector(0f, 700f, 0f), AiVector.Zero, TFField.Blue)).Action.Kind == ActionKind.Fire);
+        return (fires, f.Branch);
+    }
+
+    /// <summary>
+    /// Walking to a point (600 u short of it) an enemy past the band is not fought; standing on the point the same enemy is: the
+    /// travel rule is for the walk, not for the point, where his spun gun is worth most.
+    /// </summary>
+    [Fact]
+    public void OnTheWayToAPointAnEnemyOffTheBandIsNotFoughtButOnItHeIs()
+    {
+        (int walking, string walkBranch) = OnThePoints(new AiVector(1000f, 256f, 0f));
+        (int standing, string standBranch) = OnThePoints(PointA + new AiVector(20f, 0f, 0f));
+        Assert.Equal((TFDecider.PointsBranch, TFDecider.PointsBranch), (walkBranch, standBranch));
+        Assert.Equal(0, walking);
+        Assert.True(standing > 0, "on the point he did not fire");
+    }
+
+    /// <summary>The fire decides of a Heavy at <paramref name="at"/> escorting a teammate carrying the enemy's flag at <paramref name="carrier"/>, an enemy 700 u off, and its branch.</summary>
+    private static (int Fires, string Branch) Escorting(AiVector at, AiVector carrier)
+    {
+        TFField f = Walker(mates: [4, 6]);
+        ObjectiveKnowledge carried = TFField.Ctf(blue: ObjectiveState.Carried, blueAt: carrier, blueCarrier: 4);
+        int fires = Enumerable.Range(0, 15).Count(_ => f.Step(Heavy(at), carried, (Enemy, at + new AiVector(0f, 700f, 0f), AiVector.Zero, TFField.Blue)).Action.Kind == ActionKind.Fire);
+        return (fires, f.Branch);
+    }
+
+    /// <summary>Walking to the carrier (800 u off) an enemy past the band is not fought; beside the carrier the same enemy is.</summary>
+    [Fact]
+    public void OnTheWayToTheCarrierAnEnemyOffTheBandIsNotFoughtButBesideItHeIs()
+    {
+        var carrier = new AiVector(1200f, 256f, 0f);
+        (int walking, string walkBranch) = Escorting(new AiVector(2000f, 256f, 0f), carrier);
+        (int beside, string besideBranch) = Escorting(carrier + new AiVector(100f, 0f, 0f), carrier);
+        Assert.Equal((TFDecider.Escort, TFDecider.Escort), (walkBranch, besideBranch));
+        Assert.Equal(0, walking);
+        Assert.True(beside > 0, "beside the carrier he did not fire");
     }
 
     /// <summary>A Heavy carrying the flag home holds no spin after a sighting: it hurries at full speed (research §4.3).</summary>
@@ -492,8 +607,8 @@ public sealed class TFHeavyTests
         {
             TFField f = Pinned(archetype);
             for (int i = 0; i < 3; i++)
-                f.Step(Heavy(Mid), TFField.Ctf(), At(1100f));
-            return Quiet(f, 4.5f)[^1].Action.Kind == ActionKind.AltFire;
+                f.Step(Heavy(Mid), NoObjective, At(1100f));
+            return Quiet(f, 4.5f, none: true)[^1].Action.Kind == ActionKind.AltFire;
         }
 
         Assert.Equal((true, false), (SpunAt(TFHeavyClass.Ambusher), SpunAt(TFHeavyClass.Standard)));

@@ -163,6 +163,9 @@ public static class TFHeavyClass
         _ => 0f,
     };
 
+    /// <summary>Hurt by another within this long, with an enemy in sight inside the reach of fire at will, the Heavy answers even on his way to an objective.</summary>
+    public const float HurtAnswerSeconds = 3f;
+
     /// <summary>The share of <see cref="ThreatDanger"/> the target's priority gains.</summary>
     public const float DangerBonus = 0.3f;
 }
@@ -175,6 +178,12 @@ public sealed partial class TFDecider
     /// fired at will inside its falloff, in bursts at slow targets out to <see cref="TFHeavyClass.BurstReach"/>, never past;
     /// never backing off a player; the secondary or the fists when the gun is dry; ammo fetched in a lull; the Sandvich eaten
     /// in a quiet moment, never at full health.
+    /// <para>The spin goes to the applier as <see cref="FireStyle.Hold"/>, which it keeps down while the Fire waits for the eye.
+    /// What still drops it: a switch from one Fire to the next target's. While the gun fires Attack alone is down; the next
+    /// target's Fire waits for the reaction and the flick with neither trigger down, and the minigun winds down 0.2 s after its
+    /// last shot (TFMinigunBehaviour). No generic applier rule can hold Attack2 there, since after an HL2MP Fire it would fire
+    /// an SMG grenade or both barrels; only the decider could, by sending the spin between targets. Live after the applier's
+    /// hold the gun was still idle at 6-8 % of the decides the Heavy wanted it spun (heavy.wanted_idle).</para>
     /// </summary>
     private sealed class HeavyPlay(TFDecider d) : ClassPlay(d, TFClass.HeavyWeapons)
     {
@@ -193,7 +202,7 @@ public sealed partial class TFDecider
         private Tick _heavyDispenserSeen = new(-1_000_000);
 
         private long _spunDecides, _fireDecides, _burstDecides, _heldFire, _sightings, _sightingsSpun, _drySwaps, _ammoTrips, _eats, _eatMisses;
-        private long _chaseDecides, _fireRange, _eatCalledOff, _aimingDecides, _sightingsAiming, _wantedSpun, _wantedIdle, _travelHeld;
+        private long _chaseDecides, _fireRange, _eatCalledOff, _aimingDecides, _sightingsAiming, _wantedSpun, _wantedIdle, _travelHeld, _hurtAnswers;
         private double _moved;
         private AiVector _heavyLastAt;
         private bool _heavyHasLast;
@@ -223,12 +232,42 @@ public sealed partial class TFDecider
         private bool Holding(Senses.TFKitItem? item) => item is not null && item.WeaponKind == D._self.ActiveWeapon;
 
         /// <summary>
-        /// Whether the bot is on its way to an objective (the enemy's flag, a point, the carrier it escorts): then only a target
-        /// within <see cref="TFHeavyClass.BandFar"/> is fought or spun for. Live on ctf_2fort (c387e34e2, 3 runs) the Standard
+        /// Whether the bot is on its way to an objective: the run for the enemy's flag, or walking to a point or to the carrier it
+        /// escorts (not standing on the point, nor beside the carrier: there his spun gun is worth most, review H1, by the tree's
+        /// own stand distances, TFDecider.Points.cs GoPoints and TFDecider.Ctf.cs GoEscort). Then only a target within
+        /// <see cref="TFHeavyClass.BandFar"/> is fought or spun for. Live on ctf_2fort (c387e34e2, 3 runs) the Standard
         /// Heavies on Fetch moved at 165-170 u/s against the Soldiers' 179-185, slower than 120 u/s for 24-27 % of the
         /// seconds against 17-21 %: the gun spun for targets the attacker's tree does not stop for (past 480 u).
         /// </summary>
-        private bool Travelling => D._root.Chosen?.Name is Fetch or PointsBranch or Escort;
+        private bool Travelling => D._root.Chosen?.Name switch
+        {
+            Fetch => true,
+            PointsBranch => D._pointsGoal is { } point && D._self.Origin.DistanceTo(point.Position) >= ArriveUnits + PointStandUnits,
+            Escort => D._enemyFlag is { } flag && D._self.Origin.DistanceTo(flag.Position) >= EscortGap,
+            _ => false,
+        };
+
+        /// <summary>
+        /// The travel rule as it applies this decide: travelling, and not answering fire. Hurt by another in the last
+        /// <see cref="TFHeavyClass.HurtAnswerSeconds"/> (the board's last attack, not a second <c>HurtByAnother</c>, which would eat the
+        /// interrupt's edge) with an enemy in sight inside the reach of fire at will, he fights as off the way (review H4: a person
+        /// shooting from 600 u at a Heavy who never turns; the attacker's tree promises "the hands firing as it goes").
+        /// </summary>
+        private bool TravelHeld
+        {
+            get
+            {
+                if (!Travelling)
+                    return false;
+                Tick hurt = D._memory.Board.LastAttackTick;
+                bool answering = hurt.Value != 0 && Seconds(hurt) <= TFHeavyClass.HurtAnswerSeconds && D._targetSighted && D._targetDist <= Way.FullReach;
+                if (answering && _heavyAnsweredAt != D._now)
+                    (_hurtAnswers, _heavyAnsweredAt) = (_hurtAnswers + 1, D._now);
+                return !answering;
+            }
+        }
+
+        private Tick _heavyAnsweredAt = new(-1);
 
         /// <summary>Whether the bot is on a branch that hurries (the flag home, a heal, the course, an ammo trip): no spin there.</summary>
         private bool Hurrying => D._root.Chosen?.Name is Deliver or Survive or Course or ClassBranch || D.Carrying;
@@ -257,9 +296,11 @@ public sealed partial class TFDecider
                 return;
             }
 
-            if (Travelling && dist > TFHeavyClass.BandFar)
+            if (TravelHeld && dist > TFHeavyClass.BandFar && !_heavySpun)
             {
                 // On the way to the objective a target off the Heavy's band is not fought: the gun spun, he walks at 110 u/s.
+                // A gun already spun (a nearer sighting) fires on at a target inside its reach: he pays the spin's speed anyway
+                // (review H2).
                 D._action = ActionIntent.None;
                 _travelHeld++;
                 return;
@@ -348,7 +389,7 @@ public sealed partial class TFDecider
         /// </summary>
         private bool EnemyInReach()
         {
-            float reach = Travelling ? MathF.Min(Way.FullReach, TFHeavyClass.BandFar) : Way.FullReach;
+            float reach = TravelHeld ? MathF.Min(Way.FullReach, TFHeavyClass.BandFar) : Way.FullReach;
             foreach (ref readonly ActorFacts f in D._view.Sighted)
             {
                 if (!TeamRule.Friends(D._self.Team, f.Team) && D._self.Origin.DistanceTo(f.Origin) <= reach)
@@ -484,7 +525,9 @@ public sealed partial class TFDecider
                 return false;
             if (Seconds(_heavyEnemySeen) <= Way.SpinHold)
                 return true;
-            return D._target is { } t && !D._targetSighted && D._targetDist <= Way.PreSpinReach
+            // On the way to the objective the pre-spin reaches no further than the band, as the spin's own reach (review H3).
+            float preSpin = TravelHeld ? MathF.Min(Way.PreSpinReach, TFHeavyClass.BandFar) : Way.PreSpinReach;
+            return D._target is { } t && !D._targetSighted && D._targetDist <= preSpin
                    && Seconds(t.LastPerceivedTick) <= Way.PreSpinBelief;
         }
 
@@ -631,6 +674,7 @@ public sealed partial class TFDecider
             into.Add(new("heavy.wanted_spun", _wantedSpun));
             into.Add(new("heavy.wanted_idle", _wantedIdle));
             into.Add(new("heavy.travel_held", _travelHeld));
+            into.Add(new("heavy.travel_hurt_answers", _hurtAnswers));
             into.Add(new("heavy.chase_decides", _chaseDecides));
             into.Add(new("heavy.fire_range_sum", _fireRange));
             into.Add(new("heavy.moved_u", (long)_moved));
