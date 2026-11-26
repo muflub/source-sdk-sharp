@@ -14,7 +14,7 @@ namespace SourceSharp.Ai.TF2.Client;
 public sealed class TFBotClasses : IBotClassSource
 {
     /// <summary>Each class a bot plays, by the mod's raw name (TFClassNames.Raw), with its name's token.</summary>
-    public ImmutableArray<(string Raw, string Token)> Playable { get; } = [("scout", "#TF_Class_Name_Scout"), ("soldier", "#TF_Class_Name_Soldier")];
+    public ImmutableArray<(string Raw, string Token)> Playable { get; } = [("scout", "#TF_Class_Name_Scout"), ("soldier", "#TF_Class_Name_Soldier"), ("demoman", "#TF_Class_Name_Demoman")];
 
     public int ClassCount => Playable.Length;
 
