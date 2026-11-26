@@ -40,7 +40,8 @@ public sealed class TFSniperPlayTests
 
     internal static SelfState Me(AiVector at, int weapon = Rifle, bool grounded = true)
     {
-        SelfState s = TFField.Self(at, health: 125, clip: weapon == Smg ? 25 : 0, reserve: 25, weapon: weapon, playerClass: TFClass.Sniper);
+        // A clipless weapon in hand reads -1 live (Arsenal.cs), as the rifle is: not a dry launcher (the review's F3).
+        SelfState s = TFField.Self(at, health: 125, clip: weapon == Smg ? 25 : -1, reserve: 25, weapon: weapon, playerClass: TFClass.Sniper);
         return grounded ? s : s with { Flags = s.Flags & ~SelfFlags.Grounded };
     }
 
@@ -358,7 +359,9 @@ public sealed class TFSniperSpotTests
         Assert.Equal("holding a sight line", f.Decider.Doing.Verdict);
         IntentCommand last = all[^1];
         Assert.Equal((MoveKind.Hold, LookKind.Point), (last.Move.Kind, last.Look.Kind));
-        Assert.Contains(all, i => i.Action.Kind == ActionKind.Ability);
+        // The scope's own row, not any one-shot (the code review's F4: a voice line passed).
+        Assert.Contains(all, i => i.Action.Kind == ActionKind.Ability && f.Memory.World.Map.Abilities.TryGet(AbilityCall.Row(i.Action.WeaponSlot), out AbilityRow row)
+                                  && row.Name == TFSniperClass.Zoom);
     }
 
     private static int FirstLeave(List<IntentCommand> all, TFField f, int from)

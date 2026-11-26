@@ -1,3 +1,10 @@
+//========= Copyright Valve Corporation, All rights reserved. ============//
+//
+// Inspired by and based on the Half-Life 2 Source SDK 2013 by Valve:
+// https://github.com/ValveSoftware/source-sdk-2013
+//
+//=============================================================================//
+
 using System.Collections.Immutable;
 using SourceSharp.Abi;
 using SourceSharp.Ai.TF2.Knowledge;
@@ -77,8 +84,17 @@ public sealed partial class TFDecider
         /// <summary>Stock's ranges: the SMG within, the retreat within, the melee within and its give-up past.</summary>
         public const float SmgRange = 750f, FleeRange = 400f, MeleeRange = 200f, MeleeGiveUp = 250f;
 
-        /// <summary>How near a spot is reached (stock's 25 u, tf_bot_sniper_lurk.cpp:161, widened by a cell's slack).</summary>
-        public const float SpotArrive = 48f;
+        /// <summary>How near a spot is reached on the floor (stock's 25 u, tf_bot_sniper_lurk.cpp:161, widened by a cell's slack), and in height.</summary>
+        public const float SpotArrive = 48f, SpotArriveHeight = 72f;
+
+        /// <summary>A walk to a spot that gets no nearer by this much in this long gives the spot up for the life (ours).</summary>
+        public const float SpotProgressUnits = 64f, SpotWalkPatience = 8f;
+
+        /// <summary>A watched objective is held at least this long before another one moves the spots (ours, the code review's C6).</summary>
+        public const float WatchHoldSeconds = 15f;
+
+        /// <summary>A teammate within this of an own point being taken is on it (twice the points' 256 u stand).</summary>
+        public const float UnattendedReach = 512f;
 
         /// <summary>No enemy seen this long at a spot: another one (stock's patience, tf_bot_sniper_lurk.cpp:29,39, ×U(0.9,1.1)).</summary>
         public const float BoredSeconds = 10f;
@@ -130,6 +146,10 @@ public sealed partial class TFDecider
         private Tick _readAt = new(-1);
 
         // The spot.
+        private readonly Dictionary<(int, int, int, bool), ImmutableArray<TFSniperSpot>> _spotCache = new();
+        private readonly HashSet<int> _givenUp = new();
+        private Tick _watchSince, _walkSince;
+        private float _walkBest = float.PositiveInfinity;
         private ImmutableArray<TFSniperSpot> _spots = [];
         private AiVector _spotsFor;
         private bool _spotsAttack, _spotsMade;
@@ -148,6 +168,9 @@ public sealed partial class TFDecider
         private bool _zoomed;
         private Tick _zoomedAt, _zoomPressAt = new(-100000), _shotAt = new(-100000);
         private Tick _seenKill, _seenAttack;
+        private int _reserveSeen = -1;
+        private Tick _hurtAt = new(-100000);
+        private bool _askedCharged;
         private KnownActor? _held;
         private Tick _heldSince;
 
@@ -157,7 +180,7 @@ public sealed partial class TFDecider
         private AiVector _jarAt;
 
         // Counters.
-        private long _zooms, _scopedShots, _chargedShots, _relocations, _spotDecides, _aliveDecides, _jarThrows, _behind, _smgPicks, _meleePicks;
+        private long _zooms, _rifleShots, _scopedShots, _chargedShots, _relocations, _spotDecides, _aliveDecides, _jarThrows, _behind, _smgPicks, _meleePicks, _smgReloads;
 
         private float Seconds(Tick from) => (D._now - from) * D._tick;
 
@@ -190,6 +213,13 @@ public sealed partial class TFDecider
 
         public override string Name => "Sniper";
 
+        /// <summary>Spot searches run (a watch not searched before this life), spots given up on the walk, decides given to an unattended objective.</summary>
+        public int SpotSearches { get; private set; }
+
+        public int SpotsGivenUp { get; private set; }
+
+        public int YieldedDecides { get; private set; }
+
         // ------------------------------------------------------------------ the decide's reads
 
         /// <summary>Once a decide, before the tree's branch is weighed: the HUD's scope, the kill feed's last kill, a hit, the counters.</summary>
@@ -201,6 +231,27 @@ public sealed partial class TFDecider
             _aliveDecides++;
             if (_atSpot)
                 _spotDecides++;
+            // A shot went when the rifle's own ammunition counter fell, not when the trigger was asked for: the hands hold a fire
+            // through the reaction and the flick of first sight (the code review's C1), so an asked shot is asked again until it goes.
+            if (HoldingRifle)
+            {
+                if (_reserveSeen >= 0 && D._self.Reserve < _reserveSeen)
+                {
+                    _shotAt = D._now;
+                    _rifleShots++;
+                    if (_zoomed)
+                        _scopedShots++;
+                    if (_askedCharged)
+                        _chargedShots++;
+                }
+
+                _reserveSeen = D._self.Reserve;
+            }
+            else
+            {
+                _reserveSeen = -1;
+            }
+
             bool zoomed = (D.Kit?.Meter(TFSniperMeters.Zoomed, 0f) ?? 0f) >= 0.5f;
             if (zoomed && !_zoomed)
                 _zoomedAt = D._now;
@@ -220,15 +271,47 @@ public sealed partial class TFDecider
                     _leaveAt = After(AfterKillLeast + _rng.NextFloat() * (AfterKillMost - AfterKillLeast));
             }
 
-            // Hit by someone it does not see (a Sniper's shot, a far rocket), or by a Sniper it sees: off this line at once.
+            // Hit by someone it does not see (a Sniper's shot, a far rocket), or by a Sniper it sees: off this line at once. The
+            // attacker is the one the HUD names (whose damage on the bot rose), not the bot's target (the code review's C7).
             Tick attack = D._memory.Board.LastAttackTick;
+            bool hitFrom = HitFromRange(out bool named);
             if (attack != _seenAttack)
             {
-                _seenAttack = attack;
-                bool unseen = !D._targetSighted || D._target is { ClassBelieved: (int)TFClass.Sniper };
+                (_seenAttack, _hurtAt) = (attack, D._now);
+                bool unseen = named ? hitFrom : !D._targetSighted || D._target is { ClassBelieved: (int)TFClass.Sniper };
                 if (_atSpot && unseen)
                     Relocate(near: false);
             }
+        }
+
+        private readonly Dictionary<ActorId, float> _takenFrom = new();
+
+        /// <summary>
+        /// Whether the attacker whose damage on the bot rose since the last decide is out of sight or a Sniper; <paramref name="named"/>
+        /// says whether one rose at all (the HUD names the attacker of a hit: the board's <see cref="KnownActor.DamageTakenFrom"/>).
+        /// </summary>
+        private bool HitFromRange(out bool named)
+        {
+            Blackboard board = D._memory.Board;
+            bool far = false;
+            named = false;
+            for (int s = 0; s < board.Slots; s++)
+            {
+                KnownActor a = board.Actor(s);
+                if (!a.Known)
+                    continue;
+                float was = _takenFrom.GetValueOrDefault(a.Id);
+                if (a.DamageTakenFrom > was)
+                {
+                    named = true;
+                    far |= !a.InSight || a.ClassBelieved == (int)TFClass.Sniper;
+                }
+
+                if (a.DamageTakenFrom != was)
+                    _takenFrom[a.Id] = a.DamageTakenFrom;
+            }
+
+            return far;
         }
 
         // ------------------------------------------------------------------ the place
@@ -260,10 +343,11 @@ public sealed partial class TFDecider
             }
 
             // CTF has no stock goal (tf_bot.cpp:2321-2325). The flags lie deep in the bases, past the reach of a line, so the
-            // line is the middle the carriers must cross (2fort's bridge), held from the team's own side in either role.
-            if (D._enemyFlag is { } theirs && D._ownFlag is { } ours)
+            // line is the middle the carriers must cross (2fort's bridge), held from the team's own side in either role: the
+            // middle of the flags' homes, which do not move when a flag is carried or dropped (the code review's C2).
+            if (FlagHomes(out AiVector ourHome, out AiVector theirHome))
             {
-                (watch, attack) = ((theirs.Position + ours.Position) * 0.5f, true);
+                (watch, attack) = ((ourHome + theirHome) * 0.5f, true);
                 return true;
             }
 
@@ -277,6 +361,47 @@ public sealed partial class TFDecider
             }
 
             watch = default;
+            return false;
+        }
+
+        private readonly Dictionary<int, AiVector> _flagHomes = new();
+
+        /// <summary>
+        /// The homes of the bot's flag and the enemy's: where the HUD last showed each at home, else its team's capture zone
+        /// (a flag's home stands by it); false outside CTF.
+        /// </summary>
+        private bool FlagHomes(out AiVector ours, out AiVector theirs)
+        {
+            ours = theirs = default;
+            if (D._view.Objectives is not { } all)
+                return false;
+            int enemy = -1;
+            foreach (Objective o in all.All)
+            {
+                if (o.Kind != ObjectiveKind.Carry)
+                    continue;
+                if (o.State == ObjectiveState.Home)
+                    _flagHomes[o.OwnerTeam] = o.Position;
+                if (o.OwnerTeam != D._self.Team && TeamRule.IsGameTeam(o.OwnerTeam))
+                    enemy = o.OwnerTeam;
+            }
+
+            return enemy >= 0 && HomeOf(all, D._self.Team, out ours) && HomeOf(all, enemy, out theirs);
+        }
+
+        private bool HomeOf(ObjectiveKnowledge all, int team, out AiVector home)
+        {
+            if (_flagHomes.TryGetValue(team, out home))
+                return true;
+            foreach (Objective o in all.All)
+            {
+                if (o.Kind == ObjectiveKind.Deliver && o.OwnerTeam == team)
+                {
+                    home = o.Position;
+                    return true;
+                }
+            }
+
             return false;
         }
 
@@ -298,13 +423,24 @@ public sealed partial class TFDecider
         {
             if (!Watched(out AiVector watch, out bool attack))
                 return null;
-            if (!_spotsMade || attack != _spotsAttack || watch.DistanceTo(_spotsFor) > 256f)
+            bool moved = !_spotsMade || attack != _spotsAttack || watch.DistanceTo(_spotsFor) > 256f;
+            // A watch is held a while (the code review's C6): an enemy seen on an own point flips the points' goal and back, and
+            // each flip used to throw the spot away.
+            if (moved && (!_spotsMade || Seconds(_watchSince) >= WatchHoldSeconds))
             {
-                int other = D._self.Team == (int)TFTeam.Red ? (int)TFTeam.Blue : (int)TFTeam.Red;
-                _spots = TFSniperSpots.Find(D._graph, D._memory.World.Sight, D._memory.World.Chokes?.Map, watch, OwnSpawn(), attack,
-                                            at => D.InEnemyRoom(at, other), D._self.Origin);
-                (_spotsFor, _spotsAttack, _spotsMade) = (watch, attack, true);
-                _spotPick = _spots.IsEmpty ? -1 : (D._bot.Slot + _rng.NextInt(2)) % _spots.Length;
+                var key = ((int)MathF.Round(watch.X / 128f), (int)MathF.Round(watch.Y / 128f), (int)MathF.Round(watch.Z / 128f), attack);
+                if (!_spotCache.TryGetValue(key, out ImmutableArray<TFSniperSpot> spots))
+                {
+                    int other = D._self.Team == (int)TFTeam.Red ? (int)TFTeam.Blue : (int)TFTeam.Red;
+                    spots = TFSniperSpots.Find(D._graph, D._memory.World.Sight, D._memory.World.Chokes?.Map, watch, OwnSpawn(), attack,
+                                               at => D.InEnemyRoom(at, other), D._self.Origin);
+                    _spotCache[key] = spots;
+                    SpotSearches++;
+                }
+
+                (_spots, _spotsFor, _spotsAttack, _spotsMade, _watchSince) = (spots, watch, attack, true, D._now);
+                _spotPick = -1;
+                PickSpot(near: null);
                 _atSpot = false;
                 _leaveAt = default;
             }
@@ -317,26 +453,101 @@ public sealed partial class TFDecider
         {
             _atSpot = false;
             _leaveAt = default;
-            if (_spots.Length < 2 || Spot is not { } was)
+            if (Spot is not { } was)
                 return;
-            int pick = _spotPick;
-            for (int tries = 0; tries < 8 && pick == _spotPick; tries++)
+            PickSpot(near ? was.At : null);
+            _relocations++;
+        }
+
+        /// <summary>
+        /// Draws the spot to go to: another than the one held, not one given up this life, within 500 u of <paramref name="near"/>
+        /// when it is given and one is; the first draw of a watch by the bot's slot, so two Snipers start apart.
+        /// </summary>
+        private void PickSpot(AiVector? near)
+        {
+            int was = _spotPick, best = -1, n = _spots.Length;
+            int start = was < 0 ? (D._bot.Slot + _rng.NextInt(2)) % Math.Max(1, n) : _rng.NextInt(Math.Max(1, n));
+            for (int pass = 0; pass < 2 && best < 0; pass++)
             {
-                int i = _rng.NextInt(_spots.Length);
-                if (i != _spotPick && (!near || _spots[i].At.DistanceTo(was.At) <= 500f))
-                    pick = i;
+                for (int k = 0; k < n; k++)
+                {
+                    int i = (start + k) % n;
+                    if ((i == was && n > 1) || _givenUp.Contains(_spots[i].Cell))
+                        continue;
+                    if (pass == 0 && near is { } at && _spots[i].At.DistanceTo(at) > 500f)
+                        continue;
+                    best = i;
+                    break;
+                }
             }
 
-            _spotPick = pick == _spotPick ? (_spotPick + 1) % _spots.Length : pick;
-            _relocations++;
+            _spotPick = best;
+            (_walkBest, _walkSince) = (float.PositiveInfinity, D._now);
+        }
+
+        /// <summary>Whether the spot is reached: within a cell's slack of it on the floor, and on its floor (the follower's own arrival is 16 u flat).</summary>
+        private bool Reached(AiVector at)
+        {
+            AiVector me = D._self.Origin;
+            float flat = MathF.Sqrt((me.X - at.X) * (me.X - at.X) + (me.Y - at.Y) * (me.Y - at.Y));
+            return flat <= SpotArrive && MathF.Abs(me.Z - at.Z) <= SpotArriveHeight;
+        }
+
+        /// <summary>
+        /// The class branch gives way to an objective nobody else is on (the code review's C5): the bot is the last of its team
+        /// alive it knows of, or an own point is being taken and no teammate it knows the place of stands within reach of it.
+        /// </summary>
+        private bool ObjectiveUnattended()
+        {
+            if (!D._onPoints || D._pointsGoal is not { } goal)
+                return false;
+            Blackboard board = D._memory.Board;
+            int alive = 0, near = 0;
+            for (int s = 0; s < board.Slots; s++)
+            {
+                KnownActor a = board.Actor(s);
+                if (!a.Known || a.Dead || a.Id == D._bot || !D._memory.IsFriend(a))
+                    continue;
+                alive++;
+                AiVector? at = D._view.TryActor(a.Id, out ActorFacts drawn) ? drawn.Origin : a.EverSeen ? a.LastSeenPos : null;
+                if (at is { } p && p.DistanceTo(goal.Position) <= UnattendedReach)
+                    near++;
+            }
+
+            return alive == 0 || (D._pointsGoalOwn && goal.State == ObjectiveState.Capturing && near == 0);
         }
 
         public override bool GoPlace()
         {
             if (Spot is not { } spot)
                 return false;
-            if (!_atSpot && D._self.Origin.DistanceTo(spot.At) > SpotArrive)
+            if (ObjectiveUnattended())
             {
+                // Nobody else to take or hold it: onto the point, as the points branch goes.
+                _atSpot = false;
+                YieldedDecides++;
+                return D.GoPoints();
+            }
+
+            // Moved off the spot (a heal, a knock-back, a respawn without a death): it is not held until it is reached again.
+            if (_atSpot && !Reached(spot.At) && D._self.Origin.DistanceTo(spot.At) > SpotArrive * 2f)
+                _atSpot = false;
+            if (!_atSpot && !Reached(spot.At))
+            {
+                // A walk that gets no nearer for a while gives the spot up for the life (the code review's C4).
+                float d = D._self.Origin.DistanceTo(spot.At);
+                if (d < _walkBest - SpotProgressUnits)
+                    (_walkBest, _walkSince) = (d, D._now);
+                else if (Seconds(_walkSince) > SpotWalkPatience)
+                {
+                    _givenUp.Add(spot.Cell);
+                    SpotsGivenUp++;
+                    Relocate(near: false);
+                    if (Spot is not { } next)
+                        return false;
+                    spot = next;
+                }
+
                 D.GoTo(spot.At, MoveSpeed.Run);
                 D._verdict = "to a sniper spot";
                 return true;
@@ -413,7 +624,7 @@ public sealed partial class TFDecider
             };
 
             // Scoped, the target is not swapped for a slightly better one inside its hold, unless the bot was just hit.
-            if (_zoomed && sighted && ReferenceEquals(target, _held) && Seconds(_heldSince) < HoldTargetSeconds && Seconds(_seenAttack) > 0.5f)
+            if (_zoomed && sighted && ReferenceEquals(target, _held) && Seconds(_heldSince) < HoldTargetSeconds && Seconds(_hurtAt) > 0.5f)
                 bonus += HoldTargetBonus;
             return bonus;
         }
@@ -494,15 +705,12 @@ public sealed partial class TFDecider
                 Fire(charged: need > 0f);
         }
 
+        /// <summary>Asks for a rifle shot this decide; it is counted, and the next one waited for, when the HUD shows it went (<see cref="Read"/>).</summary>
         private void Fire(bool charged)
         {
             D._action = new ActionIntent(ActionKind.Fire, FireStyle.Tap, 0, 0);
             D.Shots++;
-            _shotAt = D._now;
-            if (_zoomed)
-                _scopedShots++;
-            if (charged)
-                _chargedShots++;
+            _askedCharged = charged;
         }
 
         /// <summary>The class's spawn health from the class table (never the target's own number: a player is not shown it).</summary>
@@ -558,6 +766,20 @@ public sealed partial class TFDecider
 
             if (D._self.ActiveWeapon == want)
                 return;
+            // In a lull the SMG in hand is filled before the rifle comes back (the code review's C10): its clip shows only while held.
+            if (!D._targetSighted && !D.SightJustLost && D._self.ActiveWeapon == SmgKind && SmgKind >= 0 && D.HeldFacts(out WeaponFacts smg)
+                && smg.HasClip && D._self.Clip < smg.ClipSize && D._self.Reserve > 0)
+            {
+                if ((D._self.Flags & SelfFlags.Reloading) == 0)
+                {
+                    D._action = new ActionIntent(ActionKind.Reload, FireStyle.Tap, 0, ++D._oneShot);
+                    D._handsAt = D._now + (int)(SwitchSeconds / D._tick);
+                    _smgReloads++;
+                }
+
+                return;
+            }
+
             if (want == SmgKind)
                 _smgPicks++;
             else if (want == MeleeKind)
@@ -587,8 +809,10 @@ public sealed partial class TFDecider
         {
             if (!HoldingRifle || _jarPhase > 0 || Glancing || (D._self.Flags & SelfFlags.Grounded) == 0)
                 return false;
+            // A far target is scoped only standing still: a walk to the spot keeps the scope down, or it crawls there at 80 u/s
+            // (the code review's C9).
             if (D._targetSighted)
-                return D._targetDist >= SmgRange;
+                return D._targetDist >= SmgRange && D._move.Kind == MoveKind.Hold;
             if (D.SightJustLost)
                 return _zoomed;
             return _atSpot;
@@ -693,8 +917,17 @@ public sealed partial class TFDecider
                 AiVector sum = default;
                 foreach (ref readonly ActorFacts b in D._view.Sighted)
                 {
+                    // A Pyro facing the bot anywhere in the splash would send the jar back (the code review's C8): no throw at all.
                     if (!TeamRule.Friends(D._self.Team, b.Team) && b.Origin.DistanceTo(a.Origin) <= JarSplash)
+                    {
+                        if (b.Class == (int)TFClass.Pyro && FacingCos(in b, me) > AimedAtCos)
+                        {
+                            group = int.MinValue;
+                            break;
+                        }
+
                         (group, sum) = (group + 1, sum + b.Origin);
+                    }
                 }
 
                 if (group >= 2)
@@ -711,13 +944,16 @@ public sealed partial class TFDecider
 
         public override void Died()
         {
-            (_atSpot, _zoomed, _jarPhase, _held, _leaveAt, _behindUntil) = (false, false, 0, null, default, default);
+            (_atSpot, _zoomed, _jarPhase, _held, _leaveAt, _behindUntil, _reserveSeen) = (false, false, 0, null, default, default, -1);
             _spotsMade = false;
+            _spotCache.Clear();
+            _givenUp.Clear();
         }
 
         public override void Count(List<KeyValuePair<string, long>> into)
         {
             into.Add(new("sniper.zooms", _zooms));
+            into.Add(new("sniper.rifle_shots", _rifleShots));
             into.Add(new("sniper.scoped_shots", _scopedShots));
             into.Add(new("sniper.charged_shots", _chargedShots));
             into.Add(new("sniper.relocations", _relocations));
@@ -727,6 +963,10 @@ public sealed partial class TFDecider
             into.Add(new("sniper.behind_glances", _behind));
             into.Add(new("sniper.smg_picks", _smgPicks));
             into.Add(new("sniper.melee_picks", _meleePicks));
+            into.Add(new("sniper.smg_reloads", _smgReloads));
+            into.Add(new("sniper.spot_searches", SpotSearches));
+            into.Add(new("sniper.spots_given_up", SpotsGivenUp));
+            into.Add(new("sniper.yielded_decides", YieldedDecides));
         }
     }
 }

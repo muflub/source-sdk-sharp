@@ -1254,3 +1254,5 @@ src/ai/tf2/server/Classes/TFEngineerNest.cs	ports CTFBotEngineerBuilding::Update
 src/ai/tf2/server/Classes/TFEngineer.cs	ports CTFBotEngineerBuild::ShouldAttack (tf_bot_engineer_build.cpp), CTFBotEngineerBuilding retries, out-of-position and retaliate range (tf_bot_engineer_building.cpp), CTFBot::GetMyControlPoint for an Engineer (tf_bot.cpp)
 src/ai/tf2/server/Classes/TFMedicHeal.cs	ports CTFBotMedicHeal patient choice, IsStable, follow/cover and uber rules (server/tf/bot/behavior/medic/tf_bot_medic_heal.cpp)
 src/ai/tf2/server/Classes/TFMedicTargetId.cs	ports C_TFPlayer::UpdateIDTarget (c_tf_player.cpp) and CTargetID::IsValidIDTarget / UpdateID health rules (tf_hud_target_id.cpp)
+src/ai/tf2/server/Classes/TFSniper.cs	ports CTFBotSniperLurk's and CTFBotSniperAttack's ranges and timings (tf_bot_sniper_lurk.cpp, tf_bot_sniper_attack.cpp) and CTFBot's SMG range (tf_bot.cpp)
+src/ai/tf2/server/Classes/TFSniperSpots.cs	ports CTFBot::SetupSniperSpotAccumulation's range and side rules (tf_bot.cpp)

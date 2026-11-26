@@ -1,3 +1,10 @@
+//========= Copyright Valve Corporation, All rights reserved. ============//
+//
+// Inspired by and based on the Half-Life 2 Source SDK 2013 by Valve:
+// https://github.com/ValveSoftware/source-sdk-2013
+//
+//=============================================================================//
+
 using System.Collections.Immutable;
 
 namespace SourceSharp.Ai.TF2.Trees;
@@ -36,7 +43,7 @@ public static class TFSniperSpots
     /// <summary>
     /// The best spots onto <paramref name="watch"/> for a team whose spawn is at <paramref name="ownSpawn"/>, attacking or
     /// defending, best first; none when the level has no nav. <paramref name="refused"/> says a place a vantage may not be
-    /// (an enemy respawn room). With <paramref name="from"/>, only cells in the joined-up part of the map it stands in.
+    /// (an enemy respawn room). With <paramref name="from"/>, only cells a player walks to from there.
     /// </summary>
     public static ImmutableArray<TFSniperSpot> Find(NavGraph? graph, ICellSight? sight, ChokeMap? chokes, AiVector watch, AiVector ownSpawn, bool attack,
                                                    Func<AiVector, bool>? refused = null, AiVector? from = null)
@@ -57,8 +64,9 @@ public static class TFSniperSpots
             }
         }
 
-        // Only a place the bot can walk to: the joined-up part of the map it stands in (a roof's cells are their own part).
-        int part = from is { } at0 && graph.FindCell(at0) is { Index: >= 0 } fromCell ? graph.ComponentOf(fromCell.Index) : -1;
+        // Only a place the bot can walk to from where it stands, by the edges a player without a blast jump or a double jump
+        // takes (walks, jumps, drops, ladders, doors): a roof is out, and so is a ledge only a drop leaves or a link reaches.
+        bool[]? reach = from is { } at0 && graph.FindCell(at0) is { Index: >= 0 } fromCell ? Walkable(graph, fromCell.Index) : null;
         float objectiveFromSpawn = Flat(watch, ownSpawn);
         var near = new List<int>();
         graph.CellsNear(watch.X - range, watch.Y - range, watch.X + range, watch.Y + range, near);
@@ -66,7 +74,7 @@ public static class TFSniperSpots
         foreach (int cell in near)
         {
             NavCell c = graph.Cell(cell);
-            if (!c.Admits(ClearanceClass.Stand) || (part >= 0 && graph.ComponentOf(cell) != part))
+            if (!c.Admits(ClearanceClass.Stand) || (reach is not null && !reach[cell]))
                 continue;
             AiVector at = c.Centre;
             float d = at.DistanceTo(watch);
@@ -120,6 +128,28 @@ public static class TFSniperSpots
         }
 
         return kept.ToImmutable();
+    }
+
+    /// <summary>The cells a player reaches from <paramref name="start"/> by the graph's edges, but a double jump's (a Scout's alone).</summary>
+    public static bool[] Walkable(NavGraph graph, int start)
+    {
+        var seen = new bool[graph.CellCount];
+        var queue = new Queue<int>();
+        seen[start] = true;
+        queue.Enqueue(start);
+        while (queue.Count > 0)
+        {
+            int c = queue.Dequeue();
+            foreach (NavEdge e in graph.EdgesFrom(c))
+            {
+                if (e.Type is NavEdgeType.DoubleJump or NavEdgeType.Link || seen[e.To])
+                    continue;
+                seen[e.To] = true;
+                queue.Enqueue(e.To);
+            }
+        }
+
+        return seen;
     }
 
     /// <summary>The cell under <paramref name="p"/>, else the nearest whose middle is within 128 u (an objective's origin floats over its floor).</summary>
