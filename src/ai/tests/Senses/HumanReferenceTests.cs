@@ -438,11 +438,11 @@ public sealed class HumanReferenceTests : IDisposable
         var w = new Sight(_ai);
         var shots = new ShotTap(_ai, _bots, w.Pass, w.World.Engine(), WeaponCatalog.Stock(), Indexes(), AtTick(50));
         // The builder only for who a bot takes a player for (its ShownActors): the hooks' events pass through it.
-        var builder = new SnapshotBuilder(w.World.Engine(), WeaponCatalog.Stock(), null!, w.World.Stance(), new FakeTeams(), TestGames.Hl2mp(), null!);
+        var builder = new SnapshotBuilder(w.World.Engine(), WeaponCatalog.Stock(), null!, w.World.Stance(), new FakeTeams(), TestGames.Hl2mp(), null!, new ShownActors(TestGames.Hl2mp()));
         var senses = new AiSenses(_bots, _ai, w.Pass, builder, null!, null!, _log, w.Reference);
         var meter = new AimMeter(_bots, w.Pass, _ai, AtTick(50), Indexes(), w.World.Engine(), WeaponCatalog.Stock(), TestGames.Hl2mp());
         var weapons = new WeaponEventTap(senses, w.Pass, _bots, Indexes(), AtTick(50), shots, meter);
-        var combat = new CombatTap(senses, w.Pass, _bots, w.World.Engine(), Indexes(), null!, AtTick(50), shots, meter, new FakeTeams());
+        var combat = new CombatTap(senses, w.Pass, _bots, w.World.Engine(), Indexes(), null!, AtTick(50), shots, meter, new FakeTeams(), TestGames.Hl2mp());
         Start();
         w.Run(1);
         weapons.OnWeaponEvent(w.Person.Handle, 3, PlayerWeaponEvent.Fired, 1);

@@ -335,6 +335,23 @@ public sealed partial class TFDecider : IDecider
             _targetVel = sighted ? f.Velocity : a.LastSeenVel;
             _targetDist = dist;
         }
+
+        // A disguise a cue unmasked (a bump, a hit by a friend-drawn actor with friendly fire off: stock's RealizeSpy): its
+        // drawn row, in sight, is a target though its client draws it a teammate. Never a drawn row no cue marked.
+        for (int s = 0; s < board.Slots; s++)
+        {
+            KnownActor a = board.Drawn(s);
+            if (!a.Known || a.Dead || !a.Unmasked(_now, _tick) || !_view.TryActor(a.Id, out ActorFacts f))
+                continue;
+            float dist = _self.Origin.DistanceTo(f.Origin);
+            if (!TakesTarget(a, true, dist))
+                continue;
+            _target = a;
+            _targetSighted = true;
+            _targetPos = f.Origin;
+            _targetVel = f.Velocity;
+            _targetDist = dist;
+        }
     }
 
     /// <summary>Whether <paramref name="at"/> lies in a respawn room of <paramref name="team"/>, a game team that is not the bot's.</summary>

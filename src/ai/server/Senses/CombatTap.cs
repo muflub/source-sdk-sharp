@@ -37,7 +37,7 @@ public interface IBotFightClock
 /// </summary>
 [SideService(Side.Server, As = [typeof(IPlayerHurtHook), typeof(IPlayerDeathHook), typeof(IBotFightClock), typeof(IBotKillFeed)])]
 public sealed class CombatTap(AiSenses senses, VisionPass vision, AiBots bots, IEnginePlayers players, IEngineEntities entities,
-                              IPlayerDirectory directory, IEngineFrame frame, ShotTap shots, AimMeter aim, IRenderedTeams teams, IBotGame? game = null)
+                              IPlayerDirectory directory, IEngineFrame frame, ShotTap shots, AimMeter aim, IRenderedTeams teams, IBotGame game)
     : IPlayerHurtHook, IPlayerDeathHook, IGameLifecycle, IFrameLifecycle, IBotFightClock, IOrderedHook, IBotKillFeed
 {
     /// <summary>
@@ -126,7 +126,7 @@ public sealed class CombatTap(AiSenses senses, VisionPass vision, AiBots bots, I
         ActorId victim = ActorOf(death.Player, out _);
         ActorId killer = death.Attacker != death.Player ? ActorOf(death.Attacker, out _) : ActorId.None;
         _events.Clear();
-        Died(victim, killer, BotIds(), Tick, _events, feed: game?.View.OwnKillFeed != true);
+        Died(victim, killer, BotIds(), Tick, _events, feed: !game.View.OwnKillFeed);
         Push();
     }
 

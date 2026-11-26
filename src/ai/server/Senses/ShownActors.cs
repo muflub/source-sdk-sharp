@@ -21,23 +21,24 @@ public sealed class ShownActors(IBotGame game)
 
     private static int Pair(int botSlot, int slot) => botSlot * VisionPass.Slots + slot;
 
+    private readonly Tick[] _bumpAt = new Tick[VisionPass.Slots * VisionPass.Slots];
+
+    /// <summary>A touch is told again at most this often for one pair (half a second).</summary>
+    public const int BumpEveryTicks = 33;
+
+    /// <summary>Two hulls touch: within two half widths (24 u) and a margin across, and overlapping in height.</summary>
+    public const float TouchAcross = 52f, TouchHeight = 72f;
+
+    /// <summary>Touches told: two bodies a solid pair, in contact.</summary>
+    public int Bumps { get; private set; }
+
+    /// <summary>Whether bodies standing at <paramref name="a"/> and <paramref name="b"/> touch (their hulls meet).</summary>
+    public static bool Touching(AiVector a, AiVector b)
+        => MathF.Abs(a.X - b.X) <= TouchAcross && MathF.Abs(a.Y - b.Y) <= TouchAcross && MathF.Abs(a.Z - b.Z) < TouchHeight;
+
     /// <summary>The actor bot <paramref name="botSlot"/> was told of for the player in <paramref name="slot"/>, while it holds them in sight; none otherwise.</summary>
     public ActorId HeldFor(int botSlot, int slot)
         => (uint)botSlot < VisionPass.Slots && (uint)slot < VisionPass.Slots ? _held[Pair(botSlot, slot)] : ActorId.None;
-
-    /// <summary>The player slot some bot holds <paramref name="shown"/> for (an alias's body), or -1.</summary>
-    public int SlotOf(ActorId shown)
-    {
-        if (!shown.IsValid)
-            return -1;
-        for (int i = 0; i < _held.Length; i++)
-        {
-            if (_held[i] == shown)
-                return i % VisionPass.Slots;
-        }
-
-        return -1;
-    }
 
     /// <summary>
     /// For each bot, each player it holds in sight whose drawing changed since it was told of them: a
@@ -57,6 +58,13 @@ public sealed class ShownActors(IBotGame game)
                 ActorId held = _held[pair];
                 if (!held.IsValid || t == b.Id.Slot || !sight.Sees(t) || vision.ReadOf(t) is not { } them)
                     continue;
+                if (vision.ReadOf(b.Id.Slot) is { } me && Touching(me.Origin, them.Origin) && tick >= _bumpAt[pair] && game.View.Solid(b.Player, them.Player))
+                {
+                    changes.Add(AiEvent.Bumped(b.Id, tick, held, them.Origin));
+                    _bumpAt[pair] = tick + BumpEveryTicks;
+                    Bumps++;
+                }
+
                 ActorId now = game.View.ShownAs(b.Player, them.Player, sight.TargetOf(t));
                 if (now == held)
                     continue;
@@ -76,7 +84,7 @@ public sealed class ShownActors(IBotGame game)
     public AiEvent Told(in AiEvent e, Func<int, EntityHandle> playerOf)
     {
         if (e.Kind is not (AiEventKind.SightGained or AiEventKind.SightLost or AiEventKind.SeenFire or AiEventKind.SeenReload
-                           or AiEventKind.SoundHeard or AiEventKind.DealtDamage)
+                           or AiEventKind.SoundHeard or AiEventKind.DealtDamage or AiEventKind.Damaged)
             || !e.Other.IsValid || (uint)e.Bot.Slot >= VisionPass.Slots || (uint)e.Other.Slot >= VisionPass.Slots)
             return e;
         int pair = Pair(e.Bot.Slot, e.Other.Slot);

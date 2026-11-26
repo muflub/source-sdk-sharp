@@ -108,6 +108,12 @@ public enum AiEventKind : byte
     /// </summary>
     HeroDowned = 61,
 
+    /// <summary>
+    /// The bot's body ran into Other, a solid player (plan_bots_teams_tf2 C.3, stock's <c>CTFBot::Touch</c>, tf_bot.cpp:1445):
+    /// teammates pass through each other, so a solid one the bot's client draws as a teammate is an enemy in a disguise.
+    /// </summary>
+    Bumped = 62,
+
     // recorded only, as Observed records (§3.4.4's hit rate): no brain is told
     /// <summary>The actor fired: Code the weapon's kind, Amount the rounds the fire took. A trigger pull, however many pellets it throws.</summary>
     ShotFired = 50,
@@ -224,6 +230,10 @@ public readonly record struct AiEvent(
         => new(AiEventKind.AllyDied, bot, tick, ally, at, default, 0f, killer.Slot, killer.Serial);
 
     /// <summary><paramref name="hero"/> went down at <paramref name="at"/> (<paramref name="down"/>), or got up again.</summary>
+    /// <summary>The bot's body touched <paramref name="other"/>, a player solid to it (<see cref="AiEventKind.Bumped"/>).</summary>
+    public static AiEvent Bumped(ActorId bot, Tick tick, ActorId other, AiVector at)
+        => new(AiEventKind.Bumped, bot, tick, other, at, default, 0f, 0, 0);
+
     public static AiEvent HeroDowned(ActorId bot, Tick tick, ActorId hero, AiVector at, bool down)
         => new(AiEventKind.HeroDowned, bot, tick, hero, at, default, 0f, down ? 1 : 0, 0);
 

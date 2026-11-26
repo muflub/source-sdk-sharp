@@ -54,8 +54,8 @@ public static class TFEngineerSpots
     /// range is. A mini sentry's finder asks a shorter <paramref name="reach"/> and <paramref name="best"/> range.
     ///
     /// <para>The sides are travel, not distance (the research's step 0, stock's incursion distance): a field to each team's
-    /// spawn gives each cell's walk to it. A cell he cannot walk to from his spawn is none; a cell his team reaches first
-    /// (its walk from his spawn shorter than from the enemy's) is his side, and when the point has candidates on his side
+    /// spawn gives each cell's walk to it (straight when none comes back); a cell nearer his spawn by that walk than the
+    /// enemy's is his side, and when the point has candidates on his side
     /// only those are kept (stock keeps that rule as a hard one on KOTH alone; live on cp_granary a spot on the enemy's side
     /// of the middle, picked for its height, had him walk through the enemy for 70 s and never build).</para>
     /// </summary>
@@ -88,11 +88,14 @@ public static class TFEngineerSpots
                 continue;
             if (sight is not null && (!pc.IsValid || !sight.Visible(c, pc.Index)))
                 continue;
-            float ownWalk = own?.CostAt(c) ?? at.DistanceTo(ownSpawn), enemyWalk = enemy?.CostAt(c) ?? at.DistanceTo(enemySpawn);
+            // A field to a spawn gives each cell's walk to it, the reverse of the walk from it (the review's C3): a cell with no
+            // way back to the spawn is measured as the crow flies, not dropped. Whether he can walk to a spot is asked when it is
+            // drawn (Reachable).
+            float ownWalk = own?.CostAt(c) ?? float.PositiveInfinity, enemyWalk = enemy?.CostAt(c) ?? float.PositiveInfinity;
             if (!float.IsFinite(ownWalk))
-                continue;
+                ownWalk = at.DistanceTo(ownSpawn);
             if (!float.IsFinite(enemyWalk))
-                enemyWalk = ownWalk * 2f + 1f;
+                enemyWalk = at.DistanceTo(enemySpawn);
             bool mine = ownWalk < enemyWalk;
             anyOwnSide |= mine;
             sides.Add(mine);
@@ -182,6 +185,90 @@ public static class TFEngineerSpots
 
         return spots[best[n - 1]];
     }
+
+    /// <summary>
+    /// His box (24 u a side from his middle) and a building's (20 u, the sentry's and dispenser's hull, TFObjectModels) clear by
+    /// this, each axis apart (the boxes are axis-aligned): 44 touches, the rest is room for a body that sways. A stand at 45 u
+    /// along a diagonal (round 1's) put his box 13 u into the gun's.
+    /// </summary>
+    public const float WorkClearUnits = 56f;
+
+    /// <summary>
+    /// The work stand lies within this of the building's middle: the wrench's swing (48 u from the eye, an 18 u hull,
+    /// stock's melee trace) reaches the box's face (20 u off the middle) from there. Sampled on a grid this fine.
+    /// </summary>
+    public const float WorkReachUnits = 80f, WorkGridUnits = 8f;
+
+    /// <summary>Within this of his dispenser's middle he stands in its reach (TFDispenser.DispenserRadius 64 u, to his box).</summary>
+    public const float NestFeedUnits = 72f;
+
+    /// <summary>
+    /// Where the Engineer stands to swing at the building at <paramref name="target"/>: within <see cref="WorkReachUnits"/> of it,
+    /// his box clear of every building's in <paramref name="boxes"/> by <see cref="WorkClearUnits"/> on an axis, on floor at the
+    /// building's height, within <see cref="NestFeedUnits"/> of <paramref name="feeder"/> (his dispenser) when there is one and
+    /// some place allows it; the most behind the building along <paramref name="back"/> (away from the point it covers), then
+    /// the nearest him.
+    /// </summary>
+    public static AiVector WorkStand(NavGraph? graph, AiVector target, AiVector? feeder, ReadOnlySpan<AiVector> boxes, AiVector back, AiVector self)
+    {
+        back = new AiVector(back.X, back.Y, 0f);
+        AiVector behind = back.Length < 1f ? new AiVector(1f, 0f, 0f) : back.Normalised();
+        int steps = (int)(WorkReachUnits / WorkGridUnits);
+        for (int pass = 0; pass < 2; pass++)
+        {
+            bool fed = pass == 0 && feeder is not null;
+            float best = float.PositiveInfinity;
+            AiVector pick = default;
+            for (int i = -steps; i <= steps; i++)
+            {
+                for (int j = -steps; j <= steps; j++)
+                {
+                    AiVector off = new(i * WorkGridUnits, j * WorkGridUnits, 0f), at = target + off;
+                    float r = off.Length;
+                    if (r > WorkReachUnits || !ClearOf(at, boxes) || (fed && Flat(at, feeder!.Value) > NestFeedUnits))
+                        continue;
+                    if (graph is not null)
+                    {
+                        CellId c = graph.FindCell(at + new AiVector(0f, 0f, 8f));
+                        if (!c.IsValid || MathF.Abs(graph.Cell(c).FloorZ - target.Z) > 24f)
+                            continue;
+                        at = new AiVector(at.X, at.Y, graph.Cell(c).FloorZ);
+                    }
+
+                    float score = Flat(at, self) * 0.25f - (off.X * behind.X + off.Y * behind.Y) / r * 64f;
+                    if (score < best)
+                        (best, pick) = (score, at);
+                }
+            }
+
+            if (best < float.PositiveInfinity)
+                return pick;
+            if (feeder is null)
+                break;
+        }
+
+        return target + behind * WorkClearUnits;
+    }
+
+    /// <summary>A stand's height tolerance: a step and a crouch, no floor above or below.</summary>
+    public const float StandHeightUnits = 40f;
+
+    /// <summary>Whether a body at <paramref name="self"/> stands at <paramref name="at"/>: within <paramref name="arrive"/> flat and <see cref="StandHeightUnits"/> up or down.</summary>
+    public static bool Arrived(AiVector self, AiVector at, float arrive) => Flat(self, at) <= arrive && MathF.Abs(self.Z - at.Z) <= StandHeightUnits;
+
+    /// <summary>Whether a body standing at <paramref name="at"/> keeps <see cref="WorkClearUnits"/> on an axis from each building's middle.</summary>
+    public static bool ClearOf(AiVector at, ReadOnlySpan<AiVector> boxes)
+    {
+        foreach (AiVector b in boxes)
+        {
+            if (MathF.Max(MathF.Abs(at.X - b.X), MathF.Abs(at.Y - b.Y)) < WorkClearUnits)
+                return false;
+        }
+
+        return true;
+    }
+
+    private static float Flat(AiVector a, AiVector b) => MathF.Sqrt((a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y));
 
     /// <summary>How far round the point's place its cell is looked for when no floor lies right under it (a point's origin sits on its model).</summary>
     public const float PointCellReach = 160f;

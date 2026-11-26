@@ -134,7 +134,8 @@ public sealed partial class TFDecider
         foreach (ref readonly ActorFacts f in _view.Sighted)
         {
             bool friend = TeamRule.Friends(_self.Team, f.Team);
-            if (!friend && f.Class == (int)TFClass.Spy && TeamRule.IsGameTeam(f.Team))
+            if ((!friend && f.Class == (int)TFClass.Spy && TeamRule.IsGameTeam(f.Team))
+                || (friend && _memory.Board.Of(f.Id, make: false) is { } unmasked && unmasked.Unmasked(_now, _tick)))
                 Call(TFVoiceLine.Spy);
             healer |= friend && f.Class == (int)TFClass.Medic && _self.Origin.DistanceTo(f.Origin) < HealerWithin;
         }

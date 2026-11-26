@@ -20,7 +20,8 @@ public static class FriendLine
     /// <paramref name="blast"/> is how far from the aim point a teammate can be hurt by the shot,
     /// 0 for one that hurts nobody beside what it hits.
     /// </summary>
-    public static bool Blocked(PerceivedView view, float eyeHeight, AiVector? aimAt, float viewReach, float blast, float bodyTop, float crouchTop = float.NaN)
+    public static bool Blocked(PerceivedView view, float eyeHeight, AiVector? aimAt, float viewReach, float blast, float bodyTop, float crouchTop = float.NaN,
+                               ActorId target = default)
     {
         ArgumentNullException.ThrowIfNull(view);
         SelfState self = view.Self;
@@ -31,7 +32,8 @@ public static class FriendLine
         AiVector aimDir = reach > 0f ? (at - eye) * (1f / reach) : viewDir;
         foreach (ref readonly ActorFacts f in view.Sighted)
         {
-            if (!TeamRule.Friends(self.Team, f.Team))
+            // The target itself is never a teammate in its own way: an unmasked Spy is drawn as a teammate.
+            if (!TeamRule.Friends(self.Team, f.Team) || (target.IsValid && f.Id == target))
                 continue;
             float d = (f.Origin - eye).Length;
             float top = (f.Activity & ActorActivity.Crouched) != 0 && !float.IsNaN(crouchTop) ? crouchTop : bodyTop;

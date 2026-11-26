@@ -38,7 +38,9 @@ public sealed class TFSpyHonestyTests
     private readonly Facts _facts = new();
 
     // Only the actors' facts are asked of the view by ShownAs; the rest is never reached.
-    private TFBotGameView View() => new(_facts, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+    private TFBotGameView View() => new(_facts, null!, null!, null!, null!, null!, null!, null!, null!, null!, _lives);
+
+    private readonly TFPlayerLives _lives = new();
 
     private static readonly ActorId SpyActor = new(5, 4);
 
@@ -116,6 +118,34 @@ public sealed class TFSpyHonestyTests
     }
 
     /// <summary>
+    /// A Spy dressed in his own team (<c>disguise N -2</c>) is no alias (review F3): he is drawn on an enemy team and stays
+    /// the real player, a target. The control: the same Spy dressed in the viewer's team is an alias.
+    /// </summary>
+    [Fact]
+    public void ASpyDressedInHisOwnTeamIsTheRealPlayer()
+    {
+        _facts.By[2] = Player(TFClass.Soldier, TFTeam.Red);
+        _facts.By[5] = Spy() with { DisguiseTeam = TFTeam.Blue };
+        TFBotGameView view = View();
+        Assert.Equal(SpyActor, view.ShownAs(Slot(2), Slot(5), SpyActor));
+        _facts.By[5] = Spy();
+        Assert.NotEqual(SpyActor, view.ShownAs(Slot(2), Slot(5), SpyActor));
+    }
+
+    /// <summary>The same dress after a respawn is another alias (review F7: one per disguise of one life); the control: no spawn, the same alias.</summary>
+    [Fact]
+    public void TheSameDressInANewLifeIsANewAlias()
+    {
+        _facts.By[2] = Player(TFClass.Soldier, TFTeam.Red);
+        _facts.By[5] = Spy();
+        TFBotGameView view = View();
+        ActorId first = view.ShownAs(Slot(2), Slot(5), SpyActor);
+        Assert.Equal(first, view.ShownAs(Slot(2), Slot(5), SpyActor));
+        _lives.OnSpawned(Slot(5), 0f);
+        Assert.NotEqual(first, view.ShownAs(Slot(2), Slot(5), SpyActor));
+    }
+
+    /// <summary>
     /// The board leak (research §3.3 hole 2): the bot knows the real Spy (his scoreboard row says BLU, he killed it once).
     /// Disguised, the row its view names holds none of that: no scoreboard team, no frags, no grudge, and it is drawn on
     /// the bot's team, so <c>BoardTeam != Team</c> detects nothing. Before, the view named the real actor, whose row held them all.
@@ -183,5 +213,100 @@ public sealed class TFSpyHonestyTests
     {
         f.StepHearing(TFField.Self(Mid), TFField.Ctf(), [AiEvent.SightGained(f.Bot, new Tick(f.Tick + 1), drawn.Id, drawn.Origin, default, 1f)], drawn);
         return f.StepDrawn(TFField.Self(Mid), TFField.Ctf(), drawn);
+    }
+
+    /// <summary>A disguised Spy drawn as a RED Medic under <paramref name="shown"/>, at <paramref name="at"/>.</summary>
+    private ActorFacts Dressed(ActorId shown, AiVector at)
+    {
+        _facts.By[5] = Spy();
+        var drawn = new ActorFacts(shown, at, AiVector.Zero, TFField.Shotgun, ActorActivity.None, 1f, Blue, NameSlot: 5);
+        TFBotGameView.Draw(Red, _facts.By[5], -1, ref drawn);
+        return drawn;
+    }
+
+    /// <summary>
+    /// The bump cue (stock's CTFBot::Touch, tf_bot.cpp:1445): a solid touch of a body drawn as a teammate marks its row
+    /// unmasked. The control: in sight and untouched, it is not.
+    /// </summary>
+    [Fact]
+    public void ABumpUnmasksTheDisguise()
+    {
+        _facts.By[2] = Player(TFClass.Soldier, TFTeam.Red);
+        _facts.By[5] = Spy();
+        ActorFacts drawn = Dressed(View().ShownAs(Slot(2), Slot(5), SpyActor), Mid + new AiVector(40f, 0f, 0f));
+        TFField f = Knowing();
+        Seen(f, drawn);
+        KnownActor row = f.Memory.Board.Of(drawn.Id, make: false)!;
+        Assert.False(row.Unmasked(new Tick(f.Tick), 0.015f));
+        f.StepHearing(TFField.Self(Mid), TFField.Ctf(), [AiEvent.Bumped(f.Bot, new Tick(f.Tick + 1), drawn.Id, drawn.Origin)], drawn);
+        Assert.True(row.Unmasked(new Tick(f.Tick), 0.015f));
+    }
+
+    /// <summary>
+    /// An unmasked disguise is a target (the suspicion hook in ChooseTarget); an unmarked one never is (research fact 1).
+    /// </summary>
+    [Fact]
+    public void AnUnmaskedDisguiseIsATargetAndAnUnmarkedOneIsNot()
+    {
+        _facts.By[2] = Player(TFClass.Soldier, TFTeam.Red);
+        _facts.By[5] = Spy();
+        ActorFacts drawn = Dressed(View().ShownAs(Slot(2), Slot(5), SpyActor), Mid + new AiVector(300f, 0f, 0f));
+        TFField f = Knowing();
+        Seen(f, drawn);
+        Assert.Equal(ActorId.None, f.Decider.Doing.Target);
+        f.StepHearing(TFField.Self(Mid), TFField.Ctf(), [AiEvent.Bumped(f.Bot, new Tick(f.Tick + 1), drawn.Id, drawn.Origin)], drawn);
+        f.StepDrawn(TFField.Self(Mid), TFField.Ctf(), drawn);
+        Assert.Equal(drawn.Id, f.Decider.Doing.Target);
+    }
+
+    /// <summary>
+    /// A hit by a body drawn as a teammate, with friendly fire off, unmasks it (stock's RealizeSpy on a hit); with friendly fire on (the control) it does not.
+    /// </summary>
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public void AHitByADrawnTeammateUnmasksItWithFriendlyFireOff(bool friendlyFire, bool unmasked)
+    {
+        _facts.By[2] = Player(TFClass.Soldier, TFTeam.Red);
+        _facts.By[5] = Spy();
+        ActorFacts drawn = Dressed(View().ShownAs(Slot(2), Slot(5), SpyActor), Mid + new AiVector(300f, 0f, 0f));
+        TFField f = Knowing();
+        f.Memory.Apply(AiEvent.FriendlyFireSet(f.Bot, new Tick(1), friendlyFire));
+        Seen(f, drawn);
+        f.StepHearing(TFField.Self(Mid), TFField.Ctf(), [AiEvent.Damaged(f.Bot, new Tick(f.Tick + 1), drawn.Id, 20, new AiVector(1f, 0f, 0f), 0)], drawn);
+        Assert.Equal(unmasked, f.Memory.Board.Of(drawn.Id, make: false)!.Unmasked(new Tick(f.Tick), 0.015f));
+    }
+
+    /// <summary>
+    /// A mark dies with the Spy's life: after a respawn the same dress is another alias, whose row (the same slot's drawn row)
+    /// holds no mark. The control: before the respawn, the marked alias is still unmasked.
+    /// </summary>
+    [Fact]
+    public void AMarkIsGoneAfterTheSpysDeath()
+    {
+        _facts.By[2] = Player(TFClass.Soldier, TFTeam.Red);
+        _facts.By[5] = Spy();
+        TFBotGameView view = View();
+        ActorFacts first = Dressed(view.ShownAs(Slot(2), Slot(5), SpyActor), Mid + new AiVector(300f, 0f, 0f));
+        TFField f = Knowing();
+        Seen(f, first);
+        f.StepHearing(TFField.Self(Mid), TFField.Ctf(), [AiEvent.Bumped(f.Bot, new Tick(f.Tick + 1), first.Id, first.Origin)], first);
+        Assert.True(f.Memory.Board.Of(first.Id, make: false)!.Unmasked(new Tick(f.Tick), 0.015f));
+        _lives.OnSpawned(Slot(5), 0f);
+        ActorFacts next = Dressed(view.ShownAs(Slot(2), Slot(5), SpyActor), Mid + new AiVector(300f, 0f, 0f));
+        Assert.NotEqual(first.Id, next.Id);
+        f.StepHearing(TFField.Self(Mid), TFField.Ctf(), [AiEvent.SightLost(f.Bot, new Tick(f.Tick + 1), first.Id, first.Origin, default),
+                                                          AiEvent.SightGained(f.Bot, new Tick(f.Tick + 1), next.Id, next.Origin, default, 1f)], next);
+        Assert.False(f.Memory.Board.Of(next.Id, make: false)!.Unmasked(new Tick(f.Tick), 0.015f));
+        Assert.Equal(ActorId.None, f.Decider.Doing.Target);
+    }
+
+    /// <summary>Two hulls touch within two half widths across and overlapping in height; the control: a step apart they do not.</summary>
+    [Fact]
+    public void BodiesTouchWhenTheirHullsMeet()
+    {
+        Assert.True(SourceSharp.Ai.Server.Senses.ShownActors.Touching(AiVector.Zero, new AiVector(48f, 10f, 0f)));
+        Assert.False(SourceSharp.Ai.Server.Senses.ShownActors.Touching(AiVector.Zero, new AiVector(80f, 0f, 0f)));
+        Assert.False(SourceSharp.Ai.Server.Senses.ShownActors.Touching(AiVector.Zero, new AiVector(10f, 0f, 90f)));
     }
 }

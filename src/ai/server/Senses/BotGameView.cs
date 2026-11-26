@@ -36,6 +36,12 @@ public interface IBotGameView
     /// </summary>
     ActorId ShownAs(EntityHandle viewer, EntityHandle them, ActorId real);
 
+    /// <summary>
+    /// Whether <paramref name="them"/>'s body is solid to <paramref name="viewer"/>'s, as the game's collision rule has it (TF2:
+    /// enemies collide, teammates pass through): a bot that touches a solid player feels it, whatever the player is drawn as.
+    /// </summary>
+    bool Solid(EntityHandle viewer, EntityHandle them);
+
     /// <summary>The things that are not players the game draws this tick, for every client alike, into <paramref name="into"/> (cleared first).</summary>
     void Things(List<ThingRead> into);
 
@@ -72,6 +78,8 @@ public sealed class PlainBotGameView : IBotGameView
     public bool Render(EntityHandle viewer, EntityHandle them, ref ActorFacts facts) => true;
 
     public ActorId ShownAs(EntityHandle viewer, EntityHandle them, ActorId real) => real;
+
+    public bool Solid(EntityHandle viewer, EntityHandle them) => false;
 
     public void Things(List<ThingRead> into) => into.Clear();
 

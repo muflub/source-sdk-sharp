@@ -124,6 +124,19 @@ public sealed class KnownActor
     /// </summary>
     public bool Nemesis { get; internal set; }
 
+    /// <summary>
+    /// When a cue last showed the bot that this one, drawn as a teammate, is not (a bump, a hit with friendly fire off: stock's
+    /// <c>RealizeSpy</c>); tick 0 for never. Its row is a disguise's alias, so the mark dies with the disguise and the life.
+    /// </summary>
+    public Tick UnmaskedAt { get; internal set; }
+
+    /// <summary>How long an unmasked Spy out of sight is still known for one (stock's forget, tf_bot.cpp:60-61: 5 s).</summary>
+    public const float UnmaskForgetSeconds = 5f;
+
+    /// <summary>Whether a cue unmasked it and the bot still holds it in sight, or lost it under <see cref="UnmaskForgetSeconds"/> ago.</summary>
+    public bool Unmasked(Tick now, float tickSeconds)
+        => UnmaskedAt.Value > 0 && (InSight || (now - LastSeenTick) * tickSeconds < UnmaskForgetSeconds);
+
     /// <summary>It lies downed and can be revived (<see cref="AiEventKind.HeroDowned"/>): no threat until it gets up, dies or respawns.</summary>
     public bool Downed { get; internal set; }
 
@@ -167,6 +180,7 @@ public sealed class KnownActor
         LastSeenPos = LastSeenVel = LastHeardPos = default;
         LastSeenTick = LastHeardTick = default;
         EverSeen = EverHeard = InSight = Dead = Nemesis = Downed = false;
+        UnmaskedAt = default;
         _grudge = 0f;
         LastHeardKind = SoundKind.Unknown;
         Confidence = 0f;

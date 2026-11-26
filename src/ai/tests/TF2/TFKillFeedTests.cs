@@ -35,5 +35,5 @@ public sealed class TFKillFeedTests
     }
 
     [Fact]
-    public void TheTF2ViewOwnsItsFeed() => Assert.True(new TFBotGameView(null!, null!, null!, null!, null!, null!, null!, null!, null!, null!).OwnKillFeed);
+    public void TheTF2ViewOwnsItsFeed() => Assert.True(new TFBotGameView(null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!).OwnKillFeed);
 }

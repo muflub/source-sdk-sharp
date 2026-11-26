@@ -216,7 +216,8 @@ public sealed partial class TFDecider
         // so a rocket going down past a teammate standing between is held, and one over a crouched teammate's head is not.
         AiVector? aim = _prefireFiring || _look.Kind == LookKind.Actor ? _look.Point : null;
         StanceHeight body = TFKnowledge.AimHeight(AimPoint.Head, TFClass.Undefined);
-        if (!FriendLine.Blocked(_view, OwnEye.Z - _self.Origin.Z, aim, FireReach, blast, body.Standing, body.Crouched))
+        if (!FriendLine.Blocked(_view, OwnEye.Z - _self.Origin.Z, aim, FireReach, blast, body.Standing, body.Crouched,
+                                _target is { } t && t.Unmasked(_now, _tick) ? t.Id : default))
             return;
         _action = ActionIntent.None;
         _verdict = "held fire (teammate)";

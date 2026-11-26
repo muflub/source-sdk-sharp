@@ -57,16 +57,34 @@ public sealed class TFEngineerNestTests
                         TFEngineerNest.Next(Sentry(), Dispenser(health: 40, building: true), 200, true));
 
     [Fact]
-    public void WithTheSentryUpHeBuildsTheDispenserWhenHeMay()
+    public void WithTheSentryUpAndTheDispensersMetalHeBuildsTheDispenserWhenHeMay()
         => Assert.Equal(new TFEngineerStep(TFEngineerJob.Build, TFEngineerPanel.Dispenser), TFEngineerNest.Next(Sentry(), None, 100, true));
+
+    /// <summary>
+    /// Ours (stock upgrades to level 3 first when a metal source is near, :368-383): live, every trip's metal went into the
+    /// upgrade, no dispenser was ever built and no gun passed level 2 (6 runs, 2026-11-24).
+    /// </summary>
+    [Fact]
+    public void TheDispenserComesBeforeTheUpgradeOnceHeCanPayForIt()
+        => Assert.Equal(new TFEngineerStep(TFEngineerJob.Build, TFEngineerPanel.Dispenser), TFEngineerNest.Next(Sentry(level: 2, health: 180, max: 180), None, 150, true));
+
+    [Fact]
+    public void AtLevelThreeTheDispenserComesNext()
+        => Assert.Equal(new TFEngineerStep(TFEngineerJob.Build, TFEngineerPanel.Dispenser),
+                        TFEngineerNest.Next(Sentry(level: 3, health: 216, max: 216), None, 100, true));
 
     [Fact]
     public void UnderAttackOrInsideTheRetryHeUpgradesTheSentryInstead()
         => Assert.Equal(new TFEngineerStep(TFEngineerJob.Work, TFEngineerPanel.Sentry), TFEngineerNest.Next(Sentry(), None, 100, false));
 
+    /// <summary>Round 1's fix kept: a new gun's leftover metal goes into it before he walks for the dispenser's.</summary>
     [Fact]
-    public void ShortOfTheDispensersMetalHeFetchesMetal()
-        => Assert.Equal(new TFEngineerStep(TFEngineerJob.Metal, TFEngineerPanel.Dispenser), TFEngineerNest.Next(Sentry(), None, 99, true));
+    public void ShortOfTheDispensersMetalHeSpendsWhatHeCarriesOnTheGun()
+        => Assert.Equal(new TFEngineerStep(TFEngineerJob.Work, TFEngineerPanel.Sentry), TFEngineerNest.Next(Sentry(), None, 70, true));
+
+    [Fact]
+    public void WithNoMetalAndNoDispenserHeFetchesTheDispensersMetal()
+        => Assert.Equal(new TFEngineerStep(TFEngineerJob.Metal, TFEngineerPanel.Dispenser), TFEngineerNest.Next(Sentry(), None, 0, true));
 
     [Fact]
     public void TheSentryGoesToLevelThreeBeforeTheDispenserIsRepaired()

@@ -78,10 +78,10 @@ public static class BotBodyFlags
 /// </summary>
 [SideService(Side.Server)]
 public sealed class SnapshotBuilder(IEnginePlayers players, WeaponCatalog weapons, IBotHud hud, IPlayerStances stances, IRenderedTeams teams,
-                                    IBotGame game, ThingSight things, ShownActors? shown = null)
+                                    IBotGame game, ThingSight things, ShownActors shown)
 {
     /// <summary>Who each bot takes each sighted player for (a disguise's alias): the events and the views name the same actor.</summary>
-    public ShownActors Shown { get; } = shown ?? new ShownActors(game);
+    public ShownActors Shown => shown;
 
     /// <summary>
     /// Adds a view for every bot in <paramref name="bots"/> to

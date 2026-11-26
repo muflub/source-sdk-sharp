@@ -324,6 +324,9 @@ public sealed class BotMemory
                 {
                     if (!Foe(attacker))
                     {
+                        // With friendly fire off a teammate cannot hurt the bot: the one that did is a Spy (stock's RealizeSpy).
+                        if (!FriendlyFireOn)
+                            attacker.UnmaskedAt = e.Tick;
                         FriendlyFire(attacker.Id, e.Tick);
                         break;
                     }
@@ -339,7 +342,12 @@ public sealed class BotMemory
                 {
                     victim.HealthEstimate = e.Code;
                     if (!Foe(victim))
+                    {
+                        // The bot's own hit on a teammate with friendly fire off: the game let it land, so it is a Spy.
+                        if (!FriendlyFireOn)
+                            victim.UnmaskedAt = e.Tick;
                         break;
+                    }
                     victim.TimesEngaged++;
                     TrackOf(victim.Id).HurtTick = e.Tick;
                     TrackOf(victim.Id).Hurt = true;
@@ -436,6 +444,11 @@ public sealed class BotMemory
                     fallen.InSight = false;
                 }
 
+                break;
+            case AiEventKind.Bumped:
+                // Solid to the bot: an enemy, whatever its client draws (stock's CTFBot::Touch, tf_bot.cpp:1445-1465).
+                if (Board.Of(e.Other, make: true) is { } bumped)
+                    bumped.UnmaskedAt = e.Tick;
                 break;
             case AiEventKind.HeroDowned:
                 if (Board.Of(e.Other, make: true) is { } hero)

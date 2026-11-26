@@ -145,5 +145,100 @@ public sealed class TFEngineerSpotsTests
         Assert.True(g.Cell(cell.Index).Centre.DistanceTo(new AiVector(2048f, 560f, 0f)) < TFEngineerSpots.PointCellReach);
     }
 
+    /// <summary>
+    /// A cell with no way back to his spawn (a drop he could not climb) is still a candidate, measured as the crow flies: a field
+    /// to the spawn is each cell's walk to it, not from it (the review's C3: on cp_granary a forward spawn emptied the list).
+    /// </summary>
+    [Fact]
+    public void ACellWithNoWayBackToHisSpawnIsStillACandidate()
+    {
+        // A strip west to east; the cells east of x 1536 are reached one way only (a drop): no walk leads back west.
+        var b = new NavGraphBuilder();
+        var ids = new CellId[TFField.Length, TFField.Width];
+        for (int x = 0; x < TFField.Length; x++)
+            for (int y = 0; y < TFField.Width; y++)
+                ids[x, y] = b.AddCell(new NavCell(x * 64f, y * 64f, (x + 1) * 64f, (y + 1) * 64f, 0f, ClearanceClasses.Stand, NavCellFlags.None, 1f));
+        for (int x = 0; x < TFField.Length; x++)
+        {
+            for (int y = 0; y < TFField.Width; y++)
+            {
+                if (x + 1 < TFField.Length)
+                {
+                    if (x + 1 == 24)
+                        b.AddEdge(ids[x, y], ids[x + 1, y], NavEdgeType.Walk);
+                    else
+                        b.AddBoth(ids[x, y], ids[x + 1, y], NavEdgeType.Walk);
+                }
+
+                if (y + 1 < TFField.Width)
+                    b.AddBoth(ids[x, y], ids[x, y + 1], NavEdgeType.Walk);
+            }
+        }
+
+        List<TFSentrySpot> spots = Candidates(b.Build());
+        Assert.Contains(spots, s => s.At.X > 1536f);
+    }
+
+    /// <summary>The axis-aligned gap between a body's box (24 u) and a building's (20 u) at those middles: under 0 they overlap.</summary>
+    private static float BoxGap(AiVector body, AiVector building)
+        => MathF.Max(MathF.Abs(body.X - building.X), MathF.Abs(body.Y - building.Y)) - (24f + 20f);
+
+    /// <summary>
+    /// Round 1's stand was 45 u from the gun towards him: along a diagonal that put his box 13 u into the gun's, and on both maps
+    /// a grown gun held him where he stood (2026-11-24). Every way he may come from, the stand clears the gun's box.
+    /// </summary>
+    [Fact]
+    public void TheWorkStandClearsTheGunsBoxFromEveryWay()
+    {
+        AiVector gun = new(1024f, 256f, 0f);
+        for (int k = 0; k < 16; k++)
+        {
+            // He stands right by the gun: the stand nearest him must still clear it.
+            AiVector from = gun + TFEngineerSpots.Forward(k * 22.5f) * 30f;
+            AiVector at = TFEngineerSpots.WorkStand(TFField.Floor(), gun, null, [gun], from - gun, from);
+            Assert.True(BoxGap(at, gun) >= 8f, $"from {k * 22.5f} deg: {at}, gap {BoxGap(at, gun)}");
+        }
+    }
+
+    [Fact]
+    public void TheWorkStandIsInTheWrenchsReachOfTheGun()
+    {
+        AiVector gun = new(1024f, 256f, 0f);
+        for (int k = 0; k < 16; k++)
+        {
+            AiVector from = gun + TFEngineerSpots.Forward(k * 22.5f) * 300f;
+            AiVector at = TFEngineerSpots.WorkStand(TFField.Floor(), gun, null, [gun], from - gun, from);
+            // The wrench's swing (48 u from the eye and an 18 u hull) reaches the gun's face, 20 u off its middle, from 80 u.
+            Assert.InRange(at.DistanceTo(gun), 1f, 80f);
+        }
+    }
+
+    [Fact]
+    public void BesideHisDispenserTheWorkStandIsInItsReachAndClearOfBoth()
+    {
+        AiVector gun = new(1024f, 256f, 0f), dispenser = new(1024f + 72f, 256f + 64f, 0f);
+        AiVector at = TFEngineerSpots.WorkStand(TFField.Floor(), gun, dispenser, [gun, dispenser], new AiVector(-1f, 0f, 0f), gun - new AiVector(300f, 0f, 0f));
+        Assert.True(BoxGap(at, gun) >= 8f && BoxGap(at, dispenser) >= 8f, $"{at}");
+        Assert.True(Flat(at, dispenser) <= TFEngineerSpots.NestFeedUnits, $"{at}: {Flat(at, dispenser)} from the dispenser");
+    }
+
+    [Fact]
+    public void TheWorkStandIsOnFloorAtTheBuildingsHeight()
+    {
+        // The strip's floor is at 0; a gun on a ledge 256 u up has no floor round it at its height: no stand on the floor below.
+        AiVector gun = new(1024f, 256f, 256f);
+        AiVector at = TFEngineerSpots.WorkStand(TFField.Floor(), gun, null, [gun], new AiVector(-1f, 0f, 0f), gun);
+        Assert.Equal(256f, at.Z);
+    }
+
+    /// <summary>Live on cp_granary, flat arrival held him 256 u under his nest for 74 s, his wrench reaching nothing.</summary>
+    [Fact]
+    public void AStandUnderALedgeIsNotTheStandOnIt()
+    {
+        AiVector stand = new(100f, 100f, -160f);
+        Assert.True(TFEngineerSpots.Arrived(stand + new AiVector(5f, 0f, 0f), stand, 20f));
+        Assert.False(TFEngineerSpots.Arrived(stand - new AiVector(0f, 0f, 256f), stand, 20f));
+    }
+
     private static float Flat(AiVector a, AiVector b) => MathF.Sqrt((a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y));
 }

@@ -151,8 +151,9 @@ public sealed class TFKnowledgeTests
     [Fact]
     public void EveryBuildingCommandRowIsTheModsBuildOrDestroyOrder()
     {
-        AbilityRow[] commands = [.. TFAbilities.Table().Rows.Where(r => r.Run == AbilityRun.Command && r.Name != TFClassSpecs.Unused
-                                                                       && !r.Name.StartsWith("voice_", StringComparison.Ordinal))];
+        // The shared block's rows: a class's own block holds its own words (the Spy's disguise, sapper).
+        AbilityRow[] commands = [.. TFAbilities.Shared().Where(r => r.Run == AbilityRun.Command && r.Name != TFClassSpecs.Unused
+                                                                    && !r.Name.StartsWith("voice_", StringComparison.Ordinal))];
         Assert.Equal(8, commands.Length);
         Assert.All(commands, r => Assert.Contains(r.Command.Split(' ')[0], new[] { TFBuildCommand.Verb, TFDestroyCommand.Verb }));
         Assert.Contains(commands, r => r.Command == "build 2 0");

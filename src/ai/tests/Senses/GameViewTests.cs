@@ -48,6 +48,10 @@ public sealed class GameViewTests
 
         public ActorId ShownAs(EntityHandle viewer, EntityHandle them, ActorId real) => Shown(viewer, them, real);
 
+        public Func<EntityHandle, EntityHandle, bool> Solids { get; set; } = (_, _) => false;
+
+        public bool Solid(EntityHandle viewer, EntityHandle them) => Solids(viewer, them);
+
         public void Things(List<ThingRead> into)
         {
             into.Clear();
@@ -100,7 +104,7 @@ public sealed class GameViewTests
         _pass.Add(_bot.Id);
         var game = new Game(_view);
         _builder = new SnapshotBuilder(_w.Engine(), WeaponCatalog.Stock(), new Hud(), _w.Stance(), new FakeTeams(), game,
-                                       new ThingSight(_w.Engine(), _w.Entities(), _w.Traces(), game));
+                                       new ThingSight(_w.Engine(), _w.Entities(), _w.Traces(), game), new ShownActors(game));
         var events = new List<AiEvent>();
         for (_tick = 1; _tick <= 60; _tick++)
             _pass.Run(new Tick(_tick), 0.015f, [_bot], _w.Living(_bot), events);

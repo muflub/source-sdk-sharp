@@ -49,7 +49,8 @@ public enum TFThingType
 [SideService(Side.Server)]
 public sealed class TFBotGameView(ITFActorFacts actors, ITFPlayerData players, IEngineEntities entities, IEntityDirectory directory,
                                   TFDisguiseWeapons disguises, WeaponCatalog weapons, TFObjectiveFeed objectives,
-                                  ITFRoundStateView rounds, TFPlayerMovementRestartFreezeConVar restartFreeze, TFHudReader hud) : IBotGameView
+                                  ITFRoundStateView rounds, TFPlayerMovementRestartFreezeConVar restartFreeze, TFHudReader hud,
+                                  TFPlayerLives lives) : IBotGameView
 {
     /// <summary>How invisible a cloaked Spy is when a client draws nothing of him.</summary>
     public const float CloakHidden = 0.75f;
@@ -113,24 +114,40 @@ public sealed class TFBotGameView(ITFActorFacts actors, ITFPlayerData players, I
         if (!drawn.Disguised)
             _aliases[index] = default;
         int viewerTeam = actors.TryRead(viewer.EntryIndex, out TFActorFacts own) ? (int)own.Team : 0;
-        if (!Fools(viewerTeam, in drawn))
+        if (!PassesAsMate(viewerTeam, in drawn))
             return real;
-        ulong key = DisguiseKey(in drawn, real);
+        ulong key = DisguiseKey(in drawn, lives.LifeOf(index));
         ref (ulong Key, ActorId Alias) row = ref _aliases[index];
         if (row.Key != key || !row.Alias.IsValid)
             row = (key, ActorId.Alias(AliasSlot(in drawn, index), ++_aliasesMade));
         return row.Alias;
     }
 
-    /// <summary>Whether a client of <paramref name="viewerTeam"/> takes <paramref name="them"/> for someone else: a disguise, to anyone not on the Spy's team.</summary>
+    /// <summary>TF2's collision (TFTeamCollide): players of two game teams collide, teammates pass through; by the real teams, as the physics has them.</summary>
+    public bool Solid(EntityHandle viewer, EntityHandle them)
+        => actors.TryRead(viewer.EntryIndex, out TFActorFacts own) && actors.TryRead(them.EntryIndex, out TFActorFacts other)
+           && own.Team != other.Team && own.Team is TFTeam.Red or TFTeam.Blue && other.Team is TFTeam.Red or TFTeam.Blue;
+
+    /// <summary>Whether a client of <paramref name="viewerTeam"/> draws <paramref name="them"/> as a disguise: anyone not on the Spy's team.</summary>
     public static bool Fools(int viewerTeam, in TFActorFacts them) => them.Disguised && !(viewerTeam != 0 && viewerTeam == (int)them.Team);
+
+    /// <summary>
+    /// Whether the disguise passes <paramref name="them"/> off as one of <paramref name="viewerTeam"/>'s own: an enemy dressed
+    /// in the viewer's team, the case the alias is for (review F3). A Spy dressed in his own team (<c>disguise N -2</c>) is
+    /// still drawn on his own, an enemy's team, and stays the real player, a target like any enemy.
+    /// </summary>
+    public static bool PassesAsMate(int viewerTeam, in TFActorFacts them)
+        => them.Disguised && viewerTeam != 0 && viewerTeam != (int)them.Team && (int)them.DisguiseTeam == viewerTeam;
 
     /// <summary>The slot an alias is drawn in: the borrowed name's, whose scoreboard row the disguise claims; the Spy's own when it borrowed none.</summary>
     public static int AliasSlot(in TFActorFacts them, int own) => them.DisguiseTargetIndex > 0 ? them.DisguiseTargetIndex : own;
 
-    /// <summary>One disguise of one player: its class, team and borrowed name, and the player's life (his actor's serial).</summary>
-    public static ulong DisguiseKey(in TFActorFacts them, ActorId real)
-        => ((ulong)(uint)real.Serial << 32) | ((ulong)(byte)them.DisguiseClass << 24) | ((ulong)(byte)them.DisguiseTeam << 16)
+    /// <summary>
+    /// One disguise of one player's life: its class, team and borrowed name, and the life it is worn in
+    /// (<see cref="TFPlayerLives"/>, his spawns), so the same dress after a respawn is another alias (review F7).
+    /// </summary>
+    public static ulong DisguiseKey(in TFActorFacts them, int life)
+        => ((ulong)(uint)life << 32) | ((ulong)(byte)them.DisguiseClass << 24) | ((ulong)(byte)them.DisguiseTeam << 16)
            | (ushort)them.DisguiseTargetIndex;
 
     /// <summary>
@@ -176,11 +193,12 @@ public sealed class TFBotGameView(ITFActorFacts actors, ITFPlayerData players, I
 
     /// <summary>
     /// The slot whose name an enemy's target ID shows over a disguised Spy (<c>tf_hud_target_id.cpp:764-793</c>): the
-    /// borrowed player's, unless he has none or is cloaked, when stock's target ID keeps the Spy's own name
-    /// (<paramref name="own"/>, the slot the engine read gave him).
+    /// borrowed player's, unless he borrowed none, when stock's target ID keeps the Spy's own name (<paramref name="own"/>,
+    /// the slot the engine read gave him). Cloaked he keeps the borrowed one: stock's target ID shows a stealthed enemy no
+    /// name at all, and his own here would mark him and name his real row (review F7).
     /// </summary>
     public static int ShownName(in TFActorFacts them, int own)
-        => them.Disguised && !them.Cloaked && them.DisguiseTargetIndex > 0 ? them.DisguiseTargetIndex : own;
+        => them.Disguised && them.DisguiseTargetIndex > 0 ? them.DisguiseTargetIndex : own;
 
     /// <summary>The conditions a client draws on a player; a disguise shows only to the Spy's own team.</summary>
     public static ActorConditions Conditions(in TFActorFacts f, bool disguiseShown)

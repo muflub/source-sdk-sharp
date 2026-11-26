@@ -90,8 +90,11 @@ public sealed partial class TFDecider
         /// <summary>He stands this near his build spot before he orders the blueprint, and this near a building to swing at it (stock's 75 u).</summary>
         public const float StandUnits = 48f, WorkUnits = 75f;
 
-        /// <summary>Between his buildings he stands this far from the dispenser's middle: inside its 64 u reach, which feeds him metal.</summary>
-        public const float DispenserStandUnits = 40f, WorkArriveUnits = 20f, DispenserSideUnits = 40f;
+        /// <summary>
+        /// He holds a work stand within this; he puts the dispenser down from this far to his gun's side, his box clear of the
+        /// gun's (<see cref="TFEngineerSpots.WorkClearUnits"/>; round 1's 40 u stood him in it).
+        /// </summary>
+        public const float WorkArriveUnits = 20f, DispenserSideUnits = 64f;
 
         /// <summary>How far ahead of him a sentry's blueprint goes: its build box's half-diagonal (24 u by 24 u), a body's, and 4 u.</summary>
         public const float BuildDistanceUnits = 72f;
@@ -103,7 +106,13 @@ public sealed partial class TFDecider
         public const float AimDegrees = 8f;
 
         /// <summary>Stock's out-of-position rules (:326-364): a sentry farther than this from the point, quiet this long, comes down.</summary>
-        public const float OutOfPositionUnits = 1800f, QuietSeconds = 10f;
+        public const float OutOfPositionUnits = 2500f, QuietSeconds = 10f;
+
+        /// <summary>
+        /// The nest holds through this many moves of his point after its gun stood (the review: following every capture, no gun
+        /// reached level 3 on cp_granary); stock's 2,500 u is a walk, here a straight line.
+        /// </summary>
+        public const int HoldMoves = 2;
 
         /// <summary>Stock's retaliation range (:28) and its "keep to the sentry" range (tf_bot_engineer_build.cpp:107-111); a threat this close is fought away from the gun.</summary>
         public const float RetaliateUnits = 750f, KeepToSentryUnits = 100f, CloseThreatUnits = 400f;
@@ -123,6 +132,12 @@ public sealed partial class TFDecider
         public const float SpotPatienceSeconds = 30f, PatienceSpeed = 150f;
 
         private float SpotPatience(in TFSentrySpot spot) => SpotPatienceSeconds + _home.DistanceTo(spot.At) / PatienceSpeed;
+
+        /// <summary>Moved this far between two decides with no death, he was put somewhere (the round's restart sends him home): a respawn.</summary>
+        public const float RespawnJumpUnits = 600f;
+
+        /// <summary>A spawn this far from the one the candidates were worked out from works them out again.</summary>
+        public const float SpotsHomeUnits = 1000f;
 
         /// <summary>The points are looked at again this often (stock's 1-2 s <c>GetMyControlPoint</c> timer).</summary>
         public const float PointSeconds = 2f;
@@ -162,9 +177,12 @@ public sealed partial class TFDecider
         private List<TFSentrySpot> _spots = [];
         private readonly HashSet<int> _failed = [];
         private TFSentrySpot? _spot;
+        private float _dispenserSide = 1f;
+        private int _pointMoves;
         private TFSpotCensus _census;
-        private AiVector _ownSpawn, _enemySpawn, _home;
-        private bool _homeKnown;
+        private AiVector _ownSpawn, _enemySpawn, _home, _lastPlace, _spotsHome, _theirHome;
+        private bool _theirHomeKnown;
+        private bool _homeKnown, _lastPlaceKnown;
         private Tick _spotSince;
 
         // This decide's read.
@@ -182,7 +200,7 @@ public sealed partial class TFDecider
         // What his panel and body told him before.
         private int _lastHealth, _lastShells = -1, _lastKills;
         private Tick _hurtAt = new(-100000), _sentryFiredAt, _lifeAt, _countedAt;
-        private bool _sentryWas, _dispenserWas, _relocating, _respawned = true;
+        private bool _sentryWas, _dispenserWas, _relocating, _respawned = true, _noSpot;
         private TFEngineerJob _lastJob;
 
         // The harness's counters.
@@ -242,8 +260,9 @@ public sealed partial class TFDecider
             if (D._targetSighted)
             {
                 _wrangleSeen = D._now;
-                if (D._targetPos.DistanceTo(_sentry.At) > TFEngineerSpots.SentryRange || share < WrangleUnderShare)
-                    _wrangling = true;
+                // By hand only while it helps (the review's C5): the enemy beyond the gun's reach, or the gun hurt. With the enemy
+                // inside its reach and the gun whole the gun fights on its own, and a wrangled gun does not.
+                _wrangling = D._targetPos.DistanceTo(_sentry.At) > TFEngineerSpots.SentryRange || share < WrangleUnderShare;
             }
             else if (Seconds(_wrangleSeen) > WrangleQuietSeconds)
             {
@@ -272,6 +291,11 @@ public sealed partial class TFDecider
                 : default;
             if (_step.Job == TFEngineerJob.Metal && _lastJob != TFEngineerJob.Metal)
                 _metalTrips++;
+            // Back from a trip for metal: the walk to the spot starts now, not when he first chose it.
+            if (_lastJob == TFEngineerJob.Metal && _step.Job == TFEngineerJob.Build)
+                _spotSince = D._now;
+            // A gun to build with no spot to build it at (no candidate at the point): the nest gives way to the general play.
+            _noSpot = _step is { Job: TFEngineerJob.Build, Kind: TFEngineerPanel.Sentry } && SentrySpot() is null;
             _lastJob = _step.Job;
             _fighting = ShouldFight();
             Wrangle();
@@ -282,6 +306,11 @@ public sealed partial class TFDecider
         /// <summary>What changed on his panel and his body since the last decide: hurt, the gun firing, built, the counters.</summary>
         private void Note()
         {
+            // A respawn: after a death, or a jump of his own place with no death into his team's respawn room (the round's
+            // restart teleports him home, the review's C6): the spot's patience and his home start again.
+            if (_homeKnown && _lastPlaceKnown && _lastPlace.DistanceTo(D._self.Origin) > RespawnJumpUnits && InOwnSpawnRoom(D._self.Origin))
+                _respawned = true;
+            (_lastPlace, _lastPlaceKnown) = (D._self.Origin, true);
             if (_respawned)
                 (_lifeAt, _respawned, _spotSince, _home, _homeKnown) = (D._now, false, D._now, D._self.Origin, true);
             if (D._self.Health < _lastHealth)
@@ -308,7 +337,7 @@ public sealed partial class TFDecider
                 _sentryFiredAt = D._now;
                 if (_firstSentry < 0f)
                     _firstSentry = Seconds(_lifeAt);
-                (_tries, _offset, _relocating) = (0, 0f, false);
+                (_tries, _offset, _relocating, _pointMoves) = (0, 0f, false, 0);
             }
 
             // A spot's patience runs from when he last had to walk to it: a gun lost there starts it again.
@@ -361,17 +390,25 @@ public sealed partial class TFDecider
                 {
                     flag = o;
                 }
-                else if (o.Kind == ObjectiveKind.Carry && o.State == ObjectiveState.Home)
+                else if (o.Kind == ObjectiveKind.Carry)
                 {
-                    theirs = o;
+                    // The enemy's flag: where its home is, as he last saw it there (a carried or dropped flag keeps its home).
+                    if (o.State == ObjectiveState.Home)
+                        (_theirHome, _theirHomeKnown) = (o.Position, true);
+                    theirs = _theirHomeKnown ? o with { Position = _theirHome } : null;
                 }
             }
 
-            // The battle Engineer attacks: the point his team may take comes first; on a flag map the enemy's flag at home.
+            // The battle Engineer attacks: the point his team may take comes first; on a flag map the enemy flag's home, carried
+            // or not (the review's C4: his point went home when his team took the flag).
             Objective? pick = Battle ? take ?? defend ?? theirs ?? zone ?? flag : defend ?? take ?? zone ?? flag;
             _hasPoint = pick is not null;
             if (pick is { } p)
+            {
+                if (p.Id != _pointKey && _pointKey != int.MinValue && _sentry.Exists)
+                    _pointMoves++;
                 (_point, _pointKey) = (p.Position, p.Id);
+            }
         }
 
         /// <summary>
@@ -388,8 +425,12 @@ public sealed partial class TFDecider
             }
 
             bool away = Battle ? Flat(_sentry.At, _point) > MiniOutOfPositionUnits
-                               : Flat(_sentry.At, _point) > OutOfPositionUnits && Seconds(_sentryFiredAt) >= QuietSeconds;
+                               : Flat(_sentry.At, _point) > OutOfPositionUnits && Seconds(_sentryFiredAt) >= QuietSeconds && _pointMoves >= HoldMoves;
             if (!_hasPoint || _relocating || !away)
+                return;
+            // Not down before a spot at the new point is known (the review's C3: a working nest came down and the finder had
+            // none to give).
+            if (D._graph is null || Spots().Count == 0)
                 return;
             _relocating = true;
             _relocations++;
@@ -416,7 +457,7 @@ public sealed partial class TFDecider
         /// Whether he has a nest to look after (a job by a point, or a sentry standing). The battle Engineer only while his mini is
         /// to build, to finish, to unsap or to take down, near it: else he goes with his team.
         /// </summary>
-        private bool Nesting => _step.Job != TFEngineerJob.None
+        private bool Nesting => _step.Job != TFEngineerJob.None && !_noSpot
                                 && (!Battle || _relocating || _step.Job == TFEngineerJob.Build || _step.Job == TFEngineerJob.Metal
                                     || ((_sentry.UnderConstruction || _sentry.Sapped) && D._self.Origin.DistanceTo(_sentry.At) < MiniTendUnits));
 
@@ -480,18 +521,26 @@ public sealed partial class TFDecider
             return D._graph is { } g && g.FindCell(at + new AiVector(0f, 0f, 8f)).IsValid ? at : spot.At;
         }
 
-        /// <summary>Where he stands to put the dispenser down: <see cref="DispenserSideUnits"/> to his gun's side (the side with floor).</summary>
+        /// <summary>
+        /// Where he stands to put the dispenser down: to his gun's side (the side with floor), at least
+        /// <see cref="DispenserSideUnits"/> off and far enough that his box clears the gun's on an axis.
+        /// </summary>
         private AiVector DispenserStand()
         {
             AiVector fwd = TFEngineerSpots.Forward(_sentryYaw), side = new(-fwd.Y, fwd.X, 0f);
-            AiVector right = _sentry.At + side * DispenserSideUnits, left = _sentry.At - side * DispenserSideUnits;
+            side *= _dispenserSide;
+            float off = MathF.Max(DispenserSideUnits, TFEngineerSpots.WorkClearUnits / MathF.Max(MathF.Abs(side.X), MathF.Abs(side.Y)));
+            AiVector right = _sentry.At + side * off, left = _sentry.At - side * off;
             return D._graph is { } g && !g.FindCell(right + new AiVector(0f, 0f, 8f)).IsValid ? left : right;
         }
 
-        /// <summary>Walks to <paramref name="at"/> and holds there within <paramref name="arrive"/>.</summary>
+        /// <summary>
+        /// Walks to <paramref name="at"/> and holds there within <paramref name="arrive"/> on its floor: a stand under a ledge
+        /// is not the stand on it. Live on cp_granary, flat arrival held him 256 u under his nest for 74 s, no wrench reaching it.
+        /// </summary>
         private bool Stand(AiVector at, string why, float arrive = StandUnits * 0.5f)
         {
-            if (Flat(D._self.Origin, at) > arrive)
+            if (!TFEngineerSpots.Arrived(D._self.Origin, at, arrive))
                 D.GoTo(at, MoveSpeed.Run);
             D._verdict = why;
             return true;
@@ -500,23 +549,22 @@ public sealed partial class TFDecider
         private static float Flat(AiVector a, AiVector b) => MathF.Sqrt((a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y));
 
         /// <summary>
-        /// Where he stands to work (stock's UpgradeAndMaintainBuildings, :85-147): by the job's building, on his side of it;
-        /// between his sentry and dispenser when both stand near each other, in reach of either.
+        /// Where he stands to work (stock's UpgradeAndMaintainBuildings, :85-147): by the job's building, within the wrench's
+        /// reach of it, his box clear of every building's (<see cref="TFEngineerSpots.WorkStand"/>); when his dispenser stands by
+        /// the gun, within its reach too, which feeds him the metal the upgrades spend. Behind the gun from the point first.
         /// </summary>
         private AiVector WorkStand()
         {
             TFOwnBuilding target = _step.Kind == TFEngineerPanel.Dispenser ? _dispenser : _sentry;
-            if (_sentry.Exists && _dispenser.Exists && _sentry.At.DistanceTo(_dispenser.At) < WorkUnits * 2f)
-            {
-                // Inside the dispenser's reach (TFDispenser.DispenserRadius, 64 u from its middle), on the sentry's side of it: it
-                // feeds him the metal the upgrades spend while the wrench reaches either.
-                AiVector toSentry = _sentry.At - _dispenser.At;
-                toSentry = new AiVector(toSentry.X, toSentry.Y, 0f);
-                return toSentry.Length < 1f ? _dispenser.At : _dispenser.At + toSentry.Normalised() * MathF.Min(DispenserStandUnits, toSentry.Length * 0.5f);
-            }
-            AiVector away = D._self.Origin - target.At;
-            away = new AiVector(away.X, away.Y, 0f);
-            return away.Length < 1f ? target.At : target.At + away.Normalised() * (WorkUnits * 0.6f);
+            AiVector? feeder = _sentry.Exists && _dispenser.Exists && _sentry.At.DistanceTo(_dispenser.At) < TFEngineerSpots.WorkReachUnits + TFEngineerSpots.NestFeedUnits ? _dispenser.At : null;
+            Span<AiVector> boxes = stackalloc AiVector[2];
+            int n = 0;
+            if (_sentry.Exists)
+                boxes[n++] = _sentry.At;
+            if (_dispenser.Exists)
+                boxes[n++] = _dispenser.At;
+            AiVector back = _hasPoint ? target.At - _point : D._self.Origin - target.At;
+            return TFEngineerSpots.WorkStand(D._graph, target.At, feeder, boxes[..n], back, D._self.Origin);
         }
 
         /// <summary>The Rescue Ranger's stand: <see cref="RangedStandUnits"/> behind his gun, away from the point it covers.</summary>
@@ -535,17 +583,7 @@ public sealed partial class TFDecider
         {
             if (!_hasPoint || D._graph is not { } graph)
                 return null;
-            if (_spotsKey != _pointKey)
-            {
-                int own = D._self.Team, enemy = own == (int)TFTeam.Red ? (int)TFTeam.Blue : (int)TFTeam.Red;
-                (_ownSpawn, _enemySpawn) = (SpawnOf(own), SpawnOf(enemy));
-                _spots = Battle
-                    ? TFEngineerSpots.Candidates(graph, D._memory.World.Sight, _point, own, D._map.TeamZones, _ownSpawn, _enemySpawn, out _census, MiniReach, MiniBestRange)
-                    : TFEngineerSpots.Candidates(graph, D._memory.World.Sight, _point, own, D._map.TeamZones, _ownSpawn, _enemySpawn, out _census);
-                _spotsKey = _pointKey;
-                _failed.Clear();
-                _spot = null;
-            }
+            Spots();
 
             if (_spot is { } held)
             {
@@ -567,6 +605,39 @@ public sealed partial class TFDecider
             }
 
             return _spot;
+        }
+
+        /// <summary>Whether <paramref name="at"/> is inside one of his team's respawn rooms (map knowledge).</summary>
+        private bool InOwnSpawnRoom(AiVector at)
+        {
+            foreach (TeamZone z in D._map.TeamZones)
+            {
+                if (z.Kind == ZoneKind.RespawnRoom && z.Team == D._self.Team && z.Contains(at + new AiVector(0f, 0f, 16f)))
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// The candidates at his point, worked out again when the point changes or he comes into the world somewhere else
+        /// (the sides are measured from his spawn: the review's C3, a forward spawn's list kept from the first).
+        /// </summary>
+        private List<TFSentrySpot> Spots()
+        {
+            if (D._graph is not { } graph)
+                return _spots;
+            if (_spotsKey == _pointKey && _spotsHome.DistanceTo(_homeKnown ? _home : D._self.Origin) <= SpotsHomeUnits)
+                return _spots;
+            int own = D._self.Team, enemy = own == (int)TFTeam.Red ? (int)TFTeam.Blue : (int)TFTeam.Red;
+            (_ownSpawn, _enemySpawn) = (SpawnOf(own), SpawnOf(enemy));
+            _spots = Battle
+                ? TFEngineerSpots.Candidates(graph, D._memory.World.Sight, _point, own, D._map.TeamZones, _ownSpawn, _enemySpawn, out _census, MiniReach, MiniBestRange)
+                : TFEngineerSpots.Candidates(graph, D._memory.World.Sight, _point, own, D._map.TeamZones, _ownSpawn, _enemySpawn, out _census);
+            (_spotsKey, _spotsHome) = (_pointKey, _homeKnown ? _home : D._self.Origin);
+            _failed.Clear();
+            _spot = null;
+            return _spots;
         }
 
         /// <summary>
@@ -631,6 +702,7 @@ public sealed partial class TFDecider
 
         /// <summary>Walking to build (not yet at his stand, no blueprint out) with a gun in hand and an enemy in sight.</summary>
         private bool ShootsOnTheWay => D._targetSighted && _placing == 0 && D._hasGoal && _step.Job is TFEngineerJob.Build or TFEngineerJob.Metal
+                                       && D._self.ActiveWeapon != WranglerKind
                                        && (D._self.ActiveWeapon == D.PrimaryKind || D._self.ActiveWeapon == D.SecondaryKind);
 
         /// <summary>The nest's hands after the fire: the blueprint ordered and clicked down, the wrench swung at the job's building, an out-of-place nest taken down.</summary>
@@ -690,9 +762,16 @@ public sealed partial class TFDecider
                 _clickAt = new Tick(-100000);
                 if (++_tries >= PlacementTries)
                 {
+                    // Given up: a sentry's spot is failed for another; a dispenser waits stock's retry (10 s) with the gun's
+                    // upgrade done meanwhile, and goes to the gun's other side next time.
                     if (type == TFObjectType.Sentrygun && _spot is { } failed)
+                    {
                         _failed.Add(failed.Cell);
-                    (_spot, _tries, _offset) = (null, 0, 0f);
+                        _spot = null;
+                    }
+                    else if (type == TFObjectType.Dispenser)
+                        (_dispenserRetry, _dispenserSide) = (D._now + (int)(TFEngineerNest.DispenserRetrySeconds / D._tick), -_dispenserSide);
+                    (_tries, _offset) = (0, 0f);
                     return;
                 }
 
@@ -786,7 +865,9 @@ public sealed partial class TFDecider
                 return;
             }
 
-            if (_placing > 0)
+            // A blueprint out for the job in hand stays out; one the job no longer wants (the gun hurt while the dispenser's was
+            // out) is put away for the wrench, which takes the builder out of his hands (the review's C1).
+            if (_placing > 0 && (_step.Job != TFEngineerJob.Work || D._root.Chosen?.Name != ClassBranch))
                 return;
             if (Ranged && D._root.Chosen?.Name == ClassBranch)
             {

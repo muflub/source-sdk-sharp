@@ -29,9 +29,10 @@ public readonly record struct TFEngineerStep(TFEngineerJob Job, int Kind);
 /// <summary>
 /// The Engineer's nest, stock's order (<c>CTFBotEngineerBuilding::Update</c> and <c>UpgradeAndMaintainBuildings</c>,
 /// tf_bot_engineer_building.cpp:154-171, 269-465), on what his panel shows: the sentry first; then whatever is sapped,
-/// the sentry hurt or under construction, the dispenser under construction; the dispenser once the sentry stands and
-/// nothing hurts him (stock retries it every <see cref="DispenserRetrySeconds"/>, never under attack); then the sentry
-/// to level 3, the dispenser hurt, the dispenser up to the sentry's level. A job that costs metal he has not got, with
+/// the sentry hurt or under construction, the dispenser under construction; the dispenser once the sentry stands and nothing
+/// hurts him (stock retries it every <see cref="DispenserRetrySeconds"/>, never under attack), before the upgrade (ours:
+/// stock upgrades first when a metal source is near); the sentry to level 3; then the dispenser hurt, the dispenser up to the
+/// sentry's level. A job that costs metal he has not got, with
 /// no dispenser of his to stand by, is a trip for metal (stock's <c>CTFBotGetAmmo</c> on a dry wrench).
 /// Pure: the play hands it the panel's rows and the bot's metal.
 /// </summary>
@@ -64,8 +65,19 @@ public static class TFEngineerNest
             return Costly(sentry.Hurt && !sentry.UnderConstruction, metal, fed, TFEngineerPanel.Sentry);
         if (dispenser.Exists && dispenser.UnderConstruction)
             return new(TFEngineerJob.Work, TFEngineerPanel.Dispenser);
+        // The dispenser before the upgrade, once he can pay for it; short of its price, what he carries goes into the gun before
+        // he walks for more (round 1's fix: a new gun's 70 metal is not left unspent). Stock goes to level 3 first when a metal
+        // source is near (IsMetalSourceNearby, :368-383); live (2026-11-24, cp_granary and ctf_2fort, 6 runs) that order never
+        // built a dispenser: every trip's metal went into the upgrade, each trip was another, and no gun passed level 2.
         if (!dispenser.Exists && mayBuildDispenser && upgrades)
-            return metal >= DispenserCost ? new(TFEngineerJob.Build, TFEngineerPanel.Dispenser) : new(TFEngineerJob.Metal, TFEngineerPanel.Dispenser);
+        {
+            if (metal >= DispenserCost)
+                return new(TFEngineerJob.Build, TFEngineerPanel.Dispenser);
+            if (metal > 0 && !sentry.Mini && sentry.Level < TopLevel)
+                return new(TFEngineerJob.Work, TFEngineerPanel.Sentry);
+            return new(TFEngineerJob.Metal, TFEngineerPanel.Dispenser);
+        }
+
         if (upgrades && !sentry.Mini && sentry.Level < TopLevel)
             return Costly(true, metal, fed, TFEngineerPanel.Sentry);
         if (dispenser.Exists && dispenser.Hurt)

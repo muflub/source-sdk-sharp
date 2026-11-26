@@ -42,7 +42,7 @@ public sealed class SnapshotBuilderTests
         var rendered = new FakeTeams();
         if (teams)
             rendered.Put(bot.Handle, 2).Put(seen.Handle, 3);
-        var builder = new SnapshotBuilder(w.Engine(), WeaponCatalog.Stock(), new Hud(77), w.Stance(), rendered, TestGames.Hl2mp(), new ThingSight(w.Engine(), w.Entities(), w.Traces(), TestGames.Hl2mp()));
+        var builder = new SnapshotBuilder(w.Engine(), WeaponCatalog.Stock(), new Hud(77), w.Stance(), rendered, TestGames.Hl2mp(), new ThingSight(w.Engine(), w.Entities(), w.Traces(), TestGames.Hl2mp()), new ShownActors(TestGames.Hl2mp()));
         var ring = new SnapshotRing(2, VisionPass.Slots, 8);
         AiSnapshot snap = ring.BeginWrite(new Tick(60));
         builder.Build(snap, [sensed], pass, slot => slot == 2 || (selfReloading && slot == 1) ? ActorActivity.Reloading : ActorActivity.None);

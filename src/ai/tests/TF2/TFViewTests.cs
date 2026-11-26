@@ -74,13 +74,16 @@ public sealed class TFViewTests
         Assert.Equal((Blue, 4), (f.Team, f.NameSlot));
     }
 
-    /// <summary>Nor while he is cloaked (the same lines' <c>IsStealthed</c> test): the control is the uncloaked disguise's borrowed 6.</summary>
+    /// <summary>
+    /// Cloaked and still drawn (a fade, a blink), he keeps the borrowed name (review F7): stock shows a stealthed enemy no
+    /// name, and his own slot here would mark him. The control: a disguise that borrowed nobody shows his own (above).
+    /// </summary>
     [Fact]
-    public void ACloakedDisguisedSpyShowsHisOwnName()
+    public void ACloakedDisguisedSpyKeepsTheBorrowedName()
     {
         ActorFacts f = Engine(Red);
         TFBotGameView.Draw(Blue, DisguisedSpy(0.5f), 22, ref f);
-        Assert.Equal(4, f.NameSlot);
+        Assert.Equal(6, f.NameSlot);
     }
 
     [Fact]
