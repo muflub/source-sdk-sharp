@@ -74,8 +74,9 @@ public sealed class NavProfileTests : IDisposable
     public void TF2sJumpsAreTheGroundJumpTheStepTheTuckAndTheDash()
     {
         NavNumbers n = TFNavProfile.ModNumbers;
-        // 289² / 1600 = 52.2; + 18 = 70.2; + 20 = 72.2; + 268.33² / 1600 = 45 more.
-        Assert.Equal((70.2f, 72.2f, 117.2f), (MathF.Round(n.MaxJumpRise, 1), MathF.Round(n.MaxCrouchJumpRise, 1), MathF.Round(n.MaxDoubleJumpRise, 1)));
+        // 289² / 1600 = 52.2; + 18 = 70.2; + 20 = 72.2; the double jump 52.2 + 268.33² / 1600 = 45 more, the tuck not
+        // counted (live, cp_granary: Scouts failed the 104-116 u double jumps the tuck added).
+        Assert.Equal((70.2f, 72.2f, 97.2f), (MathF.Round(n.MaxJumpRise, 1), MathF.Round(n.MaxCrouchJumpRise, 1), MathF.Round(n.MaxDoubleJumpRise, 1)));
     }
 
     [Fact]

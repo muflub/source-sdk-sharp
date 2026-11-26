@@ -20,7 +20,10 @@ namespace SourceSharp.Ai.TF2.Nav;
 /// 52.2 u up; a plain jump clears that and a step (70.2), a crouched one that and the 20 u the
 /// duck tucks the feet up (72.2).</item>
 /// <item>The Scout's air dash leaves at 268.33 u/s (<c>TFJump.DashSpeed</c>), 45 u more from
-/// the first jump's top: a double jump clears 52.2 + 45 + 20 ≈ 117.2, the Scout's reach alone.</item>
+/// the first jump's top: on paper a double jump clears 52.2 + 45 + 20 ≈ 117.2, the Scout's reach alone. The graph builds
+/// it to 52.2 + 45 ≈ 97.2, the tuck not counted: live on cp_granary (P7 Scout lane,
+/// the dash pressed at the top) 148 of the Scouts' 165 stuck lines in 300 s were double jumps up 104-116 u, at a crate
+/// stack's cells, again and again.</item>
 /// <item>A landing under 650 u/s does no damage (<c>TFCombatDefs.PlayerMaxSafeFallSpeed</c>):
 /// 650² / 1600 ≈ 264 u of safe drop.</item>
 /// <item>A crouch-only place costs <see cref="CrouchOnlyCost"/> times a standing one to cross.</item>
@@ -52,7 +55,7 @@ public sealed class TFNavProfile(ITFActorFacts actors, ITFLevelEntities placed, 
             float g = body.Gravity, jump = TFViewVectors.JumpHeight, dash = TFJump.DashSpeed * TFJump.DashSpeed / (2f * g);
             float tuck = body.HullMax.Z - body.DuckHullMax.Z, fall = TFCombatDefs.PlayerMaxSafeFallSpeed;
             return new NavNumbers(body.HullMax.X - body.HullMin.X, body.HullMax.Z, body.DuckHullMax.Z, body.StepSize,
-                                  jump + body.StepSize, jump + tuck, fall * fall / (2f * g), jump + dash + tuck, WideHull: true,
+                                  jump + body.StepSize, jump + tuck, fall * fall / (2f * g), jump + dash, WideHull: true,
                                   CrouchOnlyCost: CrouchOnlyCost);
         }
     }

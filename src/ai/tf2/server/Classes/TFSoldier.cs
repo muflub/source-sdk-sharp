@@ -45,9 +45,6 @@ public static class TFSoldierClass
     /// <summary>The Direct Hit Soldier (research §2 E): long range, body shots and airshots, the sentry killer; the Reserve Shooter beside it.</summary>
     public const string DirectHitter = "DirectHit";
 
-    /// <summary>The pocket (research §2 B): stays on its Medic. Not in the table until a Medic is ready to field.</summary>
-    public const string Pocket = "Pocket";
-
     /// <summary>
     /// The archetype's factor on root branch <paramref name="branch"/> (the play's <c>Weigh</c>), each kept inside the bounds
     /// the general play's scores hold (the review's C3, C4; facts in TFSoldierArchetypeTests):

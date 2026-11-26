@@ -23,9 +23,9 @@ public static class TFScoutClass
 {
     /// <summary>
     /// Whether the composition fields the Scout (C.4): its play is the job (P7 Scout lane, ai-tf-class, 4 pinned Flanker Scouts
-    /// against 4 Soldiers, 3 runs a map, 300 s): on cp_granary first on the objective at 30 s in every run (the point opens
-    /// then) against 75-95 s, on ctf_2fort 71-84 s against 82-152 s and each flag first taken 33-70 s after the round's
-    /// start against 46-124 s.
+    /// against 4 Soldiers, 3 runs a map, 300 s, timed from the counted round's start: `tools/ai-tf-class --rescore`, the round
+    /// restarting at 36-38 s): first on the objective on cp_granary at 23/22/23 s against 40/59/39 s, on
+    /// ctf_2fort at 47/35/37 s against 46/116/72 s.
     /// </summary>
     public const bool Ready = true;
 
@@ -47,7 +47,7 @@ public static class TFScoutClass
     /// and pub default), the others the research's next in its ship order: the Bonk runner, the Force-a-Nature brawler
     /// and the BFB runner. The weights are the research's starting point (Flanker 40, Bonk 20, FaN 20), not a measure. The BFB
     /// runner is drawn rarely (weight 1 of 81; a pin plays it): on ctf_2fort it took the flag later than the Flanker (first on
-    /// the objective 82.7 s against 72.0 over 3 runs; scout.md §4.3 E's boost-building before a run is not built, and its base
+    /// the objective 40/37/60 s against 36/35/37 from the round's start over 3 runs; scout.md §4.3 E's boost-building before a run is not built, and its base
     /// speed is 360 to the Flanker's 400). Every slot is named, so a Flanker never finds a cleaver in its secondary.
     /// </summary>
     public static TFArchetypeTable Archetypes() => new(TFClass.Scout,
@@ -79,9 +79,10 @@ public static class TFScoutClass
     /// <summary>
     /// The weapon choice (§4.3): the Pistol when the target is further than <see cref="PistolFrom"/> (stock's 500 u bullet
     /// "desired range" plus a margin) or the primary is dry; back to the primary inside <see cref="PrimaryWithin"/> with
-    /// shells in it; the Bat when both guns are dry and the target within <see cref="MeleeFrom"/> (stock's melee range).
+    /// shells in it; the Bat when both guns are dry and the target within <see cref="BatFrom"/> (stock's melee desired range,
+    /// tf_bot.cpp:3190-3193).
     /// </summary>
-    public const float PistolFrom = 600f, PrimaryWithin = 450f, MeleeFrom = 100f;
+    public const float PistolFrom = 600f, PrimaryWithin = 450f, BatFrom = 100f;
 
     /// <summary>
     /// The objectives' lean (§4.3 "objective"): a Scout caps a point at twice the rate (mp_capstyle 1,
@@ -152,16 +153,23 @@ public sealed class TFScoutMeters(ITFPlayerData players, ITFPlayerConditions con
 public sealed partial class TFDecider
 {
     /// <summary>
-    /// The Scout's play (scout.md §4.3): close in with the Scattergun and never back off, the Pistol past 600 u or when the
-    /// primary is dry, each gun fired only within its reach, a double-jump dodge close in, the objectives weighed for the
-    /// double cap, Snipers and Demomen before Heavies and Pyros. By archetype: the FaN brawler fights closer; the Bonk runner
-    /// drinks at a sentry's edge (or to escape) and walks through the range phased; the BFB runner never spends its boost on
-    /// an air dash and leans harder on the flag.
+    /// The Scout's play (scout.md §4.3): close in with the Scattergun and not back off from the target, the Pistol past 600 u
+    /// or when the primary is dry, each gun fired only within its reach, a double-jump dodge close in, the objectives weighed
+    /// for the double cap, Snipers and Demomen before Heavies and Pyros. By archetype: the FaN brawler fights closer and
+    /// reloads its two shells in hand; the Bonk runner drinks at a sentry's edge (or to escape) and walks through the range
+    /// phased; the BFB runner never spends its boost on an air dash and leans harder on the flag.
+    /// <para>A dry primary: the shared fight selector runs "launcher dry" before the class's footwork for every class
+    /// (TFDecider.cs's fight selector, <see cref="LauncherDry"/>), so on the decide the primary is first seen empty the bot
+    /// backs off toward cover. The hands answer on that same decide, past their spacing: the Pistol out, or the Bat within
+    /// <see cref="TFScoutClass.BatFrom"/>, or (the FaN within its reach) a reload in hand; from the next decide the fight is
+    /// the Scout's own. With neither (the Bonk runner past a swing's reach) the bot backs off and reloads, as stock does
+    /// a barrage weapon at clip 1 or less (tf_bot_tactical_monitor.cpp:266-281).</para>
     /// </summary>
     private sealed class ScoutPlay(TFDecider d) : ClassPlay(d, TFClass.Scout)
     {
         private AiRandom? _scoutHopRng;
-        private int _scoutPrimaryClip = -1, _scoutDashStage, _scoutDashSide;
+        private int _scoutPrimaryClip = -1, _scoutPrimaryReserve = -1, _scoutDashStage, _scoutDashSide;
+        private bool _scoutGunEmpty;
         private bool _scoutDrinking;
         private Tick _scoutDrinkSince;
         private bool _scoutWasPhased;
@@ -194,6 +202,12 @@ public sealed partial class TFDecider
         /// <summary>The primary's shells as the bot last saw them in its hand (no weapon reloads holstered): unknown, taken as loaded, until it has held it.</summary>
         private bool PrimaryLoaded => _scoutPrimaryClip != 0;
 
+        /// <summary>Whether the primary has any shell left, in its clip or its reserve, as last seen: unknown counts as yes.</summary>
+        private bool PrimaryHasAmmo => _scoutPrimaryClip != 0 || _scoutPrimaryReserve != 0;
+
+        /// <summary>The Pistol out of shells and reserve both, as last seen in the hand.</summary>
+        private bool GunUsable => GunKind >= 0 && !_scoutGunEmpty;
+
         /// <summary>The fight's band for the weapon in hand: never a near edge to back off from, only a far one to close to.</summary>
         internal float FarEdge()
         {
@@ -201,8 +215,9 @@ public sealed partial class TFDecider
                 return MeleeReach * 0.75f;
             if (HoldingPrimary)
                 return PrimaryIsFaN ? TFScoutClass.FaNFar : PrimaryIsShortstop ? TFScoutClass.ShortstopFar : TFScoutClass.ScatterFar;
-            // The Pistol out with shells in the primary: the bot closes, and the hands take the primary out on the way.
-            if (HoldingGun && D.PrimaryKind >= 0 && PrimaryLoaded)
+            // The Pistol out with shells in the primary, or the FaN brawler's (it reloads its FaN in hand inside the FaN's reach):
+            // the bot closes, and the hands take the primary out on the way.
+            if (HoldingGun && D.PrimaryKind >= 0 && (PrimaryLoaded || (PrimaryIsFaN && PrimaryHasAmmo)))
                 return PrimaryIsFaN ? TFScoutClass.FaNFar : TFScoutClass.ScatterFar;
             return TFScoutClass.PistolFar;
         }
@@ -244,7 +259,7 @@ public sealed partial class TFDecider
             else
                 D.Strafe(approach);
             Dodge(before);
-            D._verdict = approach > 0f ? "closing" : "holding range";
+            D._verdict = approach > 0f ? "closing" : approach < 0f ? "backing off" : "holding range";
             return true;
         }
 
@@ -313,10 +328,16 @@ public sealed partial class TFDecider
         public override void Hands()
         {
             if (HoldingPrimary)
-                _scoutPrimaryClip = D._self.Clip;
+                (_scoutPrimaryClip, _scoutPrimaryReserve) = (D._self.Clip, D._self.Reserve);
+            if (HoldingGun)
+                _scoutGunEmpty = D._self.Clip == 0 && D._self.Reserve == 0;
             // A weapon change wins over this decide's shot (the general hands wait for a decide with none): a Scattergun firing at
             // 800 u is the reason to take the Pistol out.
-            if (_scoutDrinking || D._action.Kind is not (ActionKind.None or ActionKind.Fire) || D.Busy || D._now < D._handsAt)
+            if (_scoutDrinking || D._action.Kind is not (ActionKind.None or ActionKind.Fire) || D.Busy)
+                return;
+            if (D._targetSighted && DryAnswer())
+                return;
+            if (D._now < D._handsAt)
                 return;
             if (!D._targetSighted)
             {
@@ -336,35 +357,79 @@ public sealed partial class TFDecider
             }
 
             float dist = D._targetDist;
-            int primary = D.PrimaryKind, gun = GunKind, melee = MeleeKind;
+            int primary = D.PrimaryKind, gun = GunKind;
             if (HoldingPrimary)
             {
-                if (gun >= 0 && (D._self.Clip == 0 || dist > TFScoutClass.PistolFrom))
+                if (GunUsable && dist > TFScoutClass.PistolFrom)
                     Take(gun);
-                else if (gun < 0 && D._self.Clip == 0 && D._self.Reserve == 0 && dist < TFScoutClass.MeleeFrom && melee >= 0)
-                    D.Select(melee);
                 return;
             }
 
             if (HoldingGun)
             {
-                if (primary >= 0 && PrimaryLoaded && dist < TFScoutClass.PrimaryWithin)
+                // Back to the primary inside its range with shells in it; the FaN brawler's even dry inside the FaN's reach (it
+                // reloads it in hand: two shells are its fight, not the Pistol).
+                if (primary >= 0 && (PrimaryLoaded || (PrimaryIsFaN && PrimaryHasAmmo && dist < TFScoutClass.FaNReach)) && dist < TFScoutClass.PrimaryWithin)
                     Take(primary);
-                else if (D._self.Clip == 0 && D._self.Reserve == 0 && dist < TFScoutClass.MeleeFrom && melee >= 0 && !PrimaryLoaded)
-                    D.Select(melee);
                 return;
             }
 
             // The Bat, or a drink handed back: a gun with shells when the target is out of a swing's reach.
-            if (dist > TFScoutClass.MeleeFrom || !D.HoldingMelee)
+            if (dist > TFScoutClass.BatFrom || !D.HoldingMelee)
             {
                 if (primary >= 0 && PrimaryLoaded && dist < TFScoutClass.PistolFrom)
                     Take(primary);
-                else if (gun >= 0)
+                else if (GunUsable)
                     Take(gun);
-                else if (primary >= 0 && !D.HoldingMelee)
+                else if (primary >= 0 && PrimaryHasAmmo)
                     Take(primary);
             }
+        }
+
+        /// <summary>
+        /// The hands' answer to the gun in hand gone dry with the target in sight, past the hands' spacing (the shared fight's
+        /// "launcher dry" backs the bot off on this decide, TFDecider.cs): the FaN brawler within the FaN's reach reloads in
+        /// hand; else the Pistol, when it has shells; else the Bat within <see cref="TFScoutClass.BatFrom"/>; else a reload. The
+        /// Pistol dry with no reserve: the primary back out while it has any shell (it reloads in hand), else the Bat.
+        /// </summary>
+        private bool DryAnswer()
+        {
+            float dist = D._targetDist;
+            int primary = D.PrimaryKind, gun = GunKind, melee = MeleeKind;
+            bool reloading = (D._self.Flags & SelfFlags.Reloading) != 0;
+            if (HoldingPrimary && D._self.Clip == 0)
+            {
+                if (PrimaryIsFaN && dist < TFScoutClass.FaNReach && D._self.Reserve > 0)
+                    return Reload(reloading);
+                if (GunUsable)
+                    Take(gun);
+                else if (melee >= 0 && dist < TFScoutClass.BatFrom)
+                    D.Select(melee);
+                else
+                    return Reload(reloading);
+                return true;
+            }
+
+            if (HoldingGun && D._self.Clip == 0 && D._self.Reserve == 0)
+            {
+                if (primary >= 0 && PrimaryHasAmmo)
+                    Take(primary);
+                else if (melee >= 0)
+                    D.Select(melee);
+                else
+                    return false;
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>A reload, unless one is under way; true either way (the hands have answered).</summary>
+        private bool Reload(bool reloading)
+        {
+            if (!reloading && D._self.Reserve > 0)
+                D._action = new ActionIntent(ActionKind.Reload, FireStyle.Tap, 0, ++D._oneShot);
+            return true;
         }
 
         private void Take(int kind)
@@ -434,7 +499,7 @@ public sealed partial class TFDecider
 
         public override void Died()
         {
-            _scoutPrimaryClip = -1;
+            (_scoutPrimaryClip, _scoutPrimaryReserve, _scoutGunEmpty) = (-1, -1, false);
             _scoutDrinking = false;
             _scoutDashStage = 0;
             _scoutWasPhased = false;

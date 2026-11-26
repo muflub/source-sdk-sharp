@@ -1249,3 +1249,6 @@ src/ai/tf2/server/Classes/TFDemomanTrap.cs	ports CTFBotPrepareStickybombTrap's g
 src/ai/tf2/server/Classes/TFDemoman.cs	ports the TFBot Demoman's rules (tf_bot_tactical_monitor.cpp's 150 u detonation, tf_bot_stickybomb_sentrygun.cpp's three stickies at rest on a sentry, tf_bot.cpp's desired range)
 src/ai/tf2/server/Classes/TFHeavy.cs	ports the Heavy's rules of CTFBot: the 3 s spin hold (tf_bot_behavior.cpp), GetThreatDanger by class and the 0.3 critical health ratio (tf_bot.cpp, tf_bot_get_health.cpp)
 src/ai/tf2/server/Classes/TFSoldierPlay.cs	ports CTFBot's soldier rules: the dry launcher's swap range (closeSoldierRange), the buff banner's full-meter and flag gate, and CTFBotDestroyEnemySentry's attack band (tf_bot.cpp, tf_bot_destroy_enemy_sentry.cpp)
+src/ai/tf2/server/Classes/TFEngineerSpots.cs	ports CTFBotEngineerMoveToBuild::CollectBuildAreas candidate rules (tf_bot_engineer_move_to_build.cpp)
+src/ai/tf2/server/Classes/TFEngineerNest.cs	ports CTFBotEngineerBuilding::Update and UpgradeAndMaintainBuildings order (tf_bot_engineer_building.cpp)
+src/ai/tf2/server/Classes/TFEngineer.cs	ports CTFBotEngineerBuild::ShouldAttack (tf_bot_engineer_build.cpp), CTFBotEngineerBuilding retries, out-of-position and retaliate range (tf_bot_engineer_building.cpp), CTFBot::GetMyControlPoint for an Engineer (tf_bot.cpp)

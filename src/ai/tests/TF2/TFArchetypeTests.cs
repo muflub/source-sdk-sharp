@@ -75,13 +75,15 @@ public sealed class TFArchetypeTests
         Assert.Equal(-1, TFArchetypeChoice.Choose(null, 1, TFLoadoutSlot.Primary, Primaries));
     }
 
-    /// <summary>The Soldier's shipped table is the worked example: every Soldier plays the stock Pocket, its launcher the stock one or a reskin.</summary>
+    /// <summary>The Soldier's shipped table: every row is drawn by some seed, the stock archetype the most, and it carries the stock launcher (a reskin stands for it).</summary>
     [Fact]
-    public void TheSoldiersStockArchetypeIsThePocket()
+    public void TheSoldiersStockArchetypeIsTheMostDrawnAndCarriesTheStockLauncher()
     {
         TFArchetypeTable soldier = TFSoldierClass.Archetypes();
-        Assert.All(Enumerable.Range(0, 50), s => Assert.Equal(TFSoldierClass.Pocket, soldier.Draw((ulong)s)!.Name));
-        Assert.Equal([18], soldier.Named(TFSoldierClass.Pocket)!.Prefer(TFLoadoutSlot.Primary).ToArray());
+        var drawn = Enumerable.Range(0, 1000).Select(s => soldier.Draw((ulong)s)!.Name).GroupBy(n => n).ToDictionary(g => g.Key, g => g.Count());
+        Assert.Equal(soldier.Rows.Select(r => r.Name).Order(), drawn.Keys.Order());
+        Assert.Equal("Stock", drawn.MaxBy(kv => kv.Value).Key);
+        Assert.Equal([18], soldier.Named("Stock")!.Prefer(TFLoadoutSlot.Primary).ToArray());
     }
 
     private static RosterBot Joined(int slot, int seedIndex, params (string Key, string Value)[] options)
@@ -90,15 +92,17 @@ public sealed class TFArchetypeTests
             Actor = new ActorId(slot, 7), SeedIndex = seedIndex, Options = options.ToDictionary(o => o.Key, o => o.Value),
         };
 
-    /// <summary>A joined bot's items follow its archetype (the Soldier's Pocket here); a slot of no AI bot is left to the draw.</summary>
+    /// <summary>A joined bot's items follow its archetype (a pinned Stock and a pinned DirectHit Soldier here); a slot of no AI bot is left to the draw.</summary>
     [Fact]
     public void ABotsItemsFollowItsArchetype()
     {
         var pins = new TFBotPins();
-        pins.Joined(Joined(3, 1));
+        pins.Joined(Joined(3, 1, ("class", "soldier"), ("archetype", "Stock")));
+        pins.Joined(Joined(5, 2, ("class", "soldier"), ("archetype", "DirectHit")));
         var items = new TFArchetypeItems(pins);
         BotWorksItem[] launchers = [new(18, "tf_weapon_rocketlauncher", ""), new(127, "tf_weapon_rocketlauncher_directhit", "mult_dmg")];
         Assert.Equal(18, items.Choose(3, TFClass.Soldier, TFLoadoutSlot.Primary, launchers));
+        Assert.Equal(127, items.Choose(5, TFClass.Soldier, TFLoadoutSlot.Primary, launchers));
         Assert.Equal(-1, items.Choose(4, TFClass.Soldier, TFLoadoutSlot.Primary, launchers));
     }
 
@@ -108,19 +112,19 @@ public sealed class TFArchetypeTests
     {
         var pins = new TFBotPins();
         Assert.Null(pins.Check(new Dictionary<string, string> { ["class"] = "heavy" }));
-        Assert.Null(pins.Check(new Dictionary<string, string> { ["class"] = "soldier", ["archetype"] = "pocket" }));
+        Assert.Null(pins.Check(new Dictionary<string, string> { ["class"] = "soldier", ["archetype"] = "stock" }));
         Assert.Contains("is no class", pins.Check(new Dictionary<string, string> { ["class"] = "tank" }), StringComparison.Ordinal);
-        Assert.Contains("needs a class=", pins.Check(new Dictionary<string, string> { ["archetype"] = "pocket" }), StringComparison.Ordinal);
-        Assert.Contains("is no scout archetype", pins.Check(new Dictionary<string, string> { ["class"] = "scout", ["archetype"] = "pocket" }), StringComparison.Ordinal);
+        Assert.Contains("needs a class=", pins.Check(new Dictionary<string, string> { ["archetype"] = "stock" }), StringComparison.Ordinal);
+        Assert.Contains("is no scout archetype", pins.Check(new Dictionary<string, string> { ["class"] = "scout", ["archetype"] = "NoClassTakesThisName" }), StringComparison.Ordinal);
     }
 
-    /// <summary>The decider plays the archetype its items followed: a Soldier's is the Pocket; a pin's seed is the brain's.</summary>
+    /// <summary>The decider plays the archetype its items followed: the test field's Soldier (seed 7) draws the stock one; a pin's seed is the brain's.</summary>
     [Fact]
     public void TheDeciderPlaysTheArchetypeItsItemsFollowed()
     {
         var f = new TFField();
         f.Step(TFField.Self(new AiVector(300f, 256f, 0f)), TFField.Ctf());
-        Assert.Equal(TFSoldierClass.Pocket, f.Decider.Archetype);
+        Assert.Equal("Stock", f.Decider.Archetype);
         var pins = new TFBotPins();
         pins.Joined(Joined(3, 11));
         Assert.Equal(AiRandom.SeedFor(AiBots.MatchSeed ^ SourceSharp.Ai.Server.Senses.ServerAiSession.BrainSalt, 11), pins.OfSlot(3)!.Seed);

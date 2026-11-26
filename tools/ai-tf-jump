@@ -1224,7 +1224,9 @@ def start_game(config, extra="", map_name=MAP):
 
 def add_jumper(game):
     """Adds the one red Soldier and answers its slot once it is in the world."""
-    game.cmd("ai_bot_add Jumper medium team=2")
+    # The stock Soldier (Rocket Launcher, Shotgun, Shovel): the gate flies the book's plans, made with the stock launcher; an
+    # unpinned bot draws its archetype by seed, and a Direct Hit or Gunboats kit changes what a jump costs and how far it throws.
+    game.cmd("ai_bot_add Jumper medium team=2 class=soldier archetype=Stock")
     deadline = time.time() + 120
     while time.time() < deadline:
         for b in lower(game.json("/ai/world")).get("bots") or []:

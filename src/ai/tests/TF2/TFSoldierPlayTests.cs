@@ -356,19 +356,26 @@ public sealed class TFSoldierPlayTests
         Assert.Equal(1, Counter(f, "soldier.shell_give_ups"));
     }
 
-    /// <summary>A sentry shelled past its time (15 s) is given up: rockets from the band do not kill a tended nest.</summary>
+    /// <summary>A sentry shelled past its time (15 s) is given up: still shelled at 10 s, not at 18 s (rockets from the band do not kill a tended nest).</summary>
     [Fact]
     public void ShellingASentryGivesUpAfterItsTime()
     {
         var f = Field(StockKit());
-        int decides = (int)(TFDecider.SoldierShellGiveUpSeconds / (0.015f * DecideSchedule.Period)) + 20;
-        for (int k = 0; k < decides; k++)
+        int Decides(float seconds) => (int)(seconds / (0.015f * DecideSchedule.Period));
+        for (int k = 0; k < Decides(10f); k++)
+            f.StepSeeing(TFField.Self(Mid, clip: 4), TFField.Ctf(), [Sentry]);
+        Assert.Equal((TFDecider.ClassBranch, 0L), (f.Branch, Counter(f, "soldier.shell_give_ups")));
+        for (int k = 0; k < Decides(8f); k++)
             f.StepSeeing(TFField.Self(Mid, clip: 4), TFField.Ctf(), [Sentry]);
         Assert.NotEqual(TFDecider.ClassBranch, f.Branch);
-        Assert.True(Counter(f, "soldier.shell_give_ups") >= 1);
+        Assert.Equal(1, Counter(f, "soldier.shell_give_ups"));
     }
 
-    /// <summary>A sentry that does not cover the bot's objective (far from the enemy's flag) is passed by for the objective.</summary>
+    /// <summary>
+    /// A sentry that does not cover the bot's objective (far from the enemy's flag) is passed by for the objective: by the
+    /// scores (shelling's 0.45 under a far Fetch's 0.7, which drops to a quarter only for a flag inside a sentry's range) and by
+    /// the cover rule (no shelling of a sentry that guards nothing the bot goes for).
+    /// </summary>
     [Fact]
     public void ASentryThatGuardsNoObjectiveIsPassedBy()
     {

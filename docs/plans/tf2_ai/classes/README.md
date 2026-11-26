@@ -80,9 +80,30 @@ have a global cool down for all bots to not thrash".
   it happened in. A round that restarts straight back to Preround (waiting for players, about 31 s in) is not
   counted (2026-11-21).
 
-## Where it stands, 2026-11-21
+## Where it stands, 2026-11-22
 
-The foundation is in its landing gate. The Scout and Demoman lanes are reviewed and fixed, and wait for the next
-landing. The Heavy is fixed, and its shared applier change is under review. The Spy's `Ready` flag is off until its
-door deadlock and bump cue are fixed. The Soldier, Pyro, Engineer, Medic and Sniper lanes are building. Each
-landing records its numbers in plan_bots_teams_tf2.md.
+- **On main:**
+  - the foundation (`fba000b8f`);
+  - the Scout, Demoman and Heavy, ready (landing batch 6, `82333f6ab7`), with the shared fixes they needed: the
+    ready-set facts, the meter readers in the perception census, the meter chain's order census, and three test
+    races found under load.
+- **Reviewed and fixed, for the next landing:**
+  - the Soldier and Spy, ready;
+  - the Medic, Sniper and Engineer, not ready;
+  - the Engineer's branch brings the per-class cap (stock's defence roster) and no class change with a sentry up;
+  - lane `cap`: point and flag captures counted, as stock does.
+- **The Pyro is ready**, and is building the user's airblast tactics with a hurt-zone sense for real cliff kills.
+
+Round 2 is planned in [round2.md](round2.md), and its shared hook lanes have started.
+
+### More rulings, 2026-11-22
+
+- **User:** "pryos should also use their air blast to push people of objectes, push ubered medics away from the
+  person they are healing and also push people off the cliffs to their death when posible. Pryos should also
+  refelect projectiles and try and guess when they are in bound".
+- **User:** "I would skip friendly ai": no friendly or joke bots.
+- **Coordinator:**
+  - Ready on a noisy map is judged on six runs per arm: the class's median must be no worse than the control's, or
+    within the control's own spread with the other map clearly better.
+  - The Spy is ready with two suspicion refinements moved to round 2.
+  - The Pyro may add the shared hurt-zone sense (S12).

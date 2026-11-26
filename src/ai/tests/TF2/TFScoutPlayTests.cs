@@ -358,4 +358,217 @@ public sealed class TFScoutPlayTests
         Assert.True(fired > 0, "no shot");
         Assert.Equal(0L, counters["scout.primary_shots"]);
     }
+    private static bool Selects(IntentCommand c, int kind) => c.Action.Kind == ActionKind.SelectWeapon && c.Action.WeaponSlot == EngineBotSelf.ByKind + kind;
+
+    private static string[] DryVerdicts => ["launcher dry", TFDecider.CoverVerdict];
+
+    /// <summary>
+    /// The Scattergun gone dry inside the hands' second between changes (it had just been taken out): the Pistol comes out on
+    /// that same decide; the general hands wait out their spacing, and the shared fight's "launcher dry" backs the bot off
+    /// all the while.
+    /// </summary>
+    [Fact]
+    public void ADryScattergunTakesOutThePistolPastTheHandsSpacing()
+    {
+        TFField f = Scout(Flanker());
+        Assert.True(Selects(f.StepDrawn(Self(Pistol, clip: 12), TFField.Ctf(), EnemyAt(300f)), Scattergun), "the Scattergun was not taken out first");
+        IntentCommand dry = f.StepDrawn(Self(Scattergun, clip: 0), TFField.Ctf(), EnemyAt(200f));
+        Assert.True(Selects(dry, Pistol), $"{dry.Action}");
+    }
+
+    /// <summary>
+    /// What a dry Scattergun does to the footwork: on the decide it is seen dry the shared fight backs the bot off ("launcher
+    /// dry"), and with the Pistol out the next decide is the Scout's own fight again (closing or holding, never backing off).
+    /// </summary>
+    [Fact]
+    public void ADryScattergunBacksOffForOneDecideOnly()
+    {
+        TFField f = Scout(Flanker());
+        f.StepDrawn(Self(Scattergun, clip: 0), TFField.Ctf(), EnemyAt(500f));
+        Assert.Contains(f.Decider.Doing.Verdict, DryVerdicts);
+        f.StepDrawn(Self(Pistol, clip: 12), TFField.Ctf(), EnemyAt(500f));
+        Assert.Contains(f.Decider.Doing.Verdict, new[] { "closing", "holding range" });
+    }
+
+    /// <summary>The Bonk runner (no Pistol) with its Scattergun dry, the target within a swing (80 u): the Bat, though the gun has shells in reserve.</summary>
+    [Fact]
+    public void ABonkRunnerWithADryScattergunTakesTheBatWithinASwing()
+    {
+        TFField f = Scout(BonkKit(0f), TFScoutClass.Bonk);
+        IntentCommand c = f.StepDrawn(Self(Scattergun, clip: 0, reserve: 32), TFField.Ctf(), EnemyAt(80f));
+        Assert.True(Selects(c, Bat), $"{c.Action}");
+    }
+
+    /// <summary>The same past a swing (300 u): it backs off ("launcher dry") and reloads, stock's barrage-weapon retreat.</summary>
+    [Fact]
+    public void ABonkRunnerWithADryScattergunPastASwingBacksOffAndReloads()
+    {
+        TFField f = Scout(BonkKit(0f), TFScoutClass.Bonk);
+        IntentCommand c = f.StepDrawn(Self(Scattergun, clip: 0, reserve: 32), TFField.Ctf(), EnemyAt(300f));
+        Assert.Equal(ActionKind.Reload, c.Action.Kind);
+        Assert.Contains(f.Decider.Doing.Verdict, DryVerdicts);
+    }
+
+    /// <summary>The FaN dry with the target inside its reach (200 u): reloaded in hand, the Pistol left holstered (scout.md §4.3 C: two shells are its fight).</summary>
+    [Fact]
+    public void ADryFaNWithinItsReachIsReloadedInHand()
+    {
+        TFField f = Scout(FaNKit(), TFScoutClass.ForceANature);
+        IntentCommand c = f.StepDrawn(Self(FaN, clip: 0, reserve: 32), TFField.Ctf(), EnemyAt(200f));
+        Assert.Equal(ActionKind.Reload, c.Action.Kind);
+    }
+
+    /// <summary>The FaN dry with the target past its reach (400 u): the Pistol.</summary>
+    [Fact]
+    public void ADryFaNPastItsReachTakesOutThePistol()
+    {
+        TFField f = Scout(FaNKit(), TFScoutClass.ForceANature);
+        IntentCommand c = f.StepDrawn(Self(FaN, clip: 0, reserve: 32), TFField.Ctf(), EnemyAt(400f));
+        Assert.True(Selects(c, Pistol), $"{c.Action}");
+    }
+
+    /// <summary>
+    /// The FaN brawler with the Pistol out after its FaN went dry, the target come within the FaN's reach (200 u): the FaN back
+    /// out, to reload it in hand (the Flanker leaves its dry Scattergun holstered: AScattergunSeenDryIsNotTakenBackOut).
+    /// </summary>
+    [Fact]
+    public void TheFaNBrawlerTakesItsDryFaNBackOutInsideItsReach()
+    {
+        TFField f = Scout(FaNKit(), TFScoutClass.ForceANature);
+        f.StepDrawn(Self(FaN, clip: 0, reserve: 32), TFField.Ctf(), EnemyAt(400f));
+        IntentCommand[] decides = [.. Enumerable.Range(0, 24).Select(_ => f.StepDrawn(Self(Pistol, clip: 12), TFField.Ctf(), EnemyAt(200f)))];
+        Assert.Contains(decides, c => Selects(c, FaN));
+    }
+
+    /// <summary>The Pistol out of shells and reserve both, the Scattergun seen dry but with shells in reserve: the Scattergun back out (it reloads in hand).</summary>
+    [Fact]
+    public void AnEmptyPistolTakesThePrimaryBackOut()
+    {
+        TFField f = Scout(Flanker());
+        f.StepDrawn(Self(Scattergun, clip: 0, reserve: 32), TFField.Ctf(), EnemyAt(300f));
+        IntentCommand c = f.StepDrawn(Self(Pistol, clip: 0, reserve: 0), TFField.Ctf(), EnemyAt(300f));
+        Assert.True(Selects(c, Scattergun), $"{c.Action}");
+    }
+
+    /// <summary>Both guns out of shells and reserve: the Bat (stock's melee when nothing else fires).</summary>
+    [Fact]
+    public void BothGunsEmptyTakeOutTheBat()
+    {
+        TFField f = Scout(Flanker());
+        f.StepDrawn(Self(Scattergun, clip: 0, reserve: 0), TFField.Ctf(), EnemyAt(300f));
+        IntentCommand c = f.StepDrawn(Self(Pistol, clip: 0, reserve: 0), TFField.Ctf(), EnemyAt(300f));
+        Assert.True(Selects(c, Bat), $"{c.Action}");
+    }
+
+    /// <summary>In a lull, the Pistol out and short of a full clip is reloaded before the primary is taken out (scout.md §4.3).</summary>
+    [Fact]
+    public void InALullThePistolIsReloadedFirst()
+    {
+        TFField f = Scout(Flanker());
+        IntentCommand c = f.StepDrawn(Self(Pistol, clip: 5, reserve: 36), TFField.Ctf());
+        Assert.Equal(ActionKind.Reload, c.Action.Kind);
+    }
+
+    /// <summary>The Scout's play object, which the decider keeps for its class (private), for the facts on its numbers.</summary>
+    private static TFDecider.ClassPlay PlayOf(TFField f)
+        => (TFDecider.ClassPlay)typeof(TFDecider).GetField("_classPlay", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(f.Decider)!;
+
+    private static KnownActor Seen(TFField f, TFClass cls, float dist)
+    {
+        f.StepDrawn(Self(Scattergun), TFField.Ctf(), EnemyAt(dist, cls));
+        Blackboard board = f.Memory.Board;
+        for (int s = 0; s < board.Slots; s++)
+        {
+            if (board.Actor(s).Id == Enemy)
+                return board.Actor(s);
+        }
+
+        throw new InvalidOperationException("the enemy was not remembered");
+    }
+
+    /// <summary>A Sniper and a Demoman are worth +0.2 to a Scout (scout.md §4.3's comp targets), a Soldier nothing.</summary>
+    [Fact]
+    public void ASniperAndADemomanAreWorthMoreToAScout()
+    {
+        TFField f = Scout(Flanker());
+        KnownActor sniper = Seen(f, TFClass.Sniper, 700f);
+        Assert.Equal(TFScoutClass.PickBonus, PlayOf(f).TargetBonus(sniper, true, 700f));
+        TFField g = Scout(Flanker());
+        KnownActor demo = Seen(g, TFClass.Demoman, 700f);
+        Assert.Equal(TFScoutClass.PickBonus, PlayOf(g).TargetBonus(demo, true, 700f));
+        TFField h = Scout(Flanker());
+        KnownActor soldier = Seen(h, TFClass.Soldier, 700f);
+        Assert.Equal(0f, PlayOf(h).TargetBonus(soldier, true, 700f));
+    }
+
+    /// <summary>A Heavy within 600 u and a Pyro within 350 u are worth -0.3; further off, nothing.</summary>
+    [Fact]
+    public void ANearHeavyAndANearPyroAreWorthLessToAScout()
+    {
+        TFField f = Scout(Flanker());
+        KnownActor heavy = Seen(f, TFClass.HeavyWeapons, 500f);
+        Assert.Equal((TFScoutClass.AvoidBonus, 0f), (PlayOf(f).TargetBonus(heavy, true, 500f), PlayOf(f).TargetBonus(heavy, true, 700f)));
+        TFField g = Scout(Flanker());
+        KnownActor pyro = Seen(g, TFClass.Pyro, 300f);
+        Assert.Equal((TFScoutClass.AvoidBonus, 0f), (PlayOf(g).TargetBonus(pyro, true, 300f), PlayOf(g).TargetBonus(pyro, true, 400f)));
+    }
+
+    /// <summary>A Scout in a lull at 45 % of its health goes for a pack (its share is 0.5: no sustain of its own); at 55 % it does not.</summary>
+    [Fact]
+    public void AScoutAtFortyFivePercentGoesForAPack()
+    {
+        TFSkillSwitches(out TFFeelSwitches feel);
+        var hurt = new TFField(slot: 3, mates: [1, 2], seed: SeedFor(TFScoutClass.Flanker), weapons: Weapons, feel: feel) { Hud = Flanker() };
+        hurt.StepDrawn(Self(Scattergun, health: 56), TFField.Ctf());
+        var fine = new TFField(slot: 3, mates: [1, 2], seed: SeedFor(TFScoutClass.Flanker), weapons: Weapons, feel: feel) { Hud = Flanker() };
+        fine.StepDrawn(Self(Scattergun, health: 69), TFField.Ctf());
+        Assert.Equal(("hurt", false), (hurt.Decider.Doing.Verdict, fine.Decider.Doing.Verdict == "hurt"));
+    }
+
+    /// <summary>The share alone decides (the Nerve's retreat off).</summary>
+    private static void TFSkillSwitches(out TFFeelSwitches feel) => feel = TFFeelSwitches.All with { Retreat = false };
+
+    /// <summary>The flag weighs a Flanker 1.1 times a Soldier's of the same seed (scout.md §4.3; 1.3 would beat a near fight everywhere).</summary>
+    [Fact]
+    public void TheFlagWeighsAFlankerMoreThanASoldier()
+    {
+        ulong seed = SeedFor(TFScoutClass.Flanker);
+        var scout = new TFField(seed: seed, weapons: Weapons) { Hud = Flanker() };
+        var soldier = new TFField(seed: seed, weapons: Weapons);
+        scout.Step(Self(Scattergun), TFField.Ctf());
+        soldier.Step(TFField.Self(Mid), TFField.Ctf());
+        Assert.Equal(TFScoutClass.FetchLean, scout.Decider.Weigh(TFDecider.Fetch, 0.5f) / soldier.Decider.Weigh(TFDecider.Fetch, 0.5f), 3);
+    }
+
+    /// <summary>The flag weighs the BFB runner 1.2 times a Soldier's (scout.md §4.3 E).</summary>
+    [Fact]
+    public void TheFlagWeighsTheBabyFaceRunnerMore()
+    {
+        ulong seed = SeedFor(TFScoutClass.BabyFace);
+        var hud = Kit(null, Item(TFLoadoutSlot.Primary, 772, "tf_weapon_pep_brawler_blaster", Babyface), StockPistol, StockBat);
+        var scout = new TFField(seed: seed, weapons: Weapons) { Hud = hud };
+        var soldier = new TFField(seed: seed, weapons: Weapons);
+        scout.Step(Self(Babyface), TFField.Ctf());
+        soldier.Step(TFField.Self(Mid), TFField.Ctf());
+        Assert.Equal(TFScoutClass.BabyFaceFetchLean, scout.Decider.Weigh(TFDecider.Fetch, 0.5f) / soldier.Decider.Weigh(TFDecider.Fetch, 0.5f), 3);
+    }
+
+    /// <summary>A hurt Bonk runner carrying the enemy's flag does not drink (stock's gate, tf_bot.cpp:4566; the game refuses it too).</summary>
+    [Fact]
+    public void ABonkRunnerCarryingTheFlagDoesNotDrink()
+    {
+        TFField f = Scout(BonkKit(100f), TFScoutClass.Bonk);
+        ObjectiveKnowledge carrying = TFField.Ctf(blue: ObjectiveState.Carried, blueAt: Mid, blueCarrier: f.Bot.Slot);
+        IntentCommand[] decides = [.. Enumerable.Range(0, 4).Select(_ => f.StepDrawn(Self(Scattergun, health: 40), carrying, EnemyAt(500f)))];
+        Assert.DoesNotContain(decides, TakesOutTheDrink);
+    }
+
+    /// <summary>A Bonk runner at full health with an enemy in sight at 500 u and no sentry does not drink: the escape is under 0.4 of its health.</summary>
+    [Fact]
+    public void AHealthyBonkRunnerDoesNotDrinkToEscape()
+    {
+        TFField f = Scout(BonkKit(100f), TFScoutClass.Bonk);
+        IntentCommand[] decides = [.. Enumerable.Range(0, 4).Select(_ => f.StepDrawn(Self(Scattergun, health: 125), TFField.Ctf(), EnemyAt(500f)))];
+        Assert.DoesNotContain(decides, TakesOutTheDrink);
+    }
 }

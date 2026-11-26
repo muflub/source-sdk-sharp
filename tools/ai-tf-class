@@ -2,7 +2,7 @@
 """The per-class A/B harness of the TF2 bots (plan_bots_teams_tf2 P7 step 5).
 
   tools/ai-tf-class --class scout[,medic,...] [--archetype NAME] [--map cp_granary] [--bots 8] [--pinned 4]
-                    [--seconds 300] [--control soldier] [--control-archetype NAME] [--arms arm,control]
+                    [--seconds 300] [--control soldier] [--control-archetype NAME (a Soldier control: Stock)] [--arms arm,control]
                     [--config debug] [--extra "+convar value"] [--tag TAG] [--keep]
 
 Runs the map once per arm, each a headless tf2 game of its own (tools/ai-scenario's Game: its instance, temp dir,
@@ -276,6 +276,8 @@ def self_test():
     check(why is None and got["bots"][0]["class"] == "scout", "a busy brain at the end is read again: %r %r" % (got, why))
     got, why = read_classes(lambda: {"bots": [{"read": False}]}, tries=3, sleep=lambda _: None)
     check(why is not None, "a brain never read fails the read")
+    check(control_archetype("soldier", "") == "Stock", "a Soldier control plays the stock archetype unless one is named")
+    check(control_archetype("soldier", "Roamer") == "Roamer" and control_archetype("scout", "") == "", "a named archetype or another class is left alone")
     for f in fails:
         print("FAIL: " + f)
     print("ai-tf-class self-test: %d checks failed" % len(fails))
@@ -298,6 +300,12 @@ def rescore(out):
         print("%s %s %s: first_on_objective_s %s (round from %s s; was %s)" % (
             r["arm"], r["class"], r["archetype"] or "-", first, started, r.get("first_on_objective_s")))
     return 0
+
+
+def control_archetype(control, named):
+    """The control's archetype: the one named, else the stock Soldier's for a Soldier control (an unpinned Soldier draws its
+    archetype by seed: a Direct Hit or a Roamer is no control for another class)."""
+    return named or ("Stock" if control == "soldier" else "")
 
 
 def main():
@@ -326,7 +334,7 @@ def main():
     os.makedirs(out, exist_ok=True)
     results = []
     for arm in [x for x in a.arms.split(",") if x]:
-        cls, archetype = (a.cls, a.archetype) if arm == "arm" else (a.control, a.control_archetype)
+        cls, archetype = (a.cls, a.archetype) if arm == "arm" else (a.control, control_archetype(a.control, a.control_archetype))
         results.append(run_arm(a, arm, cls, archetype, out))
     with open(os.path.join(out, "report.json"), "w") as f:
         json.dump({"map": a.map, "bots": a.bots, "pinned": a.pinned, "seconds": a.seconds, "results": results}, f, indent=1)

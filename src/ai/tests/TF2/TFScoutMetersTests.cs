@@ -54,11 +54,6 @@ public sealed class TFScoutMetersTests
         => Assert.Empty(Read(TFClass.Soldier, true));
 
     /// <summary>
-    /// TF2's server list composes with the Scout's meters in the HUD's chain beside the Medigun's: a reader registered "as"
-    /// <see cref="ITFHudMeters"/> claimed the interface a second time and stopped the side's composition (live, the lane's
-    /// first run: "ITFHudMeters is registered twice").
-    /// </summary>
-    /// <summary>
     /// Every reader of the meters chain stands at an order of its own: the chain refuses two at one number when it is first
     /// read (live, the lane's second run: "TFMedigunMeters and TFScoutMeters both declare HookOrder 0" from every bot's senses).
     /// </summary>
@@ -72,6 +67,11 @@ public sealed class TFScoutMetersTests
         Assert.Equal(orders.Length, orders.Distinct().Count());
     }
 
+    /// <summary>
+    /// TF2's server list composes with the Scout's meters in the HUD's chain beside the Medigun's: a reader registered "as"
+    /// <see cref="ITFHudMeters"/> claimed the interface a second time and stopped the side's composition (live, the lane's
+    /// first run: "ITFHudMeters is registered twice").
+    /// </summary>
     [Fact]
     public void TF2sServerListComposesWithTheScoutsMeters()
     {

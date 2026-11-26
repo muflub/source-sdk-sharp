@@ -44,6 +44,8 @@ public sealed class TFPerceptionCensusTests
         // teams of the bot's mates, to show only teammates' health (P7, the A7 ruling). The class meter readers (P7) read
         // only the bot's own networked meters, which its own HUD draws: the Scout's drink and hype, the Demoman's charge
         // and heads.
+        // teams of the bot's mates, to show only teammates' health (P7, the A7 ruling); the Soldier's meter its own rage, as its
+        // own HUD's charge meter shows it (P7).
         // The experience feed's game (Part G, G.3; Q-G1 as ruled: the store learns from every player's
         // state) reads each player's real team and class as the key of a stored row: it answers the
         // feed, which hands them to its worker, and nothing a bot's view is built from.
@@ -51,6 +53,7 @@ public sealed class TFPerceptionCensusTests
                              typeof(SourceSharp.Ai.TF2.Nav.TFNavProfile).FullName!, typeof(TFBotClassPick).FullName!,
                              typeof(SourceSharp.Ai.TF2.Senses.TFHudReader).FullName!,
                              typeof(SourceSharp.Ai.TF2.Trees.TFScoutMeters).FullName!, typeof(SourceSharp.Ai.TF2.Trees.TFDemomanMeters).FullName!,
+                             typeof(SourceSharp.Ai.TF2.Trees.TFSoldierMeters).FullName!,
                              typeof(TFExperienceGame).FullName! }.Order(StringComparer.Ordinal), callers);
     }
 
