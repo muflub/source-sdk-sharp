@@ -112,6 +112,9 @@ public sealed class TFNavProfile(ITFActorFacts actors, ITFLevelEntities placed, 
         _ => JumpReach.None,
     };
 
+    /// <summary>TF2's Snipers read the long-line pass (TFSniperSpots): its levels build it.</summary>
+    public bool LongSightLines => true;
+
     /// <summary>
     /// A player with the blast reach takes the level's links (none while they are being found), spending on one no more
     /// than its health over the jump's floor as it stands now (<see cref="LinkHealthOf"/>), each costing what its own kit

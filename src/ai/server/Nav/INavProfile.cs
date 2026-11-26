@@ -37,6 +37,12 @@ public interface INavProfile
     NavLinkAllowance LinksFor(EntityHandle player) => default;
 
     /// <summary>
+    /// Whether the level's sight table builds the long-line pass beside its near table (NavSight.LongRange, a Sniper's
+    /// lines): only a game whose bots read it (TF2), so no other game pays for its build.
+    /// </summary>
+    bool LongSightLines => false;
+
+    /// <summary>
     /// How deadly each cell is for <paramref name="player"/>'s side, <paramref name="team"/> (the engine's team, as its
     /// team's solids are chosen by), from what players did on the level (lane G4a), and how much it minds that: none
     /// for a game that keeps no experience, which every HL2MP player is.

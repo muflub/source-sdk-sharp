@@ -179,7 +179,7 @@ public static class CostTool
             return 1;
         }
 
-        NavSight sight = NavSight.Build(nav.Nav.Graph, nav.File.Space);
+        NavSight sight = NavSight.Build(nav.Nav.Graph, nav.File.Space, longLines: game == TF2);
         byte[] bytes = File.ReadAllBytes(rec);
         BodyKnowledge? bodies = Bodies(bodiesText);
         CostReport? report = null;

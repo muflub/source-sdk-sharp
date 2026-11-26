@@ -57,6 +57,9 @@ public sealed class NavSight : ICellSight, ILongSight
     /// <summary>The long pass's grid: a node is a square this wide per <see cref="BandHeight"/> floor band.</summary>
     public const float LongNodeSize = 256f;
 
+    /// <summary>The long pass's band starts this near: the near range less twice a coarse node's diagonal.</summary>
+    public const float LongBandStart = Range - 2f * 1.4142135f * LongNodeSize;
+
     private readonly int[] _nodeOfCell;
     private readonly AiVector[] _eye;
     private readonly int[][] _near;
@@ -144,15 +147,20 @@ public sealed class NavSight : ICellSight, ILongSight
         return exposure;
     }
 
-    /// <summary>The table over <paramref name="graph"/>'s cells, by rays through <paramref name="space"/>; with <paramref name="longLines"/>, the long-line pass too.</summary>
-    public static NavSight Build(NavGraph graph, IVoxelSpace space, bool longLines = true)
+    /// <summary>
+    /// The table over <paramref name="graph"/>'s cells, by rays through <paramref name="space"/>; with <paramref name="longLines"/>
+    /// (a game whose bots read it: INavProfile.LongSightLines), the long-line pass too, its rays on the thread pool unless
+    /// <paramref name="serialLongPass"/> (the facts' and the tool's comparison).
+    /// </summary>
+    public static NavSight Build(NavGraph graph, IVoxelSpace space, bool longLines = false, bool serialLongPass = false)
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(space);
         Layer near = BuildLayer(graph, space, NodeSize, 0f, Range);
-        // The long pass answers past the near table's range; its band starts a coarse node's width inside it, so a pair the
-        // near table's eyes put just past its range is still in the long pass's.
-        Layer? far = longLines ? BuildLayer(graph, space, LongNodeSize, Range - LongNodeSize, LongRange, parallel: true) : null;
+        // The long pass answers past the near table's range. A cell's near eye and its long eye can stand apart by a coarse
+        // node's half diagonal and more (a lopsided floor), at each end of a pair: its band starts 2 x sqrt(2) x LongNodeSize
+        // inside the near range (about 300 u), so no pair the near eyes put past 1,024 u is missing from both (the review's L1).
+        Layer? far = longLines ? BuildLayer(graph, space, LongNodeSize, LongBandStart, LongRange, parallel: !serialLongPass) : null;
         return new NavSight(near.NodeOfCell, near.Eye, near.Near, near.Seen, Exposures(near.Near, near.Seen), far) { Pairs = near.Pairs };
     }
 

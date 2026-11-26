@@ -75,8 +75,8 @@ public enum FireStyle : byte
 
     /// <summary>
     /// A second trigger held that is no shot (a minigun's spin, plan_bots_teams_tf2 P7): pressed whatever the view, and kept down
-    /// while a <see cref="ActionKind.Fire"/> waits for the eye. Only an <see cref="ActionKind.AltFire"/> takes it; a Spray
-    /// AltFire (HL2MP's both barrels) is a shot and waits as before.
+    /// while a <see cref="ActionKind.Fire"/> waits for the eye; a Spray AltFire (HL2MP's both barrels) is a shot and waits as before.
+    /// A <see cref="ActionKind.Fire"/> takes it as a drawn charge (a bow's draw): kept down whatever the view, its letting go the shot.
     /// </summary>
     Hold,
 }

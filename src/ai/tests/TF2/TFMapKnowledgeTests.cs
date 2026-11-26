@@ -52,6 +52,27 @@ public sealed class TFMapKnowledgeTests
         => Assert.Equal([new TeamZone(3, ZoneKind.RespawnRoom, new AiVector(-100, -100, 0), new AiVector(100, 100, 128)),
                          new TeamZone(2, ZoneKind.Resupply, new AiVector(0, 0, 0), new AiVector(40, 40, 96))], Known.TeamZones.ToArray());
 
+    private static MapEntity NoBuild(int team, int disabled = 0, int sentry = 0, int dispenser = 0, int teleporters = 0)
+        => new("func_nobuild", null, default, new AiVector(0, 0, 0), new AiVector(64, 64, 64), Team: team,
+               Keys: [new("TeamNum", team.ToString()), new("StartDisabled", disabled.ToString()), new(TFMapKnowledge.AllowSentryKey, sentry.ToString()),
+                      new(TFMapKnowledge.AllowDispenserKey, dispenser.ToString()), new(TFMapKnowledge.AllowTeleportersKey, teleporters.ToString())]);
+
+    private static TeamZone[] ZonesOf(params MapEntity[] placed)
+        => TFMapKnowledge.Build("ctf_test", new MapEntities(placed, null), new WeaponKnowledge([]), default, BodyKnowledge.Default()).TeamZones.ToArray();
+
+    /// <summary>A builder knows where the blueprint goes red: an active func_nobuild is a no-build zone of the team it denies.</summary>
+    [Fact]
+    public void AnActiveNoBuildAreaIsANoBuildZoneOfItsTeam()
+        => Assert.Equal([new TeamZone(3, ZoneKind.NoBuild, new AiVector(0, 0, 0), new AiVector(64, 64, 64))], ZonesOf(NoBuild(3)));
+
+    [Fact]
+    public void ADisabledNoBuildAreaIsNoZone()
+        => Assert.Empty(ZonesOf(NoBuild(0, disabled: 1)));
+
+    [Fact]
+    public void ANoBuildAreaThatLetsEveryBuildingInIsNoZone()
+        => Assert.Empty(ZonesOf(NoBuild(0, sentry: 1, dispenser: 1, teleporters: 1)));
+
     [Fact]
     public void AZoneHoldsWhatIsInsideItsVolume()
     {

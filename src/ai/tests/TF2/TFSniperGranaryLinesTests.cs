@@ -29,7 +29,7 @@ public sealed class TFSniperGranaryLinesTests
         NavLoadResult r = NavLoader.Load(Map, p => File.ReadAllBytes(p.EndsWith(".bsp", StringComparison.Ordinal) ? TF2Nav.BspPath(Map) : TF2Nav.NavPath(Map)),
                                          null, new Profile());
         Assert.True(r.Nav is not null, r.Refusal);
-        return (r.Nav!, NavSight.Build(r.Nav!.Nav.Graph, r.Nav.File.Space));
+        return (r.Nav!, NavSight.Build(r.Nav!.Nav.Graph, r.Nav.File.Space, longLines: true));
     });
 
     /// <summary>The control point nearest the points' middle (granary's middle point), and the red team's spawns' middle.</summary>

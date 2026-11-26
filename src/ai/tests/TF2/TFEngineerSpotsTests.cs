@@ -49,6 +49,21 @@ public sealed class TFEngineerSpotsTests
     }
 
     [Fact]
+    public void NoCandidateIsInANoBuildAreaThatDeniesHisTeam()
+    {
+        var area = new TeamZone(TFField.Red, ZoneKind.NoBuild, new AiVector(1024f, 0f, -16f), new AiVector(1536f, 512f, 200f));
+        Assert.Contains(Candidates(TFField.Floor()), s => area.Contains(s.At + new AiVector(0f, 0f, 16f)));
+        Assert.DoesNotContain(Candidates(TFField.Floor(), zones: [area]), s => area.Contains(s.At + new AiVector(0f, 0f, 16f)));
+    }
+
+    [Fact]
+    public void ANoBuildAreaOfTheOtherTeamLeavesHisCandidates()
+    {
+        var area = new TeamZone(TFField.Blue, ZoneKind.NoBuild, new AiVector(1024f, 0f, -16f), new AiVector(1536f, 512f, 200f));
+        Assert.Contains(Candidates(TFField.Floor(), zones: [area]), s => area.Contains(s.At + new AiVector(0f, 0f, 16f)));
+    }
+
+    [Fact]
     public void ACellThatDoesNotSeeThePointIsNoCandidate()
     {
         NavGraph g = TFField.Floor();

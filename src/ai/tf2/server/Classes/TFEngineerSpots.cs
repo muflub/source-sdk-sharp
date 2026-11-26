@@ -20,7 +20,8 @@ public readonly record struct TFSentrySpot(int Cell, AiVector At, float Score, f
 /// nav graph, the static sight table and the objective he defends. Stock's candidates
 /// (<c>CTFBotEngineerMoveToBuild::CollectBuildAreas</c>, tf_bot_engineer_move_to_build.cpp:135-186): the places that see
 /// the point, not on it, not more than <see cref="TooFarBelow"/> under it, within <see cref="SentryRange"/> times
-/// <see cref="RangeTolerance"/> of it, and not in a respawn room. Stock draws among them by surface area; here each is
+/// <see cref="RangeTolerance"/> of it, and not in a respawn room; nor in a no-build area that denies his team (stock's
+/// blueprint refuses it there, so its nav areas are no build spot). Stock draws among them by surface area; here each is
 /// scored by how exposed it is (<see cref="ICellSight.Exposure"/>: the open is a beginner's mistake), whether it lies on the
 /// Engineer's own side of the point (his spawn nearer than the enemy's), its height over the point, and its range from it,
 /// and the bot draws among the best <see cref="DrawFrom"/> by its own seeded stream, so two Engineers and two lives differ.
@@ -84,7 +85,7 @@ public static class TFEngineerSpots
                 continue;
             AiVector at = cell.Centre;
             float flat = MathF.Sqrt((at.X - point.X) * (at.X - point.X) + (at.Y - point.Y) * (at.Y - point.Y));
-            if (flat > reach || flat < OffPoint || at.Z < point.Z - TooFarBelow || InRespawnRoom(at, zones))
+            if (flat > reach || flat < OffPoint || at.Z < point.Z - TooFarBelow || InRespawnRoom(at, zones) || InNoBuild(at, team, zones))
                 continue;
             if (sight is not null && (!pc.IsValid || !sight.Visible(c, pc.Index)))
                 continue;
@@ -315,6 +316,18 @@ public static class TFEngineerSpots
         foreach (TeamZone z in zones)
         {
             if (z.Kind == ZoneKind.RespawnRoom && z.Contains(at + new AiVector(0f, 0f, 16f)))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Whether <paramref name="at"/> lies in a no-build area that denies <paramref name="team"/> (its own team's, or every team's).</summary>
+    public static bool InNoBuild(AiVector at, int team, ImmutableArray<TeamZone> zones)
+    {
+        foreach (TeamZone z in zones)
+        {
+            if (z.Kind == ZoneKind.NoBuild && (z.Team == 0 || z.Team == team) && z.Contains(at + new AiVector(0f, 0f, 16f)))
                 return true;
         }
 

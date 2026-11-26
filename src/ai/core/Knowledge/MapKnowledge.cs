@@ -119,6 +119,12 @@ public enum ZoneKind : byte
 
     /// <summary>A volume that kills whoever stands in it (a death pit's <c>trigger_hurt</c>, as hurt as the map set it); every team's.</summary>
     Hurt,
+
+    /// <summary>
+    /// A volume no building may be put in (TF2's <c>func_nobuild</c>): for the team it names, or every team's (team 0). A
+    /// builder knows the map's no-build areas as a player does: the blueprint turns red there.
+    /// </summary>
+    NoBuild,
 }
 
 /// <summary>A volume of the map that belongs to a team (plan_bots_teams_tf2 C.7), as its brush's bounds; team 0 is every team's.</summary>

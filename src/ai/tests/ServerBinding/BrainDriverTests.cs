@@ -76,6 +76,39 @@ public sealed class BrainDriverTests
         Assert.Equal(0, c.Action.OneShotSeq);
     }
 
+    private static IntentCommand Beaming(AiVector goal)
+        => Brain(goal) with { Action = new ActionIntent(ActionKind.Fire, FireStyle.Spray, 0, 0), HoldsAtFriend = true };
+
+    /// <summary>
+    /// Round 2's S9: a Fire the brain holds at a teammate on purpose (a Medic's beam) comes out of the drive still holding at the friend,
+    /// so the applier keeps it down through a one-shot; the control: a brain that holds at nobody comes out holding at nobody.
+    /// </summary>
+    [Fact]
+    public void AFriendHoldSurvivesTheDrive()
+    {
+        var (g, ground, _) = Course();
+        var d = new BrainDriver();
+        IntentCommand held = d.Drive(Beaming(g.Cell(ground[3]).Centre), g.Cell(ground[0]).Centre, new Tick(2), 2, g, new NavObstacleState(0));
+        IntentCommand plain = d.Drive(Beaming(g.Cell(ground[3]).Centre) with { HoldsAtFriend = false }, g.Cell(ground[0]).Centre, new Tick(3), 3, g,
+                                      new NavObstacleState(0));
+        Assert.Equal((ActionKind.Fire, true, false), (held.Action.Kind, held.HoldsAtFriend, plain.HoldsAtFriend));
+    }
+
+    /// <summary>
+    /// An action the drive puts in the brain's place holds at nobody: at a ladder's foot, looking up, the drive's +use replaces a beam's
+    /// Fire, and the driven intent no longer holds at a friend.
+    /// </summary>
+    [Fact]
+    public void ALaddersUseDoesNotKeepTheFriendHold()
+    {
+        var (g, ground, loft) = Course();
+        var d = new BrainDriver();
+        AiVector foot = g.Cell(ground[4]).Centre;
+        IntentCommand c = d.Drive(Beaming(g.Cell(loft[0]).Centre), foot, new Tick(2), 2, g, new NavObstacleState(0));
+        c = d.Drive(Beaming(g.Cell(loft[0]).Centre), foot, new Tick(3), 3, g, new NavObstacleState(0), view: Looked(c, foot));
+        Assert.Equal((ActionKind.Use, false), (c.Action.Kind, c.HoldsAtFriend));
+    }
+
     /// <summary>
     /// +use takes a ladder the player faces (stock's LookingAtLadder), and the far
     /// end's cell can be behind a bot that has come past the ladder: it looks at
@@ -617,6 +650,27 @@ public sealed class BrainDriverTests
         i = Walk(d, g, Brain(g.Cell(ground[4]).Centre), g.Cell(ground[0]).Centre, new NavObstacleState(0), 3);
         Assert.Equal(ActionKind.None, i.Action.Kind);
         Assert.Equal(MoveKind.Follow, i.Move.Kind);
+    }
+
+    /// <summary>
+    /// The drive's shot at a crate on the route takes the brain's place: a friend-fire the brain held (its look not on an actor, so the
+    /// drive may shoot) comes out as the crate's tap, holding at nobody.
+    /// </summary>
+    [Fact]
+    public void ACratesShotDoesNotKeepTheFriendHold()
+    {
+        var (g, ground, _) = Course();
+        AiVector crate = g.Cell(ground[2]).Centre + new AiVector(0f, 0f, 24f);
+        var d = new BrainDriver { Breakables = new Aim(crate) };
+        IntentCommand i = Walk(d, g, Beaming(g.Cell(ground[4]).Centre), g.Cell(ground[0]).Centre, Breaking(g, ground[2].Index));
+        Assert.Equal((ActionKind.Fire, FireStyle.Tap, LookKind.CornerCheck, false), (i.Action.Kind, i.Action.Style, i.Look.Kind, i.HoldsAtFriend));
+
+        // The comparison is by value (BrainDriver.Drive's comment): a friend-fire equal to the crate's own tap (an Engineer's build click,
+        // (Fire, Tap, 0, 0)) compares equal and keeps the hold, the one case it accepts.
+        var e = new BrainDriver { Breakables = new Aim(crate) };
+        IntentCommand click = Beaming(g.Cell(ground[4]).Centre) with { Action = new ActionIntent(ActionKind.Fire, FireStyle.Tap, 0, 0) };
+        IntentCommand t = Walk(e, g, click, g.Cell(ground[0]).Centre, Breaking(g, ground[2].Index));
+        Assert.Equal((LookKind.CornerCheck, true), (t.Look.Kind, t.HoldsAtFriend));
     }
 
     /// <summary>Near it, it stands and shoots; walking into a crate does no good.</summary>

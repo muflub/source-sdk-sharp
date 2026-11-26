@@ -28,7 +28,8 @@ public static class NavSizeTool
 {
     public static readonly IReadOnlyList<string> StepNames = ["open", "leaves", "derive", "sight", "cache"];
 
-    public static NavSizeReport Measure(string game, string map, string navName, byte[] nav, byte[] bsp, string stop, Func<double> cpuMicros, bool sight = true)
+    public static NavSizeReport Measure(string game, string map, string navName, byte[] nav, byte[] bsp, string stop, Func<double> cpuMicros, bool sight = true,
+                                        bool longLines = false, bool serialLong = false)
     {
         ArgumentNullException.ThrowIfNull(nav);
         ArgumentNullException.ThrowIfNull(cpuMicros);
@@ -113,8 +114,9 @@ public static class NavSizeTool
         if (last < 3)
             return new NavSizeReport(steps, derived, null, 0);
 
-        NavSight? table = !sight ? null : Step("sight", () => NavSight.Build(derived.Graph, space),
-                                               s => string.Create(CultureInfo.InvariantCulture, $"{s.NodeCount:N0} nodes, {s.Pairs:N0} pairs"));
+        NavSight? table = !sight ? null : Step("sight", () => NavSight.Build(derived.Graph, space, longLines, serialLong),
+                                               s => string.Create(CultureInfo.InvariantCulture, $"{s.NodeCount:N0} nodes, {s.Pairs:N0} pairs")
+                                                    + (longLines ? string.Create(CultureInfo.InvariantCulture, $"; the long pass {s.LongNodeCount:N0} nodes, {s.LongPairs:N0} pairs{(serialLong ? ", serial" : "")}") : ""));
         if (last < 4)
             return new NavSizeReport(steps, derived, table, 0);
 
@@ -142,7 +144,7 @@ public static class NavSizeTool
         ArgumentNullException.ThrowIfNull(error);
         if (args.Length < 3)
         {
-            error.WriteLine($"usage: ai-replay navsize <{CostTool.Hl2mp}|{CostTool.TF2}> <map.nav3d|map.navhull> <map.bsp> [stop: {string.Join("|", StepNames)}] [no-sight]");
+            error.WriteLine($"usage: ai-replay navsize <{CostTool.Hl2mp}|{CostTool.TF2}> <map.nav3d|map.navhull> <map.bsp> [stop: {string.Join("|", StepNames)}] [no-sight|long|long-serial]");
             return 2;
         }
 
@@ -156,7 +158,8 @@ public static class NavSizeTool
         {
             string map = Path.GetFileNameWithoutExtension(args[1]);
             NavSizeReport report = Measure(args[0], map, args[1], File.ReadAllBytes(args[1]), File.ReadAllBytes(args[2]), args.Length > 3 ? args[3] : "cache", clock,
-                                           sight: !(args.Length > 4 && args[4] == "no-sight"));
+                                           sight: !(args.Length > 4 && args[4] == "no-sight"), longLines: args.Length > 4 && args[4] is "long" or "long-serial",
+                                           serialLong: args.Length > 4 && args[4] == "long-serial");
             output.WriteLine($"ai-replay navsize {args[0]} {Path.GetFileName(args[1])}:");
             foreach (NavSizeStep s in report.Steps)
             {

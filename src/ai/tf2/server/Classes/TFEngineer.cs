@@ -922,6 +922,7 @@ public sealed partial class TFDecider
             into.Add(new("engineer.own_spawn_y", (long)_ownSpawn.Y));
             into.Add(new("engineer.enemy_spawn_y", (long)_enemySpawn.Y));
             into.Add(new("engineer.point_y", (long)_point.Y));
+            into.Add(new("engineer.nobuild_zones", D._map.TeamZones.Count(z => z.Kind == ZoneKind.NoBuild)));
         }
     }
 }

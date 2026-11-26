@@ -104,7 +104,15 @@ public sealed class BrainDriver
             _body.Remove(slot);
         }
 
-        return new IntentCommand(brain.Bot, tick, seq, tick + IntentCommand.LifetimeTicks, move, look, action, brain.Reason);
+        // A Fire the brain held at a teammate on purpose (a Medic's beam) is still that hold when the drive carries out the brain's own
+        // action, so the applier keeps it down through a one-shot (round 2's S9); an action the drive put in its place (a ladder's +use,
+        // a breakable's shot) holds at nobody. The test is by value: a brain's friend-fire that equals the drive's own action (the crate's
+        // (Fire, Tap, 0, 0) replacing an Engineer's build click or bolt, both (Fire, Tap, 0, 0)) keeps the hold, so the next one-shot decide
+        // that still holds at a friend keeps Attack down for it; a Medic's beam (Fire, Spray, with an actor look, which the crate's shot
+        // never replaces) cannot meet it. The brain's Say is not carried: the session takes callouts off the brain's intent
+        // (AiSession's scheduled and spoken callouts), and nothing reads it off the driven one.
+        return new IntentCommand(brain.Bot, tick, seq, tick + IntentCommand.LifetimeTicks, move, look, action, brain.Reason,
+                                 HoldsAtFriend: brain.HoldsAtFriend && action == brain.Action);
     }
 
     /// <summary>The shots asked for, for the counters: how many breakables a bot has gone at, and how many times it gave up on one.</summary>
