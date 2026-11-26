@@ -332,7 +332,19 @@ public sealed class TFEngineerSpotsTests
     {
         // A gun by the strip's west end, facing east: every place behind it leaves his stand off the floor.
         AiVector gun = new(200f, 256f, 0f);
-        Assert.Null(TFEngineerSpots.NestExitSpot(TFField.Floor(), gun, 0f, [gun], TFField.Red, []));
+        TFSentrySpot? exit = TFEngineerSpots.NestExitSpot(TFField.Floor(), gun, 0f, [gun], TFField.Red, []);
+        Assert.NotNull(exit);
+        Assert.True(exit.Value.At.X - TFEngineerSpots.PadStandUnits >= 0f, $"{exit.Value.At}: his stand is off the floor");
+    }
+
+    /// <summary>With no room behind the gun (by a wall), the exit goes round it: at 4cd754fc10 on ctf_2fort no exit was built in two runs of two.</summary>
+    [Fact]
+    public void WithNoRoomBehindTheGunTheExitGoesRoundIt()
+    {
+        AiVector gun = new(200f, 256f, 0f);
+        TFSentrySpot? exit = TFEngineerSpots.NestExitSpot(TFField.Floor(), gun, 0f, [gun], TFField.Red, []);
+        Assert.NotNull(exit);
+        Assert.InRange(exit.Value.At.DistanceTo(gun), 120f, 240f);
     }
 
     private static readonly AiVector FarPoint = new(6000f, 256f, 0f), FarEnemy = new(10000f, 256f, 0f), NearEntrance = new(400f, 256f, 0f);

@@ -823,6 +823,52 @@ public sealed class TFEngineerPlayTests
         Assert.True(goal.X > InTheRoom.X && goal.X < TheirPoint.X, $"{goal}: not on his way to the point");
     }
 
+    /// <summary>
+    /// Live at 4cd754fc10 on ctf_2fort the round's restart sent him back to the same entrance stand with its patience still
+    /// running from the first round, and he gave it up at once: no teleporter in six runs. A death part way to the stand
+    /// starts its patience again: 20 s, a death, then 15 s more is still inside a new life's 30 s.
+    /// </summary>
+    [Fact]
+    public void ARespawnStartsTheEntrancesPatienceAgain()
+    {
+        var f = RoomField(Hud());
+        float step = DecideSchedule.Period * 0.015f;
+        // Held where he came into the world (the same walks out, so the same stand both lives).
+        for (int n = 0; n < (int)(20f / step); n++)
+            f.Step(Engineer(InTheRoom), PointPair(ownOpen: false));
+        Assert.Equal("to the entrance spot", f.Decider.Doing.Verdict);
+        f.Step(Engineer(InTheRoom) with { Flags = SelfFlags.None }, PointPair(ownOpen: false));
+        for (int n = 0; n < (int)(15f / step); n++)
+        {
+            f.Step(Engineer(InTheRoom), PointPair(ownOpen: false));
+            Assert.Equal("to the entrance spot", f.Decider.Doing.Verdict);
+        }
+    }
+
+    /// <summary>A built exit lost later is walked to again with a new patience (the stand's clock from before it was built is stale).</summary>
+    [Fact]
+    public void ALostExitIsWalkedToWithANewPatience()
+    {
+        AiVector at = NestGun + new AiVector(-64f, -64f, 0f);
+        var f = Field(NestHud());
+        float step = DecideSchedule.Period * 0.015f;
+        f.Step(Engineer(at, metal: 200), PointPair(ownOpen: false));
+        Assert.Equal("to the exit spot", f.Decider.Doing.Verdict);
+        // Built, standing 10 s, then lost: stock's 30 s retry, then the walk again.
+        f.Hud = NestHud(exit: true);
+        for (int n = 0; n < (int)(10f / step); n++)
+            f.Step(Engineer(at, metal: 200), PointPair(ownOpen: false));
+        f.Hud = NestHud();
+        bool walked = false;
+        for (int n = 0; n < (int)(45f / step) && !walked; n++)
+        {
+            f.Step(Engineer(at, metal: 200), PointPair(ownOpen: false));
+            walked = f.Decider.Doing.Verdict == "to the exit spot";
+        }
+
+        Assert.True(walked, "the lost exit's stand was given up as soon as stock's retry let him walk to it");
+    }
+
     [Fact]
     public void AtTheEntranceStandHeOrdersTheEntrancesBlueprint()
     {

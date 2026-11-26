@@ -353,19 +353,41 @@ public static class TFEngineerSpots
         {
             foreach (float off in ExitAside)
             {
-                AiVector at = sentry - fwd * back + side * off;
-                CellId c = graph.FindCell(at + new AiVector(0f, 0f, 8f));
-                if (!c.IsValid || MathF.Abs(graph.Cell(c).FloorZ - sentry.Z) > 24f)
-                    continue;
-                at = new AiVector(at.X, at.Y, graph.Cell(c).FloorZ);
-                if (!PadClearOf(at, boxes) || InRespawnRoom(at, zones) || InNoBuild(at, team, zones) || !Roomy(graph, at, sentryYaw)
-                    || FloorAt(graph, at - fwd * PadStandUnits, at.Z) is null)
-                    continue;
-                return new TFSentrySpot(c.Index, at, 0f, sentryYaw);
+                if (PadAt(graph, sentry - fwd * back + side * off, sentry.Z, fwd, sentryYaw, boxes, team, zones) is { } pad)
+                    return pad;
+            }
+        }
+
+        // No room behind (a gun by a wall: at 4cd754fc10 on ctf_2fort the gun stood against the intel room's and no exit was built
+        // in two runs of two): round the gun at the same reach, the most behind first, as stock drops it where he stands.
+        for (int k = 1; k <= 8; k++)
+        {
+            foreach (int sign in (ReadOnlySpan<int>)[1, -1])
+            {
+                AiVector dir = Forward(sentryYaw + 180f + sign * k * 22.5f);
+                foreach (float reach in ExitBehind)
+                {
+                    if (PadAt(graph, sentry + dir * reach, sentry.Z, fwd, sentryYaw, boxes, team, zones) is { } pad)
+                        return pad;
+                }
             }
         }
 
         return null;
+    }
+
+    /// <summary>A pad at <paramref name="at"/> on the gun's floor, clear of the nest, with room by it and floor where he stands to put it down; null when not.</summary>
+    private static TFSentrySpot? PadAt(NavGraph graph, AiVector at, float height, AiVector fwd, float yaw, ReadOnlySpan<AiVector> boxes, int team,
+                                       ImmutableArray<TeamZone> zones)
+    {
+        CellId c = graph.FindCell(at + new AiVector(0f, 0f, 8f));
+        if (!c.IsValid || MathF.Abs(graph.Cell(c).FloorZ - height) > 24f)
+            return null;
+        at = new AiVector(at.X, at.Y, graph.Cell(c).FloorZ);
+        if (!PadClearOf(at, boxes) || InRespawnRoom(at, zones) || InNoBuild(at, team, zones) || !Roomy(graph, at, yaw)
+            || FloorAt(graph, at - fwd * PadStandUnits, at.Z) is null)
+            return null;
+        return new TFSentrySpot(c.Index, at, 0f, yaw);
     }
 
     /// <summary>

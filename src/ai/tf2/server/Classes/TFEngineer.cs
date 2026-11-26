@@ -18,10 +18,13 @@ namespace SourceSharp.Ai.TF2.Trees;
 public static class TFEngineerClass
 {
     /// <summary>
-    /// Whether the composition fields the Engineer (C.4). Ready since round 2 (2026-11-24, build 76d59b9921, six runs an arm,
-    /// one pinned Nest among Stock Soldiers against all Stock Soldiers): on cp_granary the enemy's first capture came at a
-    /// median over 232 s against the control's 152 s (three of six games none in 300 s), its captures 0.5 against 1; on
-    /// ctf_2fort its flag pickups 0 against 3.5, its first pickup over 141 s against 100 s (four games none).
+    /// Whether the composition fields the Engineer (C.4). Ready since round 2: one pinned Nest among Stock Soldiers against all
+    /// Stock Soldiers, six runs an arm on one build (the counted round runs about 263 s of each 300 s game; "none" is none in
+    /// it). cp_granary at 16446156dc: the enemy's first capture 69, 61, 65, 120, 102, 125 against the control (median 85.5)
+    /// and 51, none, 230, none, none, 150 against the Nest (median over 230); its captures 2, 1, 2, 2, 2, 2 against 2, 0, 1, 0,
+    /// 0, 3 (medians 2 and 0.5). ctf_2fort at 4cd754fc10: its flag pickups 5, 2, 3, 2, 2, 4 against 0, 2, 0, 0, 0, 0; its first
+    /// pickup 87, 95, 111, 97, 80, 91 against none five times and 198. Four later 2fort check runs of the Nest alone (two at
+    /// b679a03130, two at 97cf2224c8 with an uncommitted sight probe): pickups 0, 0, 0, 0.
     /// </summary>
     public const bool Ready = true;
 
@@ -452,6 +455,8 @@ public sealed partial class TFDecider
                 (_lifeAt, _respawned, _spotSince, _home, _homeKnown) = (D._now, false, D._now, D._self.Origin, true);
                 // Stock's first job each life, from his spawn room (the leg is the walk out of it).
                 (_entranceLeg, _entranceSpot, _refill) = (InOwnSpawnRoom(D._self.Origin), null, false);
+                // A new life's pad walks start their patience again (else the round's restart gave up the same entrance at once).
+                _padKind = -1;
                 _entranceStale = _entranceLeg && _entranceWas && _entranceAt.DistanceTo(D._self.Origin) > StaleEntranceUnits;
             }
             if (D._self.Health < _lastHealth)
@@ -492,9 +497,9 @@ public sealed partial class TFDecider
             if (_dispenser.Exists && !_dispenserWas)
                 (_dispensersBuilt, _tries, _offset) = (_dispensersBuilt + 1, 0, 0f);
             if (_entrance.Exists && !_entranceWas)
-                (_entrancesBuilt, _tries, _offset, _refill) = (_entrancesBuilt + 1, 0, 0f, _entranceLeg);
+                (_entrancesBuilt, _tries, _offset, _refill, _padKind) = (_entrancesBuilt + 1, 0, 0f, _entranceLeg, -1);
             if (_exit.Exists && !_exitWas)
-                (_exitsBuilt, _tries, _offset, _exitSpot) = (_exitsBuilt + 1, 0, 0f, null);
+                (_exitsBuilt, _tries, _offset, _exitSpot, _padKind) = (_exitsBuilt + 1, 0, 0f, null, -1);
             if (_entrance.Exists && _entrance.Built && _exit.Exists && _exit.Built)
                 _teleporterTicks += Math.Max(0, D._now - _countedAt);
             (_sentryWas, _dispenserWas, _entranceWas, _exitWas, _countedAt) = (_sentry.Exists, _dispenser.Exists, _entrance.Exists, _exit.Exists, D._now);
@@ -852,8 +857,8 @@ public sealed partial class TFDecider
                 (_standAt, _standHeld) = (at, false);
             // Held up close (a rail or a corner the walk cannot pass: live on cp_granary's mid ledge he jumped at a dispenser stand
             // 50 u off for 52 s) for the patience, he works from where he stands. The patience runs from when he first came that
-            // close, not from when the stand was chosen (else any long walk ended 96 u short: the review's 4b, the 2fort gun 83 u
-            // off its spot in six runs of six); a work stand counts only inside the wrench's swing of its building (4a).
+            // close, not from when the stand was chosen (else any long walk ended 96 u short: the review's 4b); a work stand counts
+            // only inside the wrench's swing of its building (4a).
             bool near = TFEngineerSpots.Arrived(D._self.Origin, at, StandCloseUnits)
                         && (workOn is not { } building || D._self.Origin.DistanceTo(building) <= SwingReachUnits);
             if (!near)
